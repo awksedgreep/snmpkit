@@ -16,6 +16,7 @@ defmodule Snmpkit.MixProject do
         "coveralls.post": :test,
         "coveralls.html": :test
       ],
+      compilers: [:yecc] ++ Mix.compilers(),
       deps: deps()
     ]
   end
@@ -23,7 +24,7 @@ defmodule Snmpkit.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger, :crypto],
+      extra_applications: [:logger, :crypto, :parsetools],
       mod: {Snmpkit.Application, []}
     ]
   end

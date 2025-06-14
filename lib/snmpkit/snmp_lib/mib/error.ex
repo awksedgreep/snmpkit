@@ -177,7 +177,7 @@ defmodule SnmpKit.SnmpLib.MIB.Error do
     suggestions = ["Check if the file path is correct"]
 
     # Add spelling suggestions if file seems like a common MIB name
-    if String.contains?(file, "RFC") or String.contains?(file, "MIB") do
+    if file && (String.contains?(file, "RFC") or String.contains?(file, "MIB")) do
       suggestions ++
         ["Check MIB file naming conventions", "Verify file extension (.txt, .mib, .my)"]
     else

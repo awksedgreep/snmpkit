@@ -80,23 +80,98 @@ defmodule SnmpKit.SnmpLib.MIB.Compiler do
       iex> SnmpKit.SnmpLib.MIB.Compiler.compile("missing.mib")
       {:error, [%SnmpKit.SnmpLib.MIB.Error{type: :file_not_found}]}
   """
-  @spec compile(Path.t(), compile_opts()) :: {:error, [Error.t()]}
-  def compile(_mib_path, _opts \\ []) do
-    {:error, [Error.new(:semantic_error, message: "MIB file compilation is not yet implemented")]}
+  @spec compile(Path.t(), compile_opts()) :: compile_result()
+  def compile(mib_path, opts \\ []) do
+    opts = Keyword.merge(@default_opts, opts)
+    
+    case File.read(mib_path) do
+      {:ok, content} ->
+        compile_string(content, opts)
+      {:error, reason} ->
+        {:error, [Error.new(:file_not_found, 
+          message: "Could not read MIB file: #{reason}",
+          context: %{path: mib_path})]}
+    end
   end
 
   @doc """
   Compile a MIB from string content.
 
+  This delegates to the Parser module which implements the full compilation
+  pipeline using YACC-based parsing.
+
   ## Examples
 
       iex> SnmpKit.SnmpLib.MIB.Compiler.compile_string(mib_content)
-      {:error, [%SnmpKit.SnmpLib.MIB.Error{type: :semantic_error}]}
+      {:ok, %{name: "TEST-MIB", ...}}
   """
-  @spec compile_string(binary(), compile_opts()) :: {:error, [Error.t()]}
-  def compile_string(_mib_content, _opts \\ []) do
-    {:error,
-     [Error.new(:semantic_error, message: "MIB string compilation is not yet implemented")]}
+  @spec compile_string(binary(), compile_opts()) :: compile_result()
+  def compile_string(mib_content, opts \\ []) do
+    opts = Keyword.merge(@default_opts, opts)
+    
+    # The Parser module implements the full compilation pipeline
+    case SnmpKit.SnmpLib.MIB.Parser.parse(mib_content) do
+      {:ok, mib} ->
+        # Convert parser output to compiled_mib format
+        compiled = %{
+          name: mib.name,
+          version: Map.get(mib, :version, "unknown"),
+          format: opts[:format],
+          path: nil,  # Set by compile/2 if from file
+          metadata: Map.get(mib, :metadata, %{}),
+          oid_tree: Map.get(mib, :oid_tree, %{}),
+          symbols: build_symbol_table(mib),
+          dependencies: extract_dependencies(mib)
+        }
+        
+        if opts[:validate] do
+          validate_compiled_mib(compiled, opts)
+        else
+          {:ok, compiled}
+        end
+        
+      {:error, error} when is_binary(error) ->
+        {:error, [Error.new(:syntax_error, message: error)]}
+        
+      {:error, errors} when is_list(errors) ->
+        {:error, errors}
+        
+      {:error, {line, module, message}} ->
+        # Handle parser errors from YACC
+        error_msg = case message do
+          msg when is_binary(msg) -> msg
+          msg when is_list(msg) -> List.to_string(msg)
+          msg -> inspect(msg)
+        end
+        {:error, [Error.new(:syntax_error, 
+          message: "Line #{line}: #{error_msg}",
+          line: line,
+          context: %{module: module})]}
+    end
+  end
+  
+  defp build_symbol_table(mib) do
+    # Build a symbol table from the parsed MIB definitions
+    Enum.reduce(mib.definitions, %{}, fn def, acc ->
+      if Map.has_key?(def, :name) do
+        Map.put(acc, def.name, def)
+      else
+        acc
+      end
+    end)
+  end
+  
+  defp extract_dependencies(mib) do
+    # Extract module dependencies from imports
+    mib.imports
+    |> Enum.map(& &1.from_module)
+    |> Enum.uniq()
+  end
+  
+  defp validate_compiled_mib(compiled, _opts) do
+    # TODO: Add semantic validation
+    # For now, just return the compiled MIB
+    {:ok, compiled}
   end
 
   @doc """
