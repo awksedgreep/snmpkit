@@ -1,4 +1,6 @@
 defmodule SnmpKit.SnmpSim.Performance.PerformanceMonitor do
+  @compile {:no_warn_undefined, [:cpu_sup, :memsup]}
+
   @moduledoc """
   Real-time performance monitoring and telemetry for SNMP simulator.
   Provides comprehensive metrics collection, alerting, and performance analytics.

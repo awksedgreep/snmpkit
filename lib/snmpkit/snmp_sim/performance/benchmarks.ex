@@ -1,4 +1,6 @@
 defmodule SnmpKit.SnmpSim.Performance.Benchmarks do
+  @compile {:no_warn_undefined, [:cpu_sup]}
+
   @moduledoc """
   Comprehensive benchmarking framework for SNMP simulator performance testing.
 
@@ -408,7 +410,7 @@ defmodule SnmpKit.SnmpSim.Performance.Benchmarks do
           timeout: 5000
         }
 
-        case SnmpMgr.get(agent_config, [1, 3, 6, 1, 2, 1, 1, 1, 0]) do
+        case SnmpKit.SnmpMgr.get(agent_config, [1, 3, 6, 1, 2, 1, 1, 1, 0]) do
           {:ok, _value} -> :ok
           {:error, _reason} -> :error
         end

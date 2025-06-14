@@ -1,4 +1,6 @@
 defmodule SnmpKit.SnmpSim.Performance.ResourceManager do
+  @compile {:no_warn_undefined, [:memsup]}
+
   @moduledoc """
   System resource management for SNMP simulator.
   Enforces memory limits, device limits, and automatic cleanup.

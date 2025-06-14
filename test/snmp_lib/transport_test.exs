@@ -172,7 +172,7 @@ defmodule SnmpKit.SnmpLib.TransportTest do
       {:ok, {_server_addr, server_port}} = Transport.get_socket_address(server_socket)
 
       {:ok, client_socket} = Transport.create_client_socket()
-      {:ok, {client_addr, client_port}} = Transport.get_socket_address(client_socket)
+      {:ok, {_client_addr, _client_port}} = Transport.get_socket_address(client_socket)
 
       # Send packet
       test_data = "filtered packet"

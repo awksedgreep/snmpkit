@@ -37,10 +37,6 @@ defmodule SnmpKit.SnmpSim.MIB.Compiler do
           Logger.info("MIB compilation disabled for: #{mib_file}")
           {mib_file, err}
 
-        {:ok, _} = ok ->
-          Logger.info("Compiled MIB: #{mib_file}")
-          {mib_file, ok}
-
         {:error, reason} = err ->
           Logger.error("Failed to compile #{mib_file}: #{inspect(reason)}")
           {mib_file, err}
