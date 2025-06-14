@@ -1,6 +1,6 @@
 defmodule SnmpKit.SnmpLib.MonitorTest do
   use ExUnit.Case
-  alias SnmpKit.SnmpKit.SnmpLib.Monitor
+  alias SnmpKit.SnmpLib.Monitor
 
   setup do
     # Start a fresh monitor for each test

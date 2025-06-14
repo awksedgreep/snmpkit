@@ -3,9 +3,9 @@ defmodule SnmpSimIntegrationTest do
 
   alias SnmpKit.SnmpSim.ProfileLoader
   alias SnmpKit.SnmpSim.LazyDevicePool
-  alias SnmpKit.SnmpKit.SnmpSim.Device
-  alias SnmpKit.SnmpKit.SnmpSim.MIB.SharedProfiles
-  alias SnmpKit.SnmpKit.SnmpSim.TestHelpers.PortHelper
+  alias SnmpKit.SnmpSim.Device
+  alias SnmpKit.SnmpSim.MIB.SharedProfiles
+  alias SnmpKit.SnmpSim.TestHelpers.PortHelper
 
   describe "End-to-End Device Simulation" do
     setup do

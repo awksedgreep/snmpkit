@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpKit.SnmpLib.MIB.ComprehensiveMibTest do
+defmodule SnmpKit.SnmpLib.MIB.ComprehensiveMibTest do
   use ExUnit.Case, async: true
 
   @moduledoc """

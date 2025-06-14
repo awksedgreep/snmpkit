@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpMgr.Router do
+defmodule SnmpKit.SnmpKit.SnmpMgr.Router do
   @moduledoc """
   Intelligent request routing and load balancing for SNMP requests.
 
@@ -36,7 +36,7 @@ defmodule SnmpKit.SnmpMgr.Router do
 
   ## Examples
 
-      {:ok, router} = SnmpKit.SnmpMgr.Router.start_link(
+      {:ok, router} = SnmpKit.SnmpKit.SnmpMgr.Router.start_link(
         strategy: :least_connections,
         engines: [
           %{name: :engine1, weight: 2, max_load: 100},
@@ -65,7 +65,7 @@ defmodule SnmpKit.SnmpMgr.Router do
         oid: "sysDescr.0"
       }
 
-      {:ok, result} = SnmpKit.SnmpMgr.Router.route_request(router, request)
+      {:ok, result} = SnmpKit.SnmpKit.SnmpMgr.Router.route_request(router, request)
   """
   def route_request(router, request, opts \\ []) do
     GenServer.call(router, {:route_request, request, opts})
@@ -86,7 +86,7 @@ defmodule SnmpKit.SnmpMgr.Router do
         %{type: :get, target: "device2", oid: "sysUpTime.0"}
       ]
 
-      {:ok, results} = SnmpKit.SnmpMgr.Router.route_batch(router, requests)
+      {:ok, results} = SnmpKit.SnmpKit.SnmpMgr.Router.route_batch(router, requests)
   """
   def route_batch(router, requests, opts \\ []) do
     GenServer.call(router, {:route_batch, requests, opts})
@@ -651,7 +651,7 @@ defmodule SnmpKit.SnmpMgr.Router do
         name -> name
       end
 
-    case SnmpKit.SnmpMgr.Engine.submit_request(engine_identifier, request, opts) do
+    case SnmpKit.SnmpKit.SnmpMgr.Engine.submit_request(engine_identifier, request, opts) do
       {:ok, result} ->
         end_time = System.monotonic_time(:millisecond)
         response_time = end_time - start_time
@@ -687,7 +687,7 @@ defmodule SnmpKit.SnmpMgr.Router do
               name -> name
             end
 
-          case SnmpKit.SnmpMgr.Engine.submit_batch(engine_identifier, requests, opts) do
+          case SnmpKit.SnmpKit.SnmpMgr.Engine.submit_batch(engine_identifier, requests, opts) do
             {:ok, results} -> {:ok, engine.name, results}
             {:error, reason} -> {:error, engine.name, reason}
           end

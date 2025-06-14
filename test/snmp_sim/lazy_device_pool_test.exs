@@ -2,7 +2,7 @@ defmodule SnmpKit.SnmpSim.LazyDevicePoolTest do
   use ExUnit.Case, async: false
 
   alias SnmpKit.SnmpSim.{LazyDevicePool, Device}
-  alias SnmpKit.SnmpKit.SnmpSim.TestHelpers.PortHelper
+  alias SnmpKit.SnmpSim.TestHelpers.PortHelper
 
   # Helper function to get unique port for each test using PortHelper
   defp get_test_port(_test_name, offset \\ 0) do

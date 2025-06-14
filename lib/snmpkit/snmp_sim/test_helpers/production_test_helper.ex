@@ -4,7 +4,7 @@ defmodule SnmpKit.SnmpSim.TestHelpers.ProductionTestHelper do
   """
 
   require Logger
-  alias SnmpSim.{Device, LazyDevicePool}
+  alias SnmpKit.SnmpSim.{Device, LazyDevicePool}
   alias SnmpKit.SnmpSim.TestHelpers.PortAllocator
 
   @doc """

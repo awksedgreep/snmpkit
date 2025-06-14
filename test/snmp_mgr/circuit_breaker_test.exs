@@ -1,8 +1,8 @@
 defmodule SnmpKit.SnmpMgr.CircuitBreakerIntegrationTest do
   use ExUnit.Case, async: false
 
-  alias SnmpKit.SnmpKit.SnmpMgr.CircuitBreaker
-  alias SnmpKit.SnmpKit.TestSupport.SNMPSimulator
+  alias SnmpKit.SnmpMgr.CircuitBreaker
+  alias SnmpKit.TestSupport.SNMPSimulator
 
   @moduletag :unit
   @moduletag :circuit_breaker
@@ -71,7 +71,7 @@ defmodule SnmpKit.SnmpMgr.CircuitBreakerIntegrationTest do
       target = SNMPSimulator.device_target(device)
 
       operation = fn ->
-        SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: device.community, timeout: 200)
+        SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: device.community, timeout: 200)
       end
 
       result = execute_with_circuit_breaker(cb, operation)
@@ -94,7 +94,7 @@ defmodule SnmpKit.SnmpMgr.CircuitBreakerIntegrationTest do
       target = SNMPSimulator.device_target(device)
 
       failing_operation = fn ->
-        SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: "invalid_community", timeout: 100)
+        SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: "invalid_community", timeout: 100)
       end
 
       # Execute failing operation multiple times
@@ -158,7 +158,7 @@ defmodule SnmpKit.SnmpMgr.CircuitBreakerIntegrationTest do
       target = SNMPSimulator.device_target(device)
 
       bulk_operation = fn ->
-        SnmpMgr.get_bulk(target, "1.3.6.1.2.1.1",
+        SnmpKit.SnmpMgr.get_bulk(target, "1.3.6.1.2.1.1",
           community: device.community,
           timeout: 200,
           max_repetitions: 3

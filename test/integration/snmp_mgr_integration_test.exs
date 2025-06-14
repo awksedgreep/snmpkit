@@ -1,14 +1,14 @@
-defmodule SnmpKit.SnmpMgr.IntegrationTest do
+defmodule SnmpKit.SnmpKit.SnmpMgr.IntegrationTest do
   use ExUnit.Case, async: false
 
-  alias SnmpKit.SnmpKit.TestSupport.SNMPSimulator
+  alias SnmpKit.TestSupport.SNMPSimulator
 
   @moduletag :integration
 
   setup_all do
     # Ensure required GenServers are started
-    case GenServer.whereis(SnmpKit.SnmpMgr.Config) do
-      nil -> {:ok, _pid} = SnmpKit.SnmpMgr.Config.start_link()
+    case GenServer.whereis(SnmpKit.SnmpKit.SnmpMgr.Config) do
+      nil -> {:ok, _pid} = SnmpKit.SnmpKit.SnmpMgr.Config.start_link()
       _pid -> :ok
     end
 
@@ -29,7 +29,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       # Test complete flow through all layers: API -> Core -> SnmpKit.SnmpLib.Manager
       result =
-        SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+        SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
           community: device.community,
           version: :v2c,
           timeout: 200
@@ -58,7 +58,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       # Test SET operation through snmp_lib
       result =
-        SnmpMgr.set("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.6.0", "test_location",
+        SnmpKit.SnmpMgr.set("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.6.0", "test_location",
           community: device.community,
           version: :v2c,
           timeout: 200
@@ -80,7 +80,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       # Test GET-BULK operation through SnmpKit.SnmpLib.Manager
       result =
-        SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
+        SnmpKit.SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
           max_repetitions: 5,
           non_repeaters: 0,
           community: device.community,
@@ -104,7 +104,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       # Test WALK operation through snmp_lib integration
       result =
-        SnmpKit.SnmpMgr.walk("#{device.host}:#{device.port}", "1.3.6.1.2.1.1",
+        SnmpKit.SnmpKit.SnmpMgr.walk("#{device.host}:#{device.port}", "1.3.6.1.2.1.1",
           community: device.community,
           version: :v2c,
           timeout: 200
@@ -135,7 +135,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       # Test GET-NEXT operation through SnmpKit.SnmpLib.Manager
       result =
-        SnmpMgr.get_next("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1",
+        SnmpKit.SnmpMgr.get_next("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1",
           community: device.community,
           version: :v2c,
           timeout: 200
@@ -168,7 +168,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
          [community: device.community, timeout: 200]}
       ]
 
-      results = SnmpMgr.get_multi(requests)
+      results = SnmpKit.SnmpMgr.get_multi(requests)
 
       assert is_list(results)
       assert length(results) == 3
@@ -197,7 +197,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
          [max_repetitions: 3, community: device.community, timeout: 200]}
       ]
 
-      results = SnmpMgr.get_bulk_multi(requests)
+      results = SnmpKit.SnmpMgr.get_bulk_multi(requests)
 
       assert is_list(results)
       assert length(results) == 2
@@ -221,29 +221,29 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
       skip_if_no_device(device)
 
       # Set custom defaults using simulator community
-      SnmpKit.SnmpMgr.Config.set_default_community(device.community)
-      SnmpKit.SnmpMgr.Config.set_default_timeout(200)
-      SnmpKit.SnmpMgr.Config.set_default_version(:v2c)
+      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_community(device.community)
+      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_timeout(200)
+      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_version(:v2c)
 
       # Operation should use these defaults with simulator
-      result = SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0")
+      result = SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0")
 
       # Should succeed with configured defaults through snmp_lib
       assert {:ok, _} = result
 
       # Reset to defaults
-      SnmpKit.SnmpMgr.Config.reset()
+      SnmpKit.SnmpKit.SnmpMgr.Config.reset()
     end
 
     test "request options override configuration", %{device: device} do
       skip_if_no_device(device)
 
       # Set one default
-      SnmpKit.SnmpMgr.Config.set_default_timeout(200)
+      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_timeout(200)
 
       # Override with request option using simulator
       result =
-        SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+        SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
           community: device.community,
           timeout: 200,
           version: :v1
@@ -252,16 +252,16 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
       # Should succeed with overridden options through snmp_lib
       assert {:ok, _} = result
 
-      SnmpKit.SnmpMgr.Config.reset()
+      SnmpKit.SnmpKit.SnmpMgr.Config.reset()
     end
 
     test "configuration merging works correctly" do
       # Test the merge_opts function used by all operations
-      SnmpKit.SnmpMgr.Config.set_default_community("default_comm")
-      SnmpKit.SnmpMgr.Config.set_default_timeout(200)
-      SnmpKit.SnmpMgr.Config.set_default_version(:v1)
+      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_community("default_comm")
+      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_timeout(200)
+      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_version(:v1)
 
-      merged = SnmpKit.SnmpMgr.Config.merge_opts(community: "override", retries: 3)
+      merged = SnmpKit.SnmpKit.SnmpMgr.Config.merge_opts(community: "override", retries: 3)
 
       # Should have overridden community but default timeout and version
       assert merged[:community] == "override"
@@ -269,7 +269,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
       assert merged[:version] == :v1
       assert merged[:retries] == 3
 
-      SnmpKit.SnmpMgr.Config.reset()
+      SnmpKit.SnmpKit.SnmpMgr.Config.reset()
     end
   end
 
@@ -286,7 +286,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       Enum.each(oid_formats, fn oid ->
         result =
-          SnmpMgr.get("#{device.host}:#{device.port}", oid,
+          SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", oid,
             community: device.community,
             timeout: 200
           )
@@ -308,7 +308,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       Enum.each(list_oids, fn oid ->
         result =
-          SnmpMgr.get("#{device.host}:#{device.port}", oid,
+          SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", oid,
             community: device.community,
             timeout: 200
           )
@@ -330,7 +330,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       Enum.each(symbolic_oids, fn oid ->
         result =
-          SnmpMgr.get("#{device.host}:#{device.port}", oid,
+          SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", oid,
             community: device.community,
             timeout: 200
           )
@@ -351,7 +351,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       Enum.each(invalid_oids, fn oid ->
         result =
-          SnmpMgr.get("#{device.host}:#{device.port}", oid,
+          SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", oid,
             community: device.community,
             timeout: 200
           )
@@ -379,7 +379,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
       ]
 
       Enum.each(error_targets, fn target ->
-        result = SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: "public", timeout: 200)
+        result = SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: "public", timeout: 200)
 
         case result do
           {:error, reason}
@@ -413,7 +413,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       Enum.each(timeouts, fn timeout ->
         result =
-          SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+          SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
             community: device.community,
             timeout: timeout
           )
@@ -437,7 +437,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
       ]
 
       Enum.each(invalid_targets, fn target ->
-        result = SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: "public", timeout: 200)
+        result = SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: "public", timeout: 200)
 
         # Should return proper error format
         case result do
@@ -456,7 +456,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       Enum.each(communities, fn community ->
         result =
-          SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+          SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
             community: community,
             timeout: 200
           )
@@ -483,7 +483,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       # Test SNMPv1 operations
       result =
-        SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+        SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
           version: :v1,
           community: device.community,
           timeout: 200
@@ -498,7 +498,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       # Test SNMPv2c operations
       result =
-        SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+        SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
           version: :v2c,
           community: device.community,
           timeout: 200
@@ -524,7 +524,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       # Bulk operations should work with v2c
       result_v2c =
-        SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
+        SnmpKit.SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
           version: :v2c,
           community: device.community,
           max_repetitions: 3,
@@ -551,14 +551,14 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       # Walk should adapt behavior based on version
       result_v1 =
-        SnmpKit.SnmpMgr.walk("#{device.host}:#{device.port}", "1.3.6.1.2.1.1",
+        SnmpKit.SnmpKit.SnmpMgr.walk("#{device.host}:#{device.port}", "1.3.6.1.2.1.1",
           version: :v1,
           community: device.community,
           timeout: 200
         )
 
       result_v2c =
-        SnmpKit.SnmpMgr.walk("#{device.host}:#{device.port}", "1.3.6.1.2.1.1",
+        SnmpKit.SnmpKit.SnmpMgr.walk("#{device.host}:#{device.port}", "1.3.6.1.2.1.1",
           version: :v2c,
           community: device.community,
           timeout: 200
@@ -601,7 +601,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
       tasks =
         Enum.map(1..5, fn _i ->
           Task.async(fn ->
-            SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+            SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
               community: device.community,
               timeout: 200
             )
@@ -626,7 +626,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       results =
         Enum.map(1..10, fn _i ->
-          SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.3.0",
+          SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.3.0",
             community: device.community,
             timeout: 200
           )
@@ -655,7 +655,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
       # Perform many operations
       results =
         Enum.map(1..50, fn _i ->
-          SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+          SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
             community: device.community,
             timeout: 200
           )
@@ -681,16 +681,16 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
       # Test that all SnmpMgr components integrate properly with snmp_lib
 
       # 1. Configuration
-      SnmpKit.SnmpMgr.Config.set_default_community(device.community)
-      SnmpKit.SnmpMgr.Config.set_default_timeout(200)
+      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_community(device.community)
+      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_timeout(200)
 
       # 2. Core operation with MIB resolution
-      result1 = SnmpMgr.get("#{device.host}:#{device.port}", "sysDescr.0")
+      result1 = SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "sysDescr.0")
       assert {:ok, _} = result1
 
       # 3. Bulk operation
       result2 =
-        SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2", max_repetitions: 3)
+        SnmpKit.SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2", max_repetitions: 3)
 
       assert {:ok, _} = result2
 
@@ -700,11 +700,11 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
         {"#{device.host}:#{device.port}", "1.3.6.1.2.1.1.3.0", [community: device.community]}
       ]
 
-      results = SnmpMgr.get_multi(requests)
+      results = SnmpKit.SnmpMgr.get_multi(requests)
       assert is_list(results) and length(results) == 2
 
       # 5. Walk operation
-      result3 = SnmpKit.SnmpMgr.walk("#{device.host}:#{device.port}", "1.3.6.1.2.1.1")
+      result3 = SnmpKit.SnmpKit.SnmpMgr.walk("#{device.host}:#{device.port}", "1.3.6.1.2.1.1")
 
       case result3 do
         {:ok, _} ->
@@ -720,7 +720,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
       end
 
       # Reset configuration
-      SnmpKit.SnmpMgr.Config.reset()
+      SnmpKit.SnmpKit.SnmpMgr.Config.reset()
 
       # All operations should complete properly through snmp_lib integration
       assert true

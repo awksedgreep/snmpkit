@@ -5,7 +5,7 @@ defmodule SnmpKit.SnmpMgr.Application do
 
   use Application
 
-  alias SnmpSim.Config
+  alias SnmpKit.SnmpSim.Config
 
   require Logger
 

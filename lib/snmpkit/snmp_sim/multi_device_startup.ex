@@ -1,17 +1,17 @@
-defmodule SnmpSim.MultiDeviceStartup do
+defmodule SnmpKit.SnmpSim.MultiDeviceStartup do
   @moduledoc """
   Multi-Device Startup functionality for large-scale device population management.
 
   Features:
   - Bulk device population startup
-  - Progress monitoring and reporting  
+  - Progress monitoring and reporting
   - Parallel device creation for speed
   - Failure handling and recovery
   - Integration with LazyDevicePool and DeviceDistribution
   """
 
   require Logger
-  alias SnmpSim.{LazyDevicePool, DeviceDistribution}
+  alias SnmpKit.SnmpSim.{LazyDevicePool, DeviceDistribution}
 
   @type device_spec :: {device_type :: atom(), count :: non_neg_integer()}
   @type startup_opts :: [
@@ -31,17 +31,17 @@ defmodule SnmpSim.MultiDeviceStartup do
 
       device_specs = [
         {:cable_modem, 1000},
-        {:switch, 50}, 
+        {:switch, 50},
         {:router, 10},
         {:cmts, 5}
       ]
-      
-      {:ok, result} = SnmpSim.MultiDeviceStartup.start_device_population(
+
+      {:ok, result} = SnmpKit.SnmpSim.MultiDeviceStartup.start_device_population(
         device_specs,
         port_range: 30_000..31_099,
         parallel_workers: 100
       )
-      
+
   """
   @spec start_device_population([device_spec()], startup_opts()) ::
           {:ok, map()} | {:error, term()}
@@ -80,11 +80,11 @@ defmodule SnmpSim.MultiDeviceStartup do
 
   ## Examples
 
-      {:ok, result} = SnmpSim.MultiDeviceStartup.start_device_mix(
+      {:ok, result} = SnmpKit.SnmpSim.MultiDeviceStartup.start_device_mix(
         :cable_network,
         port_range: 30_000..39_999
       )
-      
+
   """
   @spec start_device_mix(atom(), startup_opts()) :: {:ok, map()} | {:error, term()}
   def start_device_mix(mix_type, opts \\ []) do

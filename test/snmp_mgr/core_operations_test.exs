@@ -2,7 +2,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
   use ExUnit.Case, async: false
 
   alias SnmpKit.SnmpMgr.{Config, Core}
-  alias SnmpKit.SnmpKit.TestSupport.SNMPSimulator
+  alias SnmpKit.TestSupport.SNMPSimulator
 
   @moduletag :unit
   @moduletag :core_operations
@@ -30,7 +30,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
     test "get/3 uses SnmpKit.SnmpLib.Manager", %{device: device} do
       # Test GET operation through Core -> SnmpKit.SnmpLib.Manager
       result =
-        SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+        SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
           community: device.community,
           timeout: 200
         )
@@ -50,7 +50,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
     test "set/4 uses SnmpKit.SnmpLib.Manager", %{device: device} do
       # Test SET operation through Core -> SnmpKit.SnmpLib.Manager
       result =
-        SnmpMgr.set("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.6.0", "test_location",
+        SnmpKit.SnmpMgr.set("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.6.0", "test_location",
           community: device.community,
           timeout: 200
         )
@@ -73,7 +73,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
     test "get_bulk/3 uses SnmpKit.SnmpLib.Manager", %{device: device} do
       # Test GET-BULK operation through Core -> SnmpKit.SnmpLib.Manager
       result =
-        SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
+        SnmpKit.SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
           max_repetitions: 5,
           non_repeaters: 0,
           community: device.community,
@@ -95,7 +95,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
     test "get_next/3 uses SnmpKit.SnmpLib.Manager via get_bulk", %{device: device} do
       # Test GET-NEXT operation (implemented as GET-BULK with max_repetitions=1)
       result =
-        SnmpMgr.get_next("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1",
+        SnmpKit.SnmpMgr.get_next("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1",
           community: device.community,
           timeout: 200
         )
@@ -134,7 +134,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
 
       Enum.each(string_oids, fn oid ->
         result =
-          SnmpMgr.get("#{device.host}:#{device.port}", oid,
+          SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", oid,
             community: device.community,
             timeout: 200
           )
@@ -154,7 +154,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
 
       Enum.each(list_oids, fn oid ->
         result =
-          SnmpMgr.get("#{device.host}:#{device.port}", oid,
+          SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", oid,
             community: device.community,
             timeout: 200
           )
@@ -174,7 +174,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
 
       Enum.each(symbolic_oids, fn oid ->
         result =
-          SnmpMgr.get("#{device.host}:#{device.port}", oid,
+          SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", oid,
             community: device.community,
             timeout: 200
           )
@@ -229,7 +229,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
 
       Enum.each(invalid_oids, fn oid ->
         result =
-          SnmpMgr.get("#{device.host}:#{device.port}", oid,
+          SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", oid,
             community: device.community,
             timeout: 200
           )
@@ -254,7 +254,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       ]
 
       Enum.each(invalid_targets, fn target ->
-        result = SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: "public", timeout: 200)
+        result = SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: "public", timeout: 200)
 
         case result do
           {:error, reason} ->
@@ -271,7 +271,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
     test "timeout handling through snmp_lib", %{device: device} do
       # Test very short timeout with simulator
       result =
-        SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+        SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
           community: device.community,
           timeout: 1
         )
@@ -288,7 +288,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
     test "community validation through snmp_lib", %{device: device} do
       # Test with wrong community
       result =
-        SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+        SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
           community: "wrong_community",
           timeout: 200
         )
@@ -338,7 +338,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       Config.set_default_timeout(200)
 
       # Operation without explicit options should use configuration
-      result = SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0")
+      result = SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0")
 
       # Should process with configured options through snmp_lib
       assert {:ok, _} = result
@@ -360,7 +360,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
 
     test "SNMPv1 operations through SnmpKit.SnmpLib.Manager", %{device: device} do
       result =
-        SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+        SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
           version: :v1,
           community: device.community,
           timeout: 200
@@ -372,7 +372,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
 
     test "SNMPv2c operations through SnmpKit.SnmpLib.Manager", %{device: device} do
       result =
-        SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+        SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
           version: :v2c,
           community: device.community,
           timeout: 200
@@ -391,7 +391,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
     test "bulk operations enforce v2c", %{device: device} do
       # Bulk operations should work with v2c (default)
       result =
-        SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
+        SnmpKit.SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
           max_repetitions: 3,
           community: device.community,
           timeout: 200
@@ -427,7 +427,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
          [community: device2.community, timeout: 200]}
       ]
 
-      results = SnmpMgr.get_multi(requests)
+      results = SnmpKit.SnmpMgr.get_multi(requests)
 
       assert is_list(results)
       assert length(results) == 2
@@ -446,7 +446,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
          [max_repetitions: 3, community: device2.community, timeout: 200]}
       ]
 
-      results = SnmpMgr.get_bulk_multi(requests)
+      results = SnmpKit.SnmpMgr.get_bulk_multi(requests)
 
       assert is_list(results)
       assert length(results) == 2
@@ -474,7 +474,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
 
       results =
         Enum.map(1..5, fn _i ->
-          SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+          SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
             community: device.community,
             timeout: 200
           )
@@ -499,7 +499,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       tasks =
         Enum.map(1..3, fn _i ->
           Task.async(fn ->
-            SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+            SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
               community: device.community,
               timeout: 200
             )
@@ -552,7 +552,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       # regardless of snmp_lib internal changes
 
       # Use documentation range IP (unreachable) for quick timeout
-      result = SnmpMgr.get("192.0.2.254", "1.3.6.1.2.1.1.1.0", community: "public", timeout: 50)
+      result = SnmpKit.SnmpMgr.get("192.0.2.254", "1.3.6.1.2.1.1.1.0", community: "public", timeout: 50)
 
       case result do
         {:ok, value} ->

@@ -444,7 +444,7 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
 
     try do
       # Parse walk file
-      {:ok, oid_map} = SnmpSim.WalkParser.parse_walk_file(walk_file)
+      {:ok, oid_map} = SnmpKit.SnmpSim.WalkParser.parse_walk_file(walk_file)
 
       # Enhance with intelligent behaviors
       enhanced_behaviors =
@@ -502,7 +502,7 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
 
           # Apply behavior to generate current value
           current_value =
-            SnmpSim.ValueSimulator.simulate_value(
+            SnmpKit.SnmpSim.ValueSimulator.simulate_value(
               profile_data,
               behavior_config,
               device_state

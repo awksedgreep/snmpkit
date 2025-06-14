@@ -1,4 +1,4 @@
-defmodule SnmpSim.WalkParser do
+defmodule SnmpKit.SnmpSim.WalkParser do
   @moduledoc """
   Parse both named MIB and numeric OID walk file formats.
   Handle different snmpwalk output variations automatically.
@@ -13,8 +13,8 @@ defmodule SnmpSim.WalkParser do
 
   ## Examples
 
-      {:ok, oid_map} = SnmpSim.WalkParser.parse_walk_file("priv/walks/cable_modem.walk")
-      
+      {:ok, oid_map} = SnmpKit.SnmpSim.WalkParser.parse_walk_file("priv/walks/cable_modem.walk")
+
   """
   def parse_walk_file(file_path) do
     case File.read(file_path) do
@@ -39,13 +39,13 @@ defmodule SnmpSim.WalkParser do
   ## Examples
 
       # Named MIB format
-      result = SnmpSim.WalkParser.parse_walk_line("IF-MIB::ifInOctets.2 = Counter32: 1234567890")
+      result = SnmpKit.SnmpSim.WalkParser.parse_walk_line("IF-MIB::ifInOctets.2 = Counter32: 1234567890")
       # => {"1.3.6.1.2.1.2.2.1.10.2", %{type: "Counter32", value: 1234567890, mib_name: "IF-MIB::ifInOctets.2"}}
-      
-      # Numeric OID format  
-      result = SnmpSim.WalkParser.parse_walk_line(".1.3.6.1.2.1.2.2.1.10.2 = Counter32: 1234567890")
+
+      # Numeric OID format
+      result = SnmpKit.SnmpSim.WalkParser.parse_walk_line(".1.3.6.1.2.1.2.2.1.10.2 = Counter32: 1234567890")
       # => {"1.3.6.1.2.1.2.2.1.10.2", %{type: "Counter32", value: 1234567890}}
-      
+
   """
   def parse_walk_line(line) do
     line = String.trim(line)
@@ -185,7 +185,7 @@ defmodule SnmpSim.WalkParser do
   # Parse OID values that may start with dots or contain MIB names
   defp parse_oid_value(value) do
     cleaned_value = String.trim_leading(value, ".")
-    
+
     # Handle SNMPv2-SMI::enterprises prefix
     case String.starts_with?(cleaned_value, "SNMPv2-SMI::enterprises.") do
       true ->
@@ -196,6 +196,7 @@ defmodule SnmpSim.WalkParser do
         oid_string
         |> String.split(".")
         |> Enum.map(&String.to_integer/1)
+
       false ->
         # For other OID values, just clean and return as string
         cleaned_value

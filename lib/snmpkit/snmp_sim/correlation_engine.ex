@@ -1,4 +1,4 @@
-defmodule SnmpSim.CorrelationEngine do
+defmodule SnmpKit.SnmpSim.CorrelationEngine do
   @moduledoc """
   Implement realistic correlations between different metrics.
 
@@ -11,7 +11,7 @@ defmodule SnmpSim.CorrelationEngine do
   This module provides sophisticated correlation modeling for authentic network simulation.
   """
 
-  alias SnmpSim.TimePatterns
+  alias SnmpKit.SnmpSim.TimePatterns
 
   # Metrics increase together
   @type correlation_type ::
@@ -47,17 +47,17 @@ defmodule SnmpSim.CorrelationEngine do
         signal_quality: 85.0,
         temperature: 45.0
       }
-      
+
       correlations = [
         {:interface_utilization, :error_rate, :positive, 0.7},
         {:signal_quality, :throughput, :positive, 0.9},
         {:temperature, :cpu_usage, :positive, 0.6}
       ]
-      
-      updated_state = SnmpSim.CorrelationEngine.apply_correlations(
+
+      updated_state = SnmpKit.SnmpSim.CorrelationEngine.apply_correlations(
         :interface_utilization, 0.8, device_state, correlations, DateTime.utc_now()
       )
-      
+
   """
   @spec apply_correlations(atom(), number(), map(), list(), DateTime.t()) :: map()
   def apply_correlations(primary_oid, primary_value, device_state, correlations, current_time) do
@@ -80,8 +80,8 @@ defmodule SnmpSim.CorrelationEngine do
 
   ## Examples
 
-      correlations = SnmpSim.CorrelationEngine.get_device_correlations(:cable_modem)
-      
+      correlations = SnmpKit.SnmpSim.CorrelationEngine.get_device_correlations(:cable_modem)
+
   """
   @spec get_device_correlations(atom()) :: list()
   def get_device_correlations(device_type) do

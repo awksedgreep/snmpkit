@@ -2,7 +2,7 @@ defmodule SnmpKit.SnmpLib.DashboardTest do
   use ExUnit.Case, async: false
   doctest SnmpKit.SnmpLib.Dashboard
 
-  alias SnmpKit.SnmpKit.SnmpLib.Dashboard
+  alias SnmpKit.SnmpLib.Dashboard
 
   @moduletag :dashboard_test
 

@@ -1,7 +1,7 @@
-defmodule SnmpKit.SnmpKit.SnmpLib.MIB.RegistryTest do
+defmodule SnmpKit.SnmpLib.MIB.RegistryTest do
   use ExUnit.Case, async: true
 
-  alias SnmpKit.SnmpKit.SnmpLib.MIB.Registry
+  alias SnmpKit.SnmpLib.MIB.Registry
 
   describe "resolve_name/1" do
     test "resolves standard MIB names" do

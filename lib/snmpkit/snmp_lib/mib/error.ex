@@ -36,13 +36,13 @@ defmodule SnmpKit.SnmpLib.MIB.Error do
 
   ## Examples
 
-      iex> SnmpKit.SnmpKit.SnmpLib.MIB.Error.new(:unexpected_token,
+      iex> SnmpKit.SnmpLib.MIB.Error.new(:unexpected_token,
       ...>   expected: :max_access,
       ...>   actual: :access,
       ...>   line: 42,
       ...>   column: 10
       ...> )
-      %SnmpKit.SnmpKit.SnmpLib.MIB.Error{
+      %SnmpKit.SnmpLib.MIB.Error{
         type: :unexpected_token,
         message: "Expected max_access, but found access",
         suggestions: ["Did you mean 'MAX-ACCESS' instead of 'ACCESS'?"]
@@ -65,8 +65,8 @@ defmodule SnmpKit.SnmpLib.MIB.Error do
 
   ## Examples
 
-      iex> error = SnmpKit.SnmpKit.SnmpLib.MIB.Error.new(:syntax_error, line: 42, column: 10)
-      iex> SnmpKit.SnmpKit.SnmpLib.MIB.Error.format(error)
+      iex> error = SnmpKit.SnmpLib.MIB.Error.new(:syntax_error, line: 42, column: 10)
+      iex> SnmpKit.SnmpLib.MIB.Error.format(error)
       "Error at line 42, column 10: Syntax error"
   """
   @spec format(t(), keyword()) :: binary()

@@ -1,7 +1,7 @@
 defmodule SnmpKit.SnmpLib.TypesTest do
   use ExUnit.Case, async: true
 
-  alias SnmpKit.SnmpKit.SnmpLib.Types
+  alias SnmpKit.SnmpLib.Types
 
   @moduletag :unit
   @moduletag :protocol

@@ -1,4 +1,4 @@
-defmodule SnmpSim.TimePatterns do
+defmodule SnmpKit.SnmpSim.TimePatterns do
   @moduledoc """
   Realistic time-based variations for network metrics.
   Implements daily, weekly, and seasonal patterns for authentic simulation.
@@ -9,7 +9,7 @@ defmodule SnmpSim.TimePatterns do
 
   Returns a multiplier based on time of day:
   - 0-5 AM: Low usage (0.3)
-  - 6-8 AM: Morning ramp (0.7)  
+  - 6-8 AM: Morning ramp (0.7)
   - 9-17 PM: Business hours (0.9-1.2)
   - 18-20 PM: Evening peak (1.5)
   - 21-23 PM: Late evening (0.8)
@@ -17,13 +17,13 @@ defmodule SnmpSim.TimePatterns do
   ## Examples
 
       # 2 PM business hours
-      factor = SnmpSim.TimePatterns.get_daily_utilization_pattern(~U[2024-01-15 14:00:00Z])
+      factor = SnmpKit.SnmpSim.TimePatterns.get_daily_utilization_pattern(~U[2024-01-15 14:00:00Z])
       # Returns: ~1.1
-      
+
       # 7 PM evening peak
-      factor = SnmpSim.TimePatterns.get_daily_utilization_pattern(~U[2024-01-15 19:00:00Z])
+      factor = SnmpKit.SnmpSim.TimePatterns.get_daily_utilization_pattern(~U[2024-01-15 19:00:00Z])
       # Returns: ~1.5
-      
+
   """
   def get_daily_utilization_pattern(datetime) do
     hour = datetime.hour
@@ -75,13 +75,13 @@ defmodule SnmpSim.TimePatterns do
   ## Examples
 
       # Tuesday
-      factor = SnmpSim.TimePatterns.get_weekly_pattern(~U[2024-01-16 14:00:00Z])
+      factor = SnmpKit.SnmpSim.TimePatterns.get_weekly_pattern(~U[2024-01-16 14:00:00Z])
       # Returns: 1.0
-      
+
       # Saturday
-      factor = SnmpSim.TimePatterns.get_weekly_pattern(~U[2024-01-20 14:00:00Z])
+      factor = SnmpKit.SnmpSim.TimePatterns.get_weekly_pattern(~U[2024-01-20 14:00:00Z])
       # Returns: 0.7
-      
+
   """
   def get_weekly_pattern(datetime) do
     day_of_week = Date.day_of_week(datetime)
@@ -138,13 +138,13 @@ defmodule SnmpSim.TimePatterns do
   ## Examples
 
       # January (winter)
-      offset = SnmpSim.TimePatterns.get_seasonal_temperature_pattern(~U[2024-01-15 14:00:00Z])
+      offset = SnmpKit.SnmpSim.TimePatterns.get_seasonal_temperature_pattern(~U[2024-01-15 14:00:00Z])
       # Returns: -8.5
-      
-      # July (summer)  
-      offset = SnmpSim.TimePatterns.get_seasonal_temperature_pattern(~U[2024-07-15 14:00:00Z])
+
+      # July (summer)
+      offset = SnmpKit.SnmpSim.TimePatterns.get_seasonal_temperature_pattern(~U[2024-07-15 14:00:00Z])
       # Returns: 12.3
-      
+
   """
   def get_seasonal_temperature_pattern(datetime) do
     month = datetime.month
@@ -176,13 +176,13 @@ defmodule SnmpSim.TimePatterns do
   ## Examples
 
       # 6 AM (coldest)
-      offset = SnmpSim.TimePatterns.get_daily_temperature_pattern(~U[2024-01-15 06:00:00Z])
+      offset = SnmpKit.SnmpSim.TimePatterns.get_daily_temperature_pattern(~U[2024-01-15 06:00:00Z])
       # Returns: -3.2
-      
+
       # 3 PM (warmest)
-      offset = SnmpSim.TimePatterns.get_daily_temperature_pattern(~U[2024-01-15 15:00:00Z])
+      offset = SnmpKit.SnmpSim.TimePatterns.get_daily_temperature_pattern(~U[2024-01-15 15:00:00Z])
       # Returns: 4.1
-      
+
   """
   def get_daily_temperature_pattern(datetime) do
     hour = datetime.hour
@@ -212,9 +212,9 @@ defmodule SnmpSim.TimePatterns do
 
   ## Examples
 
-      factor = SnmpSim.TimePatterns.apply_weather_variation(~U[2024-01-15 14:00:00Z])
+      factor = SnmpKit.SnmpSim.TimePatterns.apply_weather_variation(~U[2024-01-15 14:00:00Z])
       # Returns: 0.85 (some weather impact)
-      
+
   """
   def apply_weather_variation(datetime) do
     month = datetime.month
@@ -225,7 +225,7 @@ defmodule SnmpSim.TimePatterns do
       case month do
         # Winter months: Lower rain probability but more impact when it occurs
         month when month in [12, 1, 2] -> 0.3
-        # Spring: Higher rain probability  
+        # Spring: Higher rain probability
         month when month in [3, 4, 5] -> 0.4
         # Summer: Lower rain, but thunderstorms
         month when month in [6, 7, 8] -> 0.2
@@ -277,11 +277,11 @@ defmodule SnmpSim.TimePatterns do
   ## Examples
 
       # Apply to equipment failure rates (higher in summer heat)
-      factor = SnmpSim.TimePatterns.apply_seasonal_variation(datetime, :equipment_stress)
-      
+      factor = SnmpKit.SnmpSim.TimePatterns.apply_seasonal_variation(datetime, :equipment_stress)
+
       # Apply to power consumption (higher in winter/summer for heating/cooling)
-      factor = SnmpSim.TimePatterns.apply_seasonal_variation(datetime, :power_consumption)
-      
+      factor = SnmpKit.SnmpSim.TimePatterns.apply_seasonal_variation(datetime, :power_consumption)
+
   """
   def apply_seasonal_variation(datetime, pattern_type \\ :generic) do
     month = datetime.month
@@ -329,9 +329,9 @@ defmodule SnmpSim.TimePatterns do
 
   ## Examples
 
-      rate = SnmpSim.TimePatterns.get_interface_traffic_rate(:ethernet_gigabit, datetime)
+      rate = SnmpKit.SnmpSim.TimePatterns.get_interface_traffic_rate(:ethernet_gigabit, datetime)
       # Returns: {min_rate, max_rate, current_factor}
-      
+
   """
   def get_interface_traffic_rate(interface_type, datetime) do
     daily_factor = get_daily_utilization_pattern(datetime)
@@ -500,7 +500,7 @@ defmodule SnmpSim.TimePatterns do
 
   Different devices have different burst characteristics:
   - Servers: Application-driven bursts
-  - Routers: Protocol-driven bursts  
+  - Routers: Protocol-driven bursts
   - Cable modems: User-activity bursts
   """
   def get_burst_pattern(device_type, datetime) do
@@ -615,7 +615,7 @@ defmodule SnmpSim.TimePatterns do
       case month do
         # Summer months: More maintenance
         month when month in [6, 7, 8] -> 1.5
-        # Holiday periods: Reduced maintenance  
+        # Holiday periods: Reduced maintenance
         month when month in [11, 12, 1] -> 0.7
         _ -> 1.0
       end
@@ -631,7 +631,7 @@ defmodule SnmpSim.TimePatterns do
       {:traffic_bytes, :traffic_packets} -> 0.95
       # Strong positive correlation
       {:utilization, :error_rate} -> 0.70
-      # Strong positive correlation  
+      # Strong positive correlation
       {:signal_quality, :throughput} -> 0.85
       # Moderate correlation
       {:temperature, :cpu_usage} -> 0.60

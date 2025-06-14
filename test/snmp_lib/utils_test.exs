@@ -2,7 +2,7 @@ defmodule SnmpKit.SnmpLib.UtilsTest do
   use ExUnit.Case, async: true
   doctest SnmpKit.SnmpLib.Utils
 
-  alias SnmpKit.SnmpKit.SnmpLib.Utils
+  alias SnmpKit.SnmpLib.Utils
 
   describe "Utils.pretty_print_pdu/1" do
     test "formats basic GET request PDU" do

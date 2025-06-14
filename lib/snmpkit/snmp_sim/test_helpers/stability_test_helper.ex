@@ -3,7 +3,7 @@ defmodule SnmpKit.SnmpSim.TestHelpers.StabilityTestHelper do
   Specialized testing utilities for stability and endurance testing.
   """
 
-  alias SnmpSim.{Device, LazyDevicePool}
+  alias SnmpKit.SnmpSim.{Device, LazyDevicePool}
 
   @doc """
   Monitors memory usage over a specified duration while running a test function.
@@ -516,8 +516,8 @@ defmodule SnmpKit.SnmpSim.TestHelpers.StabilityTestHelper do
           # Don't kill critical named processes
           case name do
             SnmpKit.SnmpSim.MIB.SharedProfiles -> false
-            SnmpSim.LazyDevicePool -> false
-            SnmpSim.Application -> false
+            SnmpKit.SnmpSim.LazyDevicePool -> false
+            SnmpKit.SnmpSim.Application -> false
             _ -> false
           end
 

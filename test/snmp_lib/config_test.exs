@@ -2,7 +2,7 @@ defmodule SnmpKit.SnmpLib.ConfigTest do
   use ExUnit.Case, async: false
   doctest SnmpKit.SnmpLib.Config
 
-  alias SnmpKit.SnmpKit.SnmpLib.Config
+  alias SnmpKit.SnmpLib.Config
 
   @moduletag :config_test
 

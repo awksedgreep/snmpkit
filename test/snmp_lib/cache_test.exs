@@ -2,7 +2,7 @@ defmodule SnmpKit.SnmpLib.CacheTest do
   use ExUnit.Case, async: false
   doctest SnmpKit.SnmpLib.Cache
 
-  alias SnmpKit.SnmpKit.SnmpLib.Cache
+  alias SnmpKit.SnmpLib.Cache
 
   @moduletag :cache_test
 

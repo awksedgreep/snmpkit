@@ -1,4 +1,4 @@
-defmodule SnmpSim.LazyDevicePool do
+defmodule SnmpKit.SnmpSim.LazyDevicePool do
   @moduledoc """
   Lazy Device Pool Manager for on-demand device creation and lifecycle management.
   Supports 10K+ devices with minimal memory footprint through lazy instantiation.

@@ -1,4 +1,4 @@
-defmodule SnmpSim.ErrorInjector do
+defmodule SnmpKit.SnmpSim.ErrorInjector do
   @moduledoc """
   Inject realistic error conditions for comprehensive testing.
 
@@ -17,14 +17,14 @@ defmodule SnmpSim.ErrorInjector do
   ## Usage
 
       # Inject timeout condition
-      SnmpSim.ErrorInjector.inject_timeout(device_pid, probability: 0.1, duration: 5000)
-      
+      SnmpKit.SnmpSim.ErrorInjector.inject_timeout(device_pid, probability: 0.1, duration: 5000)
+
       # Simulate packet loss
-      SnmpSim.ErrorInjector.inject_packet_loss(device_pid, loss_rate: 0.05)
-      
+      SnmpKit.SnmpSim.ErrorInjector.inject_packet_loss(device_pid, loss_rate: 0.05)
+
       # Generate SNMP errors
-      SnmpSim.ErrorInjector.inject_snmp_error(device_pid, :noSuchName, ["1.3.6.1.2.1.2.2.1.99"])
-      
+      SnmpKit.SnmpSim.ErrorInjector.inject_snmp_error(device_pid, :noSuchName, ["1.3.6.1.2.1.2.2.1.99"])
+
   """
 
   use GenServer
@@ -76,15 +76,15 @@ defmodule SnmpSim.ErrorInjector do
 
       # 10% chance of 5-second timeouts
       ErrorInjector.inject_timeout(device, probability: 0.1, duration_ms: 5000)
-      
+
       # Burst timeouts - 20% of requests timeout for 30 seconds when burst occurs
-      ErrorInjector.inject_timeout(device, 
-        probability: 0.2, 
+      ErrorInjector.inject_timeout(device,
+        probability: 0.2,
         duration_ms: 30000,
         burst_probability: 0.05,
         burst_duration_ms: 60000
       )
-      
+
   """
   @spec inject_timeout(pid(), keyword()) :: :ok | {:error, term()}
   def inject_timeout(injector_pid, opts \\ []) do
@@ -114,7 +114,7 @@ defmodule SnmpSim.ErrorInjector do
 
       # 5% random packet loss
       ErrorInjector.inject_packet_loss(device, loss_rate: 0.05)
-      
+
       # Burst packet loss - lose 10 consecutive packets occasionally
       ErrorInjector.inject_packet_loss(device,
         loss_rate: 0.02,
@@ -122,7 +122,7 @@ defmodule SnmpSim.ErrorInjector do
         burst_size: 10,
         recovery_time_ms: 60000
       )
-      
+
   """
   @spec inject_packet_loss(pid(), keyword()) :: :ok | {:error, term()}
   def inject_packet_loss(injector_pid, opts \\ []) do
@@ -152,17 +152,17 @@ defmodule SnmpSim.ErrorInjector do
   ## Examples
 
       # Generate noSuchName errors for specific OIDs
-      ErrorInjector.inject_snmp_error(device, :noSuchName, 
+      ErrorInjector.inject_snmp_error(device, :noSuchName,
         target_oids: ["1.3.6.1.2.1.2.2.1.99"],
         probability: 1.0
       )
-      
+
       # Random genErr responses
       ErrorInjector.inject_snmp_error(device, :genErr,
         probability: 0.05,
         target_oids: :all
       )
-      
+
   """
   @spec inject_snmp_error(pid(), atom(), keyword()) :: :ok | {:error, term()}
   def inject_snmp_error(injector_pid, error_type, opts \\ []) do
@@ -195,12 +195,12 @@ defmodule SnmpSim.ErrorInjector do
         probability: 0.02,
         corruption_severity: 0.3
       )
-      
+
       # Corrupt BER encoding occasionally
       ErrorInjector.inject_malformed_response(device, :invalid_ber,
         probability: 0.01
       )
-      
+
   """
   @spec inject_malformed_response(pid(), atom(), keyword()) :: :ok | {:error, term()}
   def inject_malformed_response(injector_pid, corruption_type, opts \\ []) do
@@ -233,13 +233,13 @@ defmodule SnmpSim.ErrorInjector do
         duration_ms: 30000,
         recovery_behavior: :reset_counters
       )
-      
+
       # Network disconnect with gradual recovery
       ErrorInjector.simulate_device_failure(device, :network_disconnect,
         duration_ms: 60000,
         recovery_behavior: :gradual
       )
-      
+
   """
   @spec simulate_device_failure(pid(), atom(), keyword()) :: :ok | {:error, term()}
   def simulate_device_failure(injector_pid, failure_type, opts \\ []) do

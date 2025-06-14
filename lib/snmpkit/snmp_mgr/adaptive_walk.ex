@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
+defmodule SnmpKit.SnmpKit.SnmpMgr.AdaptiveWalk do
   @moduledoc """
   Intelligent SNMP walk operations with adaptive parameter tuning.
 
@@ -27,7 +27,7 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
   ## Examples
 
       # Note: This function makes actual network calls and is not suitable for doctests
-      {:ok, results} = SnmpKit.SnmpMgr.AdaptiveWalk.bulk_walk("switch.local", "ifTable")
+      {:ok, results} = SnmpKit.SnmpKit.SnmpMgr.AdaptiveWalk.bulk_walk("switch.local", "ifTable")
       # Automatically adjusts bulk size for optimal performance:
       # [
       #   {"1.3.6.1.2.1.2.2.1.2.1", :octet_string, "FastEthernet0/1"},
@@ -37,7 +37,7 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
       # ]
 
       # With custom options:
-      {:ok, results} = SnmpKit.SnmpMgr.AdaptiveWalk.bulk_walk("router.local", "sysDescr",
+      {:ok, results} = SnmpKit.SnmpKit.SnmpMgr.AdaptiveWalk.bulk_walk("router.local", "sysDescr",
         adaptive_tuning: true, max_entries: 100, performance_threshold: 50)
       # [{"1.3.6.1.2.1.1.1.0", :octet_string, "Cisco IOS Software, Version 15.1"}]
   """
@@ -51,7 +51,7 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
           adaptive_bulk_walk(target, start_oid, start_oid, [], max_entries, opts)
         else
           # Fall back to regular bulk walk
-          SnmpKit.SnmpMgr.Bulk.walk_bulk(target, root_oid, opts)
+          SnmpKit.SnmpKit.SnmpMgr.Bulk.walk_bulk(target, root_oid, opts)
         end
 
       error ->
@@ -73,7 +73,7 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
   ## Examples
 
       # Note: This function makes actual network calls and is not suitable for doctests
-      {:ok, table_data} = SnmpKit.SnmpMgr.AdaptiveWalk.table_walk("switch.local", "ifTable", max_entries: 1000)
+      {:ok, table_data} = SnmpKit.SnmpKit.SnmpMgr.AdaptiveWalk.table_walk("switch.local", "ifTable", max_entries: 1000)
       # Efficiently walks large tables with automatic optimization:
       # [
       #   {"1.3.6.1.2.1.2.2.1.1.1", :integer, 1},           # ifIndex.1
@@ -84,7 +84,7 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
       # ]
 
       # For very large tables with streaming:
-      {:ok, results} = SnmpKit.SnmpMgr.AdaptiveWalk.table_walk("core-switch", "ipRouteTable",
+      {:ok, results} = SnmpKit.SnmpKit.SnmpMgr.AdaptiveWalk.table_walk("core-switch", "ipRouteTable",
         max_entries: 10000, adaptive_tuning: true)
   """
   def table_walk(target, table_oid, opts \\ []) do
@@ -97,7 +97,7 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
           adaptive_table_walk(target, start_oid, start_oid, [], max_entries, opts)
         else
           # Fall back to regular table walk
-          SnmpKit.SnmpMgr.Bulk.get_table_bulk(target, table_oid, opts)
+          SnmpKit.SnmpKit.SnmpMgr.Bulk.get_table_bulk(target, table_oid, opts)
         end
 
       error ->
@@ -119,7 +119,7 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
   ## Examples
 
       # Note: This function makes actual network calls and is not suitable for doctests
-      {:ok, benchmark} = SnmpKit.SnmpMgr.AdaptiveWalk.benchmark_device("switch.local", "ifTable")
+      {:ok, benchmark} = SnmpKit.SnmpKit.SnmpMgr.AdaptiveWalk.benchmark_device("switch.local", "ifTable")
       # Returns comprehensive performance analysis:
       # %{
       #   optimal_bulk_size: 25,
@@ -137,7 +137,7 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
       # }
 
       # Custom benchmark with specific test sizes:
-      {:ok, results} = SnmpKit.SnmpMgr.AdaptiveWalk.benchmark_device("router.local", "ipRouteTable",
+      {:ok, results} = SnmpKit.SnmpKit.SnmpMgr.AdaptiveWalk.benchmark_device("router.local", "ipRouteTable",
         test_sizes: [5, 10, 20, 50], iterations: 5)
   """
   def benchmark_device(target, test_oid, opts \\ []) do
@@ -239,7 +239,7 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
       |> Keyword.put(:max_repetitions, bulk_size)
       |> Keyword.put(:version, :v2c)
 
-    case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, current_oid, bulk_opts) do
+    case SnmpKit.SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, current_oid, bulk_opts) do
       {:ok, results} ->
         end_time = System.monotonic_time(:millisecond)
         response_time = end_time - start_time
@@ -363,7 +363,7 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
           |> Keyword.put(:max_repetitions, bulk_size)
           |> Keyword.put(:version, :v2c)
 
-        case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, oid_list, bulk_opts) do
+        case SnmpKit.SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, oid_list, bulk_opts) do
           {:ok, _results} ->
             end_time = System.monotonic_time(:millisecond)
             end_time - start_time
@@ -464,7 +464,7 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
 
       {:error, _} ->
         # Try as symbolic name
-        case SnmpKit.SnmpMgr.MIB.resolve(oid) do
+        case SnmpKit.SnmpKit.SnmpMgr.MIB.resolve(oid) do
           {:ok, resolved_oid} -> {:ok, resolved_oid}
           error -> error
         end

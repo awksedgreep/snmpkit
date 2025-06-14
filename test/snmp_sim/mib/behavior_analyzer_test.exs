@@ -1,7 +1,7 @@
 defmodule SnmpKit.SnmpSim.MIB.BehaviorAnalyzerTest do
   use ExUnit.Case, async: false
 
-  alias SnmpKit.SnmpKit.SnmpSim.MIB.BehaviorAnalyzer
+  alias SnmpKit.SnmpSim.MIB.BehaviorAnalyzer
 
   describe "Object Behavior Analysis" do
     test "identifies traffic counters by name" do

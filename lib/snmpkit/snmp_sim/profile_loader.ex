@@ -1,11 +1,11 @@
-defmodule SnmpSim.ProfileLoader do
+defmodule SnmpKit.SnmpSim.ProfileLoader do
   @moduledoc """
   Flexible profile loading supporting multiple sources and progressive enhancement.
   Start with simple walk files, upgrade to MIB-based simulation when ready.
   """
 
   require Logger
-  alias SnmpSim.WalkParser
+  alias SnmpKit.SnmpSim.WalkParser
 
   defstruct [
     :device_type,
@@ -28,13 +28,13 @@ defmodule SnmpSim.ProfileLoader do
   ## Examples
 
       # Load from SNMP walk file
-      profile = SnmpSim.ProfileLoader.load_profile(
+      profile = SnmpKit.SnmpSim.ProfileLoader.load_profile(
         :cable_modem,
         {:walk_file, "priv/walks/cable_modem.walk"}
       )
 
       # Load with behaviors
-      profile = SnmpSim.ProfileLoader.load_profile(
+      profile = SnmpKit.SnmpSim.ProfileLoader.load_profile(
         :cable_modem,
         {:walk_file, "priv/walks/cable_modem.walk"},
         behaviors: [
@@ -71,7 +71,7 @@ defmodule SnmpSim.ProfileLoader do
 
   ## Examples
 
-      value = SnmpSim.ProfileLoader.get_oid_value(profile, "1.3.6.1.2.1.1.1.0")
+      value = SnmpKit.SnmpSim.ProfileLoader.get_oid_value(profile, "1.3.6.1.2.1.1.1.0")
 
   """
   def get_oid_value(%__MODULE__{oid_map: oid_map}, oid) do
@@ -127,7 +127,7 @@ defmodule SnmpSim.ProfileLoader do
               temp_profile = %__MODULE__{oid_map: oid_map}
 
               enhanced_profile =
-                SnmpSim.BehaviorConfig.apply_behaviors(temp_profile, behavior_configs)
+                SnmpKit.SnmpSim.BehaviorConfig.apply_behaviors(temp_profile, behavior_configs)
 
               enhanced_profile.oid_map
           end

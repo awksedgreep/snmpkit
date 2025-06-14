@@ -1,6 +1,6 @@
 defmodule SnmpKit.SnmpMgr.StreamProcessingTest do
   use ExUnit.Case, async: true
-  alias SnmpKit.SnmpKit.SnmpMgr.Stream
+  alias SnmpKit.SnmpMgr.Stream
 
   describe "Stream.walk/3 with 3-tuple format" do
     setup do

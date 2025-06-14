@@ -2,7 +2,7 @@ defmodule SnmpKit.SnmpLib.ErrorTest do
   use ExUnit.Case, async: true
   doctest SnmpKit.SnmpLib.Error
 
-  alias SnmpKit.SnmpKit.SnmpLib.Error
+  alias SnmpKit.SnmpLib.Error
 
   describe "Error.no_error/0" do
     test "returns correct error code" do

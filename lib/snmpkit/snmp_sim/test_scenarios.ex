@@ -1,4 +1,4 @@
-defmodule SnmpSim.TestScenarios do
+defmodule SnmpKit.SnmpSim.TestScenarios do
   @moduledoc """
   Pre-built test scenarios for common network conditions.
 
@@ -8,7 +8,7 @@ defmodule SnmpSim.TestScenarios do
   ## Scenario Categories
 
   - **Network Outages**: Complete connectivity loss and recovery patterns
-  - **Signal Degradation**: DOCSIS/wireless signal quality issues  
+  - **Signal Degradation**: DOCSIS/wireless signal quality issues
   - **High Load**: Network congestion and overload conditions
   - **Device Failures**: Equipment failures, reboots, and recovery
   - **Intermittent Issues**: Flapping, sporadic failures, timing issues
@@ -18,19 +18,19 @@ defmodule SnmpSim.TestScenarios do
 
       # Apply network outage scenario to all devices
       TestScenarios.network_outage_scenario(devices, duration_seconds: 300)
-      
+
       # Simulate signal degradation for cable modems
-      TestScenarios.signal_degradation_scenario(cable_modems, 
+      TestScenarios.signal_degradation_scenario(cable_modems,
         snr_degradation: 10, duration_minutes: 15
       )
-      
+
       # Test high load conditions
       TestScenarios.high_load_scenario(devices, utilization_percent: 95)
-      
+
   """
 
   require Logger
-  alias SnmpSim.ErrorInjector
+  alias SnmpKit.SnmpSim.ErrorInjector
 
   @type device_list :: list(pid()) | list({:device_type, integer()})
   @type scenario_result :: %{
@@ -58,14 +58,14 @@ defmodule SnmpSim.TestScenarios do
 
       # 5-minute complete outage
       TestScenarios.network_outage_scenario(devices, duration_seconds: 300)
-      
+
       # Gradual recovery affecting 80% of devices
       TestScenarios.network_outage_scenario(devices,
         duration_seconds: 600,
         recovery_type: :gradual,
         affected_percentage: 0.8
       )
-      
+
   """
   @spec network_outage_scenario(device_list(), keyword()) :: scenario_result()
   def network_outage_scenario(devices, opts \\ []) do
@@ -122,7 +122,7 @@ defmodule SnmpSim.TestScenarios do
         duration_minutes: 45,
         pattern: :progressive
       )
-      
+
   """
   @spec signal_degradation_scenario(device_list(), keyword()) :: scenario_result()
   def signal_degradation_scenario(devices, opts \\ []) do
@@ -172,14 +172,14 @@ defmodule SnmpSim.TestScenarios do
         duration_minutes: 120,
         congestion_type: :steady
       )
-      
+
       # Bursty congestion with high error rates
       TestScenarios.high_load_scenario(devices,
         utilization_percent: 90,
         congestion_type: :bursty,
         error_rate_multiplier: 10.0
       )
-      
+
   """
   @spec high_load_scenario(device_list(), keyword()) :: scenario_result()
   def high_load_scenario(devices, opts \\ []) do
@@ -231,13 +231,13 @@ defmodule SnmpSim.TestScenarios do
         down_duration_seconds: 15,
         flap_pattern: :regular
       )
-      
+
       # Irregular flapping with degrading stability
       TestScenarios.device_flapping_scenario(devices,
         flap_pattern: :degrading,
         total_duration_minutes: 45
       )
-      
+
   """
   @spec device_flapping_scenario(device_list(), keyword()) :: scenario_result()
   def device_flapping_scenario(devices, opts \\ []) do
@@ -287,7 +287,7 @@ defmodule SnmpSim.TestScenarios do
         cascade_delay_seconds: 30,
         cascade_growth_factor: 2.0
       )
-      
+
   """
   @spec cascading_failure_scenario(device_list(), keyword()) :: scenario_result()
   def cascading_failure_scenario(devices, opts \\ []) do
@@ -347,14 +347,14 @@ defmodule SnmpSim.TestScenarios do
         duration_hours: 4,
         geographic_pattern: :clustered
       )
-      
+
       # Power instability
       TestScenarios.environmental_scenario(devices,
         condition_type: :power,
         severity: :moderate,
         duration_hours: 1
       )
-      
+
   """
   @spec environmental_scenario(device_list(), keyword()) :: scenario_result()
   def environmental_scenario(devices, opts \\ []) do
@@ -396,9 +396,9 @@ defmodule SnmpSim.TestScenarios do
         {:high_load, [utilization_percent: 90, duration_minutes: 45]},
         {:device_flapping, [flap_interval_seconds: 120]}
       ]
-      
+
       TestScenarios.multi_scenario_test(devices, scenarios)
-      
+
   """
   @spec multi_scenario_test(device_list(), list({atom(), keyword()})) :: list(scenario_result())
   def multi_scenario_test(devices, scenarios) do

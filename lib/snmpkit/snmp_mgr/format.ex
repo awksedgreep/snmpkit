@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpMgr.Format do
+defmodule SnmpKit.SnmpKit.SnmpMgr.Format do
   @moduledoc """
   SNMP data formatting and presentation utilities.
 
@@ -12,17 +12,17 @@ defmodule SnmpKit.SnmpMgr.Format do
   ## Examples
 
       # Format uptime from SNMP result
-      {:ok, {_oid, :timeticks, ticks}} = SnmpMgr.get("router.local", "sysUpTime.0")
-      SnmpKit.SnmpMgr.Format.uptime(ticks)
+      {:ok, {_oid, :timeticks, ticks}} = SnmpKit.SnmpMgr.get("router.local", "sysUpTime.0")
+      SnmpKit.SnmpKit.SnmpMgr.Format.uptime(ticks)
       # => "5 days, 12 hours, 34 minutes, 56 seconds"
 
       # Format IP address
-      SnmpKit.SnmpMgr.Format.ip_address(<<192, 168, 1, 1>>)
+      SnmpKit.SnmpKit.SnmpMgr.Format.ip_address(<<192, 168, 1, 1>>)
       # => "192.168.1.1"
 
       # Pretty print any SNMP result
-      {:ok, result} = SnmpMgr.get("router.local", "sysDescr.0")
-      SnmpKit.SnmpMgr.Format.pretty_print(result)
+      {:ok, result} = SnmpKit.SnmpMgr.get("router.local", "sysDescr.0")
+      SnmpKit.SnmpKit.SnmpMgr.Format.pretty_print(result)
       # => {"1.3.6.1.2.1.1.1.0", :octet_string, "Cisco IOS Router"}
   """
 
@@ -34,10 +34,10 @@ defmodule SnmpKit.SnmpMgr.Format do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Format.uptime(12345678)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.uptime(12345678)
       "1 day, 10 hours, 17 minutes, 36 seconds"
 
-      iex> SnmpKit.SnmpMgr.Format.uptime(4200)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.uptime(4200)
       "42 seconds"
   """
   defdelegate uptime(ticks), to: SnmpKit.SnmpLib.Types, as: :format_timeticks_uptime
@@ -47,10 +47,10 @@ defmodule SnmpKit.SnmpMgr.Format do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Format.ip_address(<<192, 168, 1, 1>>)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.ip_address(<<192, 168, 1, 1>>)
       "192.168.1.1"
 
-      iex> SnmpKit.SnmpMgr.Format.ip_address({10, 0, 0, 1})
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.ip_address({10, 0, 0, 1})
       "10.0.0.1"
   """
   def ip_address(ip_bytes) when is_binary(ip_bytes) do
@@ -71,10 +71,10 @@ defmodule SnmpKit.SnmpMgr.Format do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Format.pretty_print({"1.3.6.1.2.1.1.3.0", :timeticks, 12345678})
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.pretty_print({"1.3.6.1.2.1.1.3.0", :timeticks, 12345678})
       {"1.3.6.1.2.1.1.3.0", :timeticks, "1 day, 10 hours, 17 minutes, 36 seconds"}
 
-      iex> SnmpKit.SnmpMgr.Format.pretty_print({"1.3.6.1.2.1.4.20.1.1.192.168.1.1", :ip_address, <<192, 168, 1, 1>>})
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.pretty_print({"1.3.6.1.2.1.4.20.1.1.192.168.1.1", :ip_address, <<192, 168, 1, 1>>})
       {"1.3.6.1.2.1.4.20.1.1.192.168.1.1", :ip_address, "192.168.1.1"}
   """
   def pretty_print({oid, type, value}) do
@@ -124,7 +124,7 @@ defmodule SnmpKit.SnmpMgr.Format do
       ...>   {"1.3.6.1.2.1.1.3.0", :timeticks, 12345678},
       ...>   {"1.3.6.1.2.1.1.1.0", :octet_string, "Router"}
       ...> ]
-      iex> SnmpKit.SnmpMgr.Format.pretty_print_all(results)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.pretty_print_all(results)
       [
         {"1.3.6.1.2.1.1.3.0", :timeticks, "1 day, 10 hours, 17 minutes, 36 seconds"},
         {"1.3.6.1.2.1.1.1.0", :octet_string, "\"Router\""}
@@ -142,13 +142,13 @@ defmodule SnmpKit.SnmpMgr.Format do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Format.format_by_type(:timeticks, 126691300)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.format_by_type(:timeticks, 126691300)
       "14 days 15 hours 55 minutes 13 seconds"
 
-      iex> SnmpKit.SnmpMgr.Format.format_by_type(:gauge32, 1000000000)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.format_by_type(:gauge32, 1000000000)
       "1 GB"
 
-      iex> SnmpKit.SnmpMgr.Format.format_by_type(:octet_string, "Hello")
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.format_by_type(:octet_string, "Hello")
       "Hello"
 
   """
@@ -186,10 +186,10 @@ defmodule SnmpKit.SnmpMgr.Format do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Format.bytes(1024)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.bytes(1024)
       "1.0 KB"
 
-      iex> SnmpKit.SnmpMgr.Format.bytes(1073741824)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.bytes(1073741824)
       "1.0 GB"
   """
   def bytes(byte_count) when is_integer(byte_count) and byte_count >= 0 do
@@ -209,10 +209,10 @@ defmodule SnmpKit.SnmpMgr.Format do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Format.speed(100_000_000)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.speed(100_000_000)
       "100.0 Mbps"
 
-      iex> SnmpKit.SnmpMgr.Format.speed(1_000_000_000)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.speed(1_000_000_000)
       "1.0 Gbps"
   """
   def speed(bps) when is_integer(bps) and bps >= 0 do
@@ -232,10 +232,10 @@ defmodule SnmpKit.SnmpMgr.Format do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Format.interface_status(1)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.interface_status(1)
       "up"
 
-      iex> SnmpKit.SnmpMgr.Format.interface_status(2)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.interface_status(2)
       "down"
   """
   def interface_status(1), do: "up"
@@ -252,10 +252,10 @@ defmodule SnmpKit.SnmpMgr.Format do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Format.interface_type(6)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.interface_type(6)
       "ethernetCsmacd"
 
-      iex> SnmpKit.SnmpMgr.Format.interface_type(24)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.interface_type(24)
       "softwareLoopback"
   """
   def interface_type(1), do: "other"
@@ -273,13 +273,13 @@ defmodule SnmpKit.SnmpMgr.Format do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Format.mac_address(<<0x00, 0x1B, 0x21, 0x3C, 0x4D, 0x5E>>)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.mac_address(<<0x00, 0x1B, 0x21, 0x3C, 0x4D, 0x5E>>)
       "00:1b:21:3c:4d:5e"
 
-      iex> SnmpKit.SnmpMgr.Format.mac_address([0, 27, 33, 60, 77, 94])
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.mac_address([0, 27, 33, 60, 77, 94])
       "00:1b:21:3c:4d:5e"
 
-      iex> SnmpKit.SnmpMgr.Format.mac_address("\\x00\\x1B\\x21\\x3C\\x4D\\x5E")
+      iex> SnmpKit.SnmpKit.SnmpMgr.Format.mac_address("\\x00\\x1B\\x21\\x3C\\x4D\\x5E")
       "00:1b:21:3c:4d:5e"
 
   """

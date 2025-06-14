@@ -1,4 +1,4 @@
-defmodule SnmpSim.DeviceDistribution do
+defmodule SnmpKit.SnmpSim.DeviceDistribution do
   @moduledoc """
   Device Type Distribution for realistic device type assignment across port ranges.
   Supports mixed device populations for authentic testing environments.

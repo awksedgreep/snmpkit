@@ -1,4 +1,4 @@
-defmodule SnmpSim.BulkOperations do
+defmodule SnmpKit.SnmpSim.BulkOperations do
   @moduledoc """
   Efficient GETBULK implementation for SNMPv2c.
   Handles non-repeaters, max-repetitions, and response size management.
@@ -14,7 +14,7 @@ defmodule SnmpSim.BulkOperations do
   4. Return tooBig error if response would exceed limits
   """
 
-  alias SnmpSim.OIDTree
+  alias SnmpKit.SnmpSim.OIDTree
 
   # Conservative UDP payload size
   @max_udp_size 1400
@@ -38,10 +38,10 @@ defmodule SnmpSim.BulkOperations do
   ## Examples
 
       varbinds = [{"1.3.6.1.2.1.2.2.1.1", nil}, {"1.3.6.1.2.1.2.2.1.2", nil}]
-      {:ok, results} = SnmpSim.BulkOperations.handle_bulk_request(
+      {:ok, results} = SnmpKit.SnmpSim.BulkOperations.handle_bulk_request(
         tree, 0, 10, varbinds
       )
-      
+
   """
   def handle_bulk_request(%OIDTree{} = oid_tree, non_repeaters, max_repetitions, varbinds)
       when is_integer(non_repeaters) and is_integer(max_repetitions) and is_list(varbinds) do
@@ -70,8 +70,8 @@ defmodule SnmpSim.BulkOperations do
 
   ## Examples
 
-      {:ok, optimized} = SnmpSim.BulkOperations.optimize_bulk_response(results, 1400)
-      
+      {:ok, optimized} = SnmpKit.SnmpSim.BulkOperations.optimize_bulk_response(results, 1400)
+
   """
   def optimize_bulk_response(results, max_size \\ @max_udp_size) when is_list(results) do
     estimate_and_truncate(results, max_size, [], 0)
@@ -83,8 +83,8 @@ defmodule SnmpSim.BulkOperations do
 
   ## Examples
 
-      size = SnmpSim.BulkOperations.estimate_response_size(varbinds)
-      
+      size = SnmpKit.SnmpSim.BulkOperations.estimate_response_size(varbinds)
+
   """
   def estimate_response_size(varbinds) when is_list(varbinds) do
     # SNMP message overhead
@@ -109,10 +109,10 @@ defmodule SnmpSim.BulkOperations do
 
   ## Examples
 
-      {:ok, results} = SnmpSim.BulkOperations.process_interface_table(
+      {:ok, results} = SnmpKit.SnmpSim.BulkOperations.process_interface_table(
         tree, "1.3.6.1.2.1.2.2.1", 10
       )
-      
+
   """
   def process_interface_table(%OIDTree{} = oid_tree, table_oid, max_repetitions) do
     # Find all OIDs under the table

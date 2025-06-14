@@ -1,7 +1,7 @@
 defmodule SnmpKit.SnmpMgr.FormatTest do
   use ExUnit.Case, async: true
 
-  alias SnmpKit.SnmpKit.SnmpMgr.Format
+  alias SnmpKit.SnmpMgr.Format
 
   describe "pretty_print/1 - new functionality" do
     test "formats 3-tuple results with type-aware formatting" do

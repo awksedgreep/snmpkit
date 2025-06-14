@@ -1,4 +1,4 @@
-defmodule SnmpMgr.Application do
+defmodule SnmpKit.SnmpMgr.Application do
   @moduledoc false
 
   use Application
@@ -7,14 +7,14 @@ defmodule SnmpMgr.Application do
   def start(_type, _args) do
     children = [
       # Configuration management
-      {SnmpKit.SnmpMgr.Config, []},
+      {SnmpKit.SnmpKit.SnmpMgr.Config, []},
       # MIB registry and management
-      {SnmpKit.SnmpMgr.MIB, []},
+      {SnmpKit.SnmpKit.SnmpMgr.MIB, []},
       # Circuit breaker for fault tolerance
-      {SnmpKit.SnmpMgr.CircuitBreaker, []}
+      {SnmpKit.SnmpKit.SnmpMgr.CircuitBreaker, []}
     ]
 
-    opts = [strategy: :one_for_one, name: SnmpKit.SnmpMgr.Supervisor]
+    opts = [strategy: :one_for_one, name: SnmpKit.SnmpKit.SnmpMgr.Supervisor]
     Supervisor.start_link(children, opts)
   end
 end

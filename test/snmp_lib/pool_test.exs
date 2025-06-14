@@ -2,7 +2,7 @@ defmodule SnmpKit.SnmpLib.PoolTest do
   use ExUnit.Case, async: false
   doctest SnmpKit.SnmpLib.Pool
 
-  alias SnmpKit.SnmpKit.SnmpLib.Pool
+  alias SnmpKit.SnmpLib.Pool
 
   @moduletag :pool_test
 

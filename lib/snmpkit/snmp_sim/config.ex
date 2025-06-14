@@ -1,4 +1,4 @@
-defmodule SnmpSim.Config do
+defmodule SnmpKit.SnmpSim.Config do
   @moduledoc """
   Configuration management for SnmpSim with support for JSON and YAML files.
 
@@ -14,19 +14,19 @@ defmodule SnmpSim.Config do
   ## Usage
 
       # Load from JSON file
-      {:ok, config} = SnmpSim.Config.load_from_file("config/devices.json")
-      {:ok, devices} = SnmpSim.Config.start_from_config(config)
-      
+      {:ok, config} = SnmpKit.SnmpSim.Config.load_from_file("config/devices.json")
+      {:ok, devices} = SnmpKit.SnmpSim.Config.start_from_config(config)
+
       # Load from YAML file
-      {:ok, config} = SnmpSim.Config.load_yaml("config/devices.yaml")
-      {:ok, devices} = SnmpSim.Config.start_from_config(config)
-      
+      {:ok, config} = SnmpKit.SnmpSim.Config.load_yaml("config/devices.yaml")
+      {:ok, devices} = SnmpKit.SnmpSim.Config.start_from_config(config)
+
       # Load from environment
-      {:ok, config} = SnmpSim.Config.load_from_environment()
-      {:ok, devices} = SnmpSim.Config.start_from_config(config)
+      {:ok, config} = SnmpKit.SnmpSim.Config.load_from_environment()
+      {:ok, devices} = SnmpKit.SnmpSim.Config.start_from_config(config)
   """
 
-  alias SnmpSim.{Device, Performance.ResourceManager}
+  alias SnmpKit.SnmpSim.{Device, Performance.ResourceManager}
 
   require Logger
 

@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpMgr.Target do
+defmodule SnmpKit.SnmpKit.SnmpMgr.Target do
   @moduledoc """
   Target parsing and validation for SNMP requests.
 
@@ -12,13 +12,13 @@ defmodule SnmpKit.SnmpMgr.Target do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Target.parse("192.168.1.1:161")
+      iex> SnmpKit.SnmpKit.SnmpMgr.Target.parse("192.168.1.1:161")
       {:ok, %{host: {192, 168, 1, 1}, port: 161}}
 
-      iex> SnmpKit.SnmpMgr.Target.parse("device.local")
+      iex> SnmpKit.SnmpKit.SnmpMgr.Target.parse("device.local")
       {:ok, %{host: "device.local", port: 161}}
 
-      iex> SnmpKit.SnmpMgr.Target.parse("192.168.1.1")
+      iex> SnmpKit.SnmpKit.SnmpMgr.Target.parse("192.168.1.1")
       {:ok, %{host: {192, 168, 1, 1}, port: 161}}
   """
   def parse(target) when is_binary(target) do

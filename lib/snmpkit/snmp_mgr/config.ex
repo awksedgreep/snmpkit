@@ -1,6 +1,6 @@
-defmodule SnmpKit.SnmpMgr.Config do
+defmodule SnmpKit.SnmpKit.SnmpMgr.Config do
   @moduledoc """
-  Configuration management for SnmpMgr.
+  Configuration management for SnmpKit.SnmpMgr.
 
   Provides global defaults and configuration options that can be set
   application-wide and used by all SNMP operations.
@@ -31,7 +31,7 @@ defmodule SnmpKit.SnmpMgr.Config do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Config.set_default_community("private")
+      iex> SnmpKit.SnmpKit.SnmpMgr.Config.set_default_community("private")
       :ok
   """
   def set_default_community(community) when is_binary(community) do
@@ -43,7 +43,7 @@ defmodule SnmpKit.SnmpMgr.Config do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Config.get_default_community()
+      iex> SnmpKit.SnmpKit.SnmpMgr.Config.get_default_community()
       "public"
   """
   def get_default_community do
@@ -55,7 +55,7 @@ defmodule SnmpKit.SnmpMgr.Config do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Config.set_default_timeout(10000)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Config.set_default_timeout(10000)
       :ok
   """
   def set_default_timeout(timeout) when is_integer(timeout) and timeout > 0 do
@@ -74,7 +74,7 @@ defmodule SnmpKit.SnmpMgr.Config do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Config.set_default_retries(3)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Config.set_default_retries(3)
       :ok
   """
   def set_default_retries(retries) when is_integer(retries) and retries >= 0 do
@@ -93,7 +93,7 @@ defmodule SnmpKit.SnmpMgr.Config do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Config.set_default_port(1161)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Config.set_default_port(1161)
       :ok
   """
   def set_default_port(port) when is_integer(port) and port > 0 and port <= 65535 do
@@ -112,7 +112,7 @@ defmodule SnmpKit.SnmpMgr.Config do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Config.set_default_version(:v2c)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Config.set_default_version(:v2c)
       :ok
   """
   def set_default_version(version) when version in [:v1, :v2c] do
@@ -131,7 +131,7 @@ defmodule SnmpKit.SnmpMgr.Config do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Config.add_mib_path("/usr/share/snmp/mibs")
+      iex> SnmpKit.SnmpKit.SnmpMgr.Config.add_mib_path("/usr/share/snmp/mibs")
       :ok
   """
   def add_mib_path(path) when is_binary(path) do
@@ -143,7 +143,7 @@ defmodule SnmpKit.SnmpMgr.Config do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Config.set_mib_paths(["/usr/share/snmp/mibs", "./mibs"])
+      iex> SnmpKit.SnmpKit.SnmpMgr.Config.set_mib_paths(["/usr/share/snmp/mibs", "./mibs"])
       :ok
   """
   def set_mib_paths(paths) when is_list(paths) do
@@ -162,7 +162,7 @@ defmodule SnmpKit.SnmpMgr.Config do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Config.get_all()
+      iex> SnmpKit.SnmpKit.SnmpMgr.Config.get_all()
       %{
         community: "public",
         timeout: 5000,
@@ -181,7 +181,7 @@ defmodule SnmpKit.SnmpMgr.Config do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Config.reset()
+      iex> SnmpKit.SnmpKit.SnmpMgr.Config.reset()
       :ok
   """
   def reset do
@@ -197,10 +197,10 @@ defmodule SnmpKit.SnmpMgr.Config do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Config.get(:community)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Config.get(:community)
       "public"
 
-      iex> SnmpKit.SnmpMgr.Config.get(:timeout)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Config.get(:timeout)
       5000
   """
   def get(key) do
@@ -222,7 +222,7 @@ defmodule SnmpKit.SnmpMgr.Config do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Config.merge_opts(community: "private", timeout: 10000)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Config.merge_opts(community: "private", timeout: 10000)
       [community: "private", timeout: 10000, retries: 1, port: 161]
   """
   def merge_opts(opts) do

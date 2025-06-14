@@ -7,7 +7,7 @@ defmodule SnmpKit.SnmpSim.TestHelpers do
   """
 
   require Logger
-  alias SnmpSim.{Device, LazyDevicePool}
+  alias SnmpKit.SnmpSim.{Device, LazyDevicePool}
 
   @doc """
   Creates test devices with various configurations.

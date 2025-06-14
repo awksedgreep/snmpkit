@@ -2,7 +2,7 @@ defmodule SnmpKit.SnmpLib.SecurityTest do
   use ExUnit.Case, async: true
   doctest SnmpKit.SnmpLib.Security
 
-  alias SnmpKit.SnmpKit.SnmpLib.Security
+  alias SnmpKit.SnmpLib.Security
 
   @moduletag :security
   @moduletag :phase5

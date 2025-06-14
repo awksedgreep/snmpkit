@@ -5,7 +5,7 @@ defmodule Snmpkit.MixProject do
     [
       app: :snmpkit,
       version: "0.1.0",
-      elixir: "~> 1.17",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       test_pattern: "**/*_test.exs",
@@ -39,7 +39,7 @@ defmodule Snmpkit.MixProject do
       {:jason, "~> 1.4"},
       {:yaml_elixir, "~> 2.9", optional: true},
       {:telemetry, "~> 1.0", optional: true},
-      
+
       # Development and test dependencies
       {:ex_doc, "~> 0.29", only: :dev, runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},

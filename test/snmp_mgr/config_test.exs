@@ -2,7 +2,7 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
   use ExUnit.Case, async: false
 
   alias SnmpKit.SnmpMgr.{Config}
-  alias SnmpKit.SnmpKit.TestSupport.SNMPSimulator
+  alias SnmpKit.TestSupport.SNMPSimulator
 
   @moduletag :unit
   @moduletag :config
@@ -56,7 +56,7 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
 
       # Perform operation without explicit options (should use config defaults)
       target = SNMPSimulator.device_target(device)
-      result = SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: device.community, timeout: 200)
+      result = SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: device.community, timeout: 200)
 
       assert {:ok, _value} = result
 
@@ -74,7 +74,7 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
 
       # Perform operation with explicit options (should override config)
       target = SNMPSimulator.device_target(device)
-      result = SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: device.community, timeout: 200)
+      result = SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: device.community, timeout: 200)
 
       assert {:ok, _value} = result
 
@@ -94,7 +94,7 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
       target = SNMPSimulator.device_target(device)
 
       result =
-        SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0",
+        SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0",
           community: device.community,
           version: :v1,
           timeout: 200
@@ -113,14 +113,14 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
       target = SNMPSimulator.device_target(device)
 
       get_result =
-        SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0",
+        SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0",
           community: device.community,
           version: :v2c,
           timeout: 200
         )
 
       bulk_result =
-        SnmpMgr.get_bulk(target, "1.3.6.1.2.1.1",
+        SnmpKit.SnmpMgr.get_bulk(target, "1.3.6.1.2.1.1",
           community: device.community,
           version: :v2c,
           timeout: 200,
@@ -148,7 +148,7 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
 
       # Test SNMP operation (should work with or without MIB resolution)
       target = SNMPSimulator.device_target(device)
-      result = SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: device.community, timeout: 200)
+      result = SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: device.community, timeout: 200)
 
       assert {:ok, _value} = result
     end
@@ -179,7 +179,7 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
       target = SNMPSimulator.device_target(device)
 
       result =
-        SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0",
+        SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0",
           community: Keyword.get(merged_opts, :community),
           timeout: Keyword.get(merged_opts, :timeout)
         )

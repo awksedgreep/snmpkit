@@ -1,10 +1,10 @@
-defmodule SnmpKit.SnmpKit.SnmpLib.MIB.ParserTest do
+defmodule SnmpKit.SnmpLib.MIB.ParserTest do
   use ExUnit.Case, async: true
   doctest SnmpKit.SnmpLib.MIB.Parser
 
   @moduletag :parsing_edge_cases
 
-  alias SnmpKit.SnmpKit.SnmpLib.MIB.{Parser, Error}
+  alias SnmpKit.SnmpLib.MIB.{Parser, Error}
 
   describe "basic MIB parsing" do
     test "parses minimal MIB structure" do

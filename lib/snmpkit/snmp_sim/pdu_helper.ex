@@ -1,4 +1,4 @@
-defmodule SnmpSim.PduHelper do
+defmodule SnmpKit.SnmpSim.PDUHelper do
   @moduledoc """
   Provides utility functions for PDU manipulation.
   """

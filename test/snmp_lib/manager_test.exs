@@ -2,7 +2,7 @@ defmodule SnmpKit.SnmpLib.ManagerTest do
   use ExUnit.Case, async: true
   doctest SnmpKit.SnmpLib.Manager
 
-  alias SnmpKit.SnmpKit.SnmpLib.Manager
+  alias SnmpKit.SnmpLib.Manager
 
   @moduletag :manager_test
 

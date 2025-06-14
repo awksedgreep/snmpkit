@@ -1,10 +1,10 @@
-defmodule SnmpSim.ValueSimulator do
+defmodule SnmpKit.SnmpSim.ValueSimulator do
   @moduledoc """
   Generate realistic values based on MIB-derived behavior patterns.
   Supports counters, gauges, enums, and correlated metrics with time-based variations.
   """
 
-  alias SnmpSim.TimePatterns
+  alias SnmpKit.SnmpSim.TimePatterns
 
   @doc """
   Simulate a value based on profile data, behavior configuration, and device state.
@@ -12,12 +12,12 @@ defmodule SnmpSim.ValueSimulator do
   ## Examples
 
       # Traffic counter simulation
-      value = SnmpSim.ValueSimulator.simulate_value(
+      value = SnmpKit.SnmpSim.ValueSimulator.simulate_value(
         %{type: "Counter32", value: 1000000},
         {:traffic_counter, %{rate_range: {1000, 125_000_000}}},
         %{device_id: "cm_001", uptime: 3600, interface_utilization: 0.3}
       )
-      
+
   """
   def simulate_value(profile_data, behavior_config, device_state) do
     current_time = DateTime.utc_now()
@@ -116,7 +116,7 @@ defmodule SnmpSim.ValueSimulator do
     format_counter_value(final_value, profile_data.type)
   end
 
-  # Packet Counter Simulation  
+  # Packet Counter Simulation
   defp simulate_packet_counter(profile_data, config, device_state, current_time) do
     base_value = get_base_counter_value(profile_data)
     uptime_seconds = Map.get(device_state, :uptime, 0)
@@ -566,8 +566,10 @@ defmodule SnmpSim.ValueSimulator do
           "timeticks" -> {:timeticks, data_value || 0}
           "integer" -> data_value || 0
           "string" -> to_string(data_value || "")
-          "object_identifier" -> data_value  # Preserve OID list format
-          "oid" -> data_value  # Preserve OID list format (alternate name)
+          # Preserve OID list format
+          "object_identifier" -> data_value
+          # Preserve OID list format (alternate name)
+          "oid" -> data_value
           _ -> to_string(data_value || "")
         end
 

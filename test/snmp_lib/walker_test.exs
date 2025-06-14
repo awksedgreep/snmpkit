@@ -2,7 +2,7 @@ defmodule SnmpKit.SnmpLib.WalkerTest do
   use ExUnit.Case, async: true
   doctest SnmpKit.SnmpLib.Walker
 
-  alias SnmpKit.SnmpKit.SnmpLib.Walker
+  alias SnmpKit.SnmpLib.Walker
 
   @moduletag :walker_test
 

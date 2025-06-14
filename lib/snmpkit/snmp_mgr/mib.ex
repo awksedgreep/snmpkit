@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpMgr.MIB do
+defmodule SnmpKit.SnmpKit.SnmpMgr.MIB do
   @compile {:no_warn_undefined, [:snmpc, :snmp_misc]}
 
   @moduledoc """
@@ -102,10 +102,10 @@ defmodule SnmpKit.SnmpMgr.MIB do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.MIB.compile("SNMPv2-MIB.mib")
+      iex> SnmpKit.SnmpKit.SnmpMgr.MIB.compile("SNMPv2-MIB.mib")
       {:ok, "SNMPv2-MIB.bin"}
 
-      iex> SnmpKit.SnmpMgr.MIB.compile("nonexistent.mib")
+      iex> SnmpKit.SnmpKit.SnmpMgr.MIB.compile("nonexistent.mib")
       {:error, :file_not_found}
   """
   def compile(mib_file, opts \\ []) do
@@ -160,7 +160,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.MIB.parse_mib_file("SNMPv2-MIB.mib")
+      iex> SnmpKit.SnmpKit.SnmpMgr.MIB.parse_mib_file("SNMPv2-MIB.mib")
       {:ok, %{objects: [...], imports: [...], exports: [...]}}
   """
   def parse_mib_file(mib_file, opts \\ []) do
@@ -179,7 +179,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
   ## Examples
 
       iex> content = "sysDescr OBJECT-TYPE SYNTAX DisplayString ACCESS read-only STATUS mandatory"
-      iex> SnmpKit.SnmpMgr.MIB.parse_mib_content(content)
+      iex> SnmpKit.SnmpKit.SnmpMgr.MIB.parse_mib_content(content)
       {:ok, %{tokens: [...], parsed_objects: [...]}}
   """
   def parse_mib_content(content, opts \\ []) when is_binary(content) do
@@ -264,13 +264,13 @@ defmodule SnmpKit.SnmpMgr.MIB do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.MIB.resolve("sysDescr.0")
+      iex> SnmpKit.SnmpKit.SnmpMgr.MIB.resolve("sysDescr.0")
       {:ok, [1, 3, 6, 1, 2, 1, 1, 1, 0]}
 
-      iex> SnmpKit.SnmpMgr.MIB.resolve("sysDescr")
+      iex> SnmpKit.SnmpKit.SnmpMgr.MIB.resolve("sysDescr")
       {:ok, [1, 3, 6, 1, 2, 1, 1, 1]}
 
-      iex> SnmpKit.SnmpMgr.MIB.resolve("unknownName")
+      iex> SnmpKit.SnmpKit.SnmpMgr.MIB.resolve("unknownName")
       {:error, :not_found}
   """
   def resolve(name) do
@@ -282,10 +282,10 @@ defmodule SnmpKit.SnmpMgr.MIB do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1, 0])
+      iex> SnmpKit.SnmpKit.SnmpMgr.MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1, 0])
       {:ok, "sysDescr.0"}
 
-      iex> SnmpKit.SnmpMgr.MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1])
+      iex> SnmpKit.SnmpKit.SnmpMgr.MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1])
       {:ok, "sysDescr"}
   """
   def reverse_lookup(oid) when is_list(oid) do

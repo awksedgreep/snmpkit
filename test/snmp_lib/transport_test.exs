@@ -2,7 +2,7 @@ defmodule SnmpKit.SnmpLib.TransportTest do
   # UDP sockets need sequential access
   use ExUnit.Case, async: false
 
-  alias SnmpKit.SnmpKit.SnmpLib.Transport
+  alias SnmpKit.SnmpLib.Transport
 
   @moduletag :unit
   @moduletag :protocol

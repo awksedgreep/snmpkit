@@ -1,4 +1,4 @@
-defmodule SnmpLib do
+defmodule SnmpKit.SnmpLib do
   @moduledoc """
   Unified SNMP library providing RFC-compliant PDU encoding/decoding, OID manipulation, and SNMP utilities.
 

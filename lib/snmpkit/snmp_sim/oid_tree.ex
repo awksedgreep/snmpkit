@@ -1,4 +1,4 @@
-defmodule SnmpSim.OIDTree do
+defmodule SnmpKit.SnmpSim.OIDTree do
   @moduledoc """
   Optimized OID tree for fast lookups and lexicographic traversal.
   Supports GETNEXT operations and GETBULK bulk retrieval.
@@ -41,8 +41,8 @@ defmodule SnmpSim.OIDTree do
 
   ## Examples
 
-      tree = SnmpSim.OIDTree.new()
-      
+      tree = SnmpKit.SnmpSim.OIDTree.new()
+
   """
   def new() do
     %__MODULE__{
@@ -58,9 +58,9 @@ defmodule SnmpSim.OIDTree do
 
   ## Examples
 
-      tree = SnmpSim.OIDTree.new()
-      tree = SnmpSim.OIDTree.insert(tree, "1.3.6.1.2.1.1.1.0", "System Description", nil)
-      
+      tree = SnmpKit.SnmpSim.OIDTree.new()
+      tree = SnmpKit.SnmpSim.OIDTree.insert(tree, "1.3.6.1.2.1.1.1.0", "System Description", nil)
+
   """
   def insert(%__MODULE__{} = tree, oid_string, value, behavior_info \\ nil) do
     oid_parts = parse_oid(oid_string)
@@ -78,9 +78,9 @@ defmodule SnmpSim.OIDTree do
 
   ## Examples
 
-      {:ok, value, behavior} = SnmpSim.OIDTree.get(tree, "1.3.6.1.2.1.1.1.0")
-      :not_found = SnmpSim.OIDTree.get(tree, "1.3.6.1.2.1.1.1.999")
-      
+      {:ok, value, behavior} = SnmpKit.SnmpSim.OIDTree.get(tree, "1.3.6.1.2.1.1.1.0")
+      :not_found = SnmpKit.SnmpSim.OIDTree.get(tree, "1.3.6.1.2.1.1.1.999")
+
   """
   def get(%__MODULE__{} = tree, oid_string) do
     oid_parts = parse_oid(oid_string)
@@ -93,9 +93,9 @@ defmodule SnmpSim.OIDTree do
 
   ## Examples
 
-      {:ok, next_oid, value, behavior} = SnmpSim.OIDTree.get_next(tree, "1.3.6.1.2.1.1.1.0")
-      :end_of_mib = SnmpSim.OIDTree.get_next(tree, "1.3.6.1.9.9.9.9.9")
-      
+      {:ok, next_oid, value, behavior} = SnmpKit.SnmpSim.OIDTree.get_next(tree, "1.3.6.1.2.1.1.1.0")
+      :end_of_mib = SnmpKit.SnmpSim.OIDTree.get_next(tree, "1.3.6.1.9.9.9.9.9")
+
   """
   def get_next(%__MODULE__{} = tree, oid_string) do
     # Ensure we have a sorted OID list for traversal
@@ -121,8 +121,8 @@ defmodule SnmpSim.OIDTree do
 
   ## Examples
 
-      results = SnmpSim.OIDTree.bulk_walk(tree, "1.3.6.1.2.1.2.2.1", 10, 0)
-      
+      results = SnmpKit.SnmpSim.OIDTree.bulk_walk(tree, "1.3.6.1.2.1.2.2.1", 10, 0)
+
   """
   def bulk_walk(%__MODULE__{} = tree, start_oid, max_repetitions, non_repeaters \\ 0) do
     # Ensure we have a sorted OID list for traversal
@@ -143,8 +143,8 @@ defmodule SnmpSim.OIDTree do
 
   ## Examples
 
-      oids = SnmpSim.OIDTree.list_oids(tree)
-      
+      oids = SnmpKit.SnmpSim.OIDTree.list_oids(tree)
+
   """
   def list_oids(%__MODULE__{} = tree) do
     tree = ensure_sorted_oids(tree)
@@ -156,8 +156,8 @@ defmodule SnmpSim.OIDTree do
 
   ## Examples
 
-      size = SnmpSim.OIDTree.size(tree)
-      
+      size = SnmpKit.SnmpSim.OIDTree.size(tree)
+
   """
   def size(%__MODULE__{} = tree), do: tree.size
 
@@ -166,8 +166,8 @@ defmodule SnmpSim.OIDTree do
 
   ## Examples
 
-      empty? = SnmpSim.OIDTree.empty?(tree)
-      
+      empty? = SnmpKit.SnmpSim.OIDTree.empty?(tree)
+
   """
   def empty?(%__MODULE__{} = tree), do: tree.size == 0
 

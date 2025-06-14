@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpMgr.Errors do
+defmodule SnmpKit.SnmpKit.SnmpMgr.Errors do
   @moduledoc """
   SNMP error handling and error code translation.
 
@@ -62,13 +62,13 @@ defmodule SnmpKit.SnmpMgr.Errors do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Errors.code_to_atom(2)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.code_to_atom(2)
       :no_such_name
 
-      iex> SnmpKit.SnmpMgr.Errors.code_to_atom(0)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.code_to_atom(0)
       :no_error
 
-      iex> SnmpKit.SnmpMgr.Errors.code_to_atom(999)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.code_to_atom(999)
       :unknown_error
   """
   def code_to_atom(error_code) when is_integer(error_code) do
@@ -84,13 +84,13 @@ defmodule SnmpKit.SnmpMgr.Errors do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Errors.description(:no_such_name)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.description(:no_such_name)
       "Variable name not found"
 
-      iex> SnmpKit.SnmpMgr.Errors.description(:too_big)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.description(:too_big)
       "Response too big to fit in message"
 
-      iex> SnmpKit.SnmpMgr.Errors.description(:unknown_error)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.description(:unknown_error)
       "Unknown error"
   """
   def description(error_atom) when is_atom(error_atom) do
@@ -102,10 +102,10 @@ defmodule SnmpKit.SnmpMgr.Errors do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Errors.code_to_description(2)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.code_to_description(2)
       "Variable name not found"
 
-      iex> SnmpKit.SnmpMgr.Errors.code_to_description(18)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.code_to_description(18)
       "Inconsistent name"
   """
   def code_to_description(error_code) when is_integer(error_code) do
@@ -119,10 +119,10 @@ defmodule SnmpKit.SnmpMgr.Errors do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Errors.is_v2c_error?(:no_access)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.is_v2c_error?(:no_access)
       true
 
-      iex> SnmpKit.SnmpMgr.Errors.is_v2c_error?(:no_such_name)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.is_v2c_error?(:no_such_name)
       false
   """
   def is_v2c_error?(error_atom) do
@@ -150,13 +150,13 @@ defmodule SnmpKit.SnmpMgr.Errors do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Errors.format_error({:snmp_error, 2})
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.format_error({:snmp_error, 2})
       "SNMP Error (2): Variable name not found"
 
-      iex> SnmpKit.SnmpMgr.Errors.format_error({:snmp_error, :no_such_name})
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.format_error({:snmp_error, :no_such_name})
       "SNMP Error: Variable name not found"
 
-      iex> SnmpKit.SnmpMgr.Errors.format_error({:v2c_error, :no_access, oid: "1.2.3.4"})
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.format_error({:v2c_error, :no_access, oid: "1.2.3.4"})
       "SNMPv2c Error: Access denied (OID: 1.2.3.4)"
   """
   def format_error({:snmp_error, error_code}) when is_integer(error_code) do
@@ -206,13 +206,13 @@ defmodule SnmpKit.SnmpMgr.Errors do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Errors.recoverable?({:network_error, :host_unreachable})
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.recoverable?({:network_error, :host_unreachable})
       false
 
-      iex> SnmpKit.SnmpMgr.Errors.recoverable?({:snmp_error, :too_big})
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.recoverable?({:snmp_error, :too_big})
       true
 
-      iex> SnmpKit.SnmpMgr.Errors.recoverable?(:timeout)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.recoverable?(:timeout)
       true
   """
   def recoverable?({:network_error, :host_unreachable}), do: false
@@ -236,7 +236,7 @@ defmodule SnmpKit.SnmpMgr.Errors do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Errors.analyze_error({:snmp_error, 2})
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.analyze_error({:snmp_error, 2})
       %{
         type: :snmp_protocol,
         atom: :no_such_name,
@@ -247,7 +247,7 @@ defmodule SnmpKit.SnmpMgr.Errors do
         description: "Variable name not found"
       }
 
-      iex> SnmpKit.SnmpMgr.Errors.analyze_error(:timeout)
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.analyze_error(:timeout)
       %{
         type: :network,
         atom: :timeout,
@@ -385,13 +385,13 @@ defmodule SnmpKit.SnmpMgr.Errors do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Errors.classify_error({:snmp_error, :no_such_name}, "Get request")
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.classify_error({:snmp_error, :no_such_name}, "Get request")
       {:user_error, :invalid_oid}
 
-      iex> SnmpKit.SnmpMgr.Errors.classify_error({:network_error, :timeout}, "Network operation")
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.classify_error({:network_error, :timeout}, "Network operation")
       {:transient_error, :network_timeout}
 
-      iex> SnmpKit.SnmpMgr.Errors.classify_error({:snmp_error, :too_big}, "Bulk request")
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.classify_error({:snmp_error, :too_big}, "Bulk request")
       {:recoverable_error, :response_too_large}
   """
   def classify_error(error, context \\ nil)
@@ -493,10 +493,10 @@ defmodule SnmpKit.SnmpMgr.Errors do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Errors.format_user_friendly_error({:snmp_error, :no_such_name}, "Getting system description")
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.format_user_friendly_error({:snmp_error, :no_such_name}, "Getting system description")
       "Unable to get system description: The requested OID does not exist on the device"
 
-      iex> SnmpKit.SnmpMgr.Errors.format_user_friendly_error({:network_error, :timeout}, "Contacting device")
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.format_user_friendly_error({:network_error, :timeout}, "Contacting device")
       "Failed contacting device: The device did not respond within the timeout period"
   """
   def format_user_friendly_error(error, context \\ "Operation")
@@ -566,10 +566,10 @@ defmodule SnmpKit.SnmpMgr.Errors do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Errors.get_recovery_suggestions({:snmp_error, :no_such_name})
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.get_recovery_suggestions({:snmp_error, :no_such_name})
       ["Verify the OID is correct", "Check if the OID is supported by this device", "Try using MIB browser to explore available OIDs"]
 
-      iex> SnmpKit.SnmpMgr.Errors.get_recovery_suggestions({:network_error, :timeout})
+      iex> SnmpKit.SnmpKit.SnmpMgr.Errors.get_recovery_suggestions({:network_error, :timeout})
       ["Increase timeout value", "Check network connectivity", "Verify device is responding to ping"]
   """
   def get_recovery_suggestions({:snmp_error, :no_such_name}) do

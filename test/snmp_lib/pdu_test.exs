@@ -1,7 +1,7 @@
 defmodule SnmpKit.SnmpLib.PDUTest do
   use ExUnit.Case, async: true
 
-  alias SnmpKit.SnmpKit.SnmpLib.PDU
+  alias SnmpKit.SnmpLib.PDU
 
   @moduletag :unit
   @moduletag :protocol

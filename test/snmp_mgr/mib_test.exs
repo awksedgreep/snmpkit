@@ -1,8 +1,8 @@
 defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
   use ExUnit.Case, async: false
 
-  alias SnmpKit.SnmpKit.SnmpMgr.MIB
-  alias SnmpKit.SnmpKit.TestSupport.SNMPSimulator
+  alias SnmpKit.SnmpMgr.MIB
+  alias SnmpKit.TestSupport.SNMPSimulator
 
   @moduletag :unit
   @moduletag :mib
@@ -45,7 +45,7 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
             # Use resolved OID in SNMP operation
             oid_string = oid |> Enum.join(".") |> then(&"#{&1}.0")
             target = SNMPSimulator.device_target(device)
-            result = SnmpMgr.get(target, oid_string, community: device.community, timeout: 200)
+            result = SnmpKit.SnmpMgr.get(target, oid_string, community: device.community, timeout: 200)
 
             assert {:ok, _} = result
 
@@ -62,7 +62,7 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
       # Get a value first
       target = SNMPSimulator.device_target(device)
 
-      case SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: device.community, timeout: 200) do
+      case SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: device.community, timeout: 200) do
         {:ok, _value} ->
           # Try reverse lookup on the OID we requested
           case MIB.reverse_lookup("1.3.6.1.2.1.1.1.0") do
@@ -98,7 +98,7 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
 
       for oid <- standard_oids do
         target = SNMPSimulator.device_target(device)
-        result = SnmpMgr.get(target, oid, community: device.community, timeout: 200)
+        result = SnmpKit.SnmpMgr.get(target, oid, community: device.community, timeout: 200)
 
         case result do
           {:ok, _value} ->

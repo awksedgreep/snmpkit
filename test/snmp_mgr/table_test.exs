@@ -1,6 +1,6 @@
 defmodule SnmpKit.SnmpMgr.TableProcessingTest do
   use ExUnit.Case, async: true
-  alias SnmpKit.SnmpKit.SnmpMgr.Table
+  alias SnmpKit.SnmpMgr.Table
 
   describe "Table.to_table/2" do
     test "converts 3-tuple varbinds to table format" do

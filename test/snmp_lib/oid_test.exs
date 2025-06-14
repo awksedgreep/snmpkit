@@ -1,7 +1,7 @@
 defmodule SnmpKit.SnmpLib.OIDTest do
   use ExUnit.Case, async: true
 
-  alias SnmpKit.SnmpKit.SnmpLib.OID
+  alias SnmpKit.SnmpLib.OID
 
   @moduletag :unit
   @moduletag :protocol

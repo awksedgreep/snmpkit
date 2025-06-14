@@ -1,4 +1,4 @@
-defmodule SnmpMgr do
+defmodule SnmpKit.SnmpMgr do
   @moduledoc """
   Lightweight SNMP client library for Elixir.
 

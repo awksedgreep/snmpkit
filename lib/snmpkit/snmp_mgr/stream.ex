@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpMgr.Stream do
+defmodule SnmpKit.SnmpKit.SnmpMgr.Stream do
   @moduledoc """
   High-performance streaming SNMP operations for memory-efficient processing.
 
@@ -25,14 +25,14 @@ defmodule SnmpKit.SnmpMgr.Stream do
 
       # Process a large table efficiently
       "switch.local"
-      |> SnmpKit.SnmpMgr.Stream.walk_stream("ifTable")
+      |> SnmpKit.SnmpKit.SnmpMgr.Stream.walk_stream("ifTable")
       |> Stream.filter(fn {_oid, value} -> String.contains?(value, "Gigabit") end)
       |> Stream.map(&extract_interface_info/1)
       |> Enum.to_list()
 
       # Real-time processing with backpressure
       "router.local"
-      |> SnmpKit.SnmpMgr.Stream.walk_stream("ipRouteTable", chunk_size: 100)
+      |> SnmpKit.SnmpKit.SnmpMgr.Stream.walk_stream("ipRouteTable", chunk_size: 100)
       |> Stream.each(&update_routing_database/1)
       |> Stream.run()
   """
@@ -62,14 +62,14 @@ defmodule SnmpKit.SnmpMgr.Stream do
 
       # Stream interface table with column filtering
       "switch.local"
-      |> SnmpKit.SnmpMgr.Stream.table_stream("ifTable", columns: [:ifDescr, :ifOperStatus])
+      |> SnmpKit.SnmpKit.SnmpMgr.Stream.table_stream("ifTable", columns: [:ifDescr, :ifOperStatus])
       |> Stream.filter(fn {_index, data} -> data[:ifOperStatus] == 1 end)
       |> Stream.map(fn {index, data} -> {index, data[:ifDescr]} end)
       |> Enum.to_list()
 
       # Process table with custom chunk size
       "device.local"
-      |> SnmpKit.SnmpMgr.Stream.table_stream("ipRouteTable", chunk_size: 200)
+      |> SnmpKit.SnmpKit.SnmpMgr.Stream.table_stream("ipRouteTable", chunk_size: 200)
       |> Stream.each(&process_route_entry/1)
       |> Stream.run()
   """
@@ -104,13 +104,13 @@ defmodule SnmpKit.SnmpMgr.Stream do
       ]
 
       targets
-      |> SnmpKit.SnmpMgr.Stream.monitor_stream(interval: 30_000)
+      |> SnmpKit.SnmpKit.SnmpMgr.Stream.monitor_stream(interval: 30_000)
       |> Stream.each(&send_to_metrics_system/1)
       |> Stream.run()
 
       # Monitor with error handling
       targets
-      |> SnmpKit.SnmpMgr.Stream.monitor_stream(
+      |> SnmpKit.SnmpKit.SnmpMgr.Stream.monitor_stream(
            interval: 10_000,
            error_handling: :skip_errors
          )
@@ -150,7 +150,7 @@ defmodule SnmpKit.SnmpMgr.Stream do
       ]
 
       operations
-      |> SnmpKit.SnmpMgr.Stream.concurrent_stream(max_concurrent: 3)
+      |> SnmpKit.SnmpKit.SnmpMgr.Stream.concurrent_stream(max_concurrent: 3)
       |> Stream.each(&process_device_data/1)
       |> Stream.run()
   """
@@ -191,7 +191,7 @@ defmodule SnmpKit.SnmpMgr.Stream do
       end
 
       "switch.local"
-      |> SnmpKit.SnmpMgr.Stream.filtered_stream("ifTable", filter_fn)
+      |> SnmpKit.SnmpKit.SnmpMgr.Stream.filtered_stream("ifTable", filter_fn)
       |> Enum.to_list()
   """
   def filtered_stream(target, root_oid, filter_fn, opts \\ []) do
@@ -238,7 +238,7 @@ defmodule SnmpKit.SnmpMgr.Stream do
 
     start_time = if state.adaptive, do: System.monotonic_time(:millisecond), else: nil
 
-    case SnmpKit.SnmpMgr.Core.send_get_bulk_request(state.target, state.current_oid, bulk_opts) do
+    case SnmpKit.SnmpKit.SnmpMgr.Core.send_get_bulk_request(state.target, state.current_oid, bulk_opts) do
       {:ok, results} ->
         end_time = if state.adaptive, do: System.monotonic_time(:millisecond), else: nil
 
@@ -315,7 +315,7 @@ defmodule SnmpKit.SnmpMgr.Stream do
       |> Keyword.put(:max_repetitions, state.chunk_size)
       |> Keyword.put(:version, :v2c)
 
-    case SnmpKit.SnmpMgr.Core.send_get_bulk_request(state.target, state.current_oid, bulk_opts) do
+    case SnmpKit.SnmpKit.SnmpMgr.Core.send_get_bulk_request(state.target, state.current_oid, bulk_opts) do
       {:ok, results} ->
         # Filter and organize table results
         {table_entries, next_oid} = process_table_results(results, state.table_oid, state.columns)
@@ -432,7 +432,7 @@ defmodule SnmpKit.SnmpMgr.Stream do
   end
 
   defp poll_targets(targets, error_handling, opts) do
-    SnmpKit.SnmpMgr.Multi.get_multi(targets, opts)
+    SnmpKit.SnmpKit.SnmpMgr.Multi.get_multi(targets, opts)
     |> Enum.zip(targets)
     |> Enum.map(fn {result, {target, oid}} ->
       case result do
@@ -510,15 +510,15 @@ defmodule SnmpKit.SnmpMgr.Stream do
   end
 
   defp execute_stream_operation(:walk, target, oid, opts),
-    do: SnmpKit.SnmpMgr.walk(target, oid, opts)
+    do: SnmpKit.SnmpKit.SnmpMgr.walk(target, oid, opts)
 
   defp execute_stream_operation(:walk_table, target, oid, opts),
-    do: SnmpMgr.walk_table(target, oid, opts)
+    do: SnmpKit.SnmpMgr.walk_table(target, oid, opts)
 
-  defp execute_stream_operation(:get, target, oid, opts), do: SnmpMgr.get(target, oid, opts)
+  defp execute_stream_operation(:get, target, oid, opts), do: SnmpKit.SnmpMgr.get(target, oid, opts)
 
   defp execute_stream_operation(:get_bulk, target, oid, opts),
-    do: SnmpMgr.get_bulk(target, oid, opts)
+    do: SnmpKit.SnmpMgr.get_bulk(target, oid, opts)
 
   defp execute_stream_operation(_, _, _, _), do: {:error, :unsupported_operation}
 
@@ -528,7 +528,7 @@ defmodule SnmpKit.SnmpMgr.Stream do
         {:ok, oid_list}
 
       {:error, _} ->
-        case SnmpKit.SnmpMgr.MIB.resolve(oid) do
+        case SnmpKit.SnmpKit.SnmpMgr.MIB.resolve(oid) do
           {:ok, resolved_oid} -> {:ok, resolved_oid}
           error -> error
         end

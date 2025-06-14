@@ -14,7 +14,7 @@ defmodule SnmpKit.SnmpSim.Device do
   use GenServer
   require Logger
 
-  alias SnmpSim.{DeviceDistribution}
+  alias SnmpKit.SnmpSim.{DeviceDistribution}
   alias SnmpKit.SnmpSim.Core.Server
   alias SnmpKit.SnmpSim.Device.ErrorInjector
   alias SnmpKit.SnmpSim.Device.OidHandler
