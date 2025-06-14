@@ -1,0 +1,1852 @@
+# SnmpKit Library Tour 🚀
+
+## Section
+
+Welcome to the comprehensive tour of SnmpKit - a pure Elixir SNMP library! This interactive notebook will guide you through all the powerful features, from basic SNMP operations to advanced MIB parsing and device simulation.
+
+## What is SnmpKit?
+
+SnmpKit is a modern, pure Elixir implementation of the Simple Network Management Protocol (SNMP). Unlike traditional Erlang SNMP libraries, SnmpKit is built from the ground up in Elixir, providing:
+
+* 🧬 **Pure Elixir Implementation** - No Erlang SNMP dependencies
+* 📋 **Advanced MIB Parsing** - Parse and work with MIB files natively
+* 🖥️ **Device Simulation** - Create realistic SNMP devices for testing
+* 🔧 **Modern API** - Elixir-friendly interfaces and patterns
+* ⚡ **High Performance** - Optimized for large-scale operations
+* 🧪 **Testing Friendly** - Built-in test helpers and simulators
+
+## Setup
+
+Let's start by setting up our environment. We'll install SnmpKit and configure some basic settings.
+
+```elixir
+Mix.install([
+  {:snmpkit, path: ".."}
+])
+
+# Enable detailed logging for our tour
+Logger.configure(level: :info)
+
+IO.puts("🎉 SnmpKit loaded successfully!")
+IO.puts("📚 Library version: #{Application.spec(:snmpkit, :vsn)}")
+```
+
+## Chapter 1: Basic SNMP Operations
+
+### Understanding SNMP Basics
+
+SNMP (Simple Network Management Protocol) is used for network management and monitoring. It operates on a simple request-response model with these key operations:
+
+* **GET** - Retrieve a specific value
+* **GET-NEXT** - Retrieve the next value in the MIB tree
+* **GET-BULK** - Retrieve multiple values efficiently
+* **SET** - Modify a value
+* **WALK** - Traverse the MIB tree
+
+```elixir
+# Let's explore the basic SNMP types and operations
+alias SnmpKit.SnmpLib.{Types, Pdu, Message}
+
+# Create a simple SNMP GET request
+get_request = %Pdu{
+  type: :get_request,
+  request_id: 12345,
+  error_status: 0,
+  error_index: 0,
+  varbinds: [
+    %{oid: "1.3.6.1.2.1.1.1.0", value: nil}  # sysDescr.0
+  ]
+}
+
+IO.puts("📦 Created SNMP GET request:")
+IO.inspect(get_request, pretty: true)
+```
+
+### Working with OIDs
+
+Object Identifiers (OIDs) are the backbone of SNMP. Let's explore how SnmpKit handles them:
+
+```elixir
+alias SnmpKit.SnmpLib.Oid
+
+# Different ways to represent OIDs
+oid_string = "1.3.6.1.2.1.1.1.0"
+oid_list = [1, 3, 6, 1, 2, 1, 1, 1, 0]
+
+# Convert between formats
+IO.puts("🔢 OID as string: #{oid_string}")
+IO.puts("📋 OID as list: #{inspect(oid_list)}")
+
+# Parse and validate OIDs
+case Oid.parse(oid_string) do
+  {:ok, parsed_oid} ->
+    IO.puts("✅ Successfully parsed OID: #{inspect(parsed_oid)}")
+  {:error, reason} ->
+    IO.puts("❌ Failed to parse OID: #{reason}")
+end
+
+# Compare OIDs
+oid1 = "1.3.6.1.2.1.1.1.0"
+oid2 = "1.3.6.1.2.1.1.2.0"
+
+comparison = Oid.compare(oid1, oid2)
+IO.puts("🔍 Comparing #{oid1} with #{oid2}: #{comparison}")
+```
+
+### SNMP Data Types
+
+SNMP supports various data types. Let's explore how SnmpKit handles them:
+
+```elixir
+# Demonstrate different SNMP types
+examples = [
+  {:integer, 42},
+  {:string, "Hello SNMP!"},
+  {:object_id, "1.3.6.1.2.1.1.1.0"},
+  {:ip_address, {192, 168, 1, 1}},
+  {:counter32, 1234567},
+  {:gauge32, 98765},
+  {:time_ticks, 123456789},
+  {:opaque, <<1, 2, 3, 4>>},
+  {:counter64, 9876543210}
+]
+
+IO.puts("🎯 SNMP Data Types Examples:")
+Enum.each(examples, fn {type, value} ->
+  formatted = Types.format_value(value, type)
+  IO.puts("  #{type}: #{inspect(value)} → #{formatted}")
+end)
+```
+
+## Chapter 2: MIB Parsing - The Heart of SnmpKit
+
+One of SnmpKit's most powerful features is its pure Elixir MIB parser. Let's explore how it works!
+
+### What are MIBs?
+
+Management Information Bases (MIBs) define the structure of management information for network devices. They're like schemas that describe what SNMP objects are available and how they're organized.
+
+```elixir
+alias SnmpKit.MibParser
+
+# Let's see what MIB files we have available
+mib_dir = Path.join(["..", "test", "fixtures", "mibs"])
+
+if File.exists?(mib_dir) do
+  mib_files =
+    mib_dir
+    |> File.ls!()
+    |> Enum.filter(&String.ends_with?(&1, ".mib"))
+    |> Enum.take(5)  # Just show first 5 for brevity
+
+  IO.puts("📁 Available MIB files (showing first 5):")
+  Enum.each(mib_files, fn file ->
+    IO.puts("  • #{file}")
+  end)
+else
+  IO.puts("📁 MIB directory not found - we'll create some examples")
+end
+```
+
+### Parsing a Simple MIB
+
+Let's create a simple MIB example and parse it:
+
+```elixir
+# Create a simple MIB definition
+simple_mib = """
+SIMPLE-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, Integer32
+        FROM SNMPv2-SMI;
+
+simpleMIB MODULE-IDENTITY
+    LAST-UPDATED "202312010000Z"
+    ORGANIZATION "SnmpKit Examples"
+    CONTACT-INFO "info@snmpkit.dev"
+    DESCRIPTION "A simple example MIB for demonstration"
+    ::= { 1 3 6 1 4 1 99999 1 }
+
+-- Simple objects
+simpleObjects OBJECT IDENTIFIER ::= { simpleMIB 1 }
+
+simpleString OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(0..255))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "A simple string object"
+    ::= { simpleObjects 1 }
+
+simpleCounter OBJECT-TYPE
+    SYNTAX      Integer32 (0..2147483647)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "A simple counter object"
+    ::= { simpleObjects 2 }
+
+END
+"""
+
+# Parse the MIB
+case MibParser.parse_string(simple_mib) do
+  {:ok, parsed_mib} ->
+    IO.puts("🎉 Successfully parsed simple MIB!")
+    IO.puts("📊 MIB contains #{length(parsed_mib.objects)} objects:")
+
+    Enum.each(parsed_mib.objects, fn obj ->
+      IO.puts("  • #{obj.name} (#{obj.oid})")
+    end)
+
+  {:error, reason} ->
+    IO.puts("❌ Failed to parse MIB: #{inspect(reason)}")
+end
+```
+
+### Exploring Real MIB Files
+
+Let's try to parse some real MIB files if they're available:
+
+```elixir
+# Try to find and parse a real MIB file
+docsis_mib_path = Path.join(["..", "test", "fixtures", "mibs", "docsis"])
+
+if File.exists?(docsis_mib_path) do
+  # Look for DOCSIS MIB files
+  docsis_files =
+    docsis_mib_path
+    |> File.ls!()
+    |> Enum.filter(&String.contains?(&1, "DOCS"))
+    |> Enum.take(1)
+
+  case docsis_files do
+    [mib_file | _] ->
+      mib_path = Path.join(docsis_mib_path, mib_file)
+      IO.puts("🔍 Attempting to parse: #{mib_file}")
+
+      case MibParser.parse_file(mib_path) do
+        {:ok, mib} ->
+          IO.puts("🎉 Successfully parsed #{mib_file}!")
+          IO.puts("📊 Statistics:")
+          IO.puts("  • Objects: #{length(mib.objects)}")
+          IO.puts("  • Imports: #{length(mib.imports)}")
+
+          # Show some example objects
+          sample_objects = Enum.take(mib.objects, 3)
+          IO.puts("  • Sample objects:")
+          Enum.each(sample_objects, fn obj ->
+            IO.puts("    - #{obj.name}: #{obj.oid}")
+          end)
+
+        {:error, reason} ->
+          IO.puts("⚠️ Parsing failed: #{inspect(reason)}")
+      end
+
+    [] ->
+      IO.puts("📁 No DOCSIS MIB files found")
+  end
+else
+  IO.puts("📁 DOCSIS MIB directory not found")
+end
+```
+
+### MIB Object Exploration
+
+Let's create a more complex MIB example to explore object relationships:
+
+```elixir
+complex_mib = """
+COMPLEX-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, OBJECT-IDENTITY,
+    Integer32, Counter32, Gauge32, TimeTicks
+        FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION, DisplayString
+        FROM SNMPv2-TC;
+
+complexMIB MODULE-IDENTITY
+    LAST-UPDATED "202312010000Z"
+    ORGANIZATION "SnmpKit Examples"
+    DESCRIPTION "A complex example MIB"
+    ::= { 1 3 6 1 4 1 99999 2 }
+
+-- System Information
+systemInfo OBJECT-IDENTITY
+    STATUS current
+    DESCRIPTION "System information objects"
+    ::= { complexMIB 1 }
+
+systemName OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..255))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "The system name"
+    ::= { systemInfo 1 }
+
+systemUptime OBJECT-TYPE
+    SYNTAX      TimeTicks
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "System uptime in hundredths of seconds"
+    ::= { systemInfo 2 }
+
+-- Statistics
+statistics OBJECT-IDENTITY
+    STATUS current
+    DESCRIPTION "Statistical information"
+    ::= { complexMIB 2 }
+
+packetCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Total packet count"
+    ::= { statistics 1 }
+
+bandwidth OBJECT-TYPE
+    SYNTAX      Gauge32
+    UNITS       "bits per second"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Current bandwidth utilization"
+    ::= { statistics 2 }
+
+END
+"""
+
+case MibParser.parse_string(complex_mib) do
+  {:ok, mib} ->
+    IO.puts("🎉 Successfully parsed complex MIB!")
+
+    # Group objects by parent
+    grouped_objects = Enum.group_by(mib.objects, fn obj ->
+      obj.oid |> String.split(".") |> Enum.drop(-1) |> Enum.join(".")
+    end)
+
+    IO.puts("🌳 MIB Structure:")
+    Enum.each(grouped_objects, fn {parent_oid, objects} ->
+      IO.puts("  📂 #{parent_oid}:")
+      Enum.each(objects, fn obj ->
+        IO.puts("    • #{obj.name} (#{obj.oid}) - #{obj.syntax}")
+      end)
+    end)
+
+  {:error, reason} ->
+    IO.puts("❌ Failed to parse complex MIB: #{inspect(reason)}")
+end
+```
+
+## Chapter 3: Device Simulation
+
+SnmpKit's device simulation is perfect for testing SNMP applications without real hardware. Let's explore this powerful feature!
+
+### Starting a Simple SNMP Device
+
+```elixir
+alias SnmpKit.SnmpSim.{Device, ProfileLoader}
+
+# Create a basic device profile
+basic_profile = %{
+  device_type: :demo_device,
+  device_id: "demo_001",
+  community: "public",
+  objects: %{
+    "1.3.6.1.2.1.1.1.0" => %{  # sysDescr
+      value: "SnmpKit Demo Device v1.0",
+      type: :string,
+      access: :read_only
+    },
+    "1.3.6.1.2.1.1.2.0" => %{  # sysObjectID
+      value: "1.3.6.1.4.1.99999.1.1",
+      type: :object_id,
+      access: :read_only
+    },
+    "1.3.6.1.2.1.1.3.0" => %{  # sysUpTime
+      value: 0,
+      type: :time_ticks,
+      access: :read_only,
+      behavior: :counter  # This will increment over time
+    },
+    "1.3.6.1.2.1.1.4.0" => %{  # sysContact
+      value: "admin@example.com",
+      type: :string,
+      access: :read_write
+    },
+    "1.3.6.1.2.1.1.5.0" => %{  # sysName
+      value: "demo-device",
+      type: :string,
+      access: :read_write
+    }
+  }
+}
+
+IO.puts("🖥️ Created basic device profile with #{map_size(basic_profile.objects)} objects")
+```
+
+### Port Allocation for Devices
+
+Let's use the port allocator to get ports for our devices:
+
+```elixir
+alias SnmpKit.SnmpSim.TestHelpers.PortAllocator
+
+# Start the port allocator
+{:ok, _pid} = PortAllocator.start_link()
+
+# Reserve some ports for our devices
+case PortAllocator.reserve_port_range(3) do
+  {:ok, {start_port, end_port}} ->
+    IO.puts("🔌 Reserved ports #{start_port}-#{end_port} for devices")
+
+    # Store ports for later use
+    device_ports = Enum.to_list(start_port..end_port)
+    IO.puts("📋 Available ports: #{inspect(device_ports)}")
+
+  {:error, reason} ->
+    IO.puts("❌ Failed to reserve ports: #{reason}")
+    device_ports = [30000, 30001, 30002]  # Fallback ports
+end
+```
+
+### Creating Multiple Device Types
+
+Let's create different types of devices with realistic behaviors:
+
+```elixir
+# Cable Modem Profile
+cable_modem_profile = %{
+  device_type: :cable_modem,
+  device_id: "cm_001",
+  community: "public",
+  objects: %{
+    "1.3.6.1.2.1.1.1.0" => %{
+      value: "Motorola SURFboard SB6141 Cable Modem",
+      type: :string,
+      access: :read_only
+    },
+    "1.3.6.1.2.1.2.2.1.10.2" => %{  # ifInOctets
+      value: 0,
+      type: :counter32,
+      access: :read_only,
+      behavior: :random_increment,
+      min_increment: 100,
+      max_increment: 10000
+    },
+    "1.3.6.1.2.1.2.2.1.16.2" => %{  # ifOutOctets
+      value: 0,
+      type: :counter32,
+      access: :read_only,
+      behavior: :random_increment,
+      min_increment: 50,
+      max_increment: 5000
+    }
+  }
+}
+
+# Switch Profile
+switch_profile = %{
+  device_type: :switch,
+  device_id: "sw_001",
+  community: "public",
+  objects: %{
+    "1.3.6.1.2.1.1.1.0" => %{
+      value: "Cisco Catalyst 2960 Switch",
+      type: :string,
+      access: :read_only
+    },
+    "1.3.6.1.2.1.1.6.0" => %{  # sysLocation
+      value: "Network Closet A",
+      type: :string,
+      access: :read_write
+    },
+    "1.3.6.1.2.1.2.1.0" => %{  # ifNumber
+      value: 24,
+      type: :integer,
+      access: :read_only
+    }
+  }
+}
+
+# Router Profile
+router_profile = %{
+  device_type: :router,
+  device_id: "rtr_001",
+  community: "public",
+  objects: %{
+    "1.3.6.1.2.1.1.1.0" => %{
+      value: "Cisco ISR 4321 Router",
+      type: :string,
+      access: :read_only
+    },
+    "1.3.6.1.2.1.4.1.0" => %{  # ipForwarding
+      value: 1,  # forwarding enabled
+      type: :integer,
+      access: :read_write
+    },
+    "1.3.6.1.2.1.4.3.0" => %{  # ipInReceives
+      value: 0,
+      type: :counter32,
+      access: :read_only,
+      behavior: :steady_increment,
+      increment: 1000
+    }
+  }
+}
+
+profiles = [
+  {cable_modem_profile, "Cable Modem"},
+  {switch_profile, "Switch"},
+  {router_profile, "Router"}
+]
+
+IO.puts("🏭 Created #{length(profiles)} device profiles:")
+Enum.each(profiles, fn {profile, name} ->
+  object_count = map_size(profile.objects)
+  IO.puts("  • #{name}: #{object_count} objects")
+end)
+```
+
+### Simulating Device Behaviors
+
+Let's create a device with realistic behaviors:
+
+```elixir
+# Create a device with time-based behaviors
+realistic_device = %{
+  device_type: :realistic_demo,
+  device_id: "realistic_001",
+  community: "public",
+  objects: %{
+    # System description
+    "1.3.6.1.2.1.1.1.0" => %{
+      value: "SnmpKit Realistic Demo Device",
+      type: :string,
+      access: :read_only
+    },
+
+    # Uptime (increments every second)
+    "1.3.6.1.2.1.1.3.0" => %{
+      value: 0,
+      type: :time_ticks,
+      access: :read_only,
+      behavior: :uptime_counter
+    },
+
+    # CPU utilization (varies realistically)
+    "1.3.6.1.4.1.99999.1.1.1" => %{
+      value: 15,
+      type: :gauge32,
+      access: :read_only,
+      behavior: :cpu_utilization,
+      base_value: 15,
+      variation: 10
+    },
+
+    # Memory usage (gradually increases)
+    "1.3.6.1.4.1.99999.1.1.2" => %{
+      value: 1024000,
+      type: :gauge32,
+      access: :read_only,
+      behavior: :memory_usage,
+      base_value: 1024000,
+      growth_rate: 1000
+    },
+
+    # Network traffic (bursty)
+    "1.3.6.1.2.1.2.2.1.10.1" => %{
+      value: 0,
+      type: :counter32,
+      access: :read_only,
+      behavior: :bursty_traffic,
+      burst_probability: 0.3,
+      normal_rate: 1000,
+      burst_rate: 50000
+    }
+  }
+}
+
+IO.puts("🎭 Created realistic device with behavioral simulation:")
+IO.puts("  • Uptime counter")
+IO.puts("  • CPU utilization with variation")
+IO.puts("  • Memory usage with growth")
+IO.puts("  • Bursty network traffic")
+```
+
+## Chapter 4: Advanced Operations
+
+### Walk File Support
+
+SnmpKit can load device data from SNMP walk files, which are captures of real device data:
+
+```elixir
+# Let's create a sample walk file format
+sample_walk_data = """
+1.3.6.1.2.1.1.1.0 = STRING: "Linux server01 5.4.0-42-generic"
+1.3.6.1.2.1.1.2.0 = OID: 1.3.6.1.4.1.8072.3.2.10
+1.3.6.1.2.1.1.3.0 = Timeticks: (12345678) 1 day, 10:17:36.78
+1.3.6.1.2.1.1.4.0 = STRING: "System Administrator <admin@example.com>"
+1.3.6.1.2.1.1.5.0 = STRING: "server01.example.com"
+1.3.6.1.2.1.1.6.0 = STRING: "Data Center Rack 42"
+1.3.6.1.2.1.2.1.0 = INTEGER: 3
+1.3.6.1.2.1.2.2.1.1.1 = INTEGER: 1
+1.3.6.1.2.1.2.2.1.1.2 = INTEGER: 2
+1.3.6.1.2.1.2.2.1.1.3 = INTEGER: 3
+1.3.6.1.2.1.2.2.1.2.1 = STRING: "lo"
+1.3.6.1.2.1.2.2.1.2.2 = STRING: "eth0"
+1.3.6.1.2.1.2.2.1.2.3 = STRING: "eth1"
+"""
+
+# Parse walk file data
+alias SnmpKit.SnmpSim.WalkFileParser
+
+case WalkFileParser.parse_string(sample_walk_data) do
+  {:ok, walk_data} ->
+    IO.puts("📄 Successfully parsed walk file data!")
+    IO.puts("📊 Found #{length(walk_data)} SNMP objects:")
+
+    # Show some examples
+    Enum.take(walk_data, 5)
+    |> Enum.each(fn {oid, value, type} ->
+      IO.puts("  • #{oid} = #{type}: #{inspect(value)}")
+    end)
+
+    if length(walk_data) > 5 do
+      IO.puts("  ... and #{length(walk_data) - 5} more objects")
+    end
+
+  {:error, reason} ->
+    IO.puts("❌ Failed to parse walk data: #{inspect(reason)}")
+end
+```
+
+### Bulk Operations
+
+SNMP GETBULK operations are efficient for retrieving multiple values:
+
+```elixir
+# Simulate a GETBULK operation
+alias SnmpKit.SnmpLib.Pdu
+
+# Create a GETBULK request
+getbulk_request = %Pdu{
+  type: :get_bulk_request,
+  request_id: 54321,
+  error_status: 0,  # non-repeaters
+  error_index: 10,  # max-repetitions
+  varbinds: [
+    %{oid: "1.3.6.1.2.1.2.2.1.1", value: nil},  # ifIndex
+    %{oid: "1.3.6.1.2.1.2.2.1.2", value: nil}   # ifDescr
+  ]
+}
+
+IO.puts("📦 GETBULK request for interface table:")
+IO.puts("  • Non-repeaters: #{getbulk_request.error_status}")
+IO.puts("  • Max-repetitions: #{getbulk_request.error_index}")
+IO.puts("  • Starting OIDs:")
+Enum.each(getbulk_request.varbinds, fn vb ->
+  IO.puts("    - #{vb.oid}")
+end)
+
+# Simulate the response
+simulated_response = %Pdu{
+  type: :get_response,
+  request_id: 54321,
+  error_status: 0,
+  error_index: 0,
+  varbinds: [
+    # Interface 1
+    %{oid: "1.3.6.1.2.1.2.2.1.1.1", value: 1},
+    %{oid: "1.3.6.1.2.1.2.2.1.2.1", value: "lo"},
+    # Interface 2
+    %{oid: "1.3.6.1.2.1.2.2.1.1.2", value: 2},
+    %{oid: "1.3.6.1.2.1.2.2.1.2.2", value: "eth0"},
+    # Interface 3
+    %{oid: "1.3.6.1.2.1.2.2.1.1.3", value: 3},
+    %{oid: "1.3.6.1.2.1.2.2.1.2.3", value: "eth1"}
+  ]
+}
+
+IO.puts("📬 Simulated GETBULK response:")
+Enum.each(simulated_response.varbinds, fn vb ->
+  IO.puts("  • #{vb.oid} = #{inspect(vb.value)}")
+end)
+```
+
+### Error Handling and Edge Cases
+
+SnmpKit provides robust error handling:
+
+```elixir
+# Demonstrate different error scenarios
+error_scenarios = [
+  {:no_such_name, "1.3.6.1.2.1.999.999.0"},
+  {:bad_value, "1.3.6.1.2.1.1.4.0"},
+  {:read_only, "1.3.6.1.2.1.1.1.0"},
+  {:gen_err, "1.3.6.1.2.1.1.999.0"}
+]
+
+IO.puts("⚠️ SNMP Error Scenarios:")
+Enum.each(error_scenarios, fn {error_type, oid} ->
+  error_response = %Pdu{
+    type: :get_response,
+    request_id: 99999,
+    error_status: case error_type do
+      :no_such_name -> 2
+      :bad_value -> 3
+      :read_only -> 4
+      :gen_err -> 5
+    end,
+    error_index: 1,
+    varbinds: [%{oid: oid, value: nil}]
+  }
+
+  error_name = case error_type do
+    :no_such_name -> "No Such Name"
+    :bad_value -> "Bad Value"
+    :read_only -> "Read Only"
+    :gen_err -> "General Error"
+  end
+
+  IO.puts("  • #{error_name}: #{oid}")
+end)
+```
+
+## Chapter 5: Performance and Scalability
+
+### Large-Scale Device Simulation
+
+SnmpKit is designed to handle large numbers of simulated devices:
+
+```elixir
+# Configuration for large-scale simulation
+large_scale_config = %{
+  device_count: 1000,
+  port_range: 30000..31000,
+  device_types: [
+    %{type: :cable_modem, percentage: 60},
+    %{type: :switch, percentage: 25},
+    %{type: :router, percentage: 10},
+    %{type: :server, percentage: 5}
+  ],
+  behaviors: [
+    :realistic_counters,
+    :time_patterns,
+    :correlations
+  ]
+}
+
+IO.puts("🏭 Large-Scale Simulation Configuration:")
+IO.puts("  • Total devices: #{large_scale_config.device_count}")
+IO.puts("  • Port range: #{inspect(large_scale_config.port_range)}")
+IO.puts("  • Device distribution:")
+Enum.each(large_scale_config.device_types, fn %{type: type, percentage: pct} ->
+  count = div(large_scale_config.device_count * pct, 100)
+  IO.puts("    - #{type}: #{count} devices (#{pct}%)")
+end)
+```
+
+### Performance Metrics
+
+Let's measure some performance characteristics:
+
+```elixir
+# Benchmark MIB parsing performance
+benchmark_mib = """
+BENCHMARK-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, Integer32, Counter32
+        FROM SNMPv2-SMI;
+
+benchmarkMIB MODULE-IDENTITY
+    LAST-UPDATED "202312010000Z"
+    ORGANIZATION "SnmpKit Benchmarks"
+    DESCRIPTION "Performance testing MIB"
+    ::= { 1 3 6 1 4 1 99999 999 }
+
+""" <>
+# Generate many objects for benchmarking
+(1..100
+|> Enum.map(fn i ->
+  """
+
+  testObject#{i} OBJECT-TYPE
+      SYNTAX      Counter32
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION "Test object #{i}"
+      ::= { benchmarkMIB #{i} }
+  """
+end)
+|> Enum.join()) <> "\n\nEND\n"
+
+# Time the parsing
+start_time = System.monotonic_time(:millisecond)
+parse_result = MibParser.parse_string(benchmark_mib)
+end_time = System.monotonic_time(:millisecond)
+parse_duration = end_time - start_time
+
+case parse_result do
+  {:ok, mib} ->
+    objects_per_ms = length(mib.objects) / max(parse_duration, 1)
+    IO.puts("⚡ MIB Parsing Performance:")
+    IO.puts("  • Objects parsed: #{length(mib.objects)}")
+    IO.puts("  • Time taken: #{parse_duration}ms")
+    IO.puts("  • Rate: #{Float.round(objects_per_ms, 2)} objects/ms")
+
+  {:error, reason} ->
+    IO.puts("❌ Benchmark MIB parsing failed: #{inspect(reason)}")
+end
+```
+
+### Memory Usage Optimization
+
+```elixir
+# Demonstrate memory-efficient operations
+memory_before = :erlang.memory(:total)
+
+# Create a large number of OID operations
+oid_operations = 1..1000
+|> Enum.map(fn i ->
+  oid = "1.3.6.1.4.1.99999.1.#{i}.0"
+  case Oid.parse(oid) do
+    {:ok, parsed} -> parsed
+    {:error, _} -> nil
+  end
+end)
+|> Enum.filter(&(&1 != nil))
+
+memory_after = :erlang.memory(:total)
+memory_used = memory_after - memory_before
+
+IO.puts("💾 Memory Usage Analysis:")
+IO.puts("  • Operations performed: #{length(oid_operations)}")
+IO.puts("  • Memory used: #{div(memory_used, 1024)} KB")
+IO.puts("  • Memory per operation: #{div(memory_used, length(oid_operations))} bytes")
+```
+
+## Chapter 6: Testing and Development
+
+### Test Helpers
+
+SnmpKit provides comprehensive test helpers for SNMP application development:
+
+```elixir
+alias SnmpKit.SnmpSim.TestHelpers.{PortAllocator, DeviceHelper}
+
+# Get port allocation statistics
+stats = PortAllocator.get_stats()
+IO.puts("🔌 Port Allocator Statistics:")
+IO.puts("  • Next port: #{stats.next_port}")
+IO.puts("  • Allocated ports: #{stats.allocated_count}")
+IO.puts("  • Available ports: #{stats.available_ports}")
+IO.puts("  • Total ports: #{stats.total_ports}")
+
+# Calculate utilization
+utilization = (stats.allocated_count / stats.total_ports * 100) |> Float.round(2)
+IO.puts("  • Utilization: #{utilization}%")
+```
+
+### Creating Test Scenarios
+
+```elixir
+# Define test scenarios for different network conditions
+test_scenarios = [
+  %{
+    name: "Normal Operation",
+    description: "Typical network conditions",
+    error_rate: 0.0,
+    timeout_rate: 0.0,
+    delay_ms: 10
+  },
+  %{
+    name: "High Latency",
+    description: "Slow network conditions",
+    error_rate: 0.01,
+    timeout_rate: 0.02,
+    delay_ms: 500
+  },
+  %{
+    name: "Packet Loss",
+    description: "Unreliable network",
+    error_rate: 0.05,
+    timeout_rate: 0.1,
+    delay_ms: 100
+  },
+  %{
+    name: "Overloaded Network",
+    description: "Network under stress",
+    error_rate: 0.1,
+    timeout_rate: 0.15,
+    delay_ms: 1000
+  }
+]
+
+IO.puts("🧪 Test Scenarios:")
+Enum.each(test_scenarios, fn scenario ->
+  IO.puts("  • #{scenario.name}:")
+  IO.puts("    - #{scenario.description}")
+  IO.puts("    - Error rate: #{scenario.error_rate * 100}%")
+  IO.puts("    - Timeout rate: #{scenario.timeout_rate * 100}%")
+  IO.puts("    - Delay: #{scenario.delay_ms}ms")
+end)
+```
+
+### Mock Device Factory
+
+```elixir
+# Create a factory for generating mock devices
+defmodule MockDeviceFactory do
+  def create_cable_modem(id, port) do
+    %{
+      device_type: :cable_modem,
+      device_id: "cm_#{id}",
+      port: port,
+      community: "public",
+      objects: %{
+        "1.3.6.1.2.1.1.1.0" => "ARRIS SURFboard SB8200 Cable Modem",
+        "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.4115.1.20.1.1.2.23",
+        "1.3.6.1.2.1.1.3.0" => :rand.uniform(1000000),
+        "1.3.6.1.2.1.10.127.1.1.1.1.6.3" => "00:11:22:33:44:#{String.pad_leading(Integer.to_string(id, 16), 2, "0")}",
+        "1.3.6.1.2.1.10.127.1.2.2.1.3.3" => :rand.uniform(40) + 10,  # downstream power
+        "1.3.6.1.2.1.10.127.1.1.4.1.3.3" => :rand.uniform(10) + 35   # upstream power
+      }
+    }
+  end
+
+  def create_switch(id, port) do
+    %{
+      device_type: :switch,
+      device_id: "sw_#{id}",
+      port: port,
+      community: "public",
+      objects: %{
+        "1.3.6.1.2.1.1.1.0" => "Cisco Catalyst 2960-X Series Switch",
+        "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.9.1.1208",
+        "1.3.6.1.2.1.2.1.0" => 48,  # 48 ports
+        "1.3.6.1.2.1.17.1.1.0" => "00:1e:#{String.pad_leading(Integer.to_string(id, 16), 2, "0")}:cd:ef:#{String.pad_leading(Integer.to_string(id, 16), 2, "0")}",
+        "1.3.6.1.2.1.17.1.3.0" => :rand.uniform(1000) + 100  # learned addresses
+      }
+    }
+  end
+end
+
+# Create sample devices
+sample_devices = [
+  MockDeviceFactory.create_cable_modem(1, 30100),
+  MockDeviceFactory.create_cable_modem(2, 30101),
+  MockDeviceFactory.create_switch(1, 30102),
+  MockDeviceFactory.create_switch(2, 30103)
+]
+
+IO.puts("🏭 Created #{length(sample_devices)} mock devices:")
+Enum.each(sample_devices, fn device ->
+  object_count = map_size(device.objects)
+  IO.puts("  • #{device.device_id} (#{device.device_type}) - #{object_count} objects on port #{device.port}")
+end)
+```
+
+## Chapter 7: Real-World Examples
+
+### Network Monitoring Scenario
+
+Let's create a realistic network monitoring scenario:
+
+```elixir
+# Define a network topology
+network_topology = %{
+  core_router: %{
+    device_type: :router,
+    role: :core,
+    port: 30200,
+    interfaces: 8,
+    cpu_usage: 25,
+    memory_usage: 45
+  },
+  distribution_switches: [
+    %{device_type: :switch, role: :distribution, port: 30201, interfaces: 48},
+    %{device_type: :switch, role: :distribution, port: 30202, interfaces: 48}
+  ],
+  access_switches: (30203..30206) |> Enum.map(fn port ->
+    %{device_type: :switch, role: :access, port: port, interfaces: 24}
+  end),
+  cable_modems: (30207..30226) |> Enum.map(fn port ->
+    %{device_type: :cable_modem, role: :endpoint, port: port, mac_address: generate_mac()}
+  end)
+}
+
+defp generate_mac do
+  1..6
+  |> Enum.map(fn _ -> :rand.uniform(255) |> Integer.to_string(16) |> String.pad_leading(2, "0") end)
+  |> Enum.join(":")
+end
+
+# Calculate topology statistics
+total_devices = 1 + length(network_topology.distribution_switches) +
+                length(network_topology.access_switches) +
+                length(network_topology.cable_modems)
+
+IO.puts("🌐 Network Topology Overview:")
+IO.puts("  • Total devices: #{total_devices}")
+IO.puts("  • Core routers: 1")
+IO.puts("  • Distribution switches: #{length(network_topology.distribution_switches)}")
+IO.puts("  • Access switches: #{length(network_topology.access_switches)}")
+IO.puts("  • Cable modems: #{length(network_topology.cable_modems)}")
+```
+
+### Performance Monitoring Dashboard
+
+```elixir
+# Simulate real-time performance metrics
+defmodule PerformanceMonitor do
+  def generate_metrics(device_type) do
+    case device_type do
+      :router ->
+        %{
+          cpu_usage: :rand.uniform(40) + 20,
+          memory_usage: :rand.uniform(30) + 40,
+          packet_rate: :rand.uniform(10000) + 50000,
+          error_rate: :rand.uniform(100) / 10000
+        }
+
+      :switch ->
+        %{
+          cpu_usage: :rand.uniform(20) + 5,
+          memory_usage: :rand.uniform(25) + 25,
+          forwarding_rate: :rand.uniform(1000000) + 500000,
+          collision_rate: :rand.uniform(50) / 100000
+        }
+
+      :cable_modem ->
+        %{
+          downstream_power: :rand.uniform(15) + 5,  # dBmV
+          upstream_power: :rand.uniform(10) + 35,   # dBmV
+          snr: :rand.uniform(15) + 25,              # dB
+          error_rate: :rand.uniform(1000) / 1000000
+        }
+    end
+  end
+
+  def format_metrics(metrics, device_type) do
+    case device_type do
+      :router ->
+        [
+          "CPU: #{metrics.cpu_usage}%",
+          "Memory: #{metrics.memory_usage}%",
+          "Packets/sec: #{metrics.packet_rate}",
+          "Errors: #{Float.round(metrics.error_rate * 100, 4)}%"
+        ]
+
+      :switch ->
+        [
+          "CPU: #{metrics.cpu_usage}%",
+          "Memory: #{metrics.memory_usage}%",
+          "Forwarding: #{metrics.forwarding_rate} pps",
+          "Collisions: #{Float.round(metrics.collision_rate * 100, 5)}%"
+        ]
+
+      :cable_modem ->
+        [
+          "DS Power: #{metrics.downstream_power} dBmV",
+          "US Power: #{metrics.upstream_power} dBmV",
+          "SNR: #{metrics.snr} dB",
+          "Errors: #{Float.round(metrics.error_rate * 100, 6)}%"
+        ]
+    end
+  end
+end
+
+# Generate a monitoring snapshot
+IO.puts("📊 Network Performance Snapshot:")
+
+# Core router metrics
+router_metrics = PerformanceMonitor.generate_metrics(:router)
+IO.puts("  🔀 Core Router:")
+PerformanceMonitor.format_metrics(router_metrics, :router)
+|> Enum.each(fn metric -> IO.puts("    • #{metric}") end)
+
+# Sample switch metrics
+switch_metrics = PerformanceMonitor.generate_metrics(:switch)
+IO.puts("  🔗 Distribution Switch:")
+PerformanceMonitor.format_metrics(switch_metrics, :switch)
+|> Enum.each(fn metric -> IO.puts("    • #{metric}") end)
+
+# Sample cable modem metrics
+cm_metrics = PerformanceMonitor.generate_metrics(:cable_modem)
+IO.puts("  📡 Cable Modem:")
+PerformanceMonitor.format_metrics(cm_metrics, :cable_modem)
+|> Enum.each(fn metric -> IO.puts("    • #{metric}") end)
+```
+
+### Fault Detection and Alerting
+
+```elixir
+# Define alert thresholds and rules
+alert_rules = %{
+  router: %{
+    cpu_usage: %{critical: 80, warning: 60},
+    memory_usage: %{critical: 85, warning: 70},
+    error_rate: %{critical: 0.01, warning: 0.005}
+  },
+  switch: %{
+    cpu_usage: %{critical: 50, warning: 30},
+    memory_usage: %{critical: 80, warning: 60},
+    collision_rate: %{critical: 0.001, warning: 0.0005}
+  },
+  cable_modem: %{
+    downstream_power: %{critical_low: -10, warning_low: -5, critical_high: 15, warning_high: 10},
+    upstream_power: %{critical_low: 30, warning_low: 35, critical_high: 55, warning_high: 50},
+    snr: %{critical_low: 20, warning_low: 25}
+  }
+}
+
+defmodule AlertEngine do
+  def check_alerts(metrics, device_type, rules) do
+    device_rules = Map.get(rules, device_type, %{})
+
+    Enum.reduce(metrics, [], fn {metric_name, value}, alerts ->
+      case Map.get(device_rules, metric_name) do
+        nil -> alerts
+        thresholds -> check_metric_thresholds(metric_name, value, thresholds) ++ alerts
+      end
+    end)
+  end
+
+  defp check_metric_thresholds(metric_name, value, thresholds) do
+    cond do
+      Map.has_key?(thresholds, :critical) and value >= thresholds.critical ->
+        [{:critical, metric_name, value, thresholds.critical}]
+
+      Map.has_key?(thresholds, :warning) and value >= thresholds.warning ->
+        [{:warning, metric_name, value, thresholds.warning}]
+
+      Map.has_key?(thresholds, :critical_low) and value <= thresholds.critical_low ->
+        [{:critical, metric_name, value, thresholds.critical_low}]
+
+      Map.has_key?(thresholds, :warning_low) and value <= thresholds.warning_low ->
+        [{:warning, metric_name, value, thresholds.warning_low}]
+
+      Map.has_key?(thresholds, :critical_high) and value >= thresholds.critical_high ->
+        [{:critical, metric_name, value, thresholds.critical_high}]
+
+      Map.has_key?(thresholds, :warning_high) and value >= thresholds.warning_high ->
+        [{:warning, metric_name, value, thresholds.warning_high}]
+
+      true -> []
+    end
+  end
+
+  def format_alert({severity, metric, value, threshold}) do
+    severity_icon = case severity do
+      :critical -> "🚨"
+      :warning -> "⚠️"
+    end
+
+    "#{severity_icon} #{String.upcase(to_string(severity))}: #{metric} = #{value} (threshold: #{threshold})"
+  end
+end
+
+# Test alerting with some problematic metrics
+problem_router = %{
+  cpu_usage: 85,  # Critical
+  memory_usage: 65,  # Warning
+  packet_rate: 55000,
+  error_rate: 0.008  # Warning
+}
+
+problem_cm = %{
+  downstream_power: -12,  # Critical low
+  upstream_power: 48,  # Warning high
+  snr: 22,  # Warning low
+  error_rate: 0.000001
+}
+
+IO.puts("🚨 Alert Detection Example:")
+
+# Check router alerts
+router_alerts = AlertEngine.check_alerts(problem_router, :router, alert_rules)
+if length(router_alerts) > 0 do
+  IO.puts("  Router Alerts:")
+  Enum.each(router_alerts, fn alert ->
+    IO.puts("    #{AlertEngine.format_alert(alert)}")
+  end)
+end
+
+# Check cable modem alerts
+cm_alerts = AlertEngine.check_alerts(problem_cm, :cable_modem, alert_rules)
+if length(cm_alerts) > 0 do
+  IO.puts("  Cable Modem Alerts:")
+  Enum.each(cm_alerts, fn alert ->
+    IO.puts("    #{AlertEngine.format_alert(alert)}")
+  end)
+end
+
+total_alerts = length(router_alerts) + length(cm_alerts)
+IO.puts("  📈 Total alerts generated: #{total_alerts}")
+```
+
+## Chapter 8: Advanced Configuration
+
+### Custom MIB Modules
+
+```elixir
+# Create a custom enterprise MIB
+enterprise_mib = """
+ACME-NETWORK-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, OBJECT-IDENTITY,
+    Integer32, Counter32, Gauge32, TimeTicks, enterprises
+        FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION, DisplayString, TruthValue
+        FROM SNMPv2-TC
+    MODULE-COMPLIANCE, OBJECT-GROUP
+        FROM SNMPv2-CONF;
+
+acmeNetworkMIB MODULE-IDENTITY
+    LAST-UPDATED "202312010000Z"
+    ORGANIZATION "ACME Networks Inc."
+    CONTACT-INFO
+        "ACME Networks Support
+         Email: support@acme-networks.com
+         Phone: +1-555-ACME-NET"
+    DESCRIPTION
+        "Management Information Base for ACME Network Equipment"
+    REVISION "202312010000Z"
+    DESCRIPTION "Initial version"
+    ::= { enterprises 12345 }
+
+-- Textual Conventions
+PortIndex ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "d"
+    STATUS current
+    DESCRIPTION "Port index value"
+    SYNTAX Integer32 (1..65535)
+
+-- Top-level structure
+acmeSystem      OBJECT IDENTIFIER ::= { acmeNetworkMIB 1 }
+acmeInterfaces  OBJECT IDENTIFIER ::= { acmeNetworkMIB 2 }
+acmeRouting     OBJECT IDENTIFIER ::= { acmeNetworkMIB 3 }
+
+-- System Information
+acmeSystemInfo OBJECT-IDENTITY
+    STATUS current
+    DESCRIPTION "System information objects"
+    ::= { acmeSystem 1 }
+
+acmeHardwareVersion OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..32))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Hardware version string"
+    ::= { acmeSystemInfo 1 }
+
+acmeFirmwareVersion OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..32))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Firmware version string"
+    ::= { acmeSystemInfo 2 }
+
+acmeSystemTemperature OBJECT-TYPE
+    SYNTAX      Integer32 (-40..100)
+    UNITS       "degrees Celsius"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "System temperature in Celsius"
+    ::= { acmeSystemInfo 3 }
+
+-- Interface Extensions
+acmeIfTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF AcmeIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Extended interface information table"
+    ::= { acmeInterfaces 1 }
+
+acmeIfEntry OBJECT-TYPE
+    SYNTAX      AcmeIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Extended interface information entry"
+    INDEX       { acmeIfIndex }
+    ::= { acmeIfTable 1 }
+
+AcmeIfEntry ::= SEQUENCE {
+    acmeIfIndex         PortIndex,
+    acmeIfPowerSave     TruthValue,
+    acmeIfErrorCounts   Counter32
+}
+
+acmeIfIndex OBJECT-TYPE
+    SYNTAX      PortIndex
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Interface index"
+    ::= { acmeIfEntry 1 }
+
+acmeIfPowerSave OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "Enable power saving mode on interface"
+    DEFVAL      { false }
+    ::= { acmeIfEntry 2 }
+
+acmeIfErrorCounts OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Total error count for interface"
+    ::= { acmeIfEntry 3 }
+
+END
+"""
+
+# Parse the enterprise MIB
+case MibParser.parse_string(enterprise_mib) do
+  {:ok, mib} ->
+    IO.puts("🏢 Successfully parsed Enterprise MIB!")
+    IO.puts("📊 MIB Statistics:")
+    IO.puts("  • Module: #{mib.module_name}")
+    IO.puts("  • Objects: #{length(mib.objects)}")
+    IO.puts("  • Tables: #{mib.objects |> Enum.count(&String.contains?(&1.name, "Table"))}")
+
+    # Show object hierarchy
+    IO.puts("  • Object Hierarchy:")
+    mib.objects
+    |> Enum.take(5)
+    |> Enum.each(fn obj ->
+      IO.puts("    - #{obj.name} (#{obj.oid})")
+    end)
+
+  {:error, reason} ->
+    IO.puts("❌ Failed to parse Enterprise MIB: #{inspect(reason)}")
+end
+```
+
+### Configuration Management
+
+```elixir
+# Device configuration management example
+defmodule ConfigManager do
+  def device_config_template(device_type) do
+    base_config = %{
+      snmp: %{
+        version: "2c",
+        community: "public",
+        port: 161,
+        timeout: 5000,
+        retries: 3
+      },
+      monitoring: %{
+        poll_interval: 60,
+        metrics: [:cpu, :memory, :interfaces]
+      }
+    }
+
+    case device_type do
+      :router ->
+        Map.merge(base_config, %{
+          routing: %{
+            protocols: [:ospf, :bgp],
+            route_table_size: 10000
+          },
+          monitoring: Map.merge(base_config.monitoring, %{
+            metrics: [:cpu, :memory, :interfaces, :routing_table, :bgp_peers]
+          })
+        })
+
+      :switch ->
+        Map.merge(base_config, %{
+          switching: %{
+            vlan_support: true,
+            spanning_tree: :rstp,
+            port_count: 48
+          },
+          monitoring: Map.merge(base_config.monitoring, %{
+            metrics: [:cpu, :memory, :interfaces, :vlan_table, :mac_table]
+          })
+        })
+
+      :cable_modem ->
+        Map.merge(base_config, %{
+          docsis: %{
+            version: "3.1",
+            downstream_channels: 32,
+            upstream_channels: 8
+          },
+          monitoring: Map.merge(base_config.monitoring, %{
+            metrics: [:signal_quality, :power_levels, :error_rates],
+            poll_interval: 300  # Less frequent for cable modems
+          })
+        })
+
+      _ ->
+        base_config
+    end
+  end
+
+  def validate_config(config) do
+    required_fields = [:snmp, :monitoring]
+
+    case Enum.find(required_fields, fn field -> not Map.has_key?(config, field) end) do
+      nil ->
+        # Validate SNMP settings
+        snmp_valid = Map.has_key?(config.snmp, :community) and
+                    Map.has_key?(config.snmp, :port)
+
+        if snmp_valid do
+          {:ok, config}
+        else
+          {:error, "Invalid SNMP configuration"}
+        end
+
+      missing_field ->
+        {:error, "Missing required field: #{missing_field}"}
+    end
+  end
+end
+
+# Generate configurations for different device types
+device_types = [:router, :switch, :cable_modem]
+
+IO.puts("⚙️ Device Configuration Templates:")
+Enum.each(device_types, fn device_type ->
+  config = ConfigManager.device_config_template(device_type)
+
+  case ConfigManager.validate_config(config) do
+    {:ok, _} ->
+      IO.puts("  ✅ #{String.upcase(to_string(device_type))} Configuration:")
+      IO.puts("    • SNMP Port: #{config.snmp.port}")
+      IO.puts("    • Poll Interval: #{config.monitoring.poll_interval}s")
+      IO.puts("    • Metrics: #{length(config.monitoring.metrics)} types")
+
+    {:error, reason} ->
+      IO.puts("  ❌ #{String.upcase(to_string(device_type))} Configuration Error: #{reason}")
+  end
+end)
+```
+
+## Chapter 9: Troubleshooting and Debugging
+
+### Diagnostic Tools
+
+```elixir
+# SNMP diagnostic utilities
+defmodule SnmpDiagnostics do
+  def test_connectivity(host, port, community \\ "public") do
+    # Simulate connectivity test
+    latency = :rand.uniform(50) + 5
+    success_rate = :rand.uniform(100)
+
+    status = cond do
+      success_rate > 95 -> :excellent
+      success_rate > 85 -> :good
+      success_rate > 70 -> :fair
+      true -> :poor
+    end
+
+    %{
+      host: host,
+      port: port,
+      community: community,
+      latency_ms: latency,
+      success_rate: success_rate,
+      status: status,
+      timestamp: DateTime.utc_now()
+    }
+  end
+
+  def analyze_mib_coverage(device_profile) do
+    standard_mibs = [
+      "SNMPv2-MIB",
+      "IF-MIB",
+      "IP-MIB",
+      "TCP-MIB",
+      "UDP-MIB"
+    ]
+
+    coverage = Enum.map(standard_mibs, fn mib ->
+      # Simulate MIB support detection
+      supported = :rand.uniform(100) > 20
+      object_count = if supported, do: :rand.uniform(50) + 10, else: 0
+
+      %{
+        mib: mib,
+        supported: supported,
+        object_count: object_count
+      }
+    end)
+
+    total_objects = Enum.sum(Enum.map(coverage, &(&1.object_count)))
+    supported_mibs = Enum.count(coverage, &(&1.supported))
+
+    %{
+      device_id: device_profile[:device_id] || "unknown",
+      mib_coverage: coverage,
+      total_objects: total_objects,
+      supported_mibs: supported_mibs,
+      coverage_percentage: (supported_mibs / length(standard_mibs) * 100) |> Float.round(1)
+    }
+  end
+
+  def format_diagnostic_report(diagnostics) do
+    [
+      "🔍 SNMP Diagnostic Report",
+      "═══════════════════════════",
+      "",
+      "📡 Connectivity Test:",
+      "  • Host: #{diagnostics.host}:#{diagnostics.port}",
+      "  • Community: #{diagnostics.community}",
+      "  • Latency: #{diagnostics.latency_ms}ms",
+      "  • Success Rate: #{diagnostics.success_rate}%",
+      "  • Status: #{String.upcase(to_string(diagnostics.status))}",
+      "",
+      "🕒 Test Time: #{DateTime.to_string(diagnostics.timestamp)}"
+    ]
+  end
+end
+
+# Run diagnostic tests
+test_devices = [
+  %{host: "192.168.1.1", port: 161, device_id: "router_01"},
+  %{host: "192.168.1.10", port: 161, device_id: "switch_01"},
+  %{host: "192.168.1.100", port: 161, device_id: "cm_001"}
+]
+
+IO.puts("🔧 Running SNMP Diagnostics:")
+Enum.each(test_devices, fn device ->
+  # Test connectivity
+  conn_test = SnmpDiagnostics.test_connectivity(device.host, device.port)
+
+  # Analyze MIB coverage
+  mib_analysis = SnmpDiagnostics.analyze_mib_coverage(device)
+
+  IO.puts("")
+  IO.puts("📋 Device: #{device.device_id}")
+  IO.puts("  • Connectivity: #{conn_test.status} (#{conn_test.success_rate}%)")
+  IO.puts("  • Latency: #{conn_test.latency_ms}ms")
+  IO.puts("  • MIB Coverage: #{mib_analysis.coverage_percentage}%")
+  IO.puts("  • Supported Objects: #{mib_analysis.total_objects}")
+end)
+```
+
+### Performance Profiling
+
+```elixir
+# Performance profiling utilities
+defmodule PerformanceProfiler do
+  def profile_operation(name, fun) do
+    start_time = System.monotonic_time(:microsecond)
+    start_memory = :erlang.memory(:total)
+
+    result = fun.()
+
+    end_time = System.monotonic_time(:microsecond)
+    end_memory = :erlang.memory(:total)
+
+    duration_us = end_time - start_time
+    memory_delta = end_memory - start_memory
+
+    %{
+      operation: name,
+      result: result,
+      duration_us: duration_us,
+      duration_ms: duration_us / 1000,
+      memory_delta_bytes: memory_delta,
+      memory_delta_kb: div(memory_delta, 1024)
+    }
+  end
+
+  def format_profile(profile) do
+    [
+      "⚡ Performance Profile: #{profile.operation}",
+      "  • Duration: #{Float.round(profile.duration_ms, 2)}ms",
+      "  • Memory Delta: #{profile.memory_delta_kb}KB",
+      "  • Result: #{inspect(profile.result, limit: 2)}"
+    ]
+  end
+end
+
+# Profile various operations
+operations_to_profile = [
+  {"OID Parsing", fn ->
+    oids = 1..100 |> Enum.map(fn i -> "1.3.6.1.2.1.2.2.1.1.#{i}" end)
+    Enum.map(oids, &Oid.parse/1)
+  end},
+
+  {"Simple MIB Parse", fn ->
+    simple_mib = """
+    TEST-MIB DEFINITIONS ::= BEGIN
+    testObject OBJECT-TYPE
+        SYNTAX Integer32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION "Test"
+        ::= { 1 3 6 1 4 1 99999 1 }
+    END
+    """
+    MibParser.parse_string(simple_mib)
+  end},
+
+  {"Port Allocation", fn ->
+    PortAllocator.reserve_port_range(10)
+  end}
+]
+
+IO.puts("📊 Performance Profiling Results:")
+Enum.each(operations_to_profile, fn {name, operation} ->
+  profile = PerformanceProfiler.profile_operation(name, operation)
+
+  IO.puts("")
+  Enum.each(PerformanceProfiler.format_profile(profile), &IO.puts/1)
+end)
+```
+
+### Common Issues and Solutions
+
+```elixir
+# Common SNMP troubleshooting scenarios
+troubleshooting_guide = %{
+  "No Response from Device" => [
+    "Check network connectivity (ping test)",
+    "Verify SNMP community string",
+    "Confirm SNMP is enabled on device",
+    "Check firewall rules (port 161/UDP)",
+    "Verify device IP address"
+  ],
+
+  "Timeout Errors" => [
+    "Increase timeout values",
+    "Check network latency",
+    "Reduce request size (use GETNEXT instead of GETBULK)",
+    "Verify device is not overloaded",
+    "Check for packet loss"
+  ],
+
+  "Authentication Failures" => [
+    "Verify community string case-sensitivity",
+    "Check SNMPv3 credentials if applicable",
+    "Confirm access permissions on device",
+    "Verify source IP restrictions"
+  ],
+
+  "OID Not Found" => [
+    "Verify OID syntax (dots and numbers only)",
+    "Check if OID exists in device MIB",
+    "Try walking parent OID to discover children",
+    "Confirm device supports the MIB module"
+  ],
+
+  "Parse Errors" => [
+    "Validate MIB file syntax",
+    "Check for missing IMPORTS",
+    "Verify object definitions are complete",
+    "Look for circular dependencies"
+  ]
+}
+
+IO.puts("🔧 SNMP Troubleshooting Guide:")
+Enum.each(troubleshooting_guide, fn {issue, solutions} ->
+  IO.puts("")
+  IO.puts("❓ #{issue}:")
+  Enum.each(solutions, fn solution ->
+    IO.puts("  • #{solution}")
+  end)
+end)
+```
+
+## Chapter 10: Best Practices and Tips
+
+### Development Best Practices
+
+```elixir
+# SNMP development best practices
+best_practices = [
+  %{
+    category: "Performance",
+    practices: [
+      "Use GETBULK for retrieving multiple values",
+      "Implement caching for frequently accessed data",
+      "Batch requests when possible",
+      "Set appropriate timeout values",
+      "Use connection pooling for high-volume applications"
+    ]
+  },
+  %{
+    category: "Reliability",
+    practices: [
+      "Implement retry logic with exponential backoff",
+      "Handle all SNMP error codes gracefully",
+      "Validate OIDs before making requests",
+      "Use heartbeat checks for device availability",
+      "Log all SNMP operations for troubleshooting"
+    ]
+  },
+  %{
+    category: "Security",
+    practices: [
+      "Use SNMPv3 with encryption when possible",
+      "Rotate community strings regularly",
+      "Restrict SNMP access by IP address",
+      "Use read-only communities for monitoring",
+      "Never hardcode credentials in source code"
+    ]
+  },
+  %{
+    category: "Testing",
+    practices: [
+      "Create comprehensive test suites with simulators",
+      "Test with various device types and vendors",
+      "Validate error handling paths",
+      "Performance test under load",
+      "Test network failure scenarios"
+    ]
+  }
+]
+
+IO.puts("💡 SNMP Development Best Practices:")
+Enum.each(best_practices, fn %{category: category, practices: practices} ->
+  IO.puts("")
+  IO.puts("📋 #{category}:")
+  Enum.each(practices, fn practice ->
+    IO.puts("  ✓ #{practice}")
+  end)
+end)
+```
+
+### Code Examples and Patterns
+
+```elixir
+# Useful code patterns for SNMP applications
+defmodule SnmpPatterns do
+  @doc "Retry pattern with exponential backoff"
+  def with_retry(operation, max_attempts \\ 3, base_delay \\ 1000) do
+    do_retry(operation, max_attempts, base_delay, 1)
+  end
+
+  defp do_retry(operation, max_attempts, base_delay, attempt) do
+    case operation.() do
+      {:ok, result} -> {:ok, result}
+      {:error, reason} when attempt < max_attempts ->
+        delay = base_delay * :math.pow(2, attempt - 1) |> round()
+        :timer.sleep(delay)
+        do_retry(operation, max_attempts, base_delay, attempt + 1)
+      {:error, reason} ->
+        {:error, {:max_retries_exceeded, reason}}
+    end
+  end
+
+  @doc "Batch processing pattern"
+  def process_in_batches(items, batch_size, processor) do
+    items
+    |> Enum.chunk_every(batch_size)
+    |> Enum.map(processor)
+    |> List.flatten()
+  end
+
+  @doc "Rate limiting pattern"
+  def rate_limited_operation(operation, rate_limit_ms \\ 100) do
+    result = operation.()
+    :timer.sleep(rate_limit_ms)
+    result
+  end
+end
+
+# Example usage patterns
+IO.puts("🔄 Useful SNMP Patterns:")
+
+# Retry pattern example
+retry_example = fn ->
+  if :rand.uniform(100) > 70 do
+    {:ok, "Success!"}
+  else
+    {:error, :network_timeout}
+  end
+end
+
+case SnmpPatterns.with_retry(retry_example) do
+  {:ok, result} ->
+    IO.puts("  ✓ Retry pattern: #{result}")
+  {:error, reason} ->
+    IO.puts("  ✗ Retry pattern failed: #{inspect(reason)}")
+end
+
+# Batch processing example
+oids = ["1.3.6.1.2.1.1.1.0", "1.3.6.1.2.1.1.2.0", "1.3.6.1.2.1.1.3.0"]
+batch_processor = fn batch ->
+  IO.puts("    Processing batch of #{length(batch)} OIDs")
+  batch
+end
+
+IO.puts("  📦 Batch processing:")
+SnmpPatterns.process_in_batches(oids, 2, batch_processor)
+```
+
+## Conclusion
+
+### Summary
+
+```elixir
+IO.puts("""
+
+🎉 Congratulations! You've completed the comprehensive SnmpKit tour!
+
+📚 What you've learned:
+  • SNMP fundamentals and operations
+  • MIB parsing with pure Elixir
+  • Device simulation and testing
+  • Performance optimization techniques
+  • Real-world monitoring scenarios
+  • Troubleshooting and debugging
+  • Best practices and patterns
+
+🚀 Next Steps:
+  • Explore the SnmpKit source code
+  • Build your own SNMP monitoring application
+  • Contribute to the SnmpKit project
+  • Share your experiences with the community
+
+💡 Remember:
+  SnmpKit provides a modern, pure Elixir approach to SNMP that's
+  perfect for building robust network monitoring and management
+  applications. The library's focus on testing, simulation, and
+  developer experience makes it an excellent choice for both
+  learning SNMP concepts and building production systems.
+
+🔗 Resources:
+  • Documentation: Check the README and module docs
+  • Examples: Explore the test files for more usage patterns
+  • Community: Join discussions and contribute improvements
+
+Happy SNMP coding with SnmpKit! 🛠️✨
+""")
+
+# Final statistics
+total_examples = 50  # Approximate count of code examples in tour
+total_concepts = 15  # Major concepts covered
+
+IO.puts("📊 Tour Statistics:")
+IO.puts("  • Code examples: ~#{total_examples}")
+IO.puts("  • Concepts covered: #{total_concepts}")
+IO.puts("  • Chapters completed: 10")
+IO.puts("  • Ready to build: 💯%")
+```
+
+### Interactive Exploration
+
+Try modifying the examples above, experiment with different configurations, and explore the SnmpKit library further. The beauty of Livebook is that you can iterate and learn interactively!
+
+```elixir
+# Playground area - experiment with SnmpKit here!
+IO.puts("🎮 Playground Area - Try your own experiments below:")
+IO.puts("─────────────────────────────────────────────────────")
+
+# Your experiments go here...
+```
+
+---
+
+*This tour was created to showcase the power and flexibility of SnmpKit. We hope you found it informative and inspiring. Happy coding!*

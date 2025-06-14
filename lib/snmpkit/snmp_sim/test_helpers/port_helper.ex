@@ -10,8 +10,6 @@ defmodule SnmpKit.SnmpSim.TestHelpers.PortHelper do
   Falls back to server port range if PortAllocator fails.
   """
   def get_port do
-    ensure_port_allocator_started()
-
     case PortAllocator.reserve_port() do
       {:ok, port} ->
         port
@@ -26,8 +24,6 @@ defmodule SnmpKit.SnmpSim.TestHelpers.PortHelper do
   Get a range of ports for testing.
   """
   def get_port_range(count) do
-    ensure_port_allocator_started()
-
     case PortAllocator.reserve_port_range(count) do
       {:ok, {start_port, end_port}} ->
         start_port..end_port
@@ -57,16 +53,6 @@ defmodule SnmpKit.SnmpSim.TestHelpers.PortHelper do
     case GenServer.whereis(PortAllocator) do
       nil -> :ok
       _pid -> PortAllocator.release_port_range(start_port, end_port)
-    end
-  end
-
-  defp ensure_port_allocator_started do
-    case GenServer.whereis(PortAllocator) do
-      nil ->
-        {:ok, _pid} = PortAllocator.start_link()
-
-      _pid ->
-        :ok
     end
   end
 end

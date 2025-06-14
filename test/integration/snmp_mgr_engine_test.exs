@@ -5,6 +5,7 @@ defmodule SnmpKit.SnmpMgr.EngineIntegrationTest do
 
   @moduletag :integration
   @moduletag :engine_integration
+  @moduletag :snmp_mgr
 
   describe "SnmpMgr SnmpLib Backend Integration" do
     setup do

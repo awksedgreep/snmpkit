@@ -33,7 +33,7 @@ ExUnit.configure(
     # Optional tests
     :optional,
     # SNMP Manager integration tests
-    :snmp_mgr,
+    # :snmp_mgr,
     # Tests that require simulator
     :needs_simulator
   ]
@@ -75,6 +75,30 @@ if File.exists?(support_dir) do
   |> Enum.each(fn file ->
     Code.require_file(file, support_dir)
   end)
+end
+
+# Start PortAllocator for test port management
+case SnmpKit.SnmpSim.TestHelpers.PortAllocator.start_link() do
+  {:ok, _pid} ->
+    Logger.debug("PortAllocator started for test suite")
+
+  {:error, {:already_started, _pid}} ->
+    Logger.debug("PortAllocator already running")
+
+  {:error, reason} ->
+    Logger.warning("Failed to start PortAllocator: #{inspect(reason)}")
+end
+
+# Start SnmpMgr.Config for snmp_mgr tests
+case SnmpKit.SnmpMgr.Config.start_link([]) do
+  {:ok, _pid} ->
+    Logger.debug("SnmpMgr.Config started for test suite")
+
+  {:error, {:already_started, _pid}} ->
+    Logger.debug("SnmpMgr.Config already running")
+
+  {:error, reason} ->
+    Logger.warning("Failed to start SnmpMgr.Config: #{inspect(reason)}")
 end
 
 # SnmpKit provides clean test output without Erlang SNMP noise

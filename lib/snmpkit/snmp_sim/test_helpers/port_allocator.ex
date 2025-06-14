@@ -9,17 +9,15 @@ defmodule SnmpKit.SnmpSim.TestHelpers.PortAllocator do
   use GenServer
   require Logger
 
-  # Use reduced port range for tests (30,000-30,049)
+  # Use large port range for tests (30,000-39,999)
   @start_port 30_000
-  @end_port 30_050
+  @end_port 39_999
 
   defstruct [
-    # Next available port to allocate
+    # Next available port to allocate (simple increment)
     :next_port,
-    # MapSet of currently allocated ports
-    :allocated_ports,
-    # List of {start, end, id} for tracking reservations
-    :reserved_ranges
+    # MapSet of currently allocated ports for tracking
+    :allocated_ports
   ]
 
   ## Public API
@@ -96,25 +94,33 @@ defmodule SnmpKit.SnmpSim.TestHelpers.PortAllocator do
   def init(_opts) do
     state = %__MODULE__{
       next_port: @start_port,
-      allocated_ports: MapSet.new(),
-      reserved_ranges: []
+      allocated_ports: MapSet.new()
     }
 
-    Logger.debug("PortAllocator started - managing ports #{@start_port}-#{@end_port}")
+    Logger.debug(
+      "PortAllocator started - managing ports #{@start_port}-#{@end_port} (#{@end_port - @start_port} ports available)"
+    )
+
     {:ok, state}
   end
 
   @impl true
   def handle_call({:reserve_range, count}, _from, state) do
-    case find_available_range(count, state) do
-      {:ok, start_port, new_state} ->
-        end_port = start_port + count - 1
-        Logger.debug("Reserved ports #{start_port}-#{end_port}")
-        {:reply, {:ok, {start_port, end_port}}, new_state}
+    if state.next_port + count - 1 <= @end_port do
+      start_port = state.next_port
+      end_port = start_port + count - 1
 
-      {:error, reason} ->
-        Logger.error("Failed to reserve #{count} ports: #{reason}")
-        {:reply, {:error, reason}, state}
+      # Mark ports as allocated
+      new_ports = MapSet.union(state.allocated_ports, MapSet.new(start_port..end_port))
+
+      # Simple increment for next allocation
+      new_state = %{state | next_port: end_port + 1, allocated_ports: new_ports}
+
+      Logger.debug("Reserved ports #{start_port}-#{end_port}")
+      {:reply, {:ok, {start_port, end_port}}, new_state}
+    else
+      Logger.error("Failed to reserve #{count} ports: insufficient ports available")
+      {:reply, {:error, :insufficient_ports}, state}
     end
   end
 
@@ -123,13 +129,7 @@ defmodule SnmpKit.SnmpSim.TestHelpers.PortAllocator do
     ports_to_release = MapSet.new(start_port..end_port)
     new_allocated = MapSet.difference(state.allocated_ports, ports_to_release)
 
-    # Remove from reserved ranges
-    new_reserved =
-      Enum.reject(state.reserved_ranges, fn {s, e, _id} ->
-        s == start_port and e == end_port
-      end)
-
-    new_state = %{state | allocated_ports: new_allocated, reserved_ranges: new_reserved}
+    new_state = %{state | allocated_ports: new_allocated}
 
     Logger.debug("Released ports #{start_port}-#{end_port}")
     {:reply, :ok, new_state}
@@ -137,11 +137,13 @@ defmodule SnmpKit.SnmpSim.TestHelpers.PortAllocator do
 
   @impl true
   def handle_call(:get_stats, _from, state) do
+    total_ports = @end_port - @start_port + 1
+
     stats = %{
       next_port: state.next_port,
       allocated_count: MapSet.size(state.allocated_ports),
-      reserved_ranges_count: length(state.reserved_ranges),
-      available_ports: @end_port - @start_port - MapSet.size(state.allocated_ports)
+      available_ports: total_ports - MapSet.size(state.allocated_ports),
+      total_ports: total_ports
     }
 
     {:reply, stats, state}
@@ -151,8 +153,7 @@ defmodule SnmpKit.SnmpSim.TestHelpers.PortAllocator do
   def handle_call(:reset, _from, _state) do
     new_state = %__MODULE__{
       next_port: @start_port,
-      allocated_ports: MapSet.new(),
-      reserved_ranges: []
+      allocated_ports: MapSet.new()
     }
 
     Logger.info("Reset all port allocations")
@@ -161,71 +162,6 @@ defmodule SnmpKit.SnmpSim.TestHelpers.PortAllocator do
 
   ## Private Functions
 
-  defp find_available_range(count, state) do
-    # Try to find a contiguous range starting from next_port
-    case find_contiguous_range(state.next_port, count, state) do
-      {:ok, start_port} ->
-        # Mark ports as allocated
-        new_ports =
-          MapSet.union(state.allocated_ports, MapSet.new(start_port..(start_port + count - 1)))
-
-        # Add to reserved ranges
-        range_id = "range_#{start_port}_#{System.monotonic_time()}"
-        new_reserved = [{start_port, start_port + count - 1, range_id} | state.reserved_ranges]
-
-        # Update next_port
-        new_next_port = min(start_port + count, @end_port)
-
-        new_state = %{
-          state
-          | next_port: new_next_port,
-            allocated_ports: new_ports,
-            reserved_ranges: new_reserved
-        }
-
-        {:ok, start_port, new_state}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp find_contiguous_range(start_port, count, state) do
-    # Check if we have enough ports left
-    if start_port + count - 1 > @end_port do
-      # Try to find gaps in allocated ports
-      find_gap_in_allocated(count, state)
-    else
-      # Check if the range is available
-      range = MapSet.new(start_port..(start_port + count - 1))
-
-      if MapSet.disjoint?(range, state.allocated_ports) do
-        {:ok, start_port}
-      else
-        # Try next available position
-        find_contiguous_range(start_port + 1, count, state)
-      end
-    end
-  end
-
-  defp find_gap_in_allocated(count, state) do
-    # Simple implementation - just scan for gaps
-    # This could be optimized further if needed
-    end_search = @end_port - count
-
-    if end_search >= @start_port do
-      @start_port..end_search
-      |> Enum.find(fn start_port ->
-        range = MapSet.new(start_port..(start_port + count - 1))
-        MapSet.disjoint?(range, state.allocated_ports)
-      end)
-    else
-      # Not enough ports available
-      nil
-    end
-    |> case do
-      nil -> {:error, :insufficient_ports}
-      start_port -> {:ok, start_port}
-    end
-  end
+  # Simplified allocation - no complex gap finding needed with 10,000 ports
+  # Just use simple increment allocation for better performance
 end
