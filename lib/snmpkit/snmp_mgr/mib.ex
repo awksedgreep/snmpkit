@@ -96,7 +96,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
   end
 
   @doc """
-  Compiles a MIB file using SnmpKit.SnmpLib.MIB with fallback to Erlang's :snmpc.
+  Compiles a MIB file using SnmpKit.SnmpLib.MIB pure Elixir implementation.
 
   Enhanced to use SnmpKit.SnmpLib.MIB for improved compilation with better error handling.
 
@@ -115,14 +115,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
         {:ok, result}
 
       {:error, :snmp_lib_not_available} ->
-        # Fallback to Erlang :snmpc
-        case Code.ensure_loaded(:snmpc) do
-          {:module, :snmpc} ->
-            compile_with_snmpc(mib_file, opts)
-
-          {:error, _} ->
-            {:error, :snmp_compiler_not_available}
-        end
+        {:error, :snmp_lib_not_available}
 
       {:error, reason} ->
         {:error, reason}
@@ -514,26 +507,6 @@ defmodule SnmpKit.SnmpMgr.MIB do
     Map.put(state, :integrated_mibs, new_integrated)
   end
 
-  defp compile_with_snmpc(mib_file, opts) do
-    output_dir = Keyword.get(opts, :output_dir, ".")
-    include_dirs = Keyword.get(opts, :include_dirs, [])
-
-    compile_opts = [
-      {:outdir, String.to_charlist(output_dir)},
-      {:i, Enum.map(include_dirs, &String.to_charlist/1)}
-    ]
-
-    case :snmpc.compile(String.to_charlist(mib_file), compile_opts) do
-      {:ok, _} ->
-        base_name = Path.basename(mib_file, ".mib")
-        output_file = Path.join(output_dir, "#{base_name}.bin")
-        {:ok, output_file}
-
-      {:error, reason} ->
-        {:error, {:compilation_failed, reason}}
-    end
-  end
-
   defp resolve_name(name, name_to_oid_map) do
     cond do
       # Handle nil or invalid names first
@@ -690,22 +663,37 @@ defmodule SnmpKit.SnmpMgr.MIB do
   end
 
   defp load_mib_file(mib_path) do
-    case Code.ensure_loaded(:snmp_misc) do
-      {:module, :snmp_misc} ->
-        case :snmp_misc.read_mib(String.to_charlist(mib_path)) do
-          {:ok, mib_data} -> parse_mib_data(mib_data)
-          {:error, reason} -> {:error, {:mib_load_failed, reason}}
+    case File.read(mib_path) do
+      {:ok, mib_content} ->
+        case SnmpKit.SnmpLib.MIB.Parser.parse(mib_content) do
+          {:ok, mib_data} -> {:ok, extract_mib_mappings(mib_data)}
+          {:error, reason} -> {:error, {:mib_parse_failed, reason}}
         end
 
-      {:error, _} ->
-        {:error, :snmp_modules_not_available}
+      {:error, reason} ->
+        {:error, {:file_read_failed, reason}}
     end
   end
 
-  defp parse_mib_data(_mib_data) do
-    # This would parse the compiled MIB data structure
-    # For now, return empty since we don't have access to SNMP modules
-    {:ok, %{}}
+  defp extract_mib_mappings(mib_data) do
+    # Extract name-to-OID mappings from parsed MIB data
+    definitions = Map.get(mib_data, :definitions, [])
+
+    name_to_oid_map =
+      definitions
+      |> Enum.filter(&(Map.get(&1, :__type__) == :object_type))
+      |> Enum.reduce(%{}, fn definition, acc ->
+        name = Map.get(definition, :name)
+        oid = Map.get(definition, :oid)
+
+        if name && oid do
+          Map.put(acc, name, oid)
+        else
+          acc
+        end
+      end)
+
+    %{name_to_oid: name_to_oid_map}
   end
 
   defp merge_mib_data(state, _mib_data) do

@@ -14,19 +14,19 @@ ExUnit.configure(
   exclude: [
     # Optional test categories - can be included with mix test --include tag_name
     # Slow running tests
-    :slow,
+    # :slow,
     # Integration tests
-    :integration,
+    # :integration,
     # Performance tests
     :performance,
     # DOCSIS-specific tests
-    :docsis,
+    # :docsis,
     # Memory-intensive tests
     :memory,
     # Format compatibility tests
-    :format_compatibility,
+    # :format_compatibility,
     # Edge case parsing tests
-    :parsing_edge_cases,
+    # :parsing_edge_cases,
     # Shell integration tests
     :shell_integration,
 

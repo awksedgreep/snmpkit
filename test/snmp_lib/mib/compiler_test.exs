@@ -12,22 +12,35 @@ defmodule SnmpKit.SnmpLib.MIB.CompilerTest do
   
   describe "compile_string/2" do
     test "compiles a minimal MIB successfully" do
-      # MIBs require specific formatting - no blank lines
-      mib_content = "TEST-MIB DEFINITIONS ::= BEGIN\nEND\n"
+      # A valid v1 MIB requires at least one definition
+      mib_content = """
+      TEST-MIB DEFINITIONS ::= BEGIN
+      
+      testNode OBJECT IDENTIFIER ::= { 1 3 6 1 4 1 99999 }
+      
+      END
+      """
       
       assert {:ok, compiled} = Compiler.compile_string(mib_content)
       assert compiled.name == "TEST-MIB"
       assert compiled.format == :binary
-      assert compiled.symbols == %{}
+      assert map_size(compiled.symbols) == 1
+      assert Map.has_key?(compiled.symbols, "testNode")
       assert compiled.dependencies == []
     end
     
     test "compiles a MIB with imports" do
-      mib_content = "TEST-MIB DEFINITIONS ::= BEGIN\n" <>
-                    "IMPORTS\n" <>
-                    "    DisplayString FROM SNMPv2-TC\n" <>
-                    "    enterprises FROM SNMPv2-SMI;\n" <>
-                    "END\n"
+      mib_content = """
+      TEST-MIB DEFINITIONS ::= BEGIN
+      
+      IMPORTS
+          DisplayString FROM SNMPv2-TC
+          enterprises FROM SNMPv2-SMI;
+      
+      testNode OBJECT IDENTIFIER ::= { enterprises 99999 }
+      
+      END
+      """
       
       assert {:ok, compiled} = Compiler.compile_string(mib_content)
       assert compiled.name == "TEST-MIB"
@@ -61,7 +74,13 @@ defmodule SnmpKit.SnmpLib.MIB.CompilerTest do
     end
     
     test "respects compile options" do
-      mib_content = "TEST-MIB DEFINITIONS ::= BEGIN\nEND\n"
+      mib_content = """
+      TEST-MIB DEFINITIONS ::= BEGIN
+      
+      testNode OBJECT IDENTIFIER ::= { 1 3 6 1 4 1 99999 }
+      
+      END
+      """
       
       assert {:ok, compiled} = Compiler.compile_string(mib_content, format: :json)
       assert compiled.format == :json
