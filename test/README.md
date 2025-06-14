@@ -81,7 +81,7 @@ Tests can be tagged for selective execution:
 - `:slow` - Tests that take longer to run
 - `:docsis` - DOCSIS-specific tests
 - `:needs_simulator` - Tests requiring SNMP simulator
-- `:erlang` - Tests using Erlang SNMP library
+
 - `:optional` - Optional/experimental tests
 
 ## Test Helpers

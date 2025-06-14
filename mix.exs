@@ -23,7 +23,7 @@ defmodule Snmpkit.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger, :crypto, :snmp],
+      extra_applications: [:logger, :crypto],
       mod: {Snmpkit.Application, []}
     ]
   end

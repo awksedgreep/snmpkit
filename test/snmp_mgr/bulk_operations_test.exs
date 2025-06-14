@@ -492,7 +492,10 @@ defmodule SnmpKit.SnmpMgr.BulkOperationsTest do
       {individual_time, individual_results} =
         :timer.tc(fn ->
           Enum.map(1..5, fn i ->
-            SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.#{i}.0", community: device.community, timeout: 200)
+            SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.#{i}.0",
+              community: device.community,
+              timeout: 200
+            )
           end)
         end)
 
@@ -627,6 +630,195 @@ defmodule SnmpKit.SnmpMgr.BulkOperationsTest do
         {:error, reason} ->
           # Error format should be consistent
           assert is_atom(reason) or is_tuple(reason)
+      end
+    end
+  end
+
+  describe "Bulk Operations OID Ordering" do
+    setup do
+      {:ok, device} = SNMPSimulator.create_test_device()
+      :ok = SNMPSimulator.wait_for_device_ready(device)
+
+      on_exit(fn -> SNMPSimulator.stop_device(device) end)
+
+      %{device: device}
+    end
+
+    test "get_bulk results maintain lexicographic order", %{device: device} do
+      target = "#{device.host}:#{device.port}"
+
+      result =
+        SnmpKit.SnmpMgr.get_bulk(target, "1.3.6.1.2.1.1",
+          max_repetitions: 10,
+          community: device.community,
+          timeout: 200
+        )
+
+      case result do
+        {:ok, results} when is_list(results) and length(results) > 1 ->
+          # Extract OIDs from results
+          oids = extract_oids_from_bulk_results(results)
+
+          # Verify OIDs are in lexicographic order
+          assert_oids_lexicographically_ordered(oids)
+
+        {:ok, results} when is_list(results) ->
+          # Single result or empty - acceptable
+          assert true
+
+        {:error, reason} when reason in [:timeout, :no_such_name, :gen_err] ->
+          # Acceptable errors in test environment
+          assert true
+
+        {:error, reason} ->
+          flunk("Unexpected error: #{inspect(reason)}")
+      end
+    end
+
+    test "bulk_multi maintains ordering across multiple targets", %{device: device} do
+      # Create a second device for multi-target testing
+      {:ok, device2} = SNMPSimulator.create_test_device()
+      :ok = SNMPSimulator.wait_for_device_ready(device2)
+
+      target1 = "#{device.host}:#{device.port}"
+      target2 = "#{device2.host}:#{device2.port}"
+
+      requests = [
+        {target1, "1.3.6.1.2.1.1",
+         [max_repetitions: 5, community: device.community, timeout: 200]},
+        {target2, "1.3.6.1.2.1.1",
+         [max_repetitions: 5, community: device2.community, timeout: 200]}
+      ]
+
+      results = SnmpKit.SnmpMgr.get_bulk_multi(requests)
+
+      # Verify each target's results maintain ordering
+      Enum.each(results, fn
+        {:ok, target_results} when is_list(target_results) and length(target_results) > 1 ->
+          oids = extract_oids_from_bulk_results(target_results)
+          assert_oids_lexicographically_ordered(oids)
+
+        {:ok, _target_results} ->
+          # Single or empty result - acceptable
+          assert true
+
+        {:error, reason} when reason in [:timeout, :no_such_name, :gen_err] ->
+          # Acceptable errors
+          assert true
+
+        {:error, reason} ->
+          flunk("Unexpected multi-target error: #{inspect(reason)}")
+      end)
+
+      SNMPSimulator.stop_device(device2)
+    end
+
+    test "bulk operations with mixed OID lengths maintain order", %{device: device} do
+      target = "#{device.host}:#{device.port}"
+
+      # Test with an OID that might return varied length results
+      result =
+        SnmpKit.SnmpMgr.get_bulk(target, "1.3.6.1.2.1",
+          max_repetitions: 15,
+          community: device.community,
+          timeout: 300
+        )
+
+      case result do
+        {:ok, results} when is_list(results) and length(results) > 2 ->
+          oids = extract_oids_from_bulk_results(results)
+
+          # Verify ordering with potentially varied OID lengths
+          assert_oids_lexicographically_ordered(oids)
+
+          # Verify no duplicate OIDs
+          unique_oids = Enum.uniq(oids)
+          assert length(unique_oids) == length(oids), "Found duplicate OIDs in bulk results"
+
+        {:ok, _results} ->
+          # Fewer results - acceptable
+          assert true
+
+        {:error, reason} when reason in [:timeout, :no_such_name, :gen_err, :endOfMibView] ->
+          # Acceptable errors
+          assert true
+
+        {:error, reason} ->
+          flunk("Mixed OID length test failed: #{inspect(reason)}")
+      end
+    end
+
+    test "large bulk operation maintains ordering integrity", %{device: device} do
+      target = "#{device.host}:#{device.port}"
+
+      # Larger bulk operation to stress test ordering
+      result =
+        SnmpKit.SnmpMgr.get_bulk(target, "1.3.6.1.2.1",
+          max_repetitions: 50,
+          community: device.community,
+          timeout: 1000
+        )
+
+      case result do
+        {:ok, results} when is_list(results) and length(results) > 5 ->
+          oids = extract_oids_from_bulk_results(results)
+
+          # Verify ordering is maintained in large result sets
+          assert_oids_lexicographically_ordered(oids)
+
+          # Performance check - ordering verification should be fast
+          start_time = System.monotonic_time(:microsecond)
+          assert_oids_lexicographically_ordered(oids)
+          end_time = System.monotonic_time(:microsecond)
+
+          # Ordering check should complete quickly even for large sets
+          assert end_time - start_time < 10000, "OID ordering verification too slow"
+
+        {:ok, _results} ->
+          # Smaller result set - acceptable
+          assert true
+
+        {:error, reason} when reason in [:timeout, :no_such_name, :gen_err, :endOfMibView] ->
+          # Acceptable errors for large operations
+          assert true
+
+        {:error, reason} ->
+          flunk("Large bulk operation failed: #{inspect(reason)}")
+      end
+    end
+
+    # Helper functions for OID ordering tests
+    defp extract_oids_from_bulk_results(results) do
+      Enum.map(results, fn
+        {oid, _type, _value} -> oid
+        {oid, _value} -> oid
+        oid when is_binary(oid) or is_list(oid) -> oid
+        other -> flunk("Cannot extract OID from result: #{inspect(other)}")
+      end)
+    end
+
+    defp assert_oids_lexicographically_ordered(oids) when length(oids) <= 1, do: :ok
+
+    defp assert_oids_lexicographically_ordered(oids) do
+      # Convert all OIDs to list format for comparison
+      oid_lists = Enum.map(oids, &normalize_oid_to_list/1)
+
+      # Check each adjacent pair
+      for {oid1, oid2} <- Enum.zip(oid_lists, tl(oid_lists)) do
+        comparison = SnmpKit.SnmpLib.OID.compare(oid1, oid2)
+
+        assert comparison == :lt,
+               "OIDs not in lexicographic order: #{inspect(oid1)} >= #{inspect(oid2)}"
+      end
+    end
+
+    defp normalize_oid_to_list(oid) when is_list(oid), do: oid
+
+    defp normalize_oid_to_list(oid) when is_binary(oid) do
+      case SnmpKit.SnmpLib.OID.string_to_list(oid) do
+        {:ok, oid_list} -> oid_list
+        # Fallback for malformed OIDs
+        {:error, _} -> [0]
       end
     end
   end
