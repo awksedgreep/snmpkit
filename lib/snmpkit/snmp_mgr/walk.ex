@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpKit.SnmpMgr.Walk do
+defmodule SnmpKit.SnmpMgr.Walk do
   @moduledoc """
   SNMP walk operations using iterative GETNEXT requests.
 
@@ -22,7 +22,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Walk do
 
   ## Examples
 
-      iex> SnmpKit.SnmpKit.SnmpMgr.Walk.walk("192.168.1.1", [1, 3, 6, 1, 2, 1, 1])
+      iex> SnmpKit.SnmpMgr.Walk.walk("192.168.1.1", [1, 3, 6, 1, 2, 1, 1])
       {:ok, [
         {"1.3.6.1.2.1.1.1.0", "System description"},
         {"1.3.6.1.2.1.1.2.0", "1.3.6.1.4.1.9.1.1"},
@@ -35,7 +35,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Walk do
     case version do
       :v2c ->
         # Use bulk walk for better performance
-        SnmpKit.SnmpKit.SnmpMgr.Bulk.walk_bulk(target, root_oid, opts)
+        SnmpKit.SnmpMgr.Bulk.walk_bulk(target, root_oid, opts)
 
       _ ->
         # Fall back to traditional GETNEXT walk
@@ -69,7 +69,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Walk do
     case version do
       :v2c ->
         # Use bulk table walk for better performance
-        SnmpKit.SnmpKit.SnmpMgr.Bulk.get_table_bulk(target, table_oid, opts)
+        SnmpKit.SnmpMgr.Bulk.get_table_bulk(target, table_oid, opts)
 
       _ ->
         # Fall back to traditional GETNEXT walk
@@ -104,7 +104,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Walk do
   # Private functions
 
   defp walk_from_oid(target, current_oid, root_oid, acc, remaining, opts) when remaining > 0 do
-    case SnmpKit.SnmpKit.SnmpMgr.Core.send_get_next_request(target, current_oid, opts) do
+    case SnmpKit.SnmpMgr.Core.send_get_next_request(target, current_oid, opts) do
       {:ok, {next_oid_string, value}} ->
         case SnmpKit.SnmpLib.OID.string_to_list(next_oid_string) do
           {:ok, next_oid} ->
@@ -150,7 +150,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Walk do
 
       {:error, _} ->
         # Try as symbolic name
-        case SnmpKit.SnmpKit.SnmpMgr.MIB.resolve(oid) do
+        case SnmpKit.SnmpMgr.MIB.resolve(oid) do
           {:ok, resolved_oid} -> {:ok, resolved_oid}
           error -> error
         end

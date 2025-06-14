@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpKit.SnmpMgr.Table do
+defmodule SnmpKit.SnmpMgr.Table do
   @moduledoc """
   Table processing utilities for SNMP table data.
 
@@ -24,7 +24,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Table do
       ...>   {"1.3.6.1.2.1.2.2.1.3.1", :integer, 6},
       ...>   {"1.3.6.1.2.1.2.2.1.3.2", :integer, 6}
       ...> ]
-      iex> SnmpKit.SnmpKit.SnmpMgr.Table.to_table(tuples, [1, 3, 6, 1, 2, 1, 2, 2])
+      iex> SnmpKit.SnmpMgr.Table.to_table(tuples, [1, 3, 6, 1, 2, 1, 2, 2])
       {:ok, %{
         1 => %{2 => "eth0", 3 => 6},
         2 => %{2 => "eth1", 3 => 6}
@@ -137,7 +137,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Table do
       ...>   {"1.3.6.1.2.1.2.2.1.1.2", :integer, 2},
       ...>   {"1.3.6.1.2.1.2.2.1.2.2", :string, "eth1"}
       ...> ]
-      iex> SnmpKit.SnmpKit.SnmpMgr.Table.to_map(tuples, 1)
+      iex> SnmpKit.SnmpMgr.Table.to_map(tuples, 1)
       {:ok, %{
         1 => %{ifIndex: 1, ifDescr: "eth0"},
         2 => %{ifIndex: 2, ifDescr: "eth1"}
@@ -229,7 +229,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Table do
   ## Examples
 
       iex> table = %{1 => %{2 => "eth0"}, 2 => %{2 => "eth1"}, 10 => %{2 => "lo"}}
-      iex> SnmpKit.SnmpKit.SnmpMgr.Table.filter_by_index(table, fn index -> index < 10 end)
+      iex> SnmpKit.SnmpMgr.Table.filter_by_index(table, fn index -> index < 10 end)
       {:ok, %{1 => %{2 => "eth0"}, 2 => %{2 => "eth1"}}}
   """
   def filter_by_index(table_data, index_filter)
@@ -248,7 +248,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Table do
   ## Examples
 
       iex> table = %{1 => %{2 => "eth0", 3 => 6}, 2 => %{2 => "eth1", 3 => 6}}
-      iex> SnmpKit.SnmpKit.SnmpMgr.Table.to_list(table)
+      iex> SnmpKit.SnmpMgr.Table.to_list(table)
       {:ok, [
         %{index: 1, 2 => "eth0", 3 => 6},
         %{index: 2, 2 => "eth1", 3 => 6}
@@ -278,7 +278,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Table do
   ## Examples
 
       iex> table = %{1 => %{2 => "eth0", 3 => 100}, 2 => %{2 => "eth1", 3 => 200}}
-      iex> SnmpKit.SnmpKit.SnmpMgr.Table.analyze(table)
+      iex> SnmpKit.SnmpMgr.Table.analyze(table)
       {:ok, %{
         row_count: 2,
         column_count: 2,
@@ -356,7 +356,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Table do
   ## Examples
 
       iex> table = %{1 => %{2 => "eth0", 3 => 1}, 2 => %{2 => "eth1", 3 => 0}}
-      iex> SnmpKit.SnmpKit.SnmpMgr.Table.filter_by_column(table, 3, fn val -> val == 1 end)
+      iex> SnmpKit.SnmpMgr.Table.filter_by_column(table, 3, fn val -> val == 1 end)
       {:ok, %{1 => %{2 => "eth0", 3 => 1}}}
   """
   def filter_by_column(table_data, column, filter_fn)
@@ -385,7 +385,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Table do
   ## Examples
 
       iex> table = %{1 => %{2 => "eth1"}, 2 => %{2 => "eth0"}}
-      iex> SnmpKit.SnmpKit.SnmpMgr.Table.sort_by_column(table, 2)
+      iex> SnmpKit.SnmpMgr.Table.sort_by_column(table, 2)
       {:ok, [{2, %{2 => "eth0"}}, {1, %{2 => "eth1"}}]}
   """
   def sort_by_column(table_data, column, direction \\ :asc) when is_map(table_data) do
@@ -407,7 +407,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Table do
   ## Examples
 
       iex> table = %{1 => %{2 => "eth", 3 => 1}, 2 => %{2 => "lo", 3 => 1}}
-      iex> SnmpKit.SnmpKit.SnmpMgr.Table.group_by_column(table, 3)
+      iex> SnmpKit.SnmpMgr.Table.group_by_column(table, 3)
       {:ok, %{1 => [%{index: 1, 2 => "eth", 3 => 1}, %{index: 2, 2 => "lo", 3 => 1}]}}
   """
   def group_by_column(table_data, column) when is_map(table_data) do
@@ -438,7 +438,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Table do
   ## Examples
 
       iex> table = %{1 => %{2 => "eth0", 3 => 100}, 2 => %{2 => "eth1", 3 => 200}}
-      iex> SnmpKit.SnmpKit.SnmpMgr.Table.column_stats(table, [3])
+      iex> SnmpKit.SnmpMgr.Table.column_stats(table, [3])
       {:ok, %{3 => %{count: 2, sum: 300, avg: 150.0, min: 100, max: 200}}}
   """
   def column_stats(table_data, columns \\ nil) when is_map(table_data) do
@@ -483,7 +483,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Table do
   ## Examples
 
       iex> table = %{1 => %{2 => "eth", 3 => 1}, 2 => %{2 => "eth", 3 => 1}}
-      iex> SnmpKit.SnmpKit.SnmpMgr.Table.find_duplicates(table, [2, 3])
+      iex> SnmpKit.SnmpMgr.Table.find_duplicates(table, [2, 3])
       {:ok, [[{1, %{2 => "eth", 3 => 1}}, {2, %{2 => "eth", 3 => 1}}]]}
   """
   def find_duplicates(table_data, columns) when is_map(table_data) and is_list(columns) do
@@ -508,7 +508,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Table do
   ## Examples
 
       iex> table = %{1 => %{2 => "eth0", 3 => 100}}
-      iex> SnmpKit.SnmpKit.SnmpMgr.Table.validate(table)
+      iex> SnmpKit.SnmpMgr.Table.validate(table)
       {:ok, %{valid: true, issues: []}}
   """
   def validate(table_data, opts \\ []) when is_map(table_data) do

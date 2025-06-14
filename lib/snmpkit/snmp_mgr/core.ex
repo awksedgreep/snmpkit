@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpKit.SnmpMgr.Core do
+defmodule SnmpKit.SnmpMgr.Core do
   @moduledoc """
   Core SNMP operations using Erlang's SNMP PDU functions directly.
 
@@ -18,7 +18,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Core do
   def send_get_request(target, oid, opts \\ []) do
     # Parse target to extract host and port
     {host, updated_opts} =
-      case SnmpKit.SnmpKit.SnmpMgr.Target.parse(target) do
+      case SnmpKit.SnmpMgr.Target.parse(target) do
         {:ok, %{host: host, port: port}} ->
           # Use parsed port, overriding any default
           opts_with_port = Keyword.put(opts, :port, port)
@@ -59,7 +59,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Core do
   def send_get_request_with_type(target, oid, opts \\ []) do
     # Parse target to extract host and port
     {host, updated_opts} =
-      case SnmpKit.SnmpKit.SnmpMgr.Target.parse(target) do
+      case SnmpKit.SnmpMgr.Target.parse(target) do
         {:ok, %{host: host, port: port}} ->
           # Use parsed port, overriding any default
           opts_with_port = Keyword.put(opts, :port, port)
@@ -104,7 +104,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Core do
   def send_get_next_request(target, oid, opts \\ []) do
     # Parse target to extract host and port
     {host, updated_opts} =
-      case SnmpKit.SnmpKit.SnmpMgr.Target.parse(target) do
+      case SnmpKit.SnmpMgr.Target.parse(target) do
         {:ok, %{host: host, port: port}} ->
           # Use parsed port, overriding any default
           opts_with_port = Keyword.put(opts, :port, port)
@@ -141,7 +141,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Core do
   def send_set_request(target, oid, value, opts \\ []) do
     # Parse target to extract host and port
     {host, updated_opts} =
-      case SnmpKit.SnmpKit.SnmpMgr.Target.parse(target) do
+      case SnmpKit.SnmpMgr.Target.parse(target) do
         {:ok, %{host: host, port: port}} ->
           # Use parsed port, overriding any default
           opts_with_port = Keyword.put(opts, :port, port)
@@ -161,7 +161,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Core do
 
     # Convert value to snmp_lib format
     typed_value =
-      case SnmpKit.SnmpKit.SnmpMgr.Types.encode_value(value, opts) do
+      case SnmpKit.SnmpMgr.Types.encode_value(value, opts) do
         {:ok, tv} -> tv
         {:error, _} -> value
       end
@@ -187,7 +187,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Core do
       :v2c ->
         # Parse target to extract host and port
         {host, updated_opts} =
-          case SnmpKit.SnmpKit.SnmpMgr.Target.parse(target) do
+          case SnmpKit.SnmpMgr.Target.parse(target) do
             {:ok, %{host: host, port: port}} ->
               # Use parsed port, overriding any default
               opts_with_port = Keyword.put(opts, :port, port)

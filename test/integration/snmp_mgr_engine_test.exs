@@ -122,7 +122,7 @@ defmodule SnmpKit.SnmpMgr.EngineIntegrationTest do
           end
 
         {:walk, target, oid, opts} ->
-          result = SnmpKit.SnmpKit.SnmpMgr.walk(target, oid, opts)
+          result = SnmpKit.SnmpMgr.walk(target, oid, opts)
 
           case result do
             {:ok, data} when is_list(data) ->
@@ -192,7 +192,7 @@ defmodule SnmpKit.SnmpMgr.EngineIntegrationTest do
           )
         end),
         Task.async(fn ->
-          SnmpKit.SnmpKit.SnmpMgr.walk(target, "1.3.6.1.2.1.1",
+          SnmpKit.SnmpMgr.walk(target, "1.3.6.1.2.1.1",
             community: device.community,
             timeout: 150
           )
@@ -350,7 +350,7 @@ defmodule SnmpKit.SnmpMgr.EngineIntegrationTest do
       :ok = SNMPSimulator.wait_for_device_ready(device)
 
       on_exit(fn ->
-        SnmpKit.SnmpKit.SnmpMgr.Config.reset()
+        SnmpKit.SnmpMgr.Config.reset()
         SNMPSimulator.stop_device(device)
       end)
 
@@ -361,9 +361,9 @@ defmodule SnmpKit.SnmpMgr.EngineIntegrationTest do
       target = SNMPSimulator.device_target(device)
 
       # Set configuration that should be passed to snmp_lib
-      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_community(device.community)
-      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_timeout(100)
-      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_version(:v2c)
+      SnmpKit.SnmpMgr.Config.set_default_community(device.community)
+      SnmpKit.SnmpMgr.Config.set_default_timeout(100)
+      SnmpKit.SnmpMgr.Config.set_default_version(:v2c)
 
       # Operation should use these defaults through snmp_lib
       result = SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0")
@@ -386,8 +386,8 @@ defmodule SnmpKit.SnmpMgr.EngineIntegrationTest do
       target = SNMPSimulator.device_target(device)
 
       # Set one default
-      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_timeout(200)
-      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_community("default_community")
+      SnmpKit.SnmpMgr.Config.set_default_timeout(200)
+      SnmpKit.SnmpMgr.Config.set_default_community("default_community")
 
       # Override with request options
       result =
@@ -418,7 +418,7 @@ defmodule SnmpKit.SnmpMgr.EngineIntegrationTest do
       versions = [:v1, :v2c]
 
       Enum.each(versions, fn version ->
-        SnmpKit.SnmpKit.SnmpMgr.Config.set_default_version(version)
+        SnmpKit.SnmpMgr.Config.set_default_version(version)
 
         result =
           SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0",
@@ -717,7 +717,7 @@ defmodule SnmpKit.SnmpMgr.EngineIntegrationTest do
       :ok = SNMPSimulator.wait_for_device_ready(device)
 
       on_exit(fn ->
-        SnmpKit.SnmpKit.SnmpMgr.Config.reset()
+        SnmpKit.SnmpMgr.Config.reset()
         SNMPSimulator.stop_device(device)
       end)
 
@@ -730,8 +730,8 @@ defmodule SnmpKit.SnmpMgr.EngineIntegrationTest do
       # Test that all SnmpMgr components integrate properly with snmp_lib
 
       # 1. Configuration affects snmp_lib operations
-      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_community(device.community)
-      SnmpKit.SnmpKit.SnmpMgr.Config.set_default_timeout(100)
+      SnmpKit.SnmpMgr.Config.set_default_community(device.community)
+      SnmpKit.SnmpMgr.Config.set_default_timeout(100)
 
       # 2. Core operation through snmp_lib with MIB resolution
       result1 = SnmpKit.SnmpMgr.get(target, "sysDescr.0")
@@ -751,7 +751,7 @@ defmodule SnmpKit.SnmpMgr.EngineIntegrationTest do
       assert is_list(results) and length(results) == 2
 
       # 5. Walk operation through snmp_lib
-      result3 = SnmpKit.SnmpKit.SnmpMgr.walk(target, "1.3.6.1.2.1.1")
+      result3 = SnmpKit.SnmpMgr.walk(target, "1.3.6.1.2.1.1")
       assert match?({:ok, _}, result3) or match?({:error, _}, result3)
 
       # All operations should complete properly through snmp_lib integration
@@ -768,7 +768,7 @@ defmodule SnmpKit.SnmpMgr.EngineIntegrationTest do
         fn ->
           SnmpKit.SnmpMgr.get_bulk(target, "invalid.oid", max_repetitions: 3, timeout: 100)
         end,
-        fn -> SnmpKit.SnmpKit.SnmpMgr.walk(target, "invalid.oid", timeout: 100) end
+        fn -> SnmpKit.SnmpMgr.walk(target, "invalid.oid", timeout: 100) end
       ]
 
       Enum.each(operations, fn operation ->

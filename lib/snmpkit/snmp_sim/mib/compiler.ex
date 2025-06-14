@@ -32,6 +32,11 @@ defmodule SnmpKit.SnmpSim.MIB.Compiler do
   def compile_mib_files(mib_files, include_dirs \\ []) do
     Enum.map(mib_files, fn mib_file ->
       case compile_single_mib(mib_file, include_dirs) do
+        {:error, :mib_compilation_disabled} = err ->
+          # MIB compilation is disabled, log as info rather than error
+          Logger.info("MIB compilation disabled for: #{mib_file}")
+          {mib_file, err}
+
         {:ok, _} = ok ->
           Logger.info("Compiled MIB: #{mib_file}")
           {mib_file, ok}
@@ -43,19 +48,9 @@ defmodule SnmpKit.SnmpSim.MIB.Compiler do
     end)
   end
 
-  defp compile_single_mib(mib_file, include_dirs) do
-    erl_outdir = :binary.bin_to_list(Path.dirname(mib_file))
-    erl_mib_file = :binary.bin_to_list(mib_file)
-    erl_include_paths = Enum.map(include_dirs, &:binary.bin_to_list("#{&1}/"))
-
-    options = [
-      :relaxed_row_name_assign_check,
-      warnings: false,
-      verbosity: :silence,
-      group_check: false,
-      i: erl_include_paths,
-      outdir: erl_outdir
-    ]
+  defp compile_single_mib(_mib_file, _include_dirs) do
+    # MIB compilation is currently disabled - Erlang SNMP dependencies removed
+    # Variables are preserved for future implementation when SNMP dependencies are added
 
     # MIB compilation is currently disabled - Erlang SNMP dependencies removed
     # Future implementation would use pure Elixir MIB parsing

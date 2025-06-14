@@ -8,8 +8,12 @@ defmodule Snmpkit.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Starts a worker by calling: Snmpkit.Worker.start_link(arg)
-      # {Snmpkit.Worker, arg}
+      # Shared profiles manager for memory-efficient device data
+      SnmpKit.SnmpSim.MIB.SharedProfiles,
+      # MIB resolution and compilation service
+      SnmpKit.SnmpMgr.MIB,
+      # Core supervisor for managing device processes
+      {DynamicSupervisor, name: SnmpSim.DeviceSupervisor, strategy: :one_for_one}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

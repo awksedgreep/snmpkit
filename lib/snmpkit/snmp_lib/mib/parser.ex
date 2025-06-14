@@ -35,26 +35,31 @@ defmodule SnmpKit.SnmpLib.MIB.Parser do
     output_dir = Path.join([__DIR__, "..", "..", "..", "src"])
     File.mkdir_p!(output_dir)
 
-    # Compile the grammar using Erlang's yecc
-    result = :yecc.file(to_charlist(grammar_file))
+    # Compile the grammar using Erlang's yecc (if available)
+    if Code.ensure_loaded?(:yecc) and function_exported?(:yecc, :file, 1) do
+      result = :yecc.file(to_charlist(grammar_file))
 
-    case result do
-      {:ok, _generated_file} ->
-        module_name = :mib_grammar_elixir
+      case result do
+        {:ok, _generated_file} ->
+          module_name = :mib_grammar_elixir
 
-        Logger.debug(
-          "Successfully compiled SNMP MIB grammar - Generated parser module: #{module_name}"
-        )
+          Logger.debug(
+            "Successfully compiled MIB grammar. Generated module: #{inspect(module_name)}"
+          )
 
-        {:ok, module_name}
+          {:ok, module_name}
 
-      {:error, reason} ->
-        Logger.error("Failed to compile grammar: #{inspect(reason)}")
-        {:error, reason}
+        {:error, reason} ->
+          Logger.error("Failed to compile MIB grammar: #{inspect(reason)}")
+          {:error, {:grammar_compilation_failed, reason}}
 
-      :error ->
-        Logger.error("Grammar compilation failed with error")
-        {:error, :compilation_failed}
+        :error ->
+          Logger.error("Grammar compilation failed with error")
+          {:error, :compilation_failed}
+      end
+    else
+      Logger.warning("yecc module not available, MIB grammar compilation disabled")
+      {:error, :yecc_not_available}
     end
   end
 

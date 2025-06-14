@@ -71,7 +71,10 @@ defmodule SnmpKit.SnmpMgr.CircuitBreakerIntegrationTest do
       target = SNMPSimulator.device_target(device)
 
       operation = fn ->
-        SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: device.community, timeout: 200)
+        SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0",
+          community: device.community,
+          timeout: 200
+        )
       end
 
       result = execute_with_circuit_breaker(cb, operation)
@@ -94,7 +97,10 @@ defmodule SnmpKit.SnmpMgr.CircuitBreakerIntegrationTest do
       target = SNMPSimulator.device_target(device)
 
       failing_operation = fn ->
-        SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: "invalid_community", timeout: 100)
+        SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0",
+          community: "invalid_community",
+          timeout: 100
+        )
       end
 
       # Execute failing operation multiple times
@@ -180,13 +186,13 @@ defmodule SnmpKit.SnmpMgr.CircuitBreakerIntegrationTest do
   # Helper functions per @testing_rules
   defp execute_with_circuit_breaker(circuit_breaker, operation) do
     # Try to use circuit breaker if available, fallback to direct execution
-    case CircuitBreaker.call(circuit_breaker, operation) do
+    case CircuitBreaker.call(circuit_breaker, "test_target", operation, 5000) do
       {:ok, result} -> result
       {:error, reason} -> {:error, reason}
       :circuit_open -> :circuit_open
     end
   rescue
-    # Circuit breaker might not implement call/2, fallback to direct operation
+    # Circuit breaker might not implement call/4, fallback to direct operation
     _error ->
       try do
         operation.()
@@ -195,7 +201,10 @@ defmodule SnmpKit.SnmpMgr.CircuitBreakerIntegrationTest do
       end
   end
 
-  defp skip_if_no_device(nil), do: ExUnit.skip("SNMP simulator not available")
-  defp skip_if_no_device(%{setup_error: error}), do: ExUnit.skip("Setup error: #{inspect(error)}")
+  defp skip_if_no_device(nil), do: {:skip, "SNMP simulator not available"}
+
+  defp skip_if_no_device(%{setup_error: error}),
+    do: {:skip, "Setup error: #{inspect(error)}"}
+
   defp skip_if_no_device(_device), do: :ok
 end

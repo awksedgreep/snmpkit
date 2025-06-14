@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpKit.SnmpMgr.Types do
+defmodule SnmpKit.SnmpMgr.Types do
   @moduledoc """
   SNMP data type handling and conversion.
 
@@ -15,13 +15,13 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Types do
 
   ## Examples
 
-      iex> SnmpKit.SnmpKit.SnmpMgr.Types.encode_value("Hello World")
+      iex> SnmpKit.SnmpMgr.Types.encode_value("Hello World")
       {:ok, {:string, "Hello World"}}
 
-      iex> SnmpKit.SnmpKit.SnmpMgr.Types.encode_value(42)
+      iex> SnmpKit.SnmpMgr.Types.encode_value(42)
       {:ok, {:integer, 42}}
 
-      iex> SnmpKit.SnmpKit.SnmpMgr.Types.encode_value("192.168.1.1", type: :ipAddress)
+      iex> SnmpKit.SnmpMgr.Types.encode_value("192.168.1.1", type: :ipAddress)
       {:ok, {:ipAddress, {192, 168, 1, 1}}}
   """
   def encode_value(value, opts \\ []) do
@@ -36,10 +36,10 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Types do
 
   ## Examples
 
-      iex> SnmpKit.SnmpKit.SnmpMgr.Types.decode_value({:string, "Hello"})
+      iex> SnmpKit.SnmpMgr.Types.decode_value({:string, "Hello"})
       "Hello"
 
-      iex> SnmpKit.SnmpKit.SnmpMgr.Types.decode_value({:integer, 42})
+      iex> SnmpKit.SnmpMgr.Types.decode_value({:integer, 42})
       42
   """
   def decode_value({:string, value}), do: to_string(value)
@@ -98,13 +98,13 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Types do
 
   ## Examples
 
-      iex> SnmpKit.SnmpKit.SnmpMgr.Types.infer_type("hello")
+      iex> SnmpKit.SnmpMgr.Types.infer_type("hello")
       :string
 
-      iex> SnmpKit.SnmpKit.SnmpMgr.Types.infer_type(42)
+      iex> SnmpKit.SnmpMgr.Types.infer_type(42)
       :integer
 
-      iex> SnmpKit.SnmpKit.SnmpMgr.Types.infer_type("192.168.1.1")
+      iex> SnmpKit.SnmpMgr.Types.infer_type("192.168.1.1")
       :string  # Would need explicit :ipAddress type
   """
   def infer_type(value) when is_binary(value) do

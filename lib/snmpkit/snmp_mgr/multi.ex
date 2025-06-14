@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpKit.SnmpMgr.Multi do
+defmodule SnmpKit.SnmpMgr.Multi do
   @moduledoc """
   Concurrent multi-target SNMP operations.
 
@@ -23,7 +23,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Multi do
       ...>   {"device2", "sysUpTime.0"},
       ...>   {"device3", "ifNumber.0"}
       ...> ]
-      iex> SnmpKit.SnmpKit.SnmpMgr.Multi.get_multi(requests)
+      iex> SnmpKit.SnmpMgr.Multi.get_multi(requests)
       [
         {:ok, "Device 1 Description"},
         {:ok, 123456},
@@ -55,7 +55,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Multi do
       ...>   {"switch2", "ifTable"},
       ...>   {"router1", "ipRouteTable"}
       ...> ]
-      iex> SnmpKit.SnmpKit.SnmpMgr.Multi.get_bulk_multi(requests, max_repetitions: 20)
+      iex> SnmpKit.SnmpMgr.Multi.get_bulk_multi(requests, max_repetitions: 20)
       [
         {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "eth0"}, ...]},
         {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "GigE0/1"}, ...]},
@@ -87,7 +87,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Multi do
       ...>   {"device2", "interfaces"},
       ...>   {"device3", [1, 3, 6, 1, 2, 1, 4]}
       ...> ]
-      iex> SnmpKit.SnmpKit.SnmpMgr.Multi.walk_multi(requests, version: :v2c)
+      iex> SnmpKit.SnmpMgr.Multi.walk_multi(requests, version: :v2c)
       [
         {:ok, [{"1.3.6.1.2.1.1.1.0", "Device 1"}, ...]},
         {:ok, [{"1.3.6.1.2.1.2.1.0", 24}, ...]},
@@ -102,7 +102,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Multi do
     execute_concurrent_requests(targets_and_oids, timeout, max_concurrent, fn {target, oid,
                                                                                request_opts} ->
       merged_opts = Keyword.merge(opts, request_opts)
-      SnmpKit.SnmpKit.SnmpMgr.walk(target, oid, merged_opts)
+      SnmpKit.SnmpMgr.walk(target, oid, merged_opts)
     end)
   end
 
@@ -120,7 +120,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Multi do
       ...>   {"switch2", "ifTable"},
       ...>   {"router1", "ipRouteTable"}
       ...> ]
-      iex> SnmpKit.SnmpKit.SnmpMgr.Multi.walk_table_multi(requests, version: :v2c)
+      iex> SnmpKit.SnmpMgr.Multi.walk_table_multi(requests, version: :v2c)
       [
         {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "eth0"}, ...]},
         {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "GigE0/1"}, ...]},
@@ -156,7 +156,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Multi do
       ...>   {:get_bulk, "switch1", "ifTable", [max_repetitions: 20]},
       ...>   {:walk, "router1", "system", [version: :v2c]}
       ...> ]
-      iex> SnmpKit.SnmpKit.SnmpMgr.Multi.execute_mixed(operations)
+      iex> SnmpKit.SnmpMgr.Multi.execute_mixed(operations)
       [
         {:ok, "Device 1 Description"},
         {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "eth0"}, ...]},
@@ -193,7 +193,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Multi do
 
       targets = [{"device1", "sysUpTime.0"}, {"device2", "ifInOctets.1"}]
       callback = fn change -> IO.inspect(change) end
-      {:ok, monitor_pid} = SnmpKit.SnmpKit.SnmpMgr.Multi.monitor(targets, callback, interval: 30_000)
+      {:ok, monitor_pid} = SnmpKit.SnmpMgr.Multi.monitor(targets, callback, interval: 30_000)
   """
   def monitor(targets_and_oids, callback, opts \\ []) do
     interval = Keyword.get(opts, :interval, 30_000)
@@ -280,7 +280,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Multi do
   end
 
   defp execute_operation(:walk, target, root_oid, opts) do
-    SnmpKit.SnmpKit.SnmpMgr.walk(target, root_oid, opts)
+    SnmpKit.SnmpMgr.walk(target, root_oid, opts)
   end
 
   defp execute_operation(:walk_table, target, table_oid, opts) do

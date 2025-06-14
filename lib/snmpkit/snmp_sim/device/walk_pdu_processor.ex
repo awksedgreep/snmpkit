@@ -7,7 +7,7 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
 
   require Logger
   alias SnmpKit.SnmpSim.MIB.SharedProfiles
-  alias SnmpKit.SnmpSim.PDUHelper
+  alias SnmpKit.SnmpSim.PDUHelper, as: PduHelper
 
   @doc """
   Process a GET request for walk-based devices.

@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpKit.SnmpMgr.Engine do
+defmodule SnmpKit.SnmpMgr.Engine do
   @moduledoc """
   High-performance streaming PDU engine with request routing and connection pooling.
 
@@ -43,7 +43,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Engine do
 
   ## Examples
 
-      {:ok, engine} = SnmpKit.SnmpKit.SnmpMgr.Engine.start_link(
+      {:ok, engine} = SnmpKit.SnmpMgr.Engine.start_link(
         pool_size: 20,
         max_rps: 200,
         batch_size: 100
@@ -71,7 +71,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Engine do
         community: "public"
       }
 
-      {:ok, ref} = SnmpKit.SnmpKit.SnmpMgr.Engine.submit_request(engine, request)
+      {:ok, ref} = SnmpKit.SnmpMgr.Engine.submit_request(engine, request)
   """
   def submit_request(engine, request, opts \\ []) do
     GenServer.call(engine, {:submit_request, request, opts})
@@ -92,7 +92,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Engine do
         %{type: :get, target: "device2", oid: "sysDescr.0"}
       ]
 
-      {:ok, batch_ref} = SnmpKit.SnmpKit.SnmpMgr.Engine.submit_batch(engine, requests)
+      {:ok, batch_ref} = SnmpKit.SnmpMgr.Engine.submit_batch(engine, requests)
   """
   def submit_batch(engine, requests, opts \\ []) do
     GenServer.call(engine, {:submit_batch, requests, opts})
@@ -451,7 +451,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Engine do
   end
 
   defp send_snmp_request(socket, request) do
-    # This is a simplified version - real implementation would use SnmpKit.SnmpKit.SnmpMgr.Core
+    # This is a simplified version - real implementation would use SnmpKit.SnmpMgr.Core
     target = resolve_target(request.target)
 
     case build_snmp_message(request) do
@@ -496,7 +496,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Engine do
   end
 
   defp resolve_target(target) when is_binary(target) do
-    case SnmpKit.SnmpKit.SnmpMgr.Target.parse(target) do
+    case SnmpKit.SnmpMgr.Target.parse(target) do
       {:ok, parsed} -> parsed
       {:error, _} -> %{host: target, port: 161}
     end

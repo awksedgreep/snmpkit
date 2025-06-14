@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpKit.SnmpMgr.Supervisor do
+defmodule SnmpKit.SnmpMgr.Supervisor do
   @moduledoc """
   Main supervisor for the SnmpMgr streaming PDU engine infrastructure.
 
@@ -25,26 +25,26 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Supervisor do
 
     children = [
       # Metrics collection (start first)
-      {SnmpKit.SnmpKit.SnmpMgr.Metrics, metrics_config},
+      {SnmpKit.SnmpMgr.Metrics, metrics_config},
 
       # Circuit breaker
-      {SnmpKit.SnmpKit.SnmpMgr.CircuitBreaker, circuit_breaker_config},
+      {SnmpKit.SnmpMgr.CircuitBreaker, circuit_breaker_config},
 
       # Connection pool (temporarily disabled - not yet implemented)
       # {SnmpKit.SnmpMgr.Pool, pool_config},
 
       # Main engines (can have multiple)
       Supervisor.child_spec(
-        {SnmpKit.SnmpKit.SnmpMgr.Engine, Keyword.put(engine_config, :name, :engine_1)},
+        {SnmpKit.SnmpMgr.Engine, Keyword.put(engine_config, :name, :engine_1)},
         id: :engine_1
       ),
       Supervisor.child_spec(
-        {SnmpKit.SnmpKit.SnmpMgr.Engine, Keyword.put(engine_config, :name, :engine_2)},
+        {SnmpKit.SnmpMgr.Engine, Keyword.put(engine_config, :name, :engine_2)},
         id: :engine_2
       ),
 
       # Router (coordinates engines)
-      {SnmpKit.SnmpKit.SnmpMgr.Router,
+      {SnmpKit.SnmpMgr.Router,
        Keyword.merge(router_config,
          engines: [
            %{name: :engine_1, weight: 1, max_load: 100},

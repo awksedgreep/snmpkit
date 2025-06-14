@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpKit.SnmpMgr.Metrics do
+defmodule SnmpKit.SnmpMgr.Metrics do
   @moduledoc """
   Comprehensive metrics collection and monitoring for SNMP operations.
 
@@ -38,7 +38,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Metrics do
 
   ## Examples
 
-      {:ok, metrics} = SnmpKit.SnmpKit.SnmpMgr.Metrics.start_link(
+      {:ok, metrics} = SnmpKit.SnmpMgr.Metrics.start_link(
         window_size: 120,
         retention_period: 7200
       )
@@ -59,7 +59,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Metrics do
 
   ## Examples
 
-      SnmpKit.SnmpKit.SnmpMgr.Metrics.counter(metrics, :requests_total, 1, %{target: "device1"})
+      SnmpKit.SnmpMgr.Metrics.counter(metrics, :requests_total, 1, %{target: "device1"})
   """
   def counter(metrics, metric_name, value \\ 1, tags \\ %{}) do
     GenServer.cast(
@@ -79,7 +79,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Metrics do
 
   ## Examples
 
-      SnmpKit.SnmpKit.SnmpMgr.Metrics.gauge(metrics, :active_connections, 15, %{pool: "main"})
+      SnmpKit.SnmpMgr.Metrics.gauge(metrics, :active_connections, 15, %{pool: "main"})
   """
   def gauge(metrics, metric_name, value, tags \\ %{}) do
     GenServer.cast(
@@ -99,7 +99,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Metrics do
 
   ## Examples
 
-      SnmpKit.SnmpKit.SnmpMgr.Metrics.histogram(metrics, :request_duration_ms, 150, %{operation: "get"})
+      SnmpKit.SnmpMgr.Metrics.histogram(metrics, :request_duration_ms, 150, %{operation: "get"})
   """
   def histogram(metrics, metric_name, value, tags \\ %{}) do
     GenServer.cast(
@@ -119,7 +119,7 @@ defmodule SnmpKit.SnmpKit.SnmpMgr.Metrics do
 
   ## Examples
 
-      result = SnmpKit.SnmpKit.SnmpMgr.Metrics.time(metrics, :snmp_get_duration, fn ->
+      result = SnmpKit.SnmpMgr.Metrics.time(metrics, :snmp_get_duration, fn ->
         SnmpKit.SnmpMgr.get("device1", "sysDescr.0")
       end, %{device: "device1"})
   """
