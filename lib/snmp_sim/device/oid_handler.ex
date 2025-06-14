@@ -1,4 +1,4 @@
-defmodule SnmpSim.Device.OidHandler do
+defmodule SnmpKit.SnmpSim.Device.OidHandler do
   @moduledoc """
   OID handling and value generation for SNMP device simulation.
   Handles dynamic OID value generation, interface statistics, and MIB walking.
@@ -9,7 +9,7 @@ defmodule SnmpSim.Device.OidHandler do
     {:nowarn_function, walk_oid_recursive: 4}
   ]
   require Logger
-  alias SnmpSim.MIB.SharedProfiles
+  alias SnmpKit.SnmpSim.MIB.SharedProfiles
 
   # I'll move the OID handling functions here from device.ex
   # This will be populated in the next step
@@ -113,7 +113,8 @@ defmodule SnmpSim.Device.OidHandler do
   - `{:ok, value}` - Successfully retrieved OID value
   - `{:error, reason}` - Failed to retrieve OID value
   """
-  def get_oid_value(oid, state) when is_list(oid) and is_map(state) and is_map_key(state, :oid_map) do
+  def get_oid_value(oid, state)
+      when is_list(oid) and is_map(state) and is_map_key(state, :oid_map) do
     # Update last access time
     _new_state = %{state | last_access: System.monotonic_time(:millisecond)}
     # Convert list OID to string to match walk parser format
@@ -121,7 +122,8 @@ defmodule SnmpSim.Device.OidHandler do
     get_oid_value_from_map(oid_string, state.oid_map)
   end
 
-  def get_oid_value(oid, state) when is_binary(oid) and is_map(state) and is_map_key(state, :oid_map) do
+  def get_oid_value(oid, state)
+      when is_binary(oid) and is_map(state) and is_map_key(state, :oid_map) do
     # Update last access time
     _new_state = %{state | last_access: System.monotonic_time(:millisecond)}
     # OID is already a string, use directly
@@ -130,6 +132,7 @@ defmodule SnmpSim.Device.OidHandler do
 
   def get_oid_value(device_type, oid) when is_atom(device_type) and is_binary(oid) do
     oid_list = string_to_oid_list(oid)
+
     case get_device_specific_value(device_type, oid_list) do
       {:ok, value} -> {:ok, value}
       {:error, _} -> {:error, :no_such_name}
@@ -143,13 +146,23 @@ defmodule SnmpSim.Device.OidHandler do
     end
   end
 
-  def get_oid_value(oid, device_struct) when is_list(oid) and is_map(device_struct) and is_map_key(device_struct, :device_type) do
+  def get_oid_value(oid, device_struct)
+      when is_list(oid) and is_map(device_struct) and is_map_key(device_struct, :device_type) do
     # Check if device has walk data loaded in SharedProfiles
     if Map.get(device_struct, :has_walk_data, false) do
       # Convert device_type to atom since SharedProfiles uses atoms as keys
-      device_type_atom = if is_binary(device_struct.device_type), do: String.to_atom(device_struct.device_type), else: device_struct.device_type
+      device_type_atom =
+        if is_binary(device_struct.device_type),
+          do: String.to_atom(device_struct.device_type),
+          else: device_struct.device_type
+
       oid_string = oid_to_string(oid)
-      case SnmpSim.MIB.SharedProfiles.get_oid_value(device_type_atom, oid_string, device_struct) do
+
+      case SnmpKit.SnmpSim.MIB.SharedProfiles.get_oid_value(
+             device_type_atom,
+             oid_string,
+             device_struct
+           ) do
         {:ok, {type, value}} -> {:ok, {oid_string, type, value}}
         {:error, reason} -> {:error, reason}
       end
@@ -161,17 +174,23 @@ defmodule SnmpSim.Device.OidHandler do
     end
   end
 
-  def get_oid_value(oid, device_struct) when is_binary(oid) and is_map(device_struct) and is_map_key(device_struct, :device_type) do
+  def get_oid_value(oid, device_struct)
+      when is_binary(oid) and is_map(device_struct) and is_map_key(device_struct, :device_type) do
     # Check if device has walk data loaded in SharedProfiles
     if Map.get(device_struct, :has_walk_data, false) do
       # Convert device_type to atom since SharedProfiles uses atoms as keys
-      device_type_atom = if is_binary(device_struct.device_type), do: String.to_atom(device_struct.device_type), else: device_struct.device_type
-      case SnmpSim.MIB.SharedProfiles.get_oid_value(device_type_atom, oid, device_struct) do
+      device_type_atom =
+        if is_binary(device_struct.device_type),
+          do: String.to_atom(device_struct.device_type),
+          else: device_struct.device_type
+
+      case SnmpKit.SnmpSim.MIB.SharedProfiles.get_oid_value(device_type_atom, oid, device_struct) do
         {:ok, {type, value}} -> {:ok, {oid, type, value}}
         {:error, reason} -> {:error, reason}
       end
     else
       oid_list = string_to_oid_list(oid)
+
       case get_device_specific_value(device_struct.device_type, oid_list) do
         {:ok, value} -> {:ok, value}
         {:error, _} -> {:error, :no_such_name}
@@ -180,7 +199,10 @@ defmodule SnmpSim.Device.OidHandler do
   end
 
   def get_oid_value(oid, unknown) do
-    Logger.error("Unexpected input to get_oid_value/2: oid=#{inspect(oid)}, unknown=#{inspect(unknown)}")
+    Logger.error(
+      "Unexpected input to get_oid_value/2: oid=#{inspect(oid)}, unknown=#{inspect(unknown)}"
+    )
+
     {:error, :no_such_name}
   end
 
@@ -188,6 +210,7 @@ defmodule SnmpSim.Device.OidHandler do
     case Map.get(oid_map, oid_key) do
       nil ->
         {:error, :no_such_name}
+
       value ->
         {:ok, value}
     end
@@ -195,9 +218,11 @@ defmodule SnmpSim.Device.OidHandler do
 
   defp get_device_specific_value(device_type, oid_list) do
     oid_string = Enum.join(oid_list, ".")
+
     case oid_string do
       # System group OIDs (1.3.6.1.2.1.1.x.0)
-      "1.3.6.1.2.1.1.1.0" -> # sysDescr.0
+      # sysDescr.0
+      "1.3.6.1.2.1.1.1.0" ->
         device_type_str =
           case device_type do
             :cable_modem -> "Motorola SB6141 DOCSIS 3.0 Cable Modem"
@@ -206,45 +231,80 @@ defmodule SnmpSim.Device.OidHandler do
             :switch -> "SNMP Simulator Device"
             _ -> "SNMP Simulator Device"
           end
+
         {:ok, {oid_string, :octet_string, device_type_str}}
-      "1.3.6.1.2.1.1.2.0" -> # sysObjectID.0
+
+      # sysObjectID.0
+      "1.3.6.1.2.1.1.2.0" ->
         {:ok, {oid_string, :object_identifier, [1, 3, 6, 1, 4, 1, 1, 1]}}
-      "1.3.6.1.2.1.1.3.0" -> # sysUpTime.0
+
+      # sysUpTime.0
+      "1.3.6.1.2.1.1.3.0" ->
         {:ok, {oid_string, :timeticks, 12345}}
-      "1.3.6.1.2.1.1.4.0" -> # sysContact.0
+
+      # sysContact.0
+      "1.3.6.1.2.1.1.4.0" ->
         {:ok, {oid_string, :octet_string, "admin@example.com"}}
-      "1.3.6.1.2.1.1.5.0" -> # sysName.0
+
+      # sysName.0
+      "1.3.6.1.2.1.1.5.0" ->
         {:ok, {oid_string, :octet_string, "cable-modem-sim"}}
-      "1.3.6.1.2.1.1.6.0" -> # sysLocation.0
+
+      # sysLocation.0
+      "1.3.6.1.2.1.1.6.0" ->
         {:ok, {oid_string, :octet_string, "Lab Environment"}}
-      "1.3.6.1.2.1.1.7.0" -> # sysServices.0
+
+      # sysServices.0
+      "1.3.6.1.2.1.1.7.0" ->
         {:ok, {oid_string, :integer, 72}}
-      
+
       # Interface group OIDs (1.3.6.1.2.1.2.x.0)
-      "1.3.6.1.2.1.2.1.0" -> # ifNumber.0
+      # ifNumber.0
+      "1.3.6.1.2.1.2.1.0" ->
         {:ok, {oid_string, :integer, 2}}
-      
+
       # Interface table OIDs (1.3.6.1.2.1.2.2.1.x.y)
-      "1.3.6.1.2.1.2.2.1.1.1" -> # ifIndex.1
+      # ifIndex.1
+      "1.3.6.1.2.1.2.2.1.1.1" ->
         {:ok, {oid_string, :integer, 1}}
-      "1.3.6.1.2.1.2.2.1.1.2" -> # ifIndex.2
+
+      # ifIndex.2
+      "1.3.6.1.2.1.2.2.1.1.2" ->
         {:ok, {oid_string, :integer, 2}}
-      "1.3.6.1.2.1.2.2.1.2.1" -> # ifDescr.1
+
+      # ifDescr.1
+      "1.3.6.1.2.1.2.2.1.2.1" ->
         {:ok, {oid_string, :octet_string, "eth0"}}
-      "1.3.6.1.2.1.2.2.1.2.2" -> # ifDescr.2
+
+      # ifDescr.2
+      "1.3.6.1.2.1.2.2.1.2.2" ->
         {:ok, {oid_string, :octet_string, "eth1"}}
-      "1.3.6.1.2.1.2.2.1.3.1" -> # ifType.1
+
+      # ifType.1
+      "1.3.6.1.2.1.2.2.1.3.1" ->
         {:ok, {oid_string, :integer, 6}}
-      "1.3.6.1.2.1.2.2.1.3.2" -> # ifType.2
+
+      # ifType.2
+      "1.3.6.1.2.1.2.2.1.3.2" ->
         {:ok, {oid_string, :integer, 6}}
-      oid when oid == "1.3.6.1.2.1.2.2.1.5.1" -> # Gauge32 (ifSpeed)
-        {:ok, {oid_string, :gauge32, 100000000}}
-      oid when oid == "1.3.6.1.2.1.2.2.1.10.1" -> # Counter32 (ifInOctets)
-        {:ok, {oid_string, :counter32, 1234567}}
-      oid when oid == "1.3.6.1.2.1.2.2.1.16.1" -> # Counter32 (ifOutOctets)
-        {:ok, {oid_string, :counter32, 7654321}}
+
+      # Gauge32 (ifSpeed)
+      oid when oid == "1.3.6.1.2.1.2.2.1.5.1" ->
+        {:ok, {oid_string, :gauge32, 100_000_000}}
+
+      # Counter32 (ifInOctets)
+      oid when oid == "1.3.6.1.2.1.2.2.1.10.1" ->
+        {:ok, {oid_string, :counter32, 1_234_567}}
+
+      # Counter32 (ifOutOctets)
+      oid when oid == "1.3.6.1.2.1.2.2.1.16.1" ->
+        {:ok, {oid_string, :counter32, 7_654_321}}
+
       _ ->
-        case SharedProfiles.get_oid_value(device_type, oid_string, %{uptime: 0, device_type: device_type}) do
+        case SharedProfiles.get_oid_value(device_type, oid_string, %{
+               uptime: 0,
+               device_type: device_type
+             }) do
           {:ok, {type, value}} -> {:ok, {oid_string, type, value}}
           {:error, reason} -> {:error, reason}
         end
@@ -253,9 +313,11 @@ defmodule SnmpSim.Device.OidHandler do
 
   defp get_hardcoded_oid_value(device_type, oid_list) do
     oid_string = Enum.join(oid_list, ".")
+
     case oid_string do
       # System group OIDs (1.3.6.1.2.1.1.x.0)
-      "1.3.6.1.2.1.1.1.0" -> # sysDescr.0
+      # sysDescr.0
+      "1.3.6.1.2.1.1.1.0" ->
         device_type_str =
           case device_type do
             :cable_modem -> "Motorola SB6141 DOCSIS 3.0 Cable Modem"
@@ -264,43 +326,75 @@ defmodule SnmpSim.Device.OidHandler do
             :switch -> "SNMP Simulator Device"
             _ -> "SNMP Simulator Device"
           end
+
         {:ok, {oid_string, :octet_string, device_type_str}}
-      "1.3.6.1.2.1.1.2.0" -> # sysObjectID.0
+
+      # sysObjectID.0
+      "1.3.6.1.2.1.1.2.0" ->
         {:ok, {oid_string, :object_identifier, [1, 3, 6, 1, 4, 1, 1, 1]}}
-      "1.3.6.1.2.1.1.3.0" -> # sysUpTime.0
+
+      # sysUpTime.0
+      "1.3.6.1.2.1.1.3.0" ->
         {:ok, {oid_string, :timeticks, 12345}}
-      "1.3.6.1.2.1.1.4.0" -> # sysContact.0
+
+      # sysContact.0
+      "1.3.6.1.2.1.1.4.0" ->
         {:ok, {oid_string, :octet_string, "admin@example.com"}}
-      "1.3.6.1.2.1.1.5.0" -> # sysName.0
+
+      # sysName.0
+      "1.3.6.1.2.1.1.5.0" ->
         {:ok, {oid_string, :octet_string, "cable-modem-sim"}}
-      "1.3.6.1.2.1.1.6.0" -> # sysLocation.0
+
+      # sysLocation.0
+      "1.3.6.1.2.1.1.6.0" ->
         {:ok, {oid_string, :octet_string, "Lab Environment"}}
-      "1.3.6.1.2.1.1.7.0" -> # sysServices.0
+
+      # sysServices.0
+      "1.3.6.1.2.1.1.7.0" ->
         {:ok, {oid_string, :integer, 72}}
-      
+
       # Interface group OIDs (1.3.6.1.2.1.2.x.0)
-      "1.3.6.1.2.1.2.1.0" -> # ifNumber.0
+      # ifNumber.0
+      "1.3.6.1.2.1.2.1.0" ->
         {:ok, {oid_string, :integer, 2}}
-      
+
       # Interface table OIDs (1.3.6.1.2.1.2.2.1.x.y)
-      "1.3.6.1.2.1.2.2.1.1.1" -> # ifIndex.1
+      # ifIndex.1
+      "1.3.6.1.2.1.2.2.1.1.1" ->
         {:ok, {oid_string, :integer, 1}}
-      "1.3.6.1.2.1.2.2.1.1.2" -> # ifIndex.2
+
+      # ifIndex.2
+      "1.3.6.1.2.1.2.2.1.1.2" ->
         {:ok, {oid_string, :integer, 2}}
-      "1.3.6.1.2.1.2.2.1.2.1" -> # ifDescr.1
+
+      # ifDescr.1
+      "1.3.6.1.2.1.2.2.1.2.1" ->
         {:ok, {oid_string, :octet_string, "eth0"}}
-      "1.3.6.1.2.1.2.2.1.2.2" -> # ifDescr.2
+
+      # ifDescr.2
+      "1.3.6.1.2.1.2.2.1.2.2" ->
         {:ok, {oid_string, :octet_string, "eth1"}}
-      "1.3.6.1.2.1.2.2.1.3.1" -> # ifType.1
+
+      # ifType.1
+      "1.3.6.1.2.1.2.2.1.3.1" ->
         {:ok, {oid_string, :integer, 6}}
-      "1.3.6.1.2.1.2.2.1.3.2" -> # ifType.2
+
+      # ifType.2
+      "1.3.6.1.2.1.2.2.1.3.2" ->
         {:ok, {oid_string, :integer, 6}}
-      oid when oid == "1.3.6.1.2.1.2.2.1.5.1" -> # Gauge32 (ifSpeed)
-        {:ok, {oid_string, :gauge32, 100000000}}
-      oid when oid == "1.3.6.1.2.1.2.2.1.10.1" -> # Counter32 (ifInOctets)
-        {:ok, {oid_string, :counter32, 1234567}}
-      oid when oid == "1.3.6.1.2.1.2.2.1.16.1" -> # Counter32 (ifOutOctets)
-        {:ok, {oid_string, :counter32, 7654321}}
+
+      # Gauge32 (ifSpeed)
+      oid when oid == "1.3.6.1.2.1.2.2.1.5.1" ->
+        {:ok, {oid_string, :gauge32, 100_000_000}}
+
+      # Counter32 (ifInOctets)
+      oid when oid == "1.3.6.1.2.1.2.2.1.10.1" ->
+        {:ok, {oid_string, :counter32, 1_234_567}}
+
+      # Counter32 (ifOutOctets)
+      oid when oid == "1.3.6.1.2.1.2.2.1.16.1" ->
+        {:ok, {oid_string, :counter32, 7_654_321}}
+
       _ ->
         {:error, :no_such_name}
     end
@@ -319,7 +413,7 @@ defmodule SnmpSim.Device.OidHandler do
   """
   def get_dynamic_oid_value(oid, state) do
     Logger.debug("get_dynamic_oid_value called with oid: #{inspect(oid)}")
-    # Normalize OID to string format using SnmpLib.OID
+    # Normalize OID to string format using SnmpKit.SnmpLib.OID
     oid_string =
       case oid do
         oid when is_binary(oid) ->
@@ -337,10 +431,12 @@ defmodule SnmpSim.Device.OidHandler do
     # Check if this is a device with walk data
     if Map.get(state, :has_walk_data, false) do
       Logger.debug("Device has walk data, checking SharedProfiles")
+
       case SharedProfiles.get_oid_value(state.device_type, oid_string, state.walk_data) do
         {:ok, {type, value}} ->
           Logger.debug("Found in SharedProfiles: type=#{inspect(type)}, value=#{inspect(value)}")
           {:ok, {oid_string, String.to_atom(String.downcase(type)), value}}
+
         _ ->
           Logger.debug("Not found in SharedProfiles, returning error")
           {:error, :no_such_name}
@@ -435,46 +531,63 @@ defmodule SnmpSim.Device.OidHandler do
     cond do
       Map.has_key?(state, :oid_map) ->
         get_next_oid_value_from_map(oid, state.oid_map)
-      
+
       Map.get(state, :has_walk_data, false) ->
         oid_string = oid_to_string(oid)
         # Convert device_type to atom since SharedProfiles uses atoms as keys
-        device_type_atom = if is_binary(device_type), do: String.to_atom(device_type), else: device_type
-        case SnmpSim.MIB.SharedProfiles.get_next_oid(device_type_atom, oid_string) do
+        device_type_atom =
+          if is_binary(device_type), do: String.to_atom(device_type), else: device_type
+
+        case SnmpKit.SnmpSim.MIB.SharedProfiles.get_next_oid(device_type_atom, oid_string) do
           {:ok, next_oid_string} ->
-            case SnmpSim.MIB.SharedProfiles.get_oid_value(device_type_atom, next_oid_string, state) do
+            case SnmpKit.SnmpSim.MIB.SharedProfiles.get_oid_value(
+                   device_type_atom,
+                   next_oid_string,
+                   state
+                 ) do
               {:ok, {type, value}} ->
                 next_oid_list = string_to_oid_list(next_oid_string)
                 {:ok, {next_oid_list, type, value}}
+
               {:error, reason} ->
                 {:error, reason}
             end
+
           :end_of_mib ->
             {:error, :end_of_mib}
+
           {:error, reason} ->
             {:error, reason}
         end
-      
+
       true ->
         # Fallback to original implementation for compatibility
         with {:ok, oids} <- {:ok, get_known_oids(device_type)},
-             {:ok, next_oid} <- find_next_oid(Enum.map(oids, &oid_to_string/1), oid_to_string(oid)) do
+             {:ok, next_oid} <-
+               find_next_oid(Enum.map(oids, &oid_to_string/1), oid_to_string(oid)) do
           oid_list = string_to_oid_list(next_oid)
+
           case get_oid_value(oid_list, state) do
-            {:ok, %{type: type, value: value}} -> 
-              result = {:ok, {string_to_oid_list(next_oid), String.to_atom(String.downcase(type)), value}}
+            {:ok, %{type: type, value: value}} ->
+              result =
+                {:ok,
+                 {string_to_oid_list(next_oid), String.to_atom(String.downcase(type)), value}}
+
               result
-            {:ok, {_oid_string, type, value}} -> 
+
+            {:ok, {_oid_string, type, value}} ->
               result = {:ok, {string_to_oid_list(next_oid), type, value}}
               result
-            {:ok, {type, value}} -> 
+
+            {:ok, {type, value}} ->
               result = {:ok, {string_to_oid_list(next_oid), type, value}}
               result
-            _error_result -> 
+
+            _error_result ->
               {:error, :end_of_mib_view}
           end
         else
-          _error -> 
+          _error ->
             {:error, :end_of_mib_view}
         end
     end
@@ -483,15 +596,18 @@ defmodule SnmpSim.Device.OidHandler do
   defp get_next_oid_value_from_map(oid, oid_map) do
     oid_string = oid_to_string(oid)
     oid_keys = Map.keys(oid_map) |> Enum.sort()
-    
+
     case find_next_oid(oid_keys, oid_string) do
       {:ok, next_oid_string} ->
         case Map.get(oid_map, next_oid_string) do
           %{type: type, value: value} ->
-            {:ok, {string_to_oid_list(next_oid_string), String.to_atom(String.downcase(type)), value}}
+            {:ok,
+             {string_to_oid_list(next_oid_string), String.to_atom(String.downcase(type)), value}}
+
           nil ->
             {:error, :end_of_mib_view}
         end
+
       {:error, :not_found} ->
         {:error, :end_of_mib_view}
     end
@@ -500,33 +616,41 @@ defmodule SnmpSim.Device.OidHandler do
   defp find_next_oid(oids, oid) do
     # Validate input OID format first
     case validate_and_parse_oid(oid) do
-      {:error, _} -> {:error, :invalid_oid}
+      {:error, _} ->
+        {:error, :invalid_oid}
+
       {:ok, oid_parts} ->
         # Sort OIDs numerically by converting to integer lists for comparison
         # Filter out any invalid OIDs during sorting
-        sorted_oids = oids
-        |> Enum.filter(fn oid_str ->
-          case validate_and_parse_oid(oid_str) do
-            {:ok, _} -> true
-            {:error, _} -> false
-          end
-        end)
-        |> Enum.sort_by(fn oid_str ->
-          {:ok, parts} = validate_and_parse_oid(oid_str)
-          parts
-        end)
-        
+        sorted_oids =
+          oids
+          |> Enum.filter(fn oid_str ->
+            case validate_and_parse_oid(oid_str) do
+              {:ok, _} -> true
+              {:error, _} -> false
+            end
+          end)
+          |> Enum.sort_by(fn oid_str ->
+            {:ok, parts} = validate_and_parse_oid(oid_str)
+            parts
+          end)
+
         case Enum.find_index(sorted_oids, &(&1 == oid)) do
           nil ->
             # If exact match not found, find the first OID numerically after the requested one
-            next_index = Enum.find_index(sorted_oids, fn candidate_oid ->
-              {:ok, candidate_parts} = validate_and_parse_oid(candidate_oid)
-              compare_oid_lists(candidate_parts, oid_parts) == :gt
-            end)
+            next_index =
+              Enum.find_index(sorted_oids, fn candidate_oid ->
+                {:ok, candidate_parts} = validate_and_parse_oid(candidate_oid)
+                compare_oid_lists(candidate_parts, oid_parts) == :gt
+              end)
+
             if next_index, do: {:ok, Enum.at(sorted_oids, next_index)}, else: {:error, :not_found}
+
           index ->
             # If exact match found, get the next one if it exists
-            if index + 1 < length(sorted_oids), do: {:ok, Enum.at(sorted_oids, index + 1)}, else: {:error, :not_found}
+            if index + 1 < length(sorted_oids),
+              do: {:ok, Enum.at(sorted_oids, index + 1)},
+              else: {:error, :not_found}
         end
     end
   end
@@ -534,19 +658,23 @@ defmodule SnmpSim.Device.OidHandler do
   # Helper function to validate and parse OID string
   defp validate_and_parse_oid(oid) when is_binary(oid) do
     case oid do
-      "" -> {:error, :empty_oid}
+      "" ->
+        {:error, :empty_oid}
+
       _ ->
         try do
-          parts = oid
-          |> String.split(".")
-          |> Enum.map(&String.to_integer/1)
+          parts =
+            oid
+            |> String.split(".")
+            |> Enum.map(&String.to_integer/1)
+
           {:ok, parts}
         rescue
           _ -> {:error, :invalid_oid_format}
         end
     end
   end
-  
+
   defp validate_and_parse_oid(_), do: {:error, :invalid_oid_type}
 
   # Helper function to compare OID lists numerically
@@ -576,9 +704,7 @@ defmodule SnmpSim.Device.OidHandler do
       end
     catch
       :exit, {:noproc, _} ->
-        Logger.debug(
-          "SharedProfiles unavailable, using fallback for OID #{oid}"
-        )
+        Logger.debug("SharedProfiles unavailable, using fallback for OID #{oid}")
 
         {:ok, get_fallback_bulk_oids(oid, count, state)}
 
@@ -588,10 +714,9 @@ defmodule SnmpSim.Device.OidHandler do
         )
 
         {:ok, get_fallback_bulk_oids(oid, count, state)}
+
       :error, reason ->
-        Logger.debug(
-          "Error in SharedProfiles for OID #{oid}: #{inspect(reason)}"
-        )
+        Logger.debug("Error in SharedProfiles for OID #{oid}: #{inspect(reason)}")
 
         {:ok, get_fallback_bulk_oids(oid, count, state)}
     end
@@ -619,6 +744,7 @@ defmodule SnmpSim.Device.OidHandler do
       {:ok, {next_oid, type, value}} ->
         # Check if next_oid is still within the root subtree
         within_subtree = oid_within_subtree?(next_oid, root_oid)
+
         if within_subtree do
           # Continue walking within the subtree
           walk_oid_recursive(next_oid, root_oid, state, [{next_oid, {type, value}} | acc])
@@ -626,9 +752,11 @@ defmodule SnmpSim.Device.OidHandler do
           # Reached outside the subtree, return what we have accumulated
           finish_walk(acc)
         end
+
       {:error, :end_of_mib_view} ->
         # Reached end of MIB, return what we have accumulated
         finish_walk(acc)
+
       {:error, _reason} ->
         # Some other error occurred, return what we have so far
         finish_walk(acc)
@@ -642,19 +770,22 @@ defmodule SnmpSim.Device.OidHandler do
 
   defp finish_walk(acc) do
     # Sort results by OID to ensure lexicographical order
-    sorted_results = acc
-    |> Enum.reverse()
-    |> Enum.sort_by(fn {oid, _value} -> 
-      # Convert OID to list of integers for proper numerical sorting
-      case oid do
-        oid_list when is_list(oid_list) -> oid_list
-        oid_string when is_binary(oid_string) -> 
-          oid_string
-          |> String.split(".")
-          |> Enum.map(&String.to_integer/1)
-      end
-    end)
-    
+    sorted_results =
+      acc
+      |> Enum.reverse()
+      |> Enum.sort_by(fn {oid, _value} ->
+        # Convert OID to list of integers for proper numerical sorting
+        case oid do
+          oid_list when is_list(oid_list) ->
+            oid_list
+
+          oid_string when is_binary(oid_string) ->
+            oid_string
+            |> String.split(".")
+            |> Enum.map(&String.to_integer/1)
+        end
+      end)
+
     {:ok, sorted_results}
   end
 
@@ -680,12 +811,15 @@ defmodule SnmpSim.Device.OidHandler do
   """
   def get_fallback_bulk_oids(start_oid, max_repetitions, state) do
     # Convert OID to string if it's a list
-    start_oid_string = case start_oid do
-      oid when is_list(oid) -> oid_to_string(oid)
-      oid when is_binary(oid) -> oid
-    end
+    start_oid_string =
+      case start_oid do
+        oid when is_list(oid) -> oid_to_string(oid)
+        oid when is_binary(oid) -> oid
+      end
 
-    Logger.debug("Fallback bulk OIDs for #{start_oid_string}, max_repetitions: #{max_repetitions}")
+    Logger.debug(
+      "Fallback bulk OIDs for #{start_oid_string}, max_repetitions: #{max_repetitions}"
+    )
 
     # Collect bulk OIDs iteratively
     get_bulk_oids_iteratively(start_oid, max_repetitions, state, [])
@@ -702,9 +836,11 @@ defmodule SnmpSim.Device.OidHandler do
       {next_oid, :end_of_mib_view, value} ->
         # Hit end of MIB, add this and stop
         Enum.reverse([{next_oid, :end_of_mib_view, value} | acc])
+
       {:error, :end_of_mib_view} ->
         # Hit end of MIB, add end_of_mib_view entry with the current OID and stop
         Enum.reverse([{current_oid, :end_of_mib_view, {:end_of_mib_view, nil}} | acc])
+
       {next_oid, type, value} ->
         # Got a valid OID, add it and continue
         new_acc = [{next_oid, type, value} | acc]
@@ -734,13 +870,17 @@ defmodule SnmpSim.Device.OidHandler do
     if current_index != nil and current_index + 1 < length(known_oids) do
       next_index = current_index + 1
       next_oid = Enum.at(known_oids, next_index)
+
       case get_hardcoded_oid_value(device_type, next_oid) do
         {:ok, {_oid, type, value}} when type == :object_identifier ->
           {next_oid, type, value}
+
         {:ok, {_oid, type, value}} ->
           {next_oid, type, value}
+
         {:ok, value} ->
           {next_oid, :unknown, value}
+
         {:error, _} ->
           # If we can't get a value for this OID, try the next one recursively
           get_fallback_next_oid(next_oid, state)
@@ -749,14 +889,18 @@ defmodule SnmpSim.Device.OidHandler do
       # If no exact match or at the end, try to find the next logical OID
       sorted_oids = Enum.sort_by(known_oids, &oid_to_string/1)
       next_oid = Enum.find(sorted_oids, fn oid -> oid_to_string(oid) > current_oid_str end)
+
       if next_oid do
         case get_hardcoded_oid_value(device_type, next_oid) do
           {:ok, {_oid, type, value}} when type == :object_identifier ->
             {next_oid, type, value}
+
           {:ok, {_oid, type, value}} ->
             {next_oid, type, value}
+
           {:ok, value} ->
             {next_oid, :unknown, value}
+
           {:error, _} ->
             get_fallback_next_oid(next_oid, state)
         end
@@ -783,21 +927,35 @@ defmodule SnmpSim.Device.OidHandler do
     case Enum.take(String.split(oid, "."), -2) do
       [column, _index] ->
         case column do
-          "1" -> {:ok, {oid, :integer, 1}} # ifIndex
-          "2" -> {:ok, {oid, :octet_string, "Ethernet"}} # ifDescr
-          "3" -> {:ok, {oid, :integer, 6}} # ifType (6 = ethernetCsmacd)
-          "4" -> {:ok, {oid, :gauge32, 1500}} # ifMtu
-          "5" -> {:ok, {oid, :gauge32, 10000000}} # ifSpeed (10Mbps)
-          "6" -> {:ok, {oid, :octet_string, <<0, 1, 2, 3, 4, 5>>}} # ifPhysAddress
-          "7" -> {:ok, {oid, :integer, 1}} # ifAdminStatus (1 = up)
-          "8" -> {:ok, {oid, :integer, 1}} # ifOperStatus (1 = up)
-          "10" -> {:ok, {oid, :counter32, 1000}} # ifInOctets
-          "11" -> {:ok, {oid, :counter32, 100}} # ifInUcastPkts
-          "16" -> {:ok, {oid, :counter32, 900}} # ifOutOctets
-          "17" -> {:ok, {oid, :counter32, 90}} # ifOutUcastPkts
+          # ifIndex
+          "1" -> {:ok, {oid, :integer, 1}}
+          # ifDescr
+          "2" -> {:ok, {oid, :octet_string, "Ethernet"}}
+          # ifType (6 = ethernetCsmacd)
+          "3" -> {:ok, {oid, :integer, 6}}
+          # ifMtu
+          "4" -> {:ok, {oid, :gauge32, 1500}}
+          # ifSpeed (10Mbps)
+          "5" -> {:ok, {oid, :gauge32, 10_000_000}}
+          # ifPhysAddress
+          "6" -> {:ok, {oid, :octet_string, <<0, 1, 2, 3, 4, 5>>}}
+          # ifAdminStatus (1 = up)
+          "7" -> {:ok, {oid, :integer, 1}}
+          # ifOperStatus (1 = up)
+          "8" -> {:ok, {oid, :integer, 1}}
+          # ifInOctets
+          "10" -> {:ok, {oid, :counter32, 1000}}
+          # ifInUcastPkts
+          "11" -> {:ok, {oid, :counter32, 100}}
+          # ifOutOctets
+          "16" -> {:ok, {oid, :counter32, 900}}
+          # ifOutUcastPkts
+          "17" -> {:ok, {oid, :counter32, 90}}
           _ -> {:error, :no_such_name}
         end
-      _ -> {:error, :no_such_name}
+
+      _ ->
+        {:error, :no_such_name}
     end
   end
 
@@ -1065,11 +1223,13 @@ defmodule SnmpSim.Device.OidHandler do
     # Add some accumulated variance
     # 5% base variance
     base_variance = div(total_increment, 20)
-    variance = if base_variance > 0 do
-      :rand.uniform(base_variance * 2) - base_variance
-    else
-      0
-    end
+
+    variance =
+      if base_variance > 0 do
+        :rand.uniform(base_variance * 2) - base_variance
+      else
+        0
+      end
 
     max(0, total_increment + variance)
   end
@@ -1116,11 +1276,13 @@ defmodule SnmpSim.Device.OidHandler do
     # Add some accumulated variance
     # ~7% variance
     base_variance = div(total_packets, 15)
-    variance = if base_variance > 0 do
-      :rand.uniform(base_variance * 2) - base_variance
-    else
-      0
-    end
+
+    variance =
+      if base_variance > 0 do
+        :rand.uniform(base_variance * 2) - base_variance
+      else
+        0
+      end
 
     max(0, total_packets + variance)
   end
@@ -1501,8 +1663,8 @@ defmodule SnmpSim.Device.OidHandler do
           |> String.split(".")
           |> Enum.map(&String.to_integer/1)
         end)
-        |> Enum.sort_by(&(&1))
-        
+        |> Enum.sort_by(& &1)
+
       _ ->
         # Fallback to hardcoded OIDs when SharedProfiles is not available or empty
         case device_type do
@@ -1527,7 +1689,7 @@ defmodule SnmpSim.Device.OidHandler do
               [1, 3, 6, 1, 2, 1, 2, 2, 1, 16, 1]
             ]
             # Sort the OIDs numerically to ensure proper lexicographical order
-            |> Enum.sort_by(&(&1))
+            |> Enum.sort_by(& &1)
 
           _ ->
             [
@@ -1540,7 +1702,7 @@ defmodule SnmpSim.Device.OidHandler do
               [1, 3, 6, 1, 2, 1, 1, 7, 0]
             ]
             # Sort the OIDs numerically to ensure proper lexicographical order
-            |> Enum.sort_by(&(&1))
+            |> Enum.sort_by(& &1)
         end
     end
   end

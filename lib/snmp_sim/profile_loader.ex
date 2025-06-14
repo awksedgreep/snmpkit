@@ -20,7 +20,7 @@ defmodule SnmpSim.ProfileLoader do
 
   Supported source types:
   - `{:walk_file, path}` - SNMP walk files (both named and numeric formats)
-  - `{:oid_walk, path}` - Raw OID dumps (numeric OIDs only)  
+  - `{:oid_walk, path}` - Raw OID dumps (numeric OIDs only)
   - `{:json_profile, path}` - Structured JSON profiles
   - `{:manual, oid_map}` - Manual OID definitions (for testing)
   - `{:compiled_mib, mib_files}` - Advanced MIB compilation (future)
@@ -32,7 +32,7 @@ defmodule SnmpSim.ProfileLoader do
         :cable_modem,
         {:walk_file, "priv/walks/cable_modem.walk"}
       )
-      
+
       # Load with behaviors
       profile = SnmpSim.ProfileLoader.load_profile(
         :cable_modem,
@@ -42,7 +42,7 @@ defmodule SnmpSim.ProfileLoader do
           {:vary_gauges, variance: 0.1}
         ]
       )
-      
+
   """
   def load_profile(device_type, source, opts \\ []) do
     case source do
@@ -72,7 +72,7 @@ defmodule SnmpSim.ProfileLoader do
   ## Examples
 
       value = SnmpSim.ProfileLoader.get_oid_value(profile, "1.3.6.1.2.1.1.1.0")
-      
+
   """
   def get_oid_value(%__MODULE__{oid_map: oid_map}, oid) do
     Map.get(oid_map, oid)
@@ -120,7 +120,7 @@ defmodule SnmpSim.ProfileLoader do
           case Keyword.get(opts, :behaviors) do
             nil ->
               # Apply default intelligent behavior analysis
-              SnmpSim.MIB.BehaviorAnalyzer.enhance_walk_file_behaviors(oid_map)
+              SnmpKit.SnmpSim.MIB.BehaviorAnalyzer.enhance_walk_file_behaviors(oid_map)
 
             behavior_configs ->
               # Apply custom behavior configurations
@@ -248,7 +248,7 @@ defmodule SnmpSim.ProfileLoader do
     # Compile MIB files and extract successful compilations
     compiled_mibs =
       mib_files
-      |> SnmpSim.MIB.Compiler.compile_mib_files()
+      |> SnmpKit.SnmpSim.MIB.Compiler.compile_mib_files()
       |> Enum.filter(fn {_file, result} -> match?({:ok, _}, result) end)
       |> Enum.map(fn {_file, {:ok, compiled}} -> compiled end)
 
@@ -262,7 +262,8 @@ defmodule SnmpSim.ProfileLoader do
         |> Enum.reduce(%{}, &Map.merge/2)
 
       # Analyze behaviors automatically
-      {:ok, enhanced_objects} = SnmpSim.MIB.BehaviorAnalyzer.analyze_mib_behaviors(all_objects)
+      {:ok, enhanced_objects} =
+        SnmpKit.SnmpSim.MIB.BehaviorAnalyzer.analyze_mib_behaviors(all_objects)
 
       # Apply any additional behavior configurations
       final_objects =

@@ -1,4 +1,4 @@
-defmodule SnmpSim.Device.WalkPduProcessor do
+defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
   @moduledoc """
   Simplified PDU processor for devices with walk data.
   Handles GET, GETNEXT, and GETBULK requests using walk file data
@@ -6,7 +6,7 @@ defmodule SnmpSim.Device.WalkPduProcessor do
   """
 
   require Logger
-  alias SnmpSim.MIB.SharedProfiles
+  alias SnmpKit.SnmpSim.MIB.SharedProfiles
   alias SnmpSim.PduHelper
 
   @doc """

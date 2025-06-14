@@ -15,25 +15,25 @@ defmodule SnmpLib do
     - High-performance encoding/decoding
     - Comprehensive error handling
 
-  - **`SnmpLib.ASN1`** - Low-level ASN.1 BER encoding/decoding
+  - **`SnmpKit.SnmpLib.ASN1`** - Low-level ASN.1 BER encoding/decoding
     - RFC-compliant OID multibyte encoding (values ≥ 128)
     - Complete integer, string, null, sequence support
     - Optimized length handling for large values
     - Robust error handling and validation
 
-  - **`SnmpLib.OID`** - OID string/list conversion and manipulation utilities
+  - **`SnmpKit.SnmpLib.OID`** - OID string/list conversion and manipulation utilities
     - Fast string/list conversions with validation
     - Tree operations and comparisons
     - Table index parsing and construction
     - Enterprise OID utilities
 
-  - **`SnmpLib.Types`** - SNMP data type validation and formatting
+  - **`SnmpKit.SnmpLib.Types`** - SNMP data type validation and formatting
     - Complete SNMP type system support
     - SNMPv2c exception value handling
     - Human-readable formatting
     - Range checking and validation
 
-  - **`SnmpLib.Transport`** - UDP socket management for SNMP communications
+  - **`SnmpKit.SnmpLib.Transport`** - UDP socket management for SNMP communications
     - Socket creation and management
     - Address resolution and validation
     - Performance optimizations
@@ -51,25 +51,25 @@ defmodule SnmpLib do
 
   Phase 3B adds enterprise-grade capabilities for high-scale SNMP deployments:
 
-  - **`SnmpLib.Pool`** - Connection pooling and session management
+  - **`SnmpKit.SnmpLib.Pool`** - Connection pooling and session management
     - FIFO, round-robin, and device-affinity strategies
     - Automatic overflow handling and health monitoring
     - 60-80% reduction in socket creation overhead
     - Support for 100+ concurrent device operations
 
-  - **`SnmpLib.ErrorHandler`** - Intelligent error handling and recovery
+  - **`SnmpKit.SnmpLib.ErrorHandler`** - Intelligent error handling and recovery
     - Exponential backoff with jitter for retry operations
     - Circuit breaker patterns for failing device management
     - Error classification (transient, permanent, degraded)
     - Adaptive timeout calculation based on device performance
 
-  - **`SnmpLib.Monitor`** - Performance monitoring and analytics
+  - **`SnmpKit.SnmpLib.Monitor`** - Performance monitoring and analytics
     - Real-time operation metrics and device statistics
     - Configurable alerting system with callback support
     - Data export in JSON, CSV, and Prometheus formats
     - Health scoring and trend analysis
 
-  - **`SnmpLib.Manager`** - High-level SNMP management operations
+  - **`SnmpKit.SnmpLib.Manager`** - High-level SNMP management operations
     - Simple API for GET, GETBULK, SET operations
     - Connection reuse and performance optimizations
     - Comprehensive error handling with meaningful messages
@@ -79,19 +79,19 @@ defmodule SnmpLib do
 
   Phase 4 provides production-ready integration and optimization features:
 
-  - **`SnmpLib.Config`** - Configuration management system
+  - **`SnmpKit.SnmpLib.Config`** - Configuration management system
     - Environment-aware configuration (dev/test/prod)
     - Hot-reload capabilities and validation
     - Multi-tenant deployment support
     - Secrets management and security
 
-  - **`SnmpLib.Dashboard`** - Real-time monitoring and visualization
+  - **`SnmpKit.SnmpLib.Dashboard`** - Real-time monitoring and visualization
     - Live performance dashboards and metrics
     - Alert management and notification routing
     - Prometheus/Grafana integration
     - Historical analytics and capacity planning
 
-  - **`SnmpLib.Cache`** - Intelligent caching system
+  - **`SnmpKit.SnmpLib.Cache`** - Intelligent caching system
     - Multi-level caching (L1/L2/L3) with compression
     - Adaptive TTL based on data volatility
     - Smart invalidation and cache warming
@@ -102,50 +102,50 @@ defmodule SnmpLib do
   ### Basic SNMP Operations
 
       # Simple SNMP GET operation
-      {:ok, {type, value}} = SnmpLib.Manager.get("192.168.1.1", [1, 3, 6, 1, 2, 1, 1, 1, 0])
+      {:ok, {type, value}} = SnmpKit.SnmpLib.Manager.get("192.168.1.1", [1, 3, 6, 1, 2, 1, 1, 1, 0])
 
       # SNMP GETBULK for efficient bulk retrieval
-      {:ok, results} = SnmpLib.Manager.get_bulk("192.168.1.1", [1, 3, 6, 1, 2, 1, 2, 2],
+      {:ok, results} = SnmpKit.SnmpLib.Manager.get_bulk("192.168.1.1", [1, 3, 6, 1, 2, 1, 2, 2],
                                                  max_repetitions: 20)
 
       # SNMP SET operation
-      {:ok, :success} = SnmpLib.Manager.set("192.168.1.1", [1, 3, 6, 1, 2, 1, 1, 5, 0],
+      {:ok, :success} = SnmpKit.SnmpLib.Manager.set("192.168.1.1", [1, 3, 6, 1, 2, 1, 1, 5, 0],
                                             {:string, "New System Name"})
 
   ### High-Performance Connection Pooling
 
       # Start a connection pool for network monitoring
-      {:ok, _pid} = SnmpLib.Pool.start_pool(:network_monitor,
+      {:ok, _pid} = SnmpKit.SnmpLib.Pool.start_pool(:network_monitor,
         strategy: :device_affinity,
         size: 20,
         max_overflow: 10
       )
 
       # Use pooled connections for improved performance
-      SnmpLib.Pool.with_connection(:network_monitor, "192.168.1.1", fn conn ->
-        SnmpLib.Manager.get_multi(conn.socket, "192.168.1.1", oids, conn.opts)
+      SnmpKit.SnmpLib.Pool.with_connection(:network_monitor, "192.168.1.1", fn conn ->
+        SnmpKit.SnmpLib.Manager.get_multi(conn.socket, "192.168.1.1", oids, conn.opts)
       end)
 
   ### Intelligent Error Handling
 
       # Retry operations with exponential backoff
-      result = SnmpLib.ErrorHandler.with_retry(fn ->
-        SnmpLib.Manager.get("unreliable.device.local", [1, 3, 6, 1, 2, 1, 1, 1, 0])
+      result = SnmpKit.SnmpLib.ErrorHandler.with_retry(fn ->
+        SnmpKit.SnmpLib.Manager.get("unreliable.device.local", [1, 3, 6, 1, 2, 1, 1, 1, 0])
       end, max_attempts: 5, base_delay: 2000)
 
       # Circuit breaker for problematic devices
-      {:ok, breaker} = SnmpLib.ErrorHandler.start_circuit_breaker("192.168.1.1")
-      result = SnmpLib.ErrorHandler.call_through_breaker(breaker, fn ->
-        SnmpLib.Manager.get_bulk("192.168.1.1", [1, 3, 6, 1, 2, 1, 2, 2])
+      {:ok, breaker} = SnmpKit.SnmpLib.ErrorHandler.start_circuit_breaker("192.168.1.1")
+      result = SnmpKit.SnmpLib.ErrorHandler.call_through_breaker(breaker, fn ->
+        SnmpKit.SnmpLib.Manager.get_bulk("192.168.1.1", [1, 3, 6, 1, 2, 1, 2, 2])
       end)
 
   ### Performance Monitoring and Analytics
 
       # Start monitoring system
-      {:ok, _pid} = SnmpLib.Monitor.start_link()
+      {:ok, _pid} = SnmpKit.SnmpLib.Monitor.start_link()
 
       # Record operation metrics
-      SnmpLib.Monitor.record_operation(%{
+      SnmpKit.SnmpLib.Monitor.record_operation(%{
         device: "192.168.1.1",
         operation: :get,
         duration: 245,
@@ -153,77 +153,77 @@ defmodule SnmpLib do
       })
 
       # Get device statistics and health scores
-      stats = SnmpLib.Monitor.get_device_stats("192.168.1.1")
+      stats = SnmpKit.SnmpLib.Monitor.get_device_stats("192.168.1.1")
       IO.puts("Device health score: " <> to_string(stats.health_score))
 
       # Set up automated alerting
-      SnmpLib.Monitor.set_alert_threshold("192.168.1.1", :response_time, 5000)
+      SnmpKit.SnmpLib.Monitor.set_alert_threshold("192.168.1.1", :response_time, 5000)
 
   ### Configuration Management
 
       # Load production configuration
-      {:ok, _pid} = SnmpLib.Config.start_link(
+      {:ok, _pid} = SnmpKit.SnmpLib.Config.start_link(
         config_file: "/etc/snmp_lib/production.exs",
         environment: :prod
       )
 
       # Get configuration values with fallbacks
-      timeout = SnmpLib.Config.get(:snmp, :default_timeout, 5000)
-      pool_size = SnmpLib.Config.get(:pool, :default_size, 10)
+      timeout = SnmpKit.SnmpLib.Config.get(:snmp, :default_timeout, 5000)
+      pool_size = SnmpKit.SnmpLib.Config.get(:pool, :default_size, 10)
 
       # Hot-reload configuration
-      :ok = SnmpLib.Config.reload()
+      :ok = SnmpKit.SnmpLib.Config.reload()
 
   ### Real-Time Dashboard and Monitoring
 
       # Start dashboard with Prometheus integration
-      {:ok, _pid} = SnmpLib.Dashboard.start_link(
+      {:ok, _pid} = SnmpKit.SnmpLib.Dashboard.start_link(
         port: 4000,
         prometheus_enabled: true,
         retention_days: 14
       )
 
       # Record custom metrics
-      SnmpLib.Dashboard.record_metric(:snmp_response_time, 125, %{
+      SnmpKit.SnmpLib.Dashboard.record_metric(:snmp_response_time, 125, %{
         device: "192.168.1.1",
         operation: "get"
       })
 
       # Create alerts for monitoring
-      SnmpLib.Dashboard.create_alert(:device_unreachable, :critical, %{
+      SnmpKit.SnmpLib.Dashboard.create_alert(:device_unreachable, :critical, %{
         device: "192.168.1.1",
         consecutive_failures: 5
       })
 
       # Export metrics for external systems
-      prometheus_data = SnmpLib.Dashboard.export_prometheus()
+      prometheus_data = SnmpKit.SnmpLib.Dashboard.export_prometheus()
 
   ### Intelligent Caching
 
       # Start cache with compression and adaptive TTL
-      {:ok, _pid} = SnmpLib.Cache.start_link(
+      {:ok, _pid} = SnmpKit.SnmpLib.Cache.start_link(
         max_size: 50_000,
         compression_enabled: true,
         adaptive_ttl_enabled: true
       )
 
       # Cache SNMP responses with adaptive TTL
-      SnmpLib.Cache.put_adaptive("device_1:sysDescr", description,
+      SnmpKit.SnmpLib.Cache.put_adaptive("device_1:sysDescr", description,
         base_ttl: 3_600_000,
         volatility: :low
       )
 
       # Retrieve from cache with fallback
-      device_desc = case SnmpLib.Cache.get("device_1:sysDescr") do
+      device_desc = case SnmpKit.SnmpLib.Cache.get("device_1:sysDescr") do
         {:ok, cached_desc} -> cached_desc
         :miss ->
-          {:ok, desc} = SnmpLib.Manager.get("device_1", [1,3,6,1,2,1,1,1,0])
-          SnmpLib.Cache.put("device_1:sysDescr", desc, ttl: 3_600_000)
+          {:ok, desc} = SnmpKit.SnmpLib.Manager.get("device_1", [1,3,6,1,2,1,1,1,0])
+          SnmpKit.SnmpLib.Cache.put("device_1:sysDescr", desc, ttl: 3_600_000)
           desc
       end
 
       # Warm cache for predictable access patterns
-      SnmpLib.Cache.warm_cache("device_1", :auto, strategy: :predictive)
+      SnmpKit.SnmpLib.Cache.warm_cache("device_1", :auto, strategy: :predictive)
 
   ### Low-Level PDU Operations
 
@@ -240,15 +240,15 @@ defmodule SnmpLib do
       :get_bulk_request
 
       # OID manipulation with multibyte values
-      iex> {:ok, oid_list} = SnmpLib.OID.string_to_list("1.3.6.1.4.1.200.1")
+      iex> {:ok, oid_list} = SnmpKit.SnmpLib.OID.string_to_list("1.3.6.1.4.1.200.1")
       iex> oid_list
       [1, 3, 6, 1, 4, 1, 200, 1]
-      iex> {:ok, oid_string} = SnmpLib.OID.list_to_string([1, 3, 6, 1, 4, 1, 200, 1])
+      iex> {:ok, oid_string} = SnmpKit.SnmpLib.OID.list_to_string([1, 3, 6, 1, 4, 1, 200, 1])
       iex> oid_string
       "1.3.6.1.4.1.200.1"
 
       # Handle SNMPv2c exception values
-      iex> {:ok, exception_val} = SnmpLib.Types.coerce_value(:no_such_object, nil)
+      iex> {:ok, exception_val} = SnmpKit.SnmpLib.Types.coerce_value(:no_such_object, nil)
       iex> exception_val
       {:no_such_object, nil}
 
@@ -261,7 +261,7 @@ defmodule SnmpLib do
         def poll_devices(device_list, community \\ "public") do
           device_list
           |> Task.async_stream(fn device ->
-            case SnmpLib.Manager.get(device, "1.3.6.1.2.1.1.3.0",
+            case SnmpKit.SnmpLib.Manager.get(device, "1.3.6.1.2.1.1.3.0",
                                      community: community, timeout: 5000) do
               {:ok, uptime} -> {device, :ok, uptime}
               {:error, reason} -> {device, :error, reason}
@@ -274,7 +274,7 @@ defmodule SnmpLib do
           base_oid = [1, 3, 6, 1, 2, 1, 2, 2, 1]
 
           # Get interface table using GETBULK
-          case SnmpLib.Manager.get_bulk(device, base_oid,
+          case SnmpKit.SnmpLib.Manager.get_bulk(device, base_oid,
                                         community: community,
                                         max_repetitions: 50) do
             {:ok, varbinds} ->
@@ -389,7 +389,7 @@ defmodule SnmpLib do
 
         defp collect_device_interfaces(device, community, timeout) do
           # Use GETBULK for efficient table walking
-          case SnmpLib.Manager.get_bulk(
+          case SnmpKit.SnmpLib.Manager.get_bulk(
             device,
             [1, 3, 6, 1, 2, 1, 2, 2, 1, 2], # ifDescr table
             community: community,
@@ -459,7 +459,7 @@ defmodule SnmpLib do
           # Benchmark sequential operations
           {seq_time, seq_results} = :timer.tc(fn ->
             Enum.map(devices, fn device ->
-              SnmpLib.Manager.get(device, [1, 3, 6, 1, 2, 1, 1, 3, 0], timeout: 100)
+              SnmpKit.SnmpLib.Manager.get(device, [1, 3, 6, 1, 2, 1, 1, 3, 0], timeout: 100)
             end)
           end)
 
@@ -467,7 +467,7 @@ defmodule SnmpLib do
           {conc_time, conc_results} = :timer.tc(fn ->
             devices
             |> Task.async_stream(fn device ->
-              SnmpLib.Manager.get(device, [1, 3, 6, 1, 2, 1, 1, 3, 0], timeout: 100)
+              SnmpKit.SnmpLib.Manager.get(device, [1, 3, 6, 1, 2, 1, 1, 3, 0], timeout: 100)
             end, max_concurrency: 50, timeout: 1000)
             |> Enum.map(fn {:ok, result} -> result end)
           end)
@@ -499,17 +499,17 @@ defmodule SnmpLib do
             # Benchmark string to list conversion
             {str_to_list_time, _} = :timer.tc(fn ->
               for _ <- 1..iterations do
-                {:ok, _list} = SnmpLib.OID.string_to_list(oid_string)
+                {:ok, _list} = SnmpKit.SnmpLib.OID.string_to_list(oid_string)
               end
             end)
 
             # Convert once for reverse benchmark
-            {:ok, oid_list} = SnmpLib.OID.string_to_list(oid_string)
+            {:ok, oid_list} = SnmpKit.SnmpLib.OID.string_to_list(oid_string)
 
             # Benchmark list to string conversion
             {list_to_str_time, _} = :timer.tc(fn ->
               for _ <- 1..iterations do
-                {:ok, _string} = SnmpLib.OID.list_to_string(oid_list)
+                {:ok, _string} = SnmpKit.SnmpLib.OID.list_to_string(oid_list)
               end
             end)
 
@@ -614,18 +614,18 @@ defmodule SnmpLib do
         "Prometheus/Grafana Integration"
       ],
       modules: %{
-        "SnmpLib.Manager" => "High-level SNMP operations (GET, SET, GETBULK)",
-        "SnmpLib.Pool" => "Connection pooling and session management",
-        "SnmpLib.ErrorHandler" => "Retry logic and circuit breakers",
-        "SnmpLib.Monitor" => "Performance monitoring and analytics",
-        "SnmpLib.Config" => "Configuration management system",
-        "SnmpLib.Dashboard" => "Real-time monitoring and visualization",
-        "SnmpLib.Cache" => "Intelligent caching system",
+        "SnmpKit.SnmpLib.Manager" => "High-level SNMP operations (GET, SET, GETBULK)",
+        "SnmpKit.SnmpLib.Pool" => "Connection pooling and session management",
+        "SnmpKit.SnmpLib.ErrorHandler" => "Retry logic and circuit breakers",
+        "SnmpKit.SnmpLib.Monitor" => "Performance monitoring and analytics",
+        "SnmpKit.SnmpLib.Config" => "Configuration management system",
+        "SnmpKit.SnmpLib.Dashboard" => "Real-time monitoring and visualization",
+        "SnmpKit.SnmpLib.Cache" => "Intelligent caching system",
         "SnmpKit.SnmpLib.PDU" => "SNMP PDU encoding/decoding",
-        "SnmpLib.ASN1" => "ASN.1 BER encoding/decoding",
-        "SnmpLib.OID" => "OID manipulation utilities",
-        "SnmpLib.Types" => "SNMP data type handling",
-        "SnmpLib.Transport" => "UDP transport layer"
+        "SnmpKit.SnmpLib.ASN1" => "ASN.1 BER encoding/decoding",
+        "SnmpKit.SnmpLib.OID" => "OID manipulation utilities",
+        "SnmpKit.SnmpLib.Types" => "SNMP data type handling",
+        "SnmpKit.SnmpLib.Transport" => "UDP transport layer"
       },
       compliance: %{
         "RFC 1157" => "SNMPv1 Protocol",

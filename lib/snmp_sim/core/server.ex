@@ -1,4 +1,4 @@
-defmodule SnmpSim.Core.Server do
+defmodule SnmpKit.SnmpSim.Core.Server do
   @moduledoc """
   High-performance UDP server for SNMP request handling.
   Supports concurrent packet processing with minimal latency.
@@ -7,7 +7,7 @@ defmodule SnmpSim.Core.Server do
   use GenServer
   require Logger
   alias SnmpKit.SnmpLib.PDU, as: PDU
-  alias SnmpSim.Device.OidHandler
+  alias SnmpKit.SnmpSim.Device.OidHandler
 
   # Suppress Dialyzer warnings for async functions and pattern matches
   @dialyzer [
@@ -37,7 +37,7 @@ defmodule SnmpSim.Core.Server do
 
   ## Examples
 
-      {:ok, server} = SnmpSim.Core.Server.start_link(9001,
+      {:ok, server} = SnmpKit.SnmpSim.Core.Server.start_link(9001,
         community: "public",
         device_handler: &MyDevice.handle_request/2
       )

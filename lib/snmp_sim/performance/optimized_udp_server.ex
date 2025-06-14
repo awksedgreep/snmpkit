@@ -1,4 +1,4 @@
-defmodule SnmpSim.Performance.OptimizedUdpServer do
+defmodule SnmpKit.SnmpSim.Performance.OptimizedUdpServer do
   @moduledoc """
   High-performance UDP server optimized for 100K+ requests/second throughput.
 
@@ -26,8 +26,8 @@ defmodule SnmpSim.Performance.OptimizedUdpServer do
   ]
 
   alias SnmpKit.SnmpLib.PDU
-  alias SnmpSim.Performance.PerformanceMonitor
-  alias SnmpSim.Performance.OptimizedDevicePool
+  alias SnmpKit.SnmpSim.Performance.PerformanceMonitor
+  alias SnmpKit.SnmpSim.Performance.OptimizedDevicePool
 
   # Performance optimization constants
   # Multi-socket for load distribution

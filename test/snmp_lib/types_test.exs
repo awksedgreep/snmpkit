@@ -1,8 +1,8 @@
 defmodule SnmpKit.SnmpLib.TypesTest do
   use ExUnit.Case, async: true
-  
-  alias SnmpKit.SnmpLib.Types
-  
+
+  alias SnmpKit.SnmpKit.SnmpLib.Types
+
   @moduletag :unit
   @moduletag :protocol
   @moduletag :phase_2
@@ -154,15 +154,15 @@ defmodule SnmpKit.SnmpLib.TypesTest do
     test "formats larger time periods correctly" do
       assert Types.format_timeticks_uptime(6000) == "1 minute"
       assert Types.format_timeticks_uptime(6150) == "1 minute 1 second 50 centiseconds"
-      assert Types.format_timeticks_uptime(360000) == "1 hour"
-      assert Types.format_timeticks_uptime(8640000) == "1 day"
+      assert Types.format_timeticks_uptime(360_000) == "1 hour"
+      assert Types.format_timeticks_uptime(8_640_000) == "1 day"
     end
 
     test "handles plural forms correctly" do
       assert Types.format_timeticks_uptime(200) == "2 seconds"
       assert Types.format_timeticks_uptime(12000) == "2 minutes"
-      assert Types.format_timeticks_uptime(720000) == "2 hours"
-      assert Types.format_timeticks_uptime(17280000) == "2 days"
+      assert Types.format_timeticks_uptime(720_000) == "2 hours"
+      assert Types.format_timeticks_uptime(17_280_000) == "2 days"
     end
 
     test "formats complex time periods" do
@@ -185,7 +185,7 @@ defmodule SnmpKit.SnmpLib.TypesTest do
 
     test "formats large numbers with commas" do
       assert Types.format_counter64(1000) == "1,000"
-      assert Types.format_counter64(1234567) == "1,234,567"
+      assert Types.format_counter64(1_234_567) == "1,234,567"
       assert Types.format_counter64(18_446_744_073_709_551_615) == "18,446,744,073,709,551,615"
     end
   end
@@ -255,10 +255,10 @@ defmodule SnmpKit.SnmpLib.TypesTest do
     test "parses hex string correctly" do
       {:ok, result} = Types.parse_hex_string("48656C6C6F")
       assert result == <<"Hello">>
-      
+
       {:ok, result} = Types.parse_hex_string("DEADBEEF")
       assert result == <<0xDE, 0xAD, 0xBE, 0xEF>>
-      
+
       {:ok, result} = Types.parse_hex_string("")
       assert result == <<>>
     end
@@ -271,7 +271,8 @@ defmodule SnmpKit.SnmpLib.TypesTest do
     test "rejects invalid hex strings" do
       assert {:error, :invalid_hex} = Types.parse_hex_string("XYZ")
       assert {:error, :invalid_hex} = Types.parse_hex_string("ABCDEFG")
-      assert {:error, :invalid_hex} = Types.parse_hex_string("123")  # Odd number of chars
+      # Odd number of chars
+      assert {:error, :invalid_hex} = Types.parse_hex_string("123")
     end
   end
 
@@ -279,14 +280,14 @@ defmodule SnmpKit.SnmpLib.TypesTest do
     test "coerces integer values correctly" do
       {:ok, result} = Types.coerce_value(:integer, 42)
       assert result == 42
-      
+
       assert {:error, :out_of_range} = Types.coerce_value(:integer, 3_000_000_000)
     end
 
     test "coerces string values correctly" do
       {:ok, result} = Types.coerce_value(:string, "test")
       assert result == {:string, "test"}
-      
+
       {:ok, result} = Types.coerce_value(:string, <<1, 2, 3>>)
       assert result == {:string, <<1, 2, 3>>}
     end
@@ -294,7 +295,7 @@ defmodule SnmpKit.SnmpLib.TypesTest do
     test "coerces null values correctly" do
       {:ok, result} = Types.coerce_value(:null, "anything")
       assert result == :null
-      
+
       {:ok, result} = Types.coerce_value(:null, nil)
       assert result == :null
     end
@@ -302,7 +303,7 @@ defmodule SnmpKit.SnmpLib.TypesTest do
     test "coerces OID values correctly" do
       {:ok, result} = Types.coerce_value(:oid, [1, 3, 6, 1])
       assert result == [1, 3, 6, 1]
-      
+
       {:ok, result} = Types.coerce_value(:oid, "1.3.6.1")
       assert result == [1, 3, 6, 1]
     end
@@ -310,7 +311,7 @@ defmodule SnmpKit.SnmpLib.TypesTest do
     test "coerces Counter32 values correctly" do
       {:ok, result} = Types.coerce_value(:counter32, 42)
       assert result == {:counter32, 42}
-      
+
       assert {:error, :out_of_range} = Types.coerce_value(:counter32, -1)
     end
 
@@ -332,7 +333,7 @@ defmodule SnmpKit.SnmpLib.TypesTest do
     test "coerces IP address values correctly" do
       {:ok, result} = Types.coerce_value(:ip_address, <<192, 168, 1, 1>>)
       assert result == {:ip_address, <<192, 168, 1, 1>>}
-      
+
       {:ok, result} = Types.coerce_value(:ip_address, {192, 168, 1, 1})
       assert result == {:ip_address, <<192, 168, 1, 1>>}
     end
@@ -345,10 +346,10 @@ defmodule SnmpKit.SnmpLib.TypesTest do
     test "coerces exception types correctly" do
       {:ok, result} = Types.coerce_value(:no_such_object, "anything")
       assert result == {:no_such_object, nil}
-      
+
       {:ok, result} = Types.coerce_value(:no_such_instance, "anything")
       assert result == {:no_such_instance, nil}
-      
+
       {:ok, result} = Types.coerce_value(:end_of_mib_view, "anything")
       assert result == {:end_of_mib_view, nil}
     end
@@ -386,7 +387,7 @@ defmodule SnmpKit.SnmpLib.TypesTest do
       assert Types.is_numeric_type?(:gauge32) == true
       assert Types.is_numeric_type?(:timeticks) == true
       assert Types.is_numeric_type?(:counter64) == true
-      
+
       assert Types.is_numeric_type?(:string) == false
       assert Types.is_numeric_type?(:oid) == false
     end
@@ -395,7 +396,7 @@ defmodule SnmpKit.SnmpLib.TypesTest do
       assert Types.is_binary_type?(:string) == true
       assert Types.is_binary_type?(:opaque) == true
       assert Types.is_binary_type?(:ip_address) == true
-      
+
       assert Types.is_binary_type?(:integer) == false
       assert Types.is_binary_type?(:counter32) == false
     end
@@ -404,7 +405,7 @@ defmodule SnmpKit.SnmpLib.TypesTest do
       assert Types.is_exception_type?(:no_such_object) == true
       assert Types.is_exception_type?(:no_such_instance) == true
       assert Types.is_exception_type?(:end_of_mib_view) == true
-      
+
       assert Types.is_exception_type?(:integer) == false
       assert Types.is_exception_type?(:string) == false
     end
@@ -433,19 +434,21 @@ defmodule SnmpKit.SnmpLib.TypesTest do
   describe "Error handling and edge cases" do
     test "handles concurrent type operations" do
       # Test thread safety of type operations
-      tasks = for i <- 1..50 do
-        Task.async(fn ->
-          value = rem(i, 1000)
-          {:ok, coerced} = Types.coerce_value(:counter32, value)
-          formatted = Types.format_counter64(value)
-          {i, coerced, formatted}
-        end)
-      end
-      
+      tasks =
+        for i <- 1..50 do
+          Task.async(fn ->
+            value = rem(i, 1000)
+            {:ok, coerced} = Types.coerce_value(:counter32, value)
+            formatted = Types.format_counter64(value)
+            {i, coerced, formatted}
+          end)
+        end
+
       results = Task.await_many(tasks, 1000)
-      
+
       # Verify all operations completed successfully
       assert length(results) == 50
+
       for {i, {:counter32, value}, formatted} <- results do
         expected_value = rem(i, 1000)
         assert value == expected_value
@@ -457,10 +460,10 @@ defmodule SnmpKit.SnmpLib.TypesTest do
       # Test maximum values for each type
       assert :ok = Types.validate_counter32(4_294_967_295)
       assert {:error, :out_of_range} = Types.validate_counter32(4_294_967_296)
-      
+
       assert :ok = Types.validate_integer(2_147_483_647)
       assert {:error, :out_of_range} = Types.validate_integer(2_147_483_648)
-      
+
       assert :ok = Types.validate_integer(-2_147_483_648)
       assert {:error, :out_of_range} = Types.validate_integer(-2_147_483_649)
     end
@@ -469,7 +472,7 @@ defmodule SnmpKit.SnmpLib.TypesTest do
       # Counter types should accept zero but not negative
       assert :ok = Types.validate_counter32(0)
       assert {:error, :out_of_range} = Types.validate_counter32(-1)
-      
+
       # Integer should accept negative values
       assert :ok = Types.validate_integer(-42)
       assert :ok = Types.validate_integer(0)

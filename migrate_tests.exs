@@ -31,7 +31,7 @@ defmodule TestMigrator do
       {"test/snmp_lib/mib/registry_test.exs", "test/snmp_lib/mib/registry_test.exs"},
       {"test/snmp_lib/mib/comprehensive_mib_test.exs", "test/snmp_lib/mib/comprehensive_mib_test.exs"}
     ],
-    
+
     # snmp_sim tests -> snmpkit/test/snmp_sim/
     "snmp_sim" => [
       # Core simulator tests
@@ -51,7 +51,7 @@ defmodule TestMigrator do
       # MIB behavior tests
       {"test/snmp_sim/mib/behavior_analyzer_test.exs", "test/snmp_sim/mib/behavior_analyzer_test.exs"}
     ],
-    
+
     # snmp_mgr tests -> snmpkit/test/snmp_mgr/
     "snmp_mgr" => [
       # Unit tests
@@ -70,7 +70,7 @@ defmodule TestMigrator do
       {"test/unit/table_processing_test.exs", "test/snmp_mgr/table_test.exs"},
       {"test/unit/types_comprehensive_test.exs", "test/snmp_mgr/types_test.exs"}
     ],
-    
+
     # Integration tests -> snmpkit/test/integration/
     "integration" => [
       {"snmp_lib/test/integration/phase2_integration_test.exs", "test/integration/snmp_lib_integration_test.exs"},
@@ -82,12 +82,12 @@ defmodule TestMigrator do
 
   def migrate_all do
     IO.puts("Starting test migration to snmpkit...")
-    
+
     # Migrate tests from each project
     @test_mappings
     |> Enum.each(fn {category, test_files} ->
       IO.puts("\nMigrating #{category} tests...")
-      
+
       test_files
       |> Enum.each(fn {source, destination} ->
         source_path = case category do
@@ -96,13 +96,13 @@ defmodule TestMigrator do
             Path.join(["/Users/mcotner/Documents/elixir", project, source])
           _ -> source
         end
-        
+
         dest_path = Path.join("/Users/mcotner/Documents/elixir/snmpkit", destination)
-        
+
         migrate_test_file(source_path, dest_path)
       end)
     end)
-    
+
     IO.puts("\n✅ Test migration completed!")
   end
 
@@ -111,19 +111,19 @@ defmodule TestMigrator do
       # Ensure destination directory exists
       dest_dir = Path.dirname(dest_path)
       File.mkdir_p!(dest_dir)
-      
+
       # Read source file
       content = File.read!(source_path)
-      
+
       # Update module names and aliases
       updated_content = content
         |> update_module_names()
         |> update_aliases()
         |> update_test_helpers()
-      
+
       # Write to destination
       File.write!(dest_path, updated_content)
-      
+
       IO.puts("  ✓ Migrated: #{Path.basename(source_path)}")
     else
       IO.puts("  ⚠ Source not found: #{source_path}")
@@ -153,7 +153,7 @@ defmodule TestMigrator do
 
   defp update_test_helpers(content) do
     content
-    |> String.replace("SnmpSim.TestHelpers.SNMPTestHelpers", "SnmpKit.TestHelpers.SNMPTestHelpers")
+    |> String.replace("SnmpKit.SnmpSim.TestHelpers.SNMPTestHelpers", "SnmpKit.TestHelpers.SNMPTestHelpers")
     |> String.replace("SnmpMgr.TestSupport.SNMPSimulator", "SnmpKit.TestSupport.SNMPSimulator")
   end
 end

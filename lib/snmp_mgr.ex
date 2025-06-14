@@ -1,7 +1,7 @@
 defmodule SnmpMgr do
   @moduledoc """
   Lightweight SNMP client library for Elixir.
-  
+
   This library provides a simple, stateless interface for SNMP operations
   without requiring heavyweight management processes or configurations.
   """
@@ -28,13 +28,13 @@ defmodule SnmpMgr do
       # {:timeticks, 123456789}  # System uptime in hundredths of seconds
   """
   def get(target, oid, opts \\ []) do
-    merged_opts = SnmpMgr.Config.merge_opts(opts)
-    SnmpMgr.Core.send_get_request(target, oid, merged_opts)
+    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+    SnmpKit.SnmpMgr.Core.send_get_request(target, oid, merged_opts)
   end
 
   @doc """
   Performs an SNMP GET request and returns the result in 3-tuple format.
-  
+
   This function returns the same format as walk, bulk, and other operations:
   `{oid_string, type, value}` for consistency across the library.
 
@@ -53,8 +53,8 @@ defmodule SnmpMgr do
       # {:ok, {"1.3.6.1.2.1.1.3.0", :timeticks, 123456789}}
   """
   def get_with_type(target, oid, opts \\ []) do
-    merged_opts = SnmpMgr.Config.merge_opts(opts)
-    SnmpMgr.Core.send_get_request_with_type(target, oid, merged_opts)
+    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+    SnmpKit.SnmpMgr.Core.send_get_request_with_type(target, oid, merged_opts)
   end
 
   @doc """
@@ -75,8 +75,8 @@ defmodule SnmpMgr do
       # {"1.3.6.1.2.1.1.1.0", "Linux hostname 5.4.0 #1 SMP"}
   """
   def get_next(target, oid, opts \\ []) do
-    merged_opts = SnmpMgr.Config.merge_opts(opts)
-    SnmpMgr.Core.send_get_next_request(target, oid, merged_opts)
+    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+    SnmpKit.SnmpMgr.Core.send_get_next_request(target, oid, merged_opts)
   end
 
   @doc """
@@ -94,13 +94,13 @@ defmodule SnmpMgr do
       {:ok, :ok} = SnmpMgr.set("device.local", "sysLocation.0", "Server Room A")
       # :ok
 
-      {:ok, :ok} = SnmpMgr.set("switch.local", "sysContact.0", "admin@company.com", 
+      {:ok, :ok} = SnmpMgr.set("switch.local", "sysContact.0", "admin@company.com",
         community: "private", timeout: 3000)
       # :ok
   """
   def set(target, oid, value, opts \\ []) do
-    merged_opts = SnmpMgr.Config.merge_opts(opts)
-    SnmpMgr.Core.send_set_request(target, oid, value, merged_opts)
+    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+    SnmpKit.SnmpMgr.Core.send_set_request(target, oid, value, merged_opts)
   end
 
   @doc """
@@ -122,8 +122,8 @@ defmodule SnmpMgr do
       # "Linux server 5.4.0-42-generic"
   """
   def get_async(target, oid, opts \\ []) do
-    merged_opts = SnmpMgr.Config.merge_opts(opts)
-    SnmpMgr.Core.send_get_request_async(target, oid, merged_opts)
+    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+    SnmpKit.SnmpMgr.Core.send_get_request_async(target, oid, merged_opts)
   end
 
   @doc """
@@ -153,16 +153,20 @@ defmodule SnmpMgr do
   def get_bulk(target, oid, opts \\ []) do
     # Check if user explicitly specified a version other than v2c
     case Keyword.get(opts, :version) do
-      :v1 -> {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
-      :v3 -> {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
+      :v1 ->
+        {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
+
+      :v3 ->
+        {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
+
       _ ->
         # Force version to v2c for GETBULK
-        merged_opts = 
+        merged_opts =
           opts
           |> Keyword.put(:version, :v2c)
-          |> (&SnmpMgr.Config.merge_opts/1).()
-        
-        SnmpMgr.Core.send_get_bulk_request(target, oid, merged_opts)
+          |> (&SnmpKit.SnmpMgr.Config.merge_opts/1).()
+
+        SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, oid, merged_opts)
     end
   end
 
@@ -175,16 +179,20 @@ defmodule SnmpMgr do
   def get_bulk_async(target, oid, opts \\ []) do
     # Check if user explicitly specified a version other than v2c
     case Keyword.get(opts, :version) do
-      :v1 -> {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
-      :v3 -> {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
+      :v1 ->
+        {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
+
+      :v3 ->
+        {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
+
       _ ->
         # Force version to v2c for GETBULK
-        merged_opts = 
+        merged_opts =
           opts
           |> Keyword.put(:version, :v2c)
-          |> (&SnmpMgr.Config.merge_opts/1).()
-        
-        SnmpMgr.Core.send_get_bulk_request_async(target, oid, merged_opts)
+          |> (&SnmpKit.SnmpMgr.Config.merge_opts/1).()
+
+        SnmpKit.SnmpMgr.Core.send_get_bulk_request_async(target, oid, merged_opts)
     end
   end
 
@@ -202,7 +210,7 @@ defmodule SnmpMgr do
   ## Examples
 
       # Note: This function makes actual network calls and is not suitable for doctests
-      {:ok, results} = SnmpMgr.walk("device.local", "1.3.6.1.2.1.1")
+      {:ok, results} = SnmpKit.SnmpMgr.Walk("device.local", "1.3.6.1.2.1.1")
       # [
       #   {"1.3.6.1.2.1.1.1.0", "Linux hostname 5.4.0-42-generic"},  # sysDescr
       #   {"1.3.6.1.2.1.1.2.0", [1,3,6,1,4,1,8072,3,2,10]},         # sysObjectID
@@ -213,7 +221,7 @@ defmodule SnmpMgr do
       # ]
   """
   def walk(target, root_oid, opts \\ []) do
-    SnmpMgr.Walk.walk(target, root_oid, opts)
+    SnmpKit.SnmpMgr.Walk.walk(target, root_oid, opts)
   end
 
   @doc """
@@ -237,7 +245,7 @@ defmodule SnmpMgr do
       # ]
   """
   def walk_table(target, table_oid, opts \\ []) do
-    SnmpMgr.Walk.walk_table(target, table_oid, opts)
+    SnmpKit.SnmpMgr.Walk.walk_table(target, table_oid, opts)
   end
 
   @doc """
@@ -255,9 +263,9 @@ defmodule SnmpMgr do
       # %{
       #   columns: ["ifIndex", "ifDescr", "ifType", "ifMtu", "ifSpeed", "ifOperStatus"],
       #   rows: [
-      #     %{"ifIndex" => 1, "ifDescr" => "GigabitEthernet0/1", "ifType" => 6, 
+      #     %{"ifIndex" => 1, "ifDescr" => "GigabitEthernet0/1", "ifType" => 6,
       #       "ifMtu" => 1500, "ifSpeed" => 1000000000, "ifOperStatus" => 1},
-      #     %{"ifIndex" => 2, "ifDescr" => "GigabitEthernet0/2", "ifType" => 6, 
+      #     %{"ifIndex" => 2, "ifDescr" => "GigabitEthernet0/2", "ifType" => 6,
       #       "ifMtu" => 1500, "ifSpeed" => 1000000000, "ifOperStatus" => 2}
       #   ]
       # }
@@ -266,10 +274,12 @@ defmodule SnmpMgr do
     case resolve_oid_if_needed(table_oid) do
       {:ok, resolved_oid} ->
         case walk_table(target, resolved_oid, opts) do
-          {:ok, entries} -> SnmpMgr.Table.to_table(entries, resolved_oid)
+          {:ok, entries} -> SnmpKit.SnmpMgr.Table.to_table(entries, resolved_oid)
           error -> error
         end
-      error -> error
+
+      error ->
+        error
     end
   end
 
@@ -285,16 +295,20 @@ defmodule SnmpMgr do
   def get_column(target, table_oid, column, opts \\ []) do
     case resolve_oid_if_needed(table_oid) do
       {:ok, resolved_table_oid} ->
-        column_oid = if is_integer(column) do
-          resolved_table_oid ++ [1, column]
-        else
-          case SnmpMgr.MIB.resolve(column) do
-            {:ok, oid} -> oid
-            error -> error
+        column_oid =
+          if is_integer(column) do
+            resolved_table_oid ++ [1, column]
+          else
+            case SnmpKit.SnmpMgr.MIB.resolve(column) do
+              {:ok, oid} -> oid
+              error -> error
+            end
           end
-        end
+
         walk(target, column_oid, opts)
-      error -> error
+
+      error ->
+        error
     end
   end
 
@@ -312,8 +326,8 @@ defmodule SnmpMgr do
       [{:error, {:network_error, :hostname_resolution_failed}}, {:error, {:network_error, :hostname_resolution_failed}}]
   """
   def get_multi(targets_and_oids, opts \\ []) do
-    merged_opts = SnmpMgr.Config.merge_opts(opts)
-    SnmpMgr.Multi.get_multi(targets_and_oids, merged_opts)
+    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+    SnmpKit.SnmpMgr.Multi.get_multi(targets_and_oids, merged_opts)
   end
 
   @doc """
@@ -324,12 +338,12 @@ defmodule SnmpMgr do
   - `opts` - Options applied to all requests including :max_repetitions
   """
   def get_bulk_multi(targets_and_oids, opts \\ []) do
-    merged_opts = 
+    merged_opts =
       opts
       |> Keyword.put(:version, :v2c)
-      |> (&SnmpMgr.Config.merge_opts/1).()
-    
-    SnmpMgr.Multi.get_bulk_multi(targets_and_oids, merged_opts)
+      |> (&SnmpKit.SnmpMgr.Config.merge_opts/1).()
+
+    SnmpKit.SnmpMgr.Multi.get_bulk_multi(targets_and_oids, merged_opts)
   end
 
   @doc """
@@ -340,8 +354,8 @@ defmodule SnmpMgr do
   - `opts` - Options applied to all requests
   """
   def walk_multi(targets_and_oids, opts \\ []) do
-    merged_opts = SnmpMgr.Config.merge_opts(opts)
-    SnmpMgr.Multi.walk_multi(targets_and_oids, merged_opts)
+    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+    SnmpKit.SnmpMgr.Multi.walk_multi(targets_and_oids, merged_opts)
   end
 
   @doc """
@@ -362,7 +376,7 @@ defmodule SnmpMgr do
       # Returns optimally retrieved interface table data:
       # [
       #   {"1.3.6.1.2.1.2.2.1.1.1", 1},           # ifIndex.1
-      #   {"1.3.6.1.2.1.2.2.1.2.1", "eth0"},      # ifDescr.1  
+      #   {"1.3.6.1.2.1.2.2.1.2.1", "eth0"},      # ifDescr.1
       #   {"1.3.6.1.2.1.2.2.1.8.1", 1},           # ifOperStatus.1
       #   {"1.3.6.1.2.1.2.2.1.1.2", 2},           # ifIndex.2
       #   {"1.3.6.1.2.1.2.2.1.2.2", "eth1"},      # ifDescr.2
@@ -370,7 +384,7 @@ defmodule SnmpMgr do
       # ]
   """
   def adaptive_walk(target, root_oid, opts \\ []) do
-    SnmpMgr.AdaptiveWalk.bulk_walk(target, root_oid, opts)
+    SnmpKit.SnmpMgr.AdaptiveWalk.bulk_walk(target, root_oid, opts)
   end
 
   @doc """
@@ -388,7 +402,7 @@ defmodule SnmpMgr do
       # Process stream lazily...
   """
   def walk_stream(target, root_oid, opts \\ []) do
-    SnmpMgr.Stream.walk_stream(target, root_oid, opts)
+    SnmpKit.SnmpMgr.Stream.walk_stream(target, root_oid, opts)
   end
 
   @doc """
@@ -406,7 +420,7 @@ defmodule SnmpMgr do
       # Process table stream...
   """
   def table_stream(target, table_oid, opts \\ []) do
-    SnmpMgr.Stream.table_stream(target, table_oid, opts)
+    SnmpKit.SnmpMgr.Stream.table_stream(target, table_oid, opts)
   end
 
   @doc """
@@ -423,7 +437,7 @@ defmodule SnmpMgr do
       IO.inspect(analysis.completeness)  # Shows data completeness ratio
   """
   def analyze_table(table_data, opts \\ []) do
-    SnmpMgr.Table.analyze(table_data, opts)
+    SnmpKit.SnmpMgr.Table.analyze(table_data, opts)
   end
 
   @doc """
@@ -440,7 +454,7 @@ defmodule SnmpMgr do
       optimal_size = results.optimal_bulk_size
   """
   def benchmark_device(target, test_oid, opts \\ []) do
-    SnmpMgr.AdaptiveWalk.benchmark_device(target, test_oid, opts)
+    SnmpKit.SnmpMgr.AdaptiveWalk.benchmark_device(target, test_oid, opts)
   end
 
   @doc """
@@ -451,7 +465,7 @@ defmodule SnmpMgr do
 
   ## Options
   - `:engine` - Engine configuration options
-  - `:router` - Router configuration options  
+  - `:router` - Router configuration options
   - `:pool` - Connection pool options
   - `:circuit_breaker` - Circuit breaker options
   - `:metrics` - Metrics collection options
@@ -466,7 +480,7 @@ defmodule SnmpMgr do
       )
   """
   def start_engine(opts \\ []) do
-    SnmpMgr.Supervisor.start_link(opts)
+    SnmpKit.SnmpMgr.Supervisor.start_link(opts)
   end
 
   @doc """
@@ -487,12 +501,12 @@ defmodule SnmpMgr do
         oid: "sysDescr.0",
         community: "public"
       }
-      
+
       {:ok, result} = SnmpMgr.engine_request(request)
   """
   def engine_request(request, opts \\ []) do
-    router = Keyword.get(opts, :router, SnmpMgr.Router)
-    SnmpMgr.Router.route_request(router, request, opts)
+    router = Keyword.get(opts, :router, SnmpKit.SnmpMgr.Router)
+    SnmpKit.SnmpMgr.Router.route_request(router, request, opts)
   end
 
   @doc """
@@ -508,12 +522,12 @@ defmodule SnmpMgr do
         %{type: :get, target: "device1", oid: "sysDescr.0"},
         %{type: :get, target: "device2", oid: "sysUpTime.0"}
       ]
-      
+
       {:ok, results} = SnmpMgr.engine_batch(requests)
   """
   def engine_batch(requests, opts \\ []) do
-    router = Keyword.get(opts, :router, SnmpMgr.Router)
-    SnmpMgr.Router.route_batch(router, requests, opts)
+    router = Keyword.get(opts, :router, SnmpKit.SnmpMgr.Router)
+    SnmpKit.SnmpMgr.Router.route_batch(router, requests, opts)
   end
 
   @doc """
@@ -530,35 +544,43 @@ defmodule SnmpMgr do
   """
   def get_engine_stats(opts \\ []) do
     components = Keyword.get(opts, :components, [:router, :pool, :circuit_breaker, :metrics])
-    
+
     stats = %{}
-    
-    stats = if :router in components do
-      Map.put(stats, :router, SnmpMgr.Router.get_stats(SnmpMgr.Router))
-    else
-      stats
-    end
-    
+
+    stats =
+      if :router in components do
+        Map.put(stats, :router, SnmpKit.SnmpMgr.Router.get_stats(SnmpKit.SnmpMgr.Router))
+      else
+        stats
+      end
+
     # Pool component no longer exists after snmp_lib migration
-    # Connection pooling is handled internally by SnmpLib.Manager
-    stats = if :pool in components do
-      Map.put(stats, :pool, %{status: :delegated_to_snmp_lib})
-    else
-      stats
-    end
-    
-    stats = if :circuit_breaker in components do
-      Map.put(stats, :circuit_breaker, SnmpMgr.CircuitBreaker.get_stats(SnmpMgr.CircuitBreaker))
-    else
-      stats
-    end
-    
-    stats = if :metrics in components do
-      Map.put(stats, :metrics, SnmpMgr.Metrics.get_summary(SnmpMgr.Metrics))
-    else
-      stats
-    end
-    
+    # Connection pooling is handled internally by SnmpKit.SnmpLib.Manager
+    stats =
+      if :pool in components do
+        Map.put(stats, :pool, %{status: :delegated_to_snmp_lib})
+      else
+        stats
+      end
+
+    stats =
+      if :circuit_breaker in components do
+        Map.put(
+          stats,
+          :circuit_breaker,
+          SnmpKit.SnmpMgr.CircuitBreaker.get_stats(SnmpKit.SnmpMgr.CircuitBreaker)
+        )
+      else
+        stats
+      end
+
+    stats =
+      if :metrics in components do
+        Map.put(stats, :metrics, SnmpKit.SnmpMgr.Metrics.get_summary(SnmpKit.SnmpMgr.Metrics))
+      else
+        stats
+      end
+
     {:ok, stats}
   end
 
@@ -577,9 +599,9 @@ defmodule SnmpMgr do
       end)
   """
   def with_circuit_breaker(target, fun, opts \\ []) do
-    circuit_breaker = Keyword.get(opts, :circuit_breaker, SnmpMgr.CircuitBreaker)
+    circuit_breaker = Keyword.get(opts, :circuit_breaker, SnmpKit.SnmpMgr.CircuitBreaker)
     timeout = Keyword.get(opts, :timeout, 5000)
-    SnmpMgr.CircuitBreaker.call(circuit_breaker, target, fun, timeout)
+    SnmpKit.SnmpMgr.CircuitBreaker.call(circuit_breaker, target, fun, timeout)
   end
 
   @doc """
@@ -597,126 +619,146 @@ defmodule SnmpMgr do
       SnmpMgr.record_metric(:histogram, :custom_latency, 150, %{operation: "bulk"})
   """
   def record_metric(metric_type, metric_name, value, tags \\ %{}) do
-    metrics = SnmpMgr.Metrics
-    
+    metrics = SnmpKit.SnmpMgr.Metrics
+
     case metric_type do
-      :counter -> SnmpMgr.Metrics.counter(metrics, metric_name, value, tags)
-      :gauge -> SnmpMgr.Metrics.gauge(metrics, metric_name, value, tags)
-      :histogram -> SnmpMgr.Metrics.histogram(metrics, metric_name, value, tags)
+      :counter -> SnmpKit.SnmpMgr.Metrics.counter(metrics, metric_name, value, tags)
+      :gauge -> SnmpKit.SnmpMgr.Metrics.gauge(metrics, metric_name, value, tags)
+      :histogram -> SnmpKit.SnmpMgr.Metrics.histogram(metrics, metric_name, value, tags)
     end
   end
 
   @doc """
   Performs an SNMP GET operation and returns a formatted value.
-  
+
   This is a convenience function that combines `get_with_type/3` and automatic
   formatting based on the SNMP type. Returns just the formatted value since
   the OID is already known.
-  
+
   ## Examples
-  
+
       # Get system uptime with automatic formatting
       {:ok, formatted_uptime} = SnmpMgr.get_pretty("192.168.1.1", "1.3.6.1.2.1.1.3.0")
       # Returns: "14 days 15 hours 55 minutes 13 seconds"
-      
+
   """
   @spec get_pretty(target(), oid(), opts()) :: {:ok, String.t()} | {:error, any()}
   def get_pretty(target, oid, opts \\ []) do
     case get_with_type(target, oid, opts) do
       {:ok, {_oid, type, value}} ->
-        formatted_value = SnmpMgr.Format.format_by_type(type, value)
+        formatted_value = SnmpKit.SnmpMgr.Format.format_by_type(type, value)
         {:ok, formatted_value}
-      {:error, reason} -> {:error, reason}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
   @doc """
   Performs an SNMP WALK operation and returns formatted results.
-  
+
   Returns a list of {oid, formatted_value} tuples where values are automatically
   formatted based on their SNMP types.
-  
+
   ## Examples
-  
+
       # Walk system group with automatic formatting
       {:ok, results} = SnmpMgr.walk_pretty("192.168.1.1", "1.3.6.1.2.1.1")
       # Returns: [{"1.3.6.1.2.1.1.3.0", "14 days 15 hours"}, ...]
-      
+
   """
-  @spec walk_pretty(target(), oid(), opts()) :: {:ok, [{String.t(), String.t()}]} | {:error, any()}
+  @spec walk_pretty(target(), oid(), opts()) ::
+          {:ok, [{String.t(), String.t()}]} | {:error, any()}
   def walk_pretty(target, oid, opts \\ []) do
-    case SnmpMgr.Walk.walk(target, oid, opts) do
+    case SnmpKit.SnmpMgr.Walk.walk(target, oid, opts) do
       {:ok, results} ->
-        formatted_results = Enum.map(results, fn {oid, type, value} ->
-          formatted_value = SnmpMgr.Format.format_by_type(type, value)
-          {oid, formatted_value}
-        end)
+        formatted_results =
+          Enum.map(results, fn {oid, type, value} ->
+            formatted_value = SnmpKit.SnmpMgr.Format.format_by_type(type, value)
+            {oid, formatted_value}
+          end)
+
         {:ok, formatted_results}
-      {:error, reason} -> {:error, reason}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
   @doc """
   Performs an SNMP BULK operation and returns formatted results.
-  
+
   Returns a list of {oid, formatted_value} tuples where values are automatically
   formatted based on their SNMP types.
-  
+
   ## Examples
-  
+
       # Bulk operation with automatic formatting
       {:ok, results} = SnmpMgr.bulk_pretty("192.168.1.1", "1.3.6.1.2.1.2.2", max_repetitions: 10)
       # Returns: [{"1.3.6.1.2.1.2.2.1.2.1", "eth0"}, ...]
-      
+
   """
-  @spec bulk_pretty(target(), oid(), opts()) :: {:ok, [{String.t(), String.t()}]} | {:error, any()}
+  @spec bulk_pretty(target(), oid(), opts()) ::
+          {:ok, [{String.t(), String.t()}]} | {:error, any()}
   def bulk_pretty(target, oid, opts \\ []) do
-    case SnmpMgr.Bulk.get_bulk(target, oid, opts) do
+    case SnmpKit.SnmpMgr.Bulk.get_bulk(target, oid, opts) do
       {:ok, results} ->
-        formatted_results = Enum.map(results, fn {oid, type, value} ->
-          formatted_value = SnmpMgr.Format.format_by_type(type, value)
-          {oid, formatted_value}
-        end)
+        formatted_results =
+          Enum.map(results, fn {oid, type, value} ->
+            formatted_value = SnmpKit.SnmpMgr.Format.format_by_type(type, value)
+            {oid, formatted_value}
+          end)
+
         {:ok, formatted_results}
-      {:error, reason} -> {:error, reason}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
   @doc """
   Performs an SNMP BULK WALK operation and returns formatted results.
-  
+
   Returns a list of {oid, formatted_value} tuples where values are automatically
   formatted based on their SNMP types.
-  
+
   ## Examples
-  
+
       # Bulk walk interface table with automatic formatting
       {:ok, results} = SnmpMgr.bulk_walk_pretty("192.168.1.1", "1.3.6.1.2.1.2.2")
       # Returns: [{"1.3.6.1.2.1.2.2.1.2.1", "eth0"}, {"1.3.6.1.2.1.2.2.1.5.1", "1 Gbps"}, ...]
-      
+
   """
-  @spec bulk_walk_pretty(target(), oid(), opts()) :: {:ok, [{String.t(), String.t()}]} | {:error, any()}
+  @spec bulk_walk_pretty(target(), oid(), opts()) ::
+          {:ok, [{String.t(), String.t()}]} | {:error, any()}
   def bulk_walk_pretty(target, oid, opts \\ []) do
-    case SnmpMgr.AdaptiveWalk.bulk_walk(target, oid, opts) do
+    case SnmpKit.SnmpMgr.AdaptiveWalk.bulk_walk(target, oid, opts) do
       {:ok, results} ->
-        formatted_results = Enum.map(results, fn {oid, type, value} ->
-          formatted_value = SnmpMgr.Format.format_by_type(type, value)
-          {oid, formatted_value}
-        end)
+        formatted_results =
+          Enum.map(results, fn {oid, type, value} ->
+            formatted_value = SnmpKit.SnmpMgr.Format.format_by_type(type, value)
+            {oid, formatted_value}
+          end)
+
         {:ok, formatted_results}
-      {:error, reason} -> {:error, reason}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
   # Private helper function
   defp resolve_oid_if_needed(oid) when is_binary(oid) do
-    case SnmpLib.OID.string_to_list(oid) do
-      {:ok, oid_list} -> {:ok, oid_list}
+    case SnmpKit.SnmpLib.OID.string_to_list(oid) do
+      {:ok, oid_list} ->
+        {:ok, oid_list}
+
       {:error, _} ->
         # Try resolving as symbolic name
-        SnmpMgr.MIB.resolve(oid)
+        SnmpKit.SnmpMgr.MIB.resolve(oid)
     end
   end
+
   defp resolve_oid_if_needed(oid) when is_list(oid), do: {:ok, oid}
   defp resolve_oid_if_needed(_), do: {:error, :invalid_oid_format}
 end

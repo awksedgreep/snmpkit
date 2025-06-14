@@ -1,4 +1,4 @@
-defmodule SnmpSim.Device do
+defmodule SnmpKit.SnmpSim.Device do
   @moduledoc """
   Lightweight Device GenServer for handling SNMP requests.
   Uses shared profiles and minimal device-specific state for scalability.
@@ -15,12 +15,11 @@ defmodule SnmpSim.Device do
   require Logger
 
   alias SnmpSim.{DeviceDistribution}
-  alias SnmpSim.Core.Server
-  alias SnmpSim.Device.ErrorInjector
-  alias SnmpSim.Device.OidHandler
-  import SnmpSim.Device.OidHandler
-  import SnmpSim.Device.PduProcessor, only: [process_snmp_pdu: 2]
-
+  alias SnmpKit.SnmpSim.Core.Server
+  alias SnmpKit.SnmpSim.Device.ErrorInjector
+  alias SnmpKit.SnmpSim.Device.OidHandler
+  import SnmpKit.SnmpSim.Device.OidHandler
+  import SnmpKit.SnmpSim.Device.PduProcessor, only: [process_snmp_pdu: 2]
 
   defstruct [
     :device_id,
@@ -67,7 +66,7 @@ defmodule SnmpSim.Device do
         community: "public"
       }
 
-      {:ok, device} = SnmpSim.Device.start_link(device_config)
+      {:ok, device} = SnmpKit.SnmpSim.Device.start_link(device_config)
 
   """
   def start_link(device_config) when is_map(device_config) do
@@ -123,16 +122,16 @@ defmodule SnmpSim.Device do
   Useful for test cleanup when devices may have been left running.
   """
   def cleanup_all_devices do
-    # Find all processes running SnmpSim.Device
+    # Find all processes running SnmpKit.SnmpSim.Device
     device_processes =
       Process.list()
       |> Enum.filter(fn pid ->
         try do
           case Process.info(pid, :dictionary) do
             {:dictionary, dict} ->
-              # Check if this process is running SnmpSim.Device
+              # Check if this process is running SnmpKit.SnmpSim.Device
               Enum.any?(dict, fn
-                {:"$initial_call", {SnmpSim.Device, :init, 1}} ->
+                {:"$initial_call", {SnmpKit.SnmpSim.Device, :init, 1}} ->
                   true
 
                 {:"$ancestors", ancestors} when is_list(ancestors) ->
@@ -265,22 +264,32 @@ defmodule SnmpSim.Device do
           Map.get(device_config, :mac_address, generate_mac_address(device_type, port))
 
         # Load walk file if provided and set flag
-        has_walk_data = case Map.get(device_config, :walk_file) do
-          nil ->
-            false
+        has_walk_data =
+          case Map.get(device_config, :walk_file) do
+            nil ->
+              false
 
-          walk_file ->
-            Logger.info("Loading walk file #{walk_file} for device type #{inspect(device_type)}")
-            case SnmpSim.MIB.SharedProfiles.load_walk_profile(device_type, walk_file) do
-              :ok ->
-                Logger.info("Successfully loaded walk file #{walk_file} for device type #{inspect(device_type)}")
-                true
+            walk_file ->
+              Logger.info(
+                "Loading walk file #{walk_file} for device type #{inspect(device_type)}"
+              )
 
-              {:error, reason} ->
-                Logger.warning("Failed to load walk file #{walk_file} for device type #{inspect(device_type)}: #{inspect(reason)}")
-                false
-            end
-        end
+              case SnmpKit.SnmpSim.MIB.SharedProfiles.load_walk_profile(device_type, walk_file) do
+                :ok ->
+                  Logger.info(
+                    "Successfully loaded walk file #{walk_file} for device type #{inspect(device_type)}"
+                  )
+
+                  true
+
+                {:error, reason} ->
+                  Logger.warning(
+                    "Failed to load walk file #{walk_file} for device type #{inspect(device_type)}: #{inspect(reason)}"
+                  )
+
+                  false
+              end
+          end
 
         # Start the UDP server for this device
         case Server.start_link(port, community: community) do
@@ -381,45 +390,64 @@ defmodule SnmpSim.Device do
 
   @impl true
   def handle_call({:get_oid, oid}, _from, state) do
-    result = SnmpSim.Device.OidHandler.get_oid_value(oid, state)
-    formatted_result = case result do
-      {:ok, {oid_string, type, value}} -> {:ok, {oid_string, type, value}}  # Return 3-tuple format consistently
-      {:ok, {type, value}} -> {:ok, {oid, type, value}}   # Return {oid, type, value} for other formats
-      {:ok, value} -> {:ok, {oid, :octet_string, value}}  # Default to octet_string type
-      error -> error
-    end
+    result = SnmpKit.SnmpSim.Device.OidHandler.get_oid_value(oid, state)
+
+    formatted_result =
+      case result do
+        # Return 3-tuple format consistently
+        {:ok, {oid_string, type, value}} -> {:ok, {oid_string, type, value}}
+        # Return {oid, type, value} for other formats
+        {:ok, {type, value}} -> {:ok, {oid, type, value}}
+        # Default to octet_string type
+        {:ok, value} -> {:ok, {oid, :octet_string, value}}
+        error -> error
+      end
+
     new_state = %{state | last_access: System.monotonic_time(:millisecond)}
     {:reply, formatted_result, new_state}
   end
 
   @impl true
   def handle_call({:get_next_oid, oid}, _from, state) do
-    result = SnmpSim.Device.OidHandler.get_next_oid_value(state.device_type, oid, state)
-    formatted_result = case result do
-      {:ok, {oid, type, value}} -> {:ok, {OidHandler.oid_to_string(oid), type, value}}
-      {:ok, {oid, value}} -> {:ok, {OidHandler.oid_to_string(oid), :octet_string, value}}
-      {:ok, value} -> {:ok, value}
-      error -> error
-    end
+    result = SnmpKit.SnmpSim.Device.OidHandler.get_next_oid_value(state.device_type, oid, state)
+
+    formatted_result =
+      case result do
+        {:ok, {oid, type, value}} -> {:ok, {OidHandler.oid_to_string(oid), type, value}}
+        {:ok, {oid, value}} -> {:ok, {OidHandler.oid_to_string(oid), :octet_string, value}}
+        {:ok, value} -> {:ok, value}
+        error -> error
+      end
+
     {:reply, formatted_result, state}
   end
 
   @impl true
   def handle_call({:get_bulk_oid, oids, non_repeaters, max_repetitions}, _from, state) do
     # Convert OIDs to varbind format expected by process_get_bulk_varbinds
-    varbinds = case oids do
-      oid when is_binary(oid) -> [{oid, :null}]
-      oid_list when is_list(oid_list) ->
-        Enum.map(oid_list, fn oid -> {oid, :null} end)
-      _ -> [{oids, :null}]
-    end
+    varbinds =
+      case oids do
+        oid when is_binary(oid) ->
+          [{oid, :null}]
 
-    result = process_get_bulk_varbinds(varbinds, non_repeaters, max_repetitions, state.device_type)
+        oid_list when is_list(oid_list) ->
+          Enum.map(oid_list, fn oid -> {oid, :null} end)
+
+        _ ->
+          [{oids, :null}]
+      end
+
+    result =
+      process_get_bulk_varbinds(varbinds, non_repeaters, max_repetitions, state.device_type)
+
     IO.inspect(result, label: "GETBULK result from process_get_bulk_varbinds")
-    formatted_result = Enum.map(result, fn
-      {oid, type, value} -> {OidHandler.oid_to_string(oid), type, value}
-      {oid, value} -> {OidHandler.oid_to_string(oid), :octet_string, value}
-    end)
+
+    formatted_result =
+      Enum.map(result, fn
+        {oid, type, value} -> {OidHandler.oid_to_string(oid), type, value}
+        {oid, value} -> {OidHandler.oid_to_string(oid), :octet_string, value}
+      end)
+
     IO.inspect(formatted_result, label: "GETBULK formatted_result")
     {:reply, {:ok, formatted_result}, state}
   end
@@ -429,21 +457,23 @@ defmodule SnmpSim.Device do
     case OidHandler.walk_oid_values(oid, state) do
       {:ok, results} ->
         # Convert OIDs to strings and sort them properly using numerical comparison
-        sorted_results = results
-        |> Enum.map(fn {oid, {type, value}} ->
-          oid_string = OidHandler.oid_to_string(oid)
-          {oid_string, type, value}
-        end)
-        |> Enum.sort_by(fn {oid_string, _type, _value} ->
-          # Convert OID string to list of integers for proper numerical sorting
-          oid_string
-          |> String.split(".")
-          |> Enum.map(&String.to_integer/1)
-        end)
-        |> Enum.map(fn {oid_string, type, value} -> {oid_string, type, value} end)
+        sorted_results =
+          results
+          |> Enum.map(fn {oid, {type, value}} ->
+            oid_string = OidHandler.oid_to_string(oid)
+            {oid_string, type, value}
+          end)
+          |> Enum.sort_by(fn {oid_string, _type, _value} ->
+            # Convert OID string to list of integers for proper numerical sorting
+            oid_string
+            |> String.split(".")
+            |> Enum.map(&String.to_integer/1)
+          end)
+          |> Enum.map(fn {oid_string, type, value} -> {oid_string, type, value} end)
 
         new_state = %{state | last_access: System.monotonic_time(:millisecond)}
         {:reply, {:ok, sorted_results}, new_state}
+
       {:error, reason} ->
         {:reply, {:error, reason}, state}
     end
@@ -614,12 +644,18 @@ defmodule SnmpSim.Device do
 
   defp initialize_device_state(state) do
     # Try to load actual profile data from SharedProfiles
-    profiles = SnmpSim.MIB.SharedProfiles.list_profiles()
-    Logger.info("Device #{state.device_id} checking profiles: #{inspect(profiles)} for device_type: #{inspect(state.device_type)}")
+    profiles = SnmpKit.SnmpSim.MIB.SharedProfiles.list_profiles()
+
+    Logger.info(
+      "Device #{state.device_id} checking profiles: #{inspect(profiles)} for device_type: #{inspect(state.device_type)}"
+    )
 
     case Enum.member?(profiles, state.device_type) do
       true ->
-        Logger.info("Device #{state.device_id} initialized with profile for device type: #{state.device_type}")
+        Logger.info(
+          "Device #{state.device_id} initialized with profile for device type: #{state.device_type}"
+        )
+
         # Profile exists in SharedProfiles, device will use it via OidHandler
         {:ok, %{state | has_walk_data: true}}
 
@@ -673,7 +709,10 @@ defmodule SnmpSim.Device do
   end
 
   defp process_get_bulk_varbinds(varbinds, non_repeaters, max_repetitions, device_type) do
-    IO.inspect({varbinds, non_repeaters, max_repetitions, device_type}, label: "GETBULK input params")
+    IO.inspect({varbinds, non_repeaters, max_repetitions, device_type},
+      label: "GETBULK input params"
+    )
+
     {non_repeater_vars, repeater_vars} = Enum.split(varbinds, non_repeaters)
     IO.inspect({non_repeater_vars, repeater_vars}, label: "GETBULK split varbinds")
 
@@ -682,13 +721,15 @@ defmodule SnmpSim.Device do
       non_repeater_vars
       |> Enum.map(fn {oid, _} ->
         device_state = %{device_type: device_type, uptime: 0}
-        case SnmpSim.Device.OidHandler.get_next_oid_value(device_type, oid, device_state) do
+
+        case SnmpKit.SnmpSim.Device.OidHandler.get_next_oid_value(device_type, oid, device_state) do
           {:ok, {next_oid, type, value}} -> {next_oid, type, value}
           {:ok, {next_oid, value}} -> {next_oid, :octet_string, value}
           {:ok, value} -> {oid, :octet_string, value}
           {:error, _} -> {oid, :no_such_name, :null}
         end
       end)
+
     IO.inspect(non_repeater_results, label: "GETBULK non_repeater_results")
 
     repeater_results =
@@ -700,25 +741,34 @@ defmodule SnmpSim.Device do
           IO.inspect(current_oid, label: "GETBULK current_oid for iteration")
 
           device_state = %{device_type: device_type, uptime: 0}
-          case SnmpSim.Device.OidHandler.get_next_oid_value(device_type, current_oid, device_state) do
+
+          case SnmpKit.SnmpSim.Device.OidHandler.get_next_oid_value(
+                 device_type,
+                 current_oid,
+                 device_state
+               ) do
             {:ok, {next_oid, type, value}} ->
               result = {next_oid, type, value}
               IO.inspect(result, label: "GETBULK got next_oid result")
               {:cont, acc ++ [result]}
+
             {:ok, {next_oid, value}} ->
               result = {next_oid, :octet_string, value}
               IO.inspect(result, label: "GETBULK got next_oid result (2-tuple)")
               {:cont, acc ++ [result]}
+
             {:ok, value} ->
               result = {current_oid, :octet_string, value}
               IO.inspect(result, label: "GETBULK got value result")
               {:cont, acc ++ [result]}
+
             {:error, reason} ->
               IO.inspect(reason, label: "GETBULK error, halting")
               {:halt, acc}
           end
         end)
       end)
+
     IO.inspect(repeater_results, label: "GETBULK repeater_results")
 
     non_repeater_results ++ repeater_results

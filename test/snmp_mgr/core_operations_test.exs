@@ -9,7 +9,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
 
   setup_all do
     # Ensure configuration is available
-    case GenServer.whereis(SnmpMgr.Config) do
+    case GenServer.whereis(SnmpKit.SnmpMgr.Config) do
       nil -> {:ok, _pid} = Config.start_link()
       _pid -> :ok
     end
@@ -27,10 +27,13 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       %{device: device}
     end
 
-    test "get/3 uses SnmpLib.Manager", %{device: device} do
-      # Test GET operation through Core -> SnmpLib.Manager
-      result = SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
-                          community: device.community, timeout: 200)
+    test "get/3 uses SnmpKit.SnmpLib.Manager", %{device: device} do
+      # Test GET operation through Core -> SnmpKit.SnmpLib.Manager
+      result =
+        SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+          community: device.community,
+          timeout: 200
+        )
 
       case result do
         {:ok, value} ->
@@ -44,10 +47,13 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       end
     end
 
-    test "set/4 uses SnmpLib.Manager", %{device: device} do
-      # Test SET operation through Core -> SnmpLib.Manager
-      result = SnmpMgr.set("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.6.0", "test_location",
-                          community: device.community, timeout: 200)
+    test "set/4 uses SnmpKit.SnmpLib.Manager", %{device: device} do
+      # Test SET operation through Core -> SnmpKit.SnmpLib.Manager
+      result =
+        SnmpMgr.set("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.6.0", "test_location",
+          community: device.community,
+          timeout: 200
+        )
 
       case result do
         {:ok, value} ->
@@ -64,11 +70,16 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       end
     end
 
-    test "get_bulk/3 uses SnmpLib.Manager", %{device: device} do
-      # Test GET-BULK operation through Core -> SnmpLib.Manager
-      result = SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
-                               max_repetitions: 5, non_repeaters: 0,
-                               community: device.community, version: :v2c, timeout: 200)
+    test "get_bulk/3 uses SnmpKit.SnmpLib.Manager", %{device: device} do
+      # Test GET-BULK operation through Core -> SnmpKit.SnmpLib.Manager
+      result =
+        SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
+          max_repetitions: 5,
+          non_repeaters: 0,
+          community: device.community,
+          version: :v2c,
+          timeout: 200
+        )
 
       case result do
         {:ok, results} when is_list(results) ->
@@ -81,10 +92,13 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       end
     end
 
-    test "get_next/3 uses SnmpLib.Manager via get_bulk", %{device: device} do
+    test "get_next/3 uses SnmpKit.SnmpLib.Manager via get_bulk", %{device: device} do
       # Test GET-NEXT operation (implemented as GET-BULK with max_repetitions=1)
-      result = SnmpMgr.get_next("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1",
-                               community: device.community, timeout: 200)
+      result =
+        SnmpMgr.get_next("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1",
+          community: device.community,
+          timeout: 200
+        )
 
       case result do
         {:ok, {oid, value}} ->
@@ -100,7 +114,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
     end
   end
 
-  describe "Core OID Processing with SnmpLib.OID" do
+  describe "Core OID Processing with SnmpKit.SnmpLib.OID" do
     setup do
       {:ok, device} = SNMPSimulator.create_test_device()
       :ok = SNMPSimulator.wait_for_device_ready(device)
@@ -110,7 +124,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       %{device: device}
     end
 
-    test "string OIDs processed through SnmpLib.OID", %{device: device} do
+    test "string OIDs processed through SnmpKit.SnmpLib.OID", %{device: device} do
       # Test various string OID formats
       string_oids = [
         "1.3.6.1.2.1.1.1.0",
@@ -119,13 +133,18 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       ]
 
       Enum.each(string_oids, fn oid ->
-        result = SnmpMgr.get("#{device.host}:#{device.port}", oid, community: device.community, timeout: 200)
-        # Should process OID through SnmpLib.OID and return proper format
+        result =
+          SnmpMgr.get("#{device.host}:#{device.port}", oid,
+            community: device.community,
+            timeout: 200
+          )
+
+        # Should process OID through SnmpKit.SnmpLib.OID and return proper format
         assert {:ok, _} = result
       end)
     end
 
-    test "list OIDs processed through SnmpLib.OID", %{device: device} do
+    test "list OIDs processed through SnmpKit.SnmpLib.OID", %{device: device} do
       # Test list format OIDs
       list_oids = [
         [1, 3, 6, 1, 2, 1, 1, 1, 0],
@@ -134,14 +153,19 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       ]
 
       Enum.each(list_oids, fn oid ->
-        result = SnmpMgr.get("#{device.host}:#{device.port}", oid, community: device.community, timeout: 200)
-        # Should process list OID through SnmpLib.OID
+        result =
+          SnmpMgr.get("#{device.host}:#{device.port}", oid,
+            community: device.community,
+            timeout: 200
+          )
+
+        # Should process list OID through SnmpKit.SnmpLib.OID
         assert {:ok, _} = result
       end)
     end
 
     test "symbolic OIDs through MIB integration", %{device: device} do
-      # Test symbolic OIDs that should resolve through MIB -> SnmpLib.OID
+      # Test symbolic OIDs that should resolve through MIB -> SnmpKit.SnmpLib.OID
       symbolic_oids = [
         "sysDescr.0",
         "sysUpTime.0",
@@ -149,18 +173,24 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       ]
 
       Enum.each(symbolic_oids, fn oid ->
-        result = SnmpMgr.get("#{device.host}:#{device.port}", oid, community: device.community, timeout: 200)
-        # Should process symbolic OID through MIB -> SnmpLib.OID chain
+        result =
+          SnmpMgr.get("#{device.host}:#{device.port}", oid,
+            community: device.community,
+            timeout: 200
+          )
+
+        # Should process symbolic OID through MIB -> SnmpKit.SnmpLib.OID chain
         assert {:ok, _} = result
       end)
     end
 
-    test "parse_oid/1 uses SnmpLib.OID.normalize" do
-      # Test direct OID parsing through SnmpLib.OID integration
+    test "parse_oid/1 uses SnmpKit.SnmpLib.OID.normalize" do
+      # Test direct OID parsing through SnmpKit.SnmpLib.OID integration
       test_cases = [
         {"1.3.6.1.2.1.1.1.0", [1, 3, 6, 1, 2, 1, 1, 1, 0]},
         {[1, 3, 6, 1, 2, 1, 1, 1, 0], [1, 3, 6, 1, 2, 1, 1, 1, 0]},
-        {"sysDescr.0", nil}  # MIB resolution may not work in test environment
+        # MIB resolution may not work in test environment
+        {"sysDescr.0", nil}
       ]
 
       Enum.each(test_cases, fn {input, expected} ->
@@ -198,12 +228,17 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       ]
 
       Enum.each(invalid_oids, fn oid ->
-        result = SnmpMgr.get("#{device.host}:#{device.port}", oid, community: device.community, timeout: 200)
+        result =
+          SnmpMgr.get("#{device.host}:#{device.port}", oid,
+            community: device.community,
+            timeout: 200
+          )
 
         case result do
           {:error, reason} ->
-            # Should return proper error from SnmpLib.OID or validation
+            # Should return proper error from SnmpKit.SnmpLib.OID or validation
             assert is_atom(reason) or is_tuple(reason)
+
           {:ok, _} ->
             # Some invalid OIDs might resolve unexpectedly
             assert true
@@ -219,13 +254,13 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       ]
 
       Enum.each(invalid_targets, fn target ->
-        result = SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0",
-                            community: "public", timeout: 200)
+        result = SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: "public", timeout: 200)
 
         case result do
           {:error, reason} ->
             # Should return proper error format
             assert is_atom(reason) or is_tuple(reason)
+
           {:ok, _} ->
             # Some invalid targets might resolve
             assert true
@@ -235,26 +270,41 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
 
     test "timeout handling through snmp_lib", %{device: device} do
       # Test very short timeout with simulator
-      result = SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
-                          community: device.community, timeout: 1)
+      result =
+        SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+          community: device.community,
+          timeout: 1
+        )
 
       case result do
         {:error, :timeout} -> assert true
-        {:error, _other} -> assert true  # Other errors acceptable
-        {:ok, _} -> assert true  # Unexpectedly fast response from simulator
+        # Other errors acceptable
+        {:error, _other} -> assert true
+        # Unexpectedly fast response from simulator
+        {:ok, _} -> assert true
       end
     end
 
     test "community validation through snmp_lib", %{device: device} do
       # Test with wrong community
-      result = SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
-                          community: "wrong_community", timeout: 200)
+      result =
+        SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+          community: "wrong_community",
+          timeout: 200
+        )
 
       case result do
         {:error, reason} when reason in [:authentication_error, :bad_community] ->
-          assert true  # Expected authentication error
-        {:error, _other} -> assert true  # Other errors acceptable
-        {:ok, _} -> assert true  # Might succeed in test environment
+          # Expected authentication error
+          assert true
+
+        # Other errors acceptable
+        {:error, _other} ->
+          assert true
+
+        # Might succeed in test environment
+        {:ok, _} ->
+          assert true
       end
     end
   end
@@ -267,7 +317,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       Config.set_default_version(:v2c)
 
       # Test option merging
-      merged = Config.merge_opts([community: "override", retries: 2])
+      merged = Config.merge_opts(community: "override", retries: 2)
 
       # Should have overridden community but default timeout and version
       assert merged[:community] == "override"
@@ -308,32 +358,46 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       %{device: device}
     end
 
-    test "SNMPv1 operations through SnmpLib.Manager", %{device: device} do
-      result = SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
-                          version: :v1, community: device.community, timeout: 200)
+    test "SNMPv1 operations through SnmpKit.SnmpLib.Manager", %{device: device} do
+      result =
+        SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+          version: :v1,
+          community: device.community,
+          timeout: 200
+        )
 
       # Should process v1 requests through snmp_lib
       assert {:ok, _} = result
     end
 
-    test "SNMPv2c operations through SnmpLib.Manager", %{device: device} do
-      result = SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
-                          version: :v2c, community: device.community, timeout: 200)
+    test "SNMPv2c operations through SnmpKit.SnmpLib.Manager", %{device: device} do
+      result =
+        SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+          version: :v2c,
+          community: device.community,
+          timeout: 200
+        )
 
       # Should process v2c requests through snmp_lib
       case result do
-        {:ok, _} -> assert true  # Operation succeeded
-        {:error, :timeout} -> assert true  # Acceptable for network operations
+        # Operation succeeded
+        {:ok, _} -> assert true
+        # Acceptable for network operations
+        {:error, :timeout} -> assert true
         {:error, reason} -> flunk("Unexpected error: #{inspect(reason)}")
       end
     end
 
     test "bulk operations enforce v2c", %{device: device} do
       # Bulk operations should work with v2c (default)
-      result = SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
-                               max_repetitions: 3, community: device.community, timeout: 200)
+      result =
+        SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
+          max_repetitions: 3,
+          community: device.community,
+          timeout: 200
+        )
 
-      # Should handle bulk through SnmpLib.Manager
+      # Should handle bulk through SnmpKit.SnmpLib.Manager
       assert {:ok, _} = result
     end
   end
@@ -408,16 +472,20 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       # Measure time for operations through snmp_lib
       start_time = System.monotonic_time(:millisecond)
 
-      results = Enum.map(1..5, fn _i ->
-        SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
-                   community: device.community, timeout: 200)
-      end)
+      results =
+        Enum.map(1..5, fn _i ->
+          SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+            community: device.community,
+            timeout: 200
+          )
+        end)
 
       end_time = System.monotonic_time(:millisecond)
       duration = end_time - start_time
 
       # Should complete reasonably quickly with local simulator
-      assert duration < 1200  # Less than 1.2 seconds for 5 operations (allow for CI variance)
+      # Less than 1.2 seconds for 5 operations (allow for CI variance)
+      assert duration < 1200
       assert length(results) == 5
 
       # All should return proper format through snmp_lib
@@ -428,14 +496,18 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
 
     test "concurrent operations work correctly", %{device: device} do
       # Test concurrent operations through snmp_lib
-      tasks = Enum.map(1..3, fn _i ->
-        Task.async(fn ->
-          SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
-                     community: device.community, timeout: 200)
+      tasks =
+        Enum.map(1..3, fn _i ->
+          Task.async(fn ->
+            SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
+              community: device.community,
+              timeout: 200
+            )
+          end)
         end)
-      end)
 
-      results = Task.await_many(tasks, 1000)  # Allow more time for concurrent operations
+      # Allow more time for concurrent operations
+      results = Task.await_many(tasks, 1000)
 
       # All should complete through snmp_lib
       assert length(results) == 3
@@ -443,7 +515,8 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       Enum.each(results, fn result ->
         case result do
           {:ok, _} -> assert true
-          {:error, :timeout} -> assert true  # Concurrent ops may timeout
+          # Concurrent ops may timeout
+          {:error, :timeout} -> assert true
           {:error, reason} -> flunk("Unexpected error: #{inspect(reason)}")
         end
       end)
@@ -451,19 +524,23 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
   end
 
   describe "Direct SnmpLib Integration Tests" do
-    test "SnmpLib.OID functions work correctly" do
-      # Test direct SnmpLib.OID integration
-      assert {:ok, [1, 3, 6, 1, 2, 1, 1, 1, 0]} = SnmpLib.OID.string_to_list("1.3.6.1.2.1.1.1.0")
-      assert {:ok, "1.3.6.1.2.1.1.1.0"} = SnmpLib.OID.list_to_string([1, 3, 6, 1, 2, 1, 1, 1, 0])
+    test "SnmpKit.SnmpLib.OID functions work correctly" do
+      # Test direct SnmpKit.SnmpLib.OID integration
+      assert {:ok, [1, 3, 6, 1, 2, 1, 1, 1, 0]} =
+               SnmpKit.SnmpLib.OID.string_to_list("1.3.6.1.2.1.1.1.0")
+
+      assert {:ok, "1.3.6.1.2.1.1.1.0"} =
+               SnmpKit.SnmpLib.OID.list_to_string([1, 3, 6, 1, 2, 1, 1, 1, 0])
     end
 
-    test "Core.parse_oid delegates to SnmpLib.OID.normalize" do
-      # Test that parse_oid uses SnmpLib.OID.normalize
+    test "Core.parse_oid delegates to SnmpKit.SnmpLib.OID.normalize" do
+      # Test that parse_oid uses SnmpKit.SnmpLib.OID.normalize
       result = Core.parse_oid("1.3.6.1.2.1.1.1.0")
 
       case result do
         {:ok, oid_list} ->
           assert oid_list == [1, 3, 6, 1, 2, 1, 1, 1, 0]
+
         {:error, _reason} ->
           # May fail in test environment
           assert true
@@ -475,12 +552,12 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       # regardless of snmp_lib internal changes
 
       # Use documentation range IP (unreachable) for quick timeout
-      result = SnmpMgr.get("192.0.2.254", "1.3.6.1.2.1.1.1.0",
-                          community: "public", timeout: 50)
+      result = SnmpMgr.get("192.0.2.254", "1.3.6.1.2.1.1.1.0", community: "public", timeout: 50)
 
       case result do
         {:ok, value} ->
           assert is_binary(value) or is_integer(value) or is_list(value)
+
         {:error, reason} ->
           assert is_atom(reason) or is_tuple(reason)
       end

@@ -1,8 +1,8 @@
 defmodule SnmpKit.SnmpLib.ManagerTest do
   use ExUnit.Case, async: true
-  doctest SnmpLib.Manager
+  doctest SnmpKit.SnmpLib.Manager
 
-  alias SnmpKit.SnmpLib.Manager
+  alias SnmpKit.SnmpKit.SnmpLib.Manager
 
   @moduletag :manager_test
 
@@ -401,12 +401,12 @@ defmodule SnmpKit.SnmpLib.ManagerTest do
       # 0 -> :no_error, 1 -> :too_big, 2 -> :no_such_name, 3 -> :bad_value, 4 -> :read_only, 5 -> :gen_err
 
       # We can verify this works by using the Error module which should have the same mapping
-      assert SnmpLib.Error.error_atom(0) == :no_error
-      assert SnmpLib.Error.error_atom(1) == :too_big
-      assert SnmpLib.Error.error_atom(2) == :no_such_name
-      assert SnmpLib.Error.error_atom(3) == :bad_value
-      assert SnmpLib.Error.error_atom(4) == :read_only
-      assert SnmpLib.Error.error_atom(5) == :gen_err
+      assert SnmpKit.SnmpLib.Error.error_atom(0) == :no_error
+      assert SnmpKit.SnmpLib.Error.error_atom(1) == :too_big
+      assert SnmpKit.SnmpLib.Error.error_atom(2) == :no_such_name
+      assert SnmpKit.SnmpLib.Error.error_atom(3) == :bad_value
+      assert SnmpKit.SnmpLib.Error.error_atom(4) == :read_only
+      assert SnmpKit.SnmpLib.Error.error_atom(5) == :gen_err
     end
 
     test "error status takes precedence over varbinds" do
@@ -438,10 +438,10 @@ defmodule SnmpKit.SnmpLib.ManagerTest do
 
       # This verifies the logic works but we can't test the private function directly
       # Instead verify that SNMPv2c exception types are recognized
-      assert SnmpLib.Types.is_exception_type?(:no_such_object) == true
-      assert SnmpLib.Types.is_exception_type?(:no_such_instance) == true
-      assert SnmpLib.Types.is_exception_type?(:end_of_mib_view) == true
-      assert SnmpLib.Types.is_exception_type?(:integer) == false
+      assert SnmpKit.SnmpLib.Types.is_exception_type?(:no_such_object) == true
+      assert SnmpKit.SnmpLib.Types.is_exception_type?(:no_such_instance) == true
+      assert SnmpKit.SnmpLib.Types.is_exception_type?(:end_of_mib_view) == true
+      assert SnmpKit.SnmpLib.Types.is_exception_type?(:integer) == false
     end
   end
 
@@ -485,14 +485,14 @@ defmodule SnmpKit.SnmpLib.ManagerTest do
     test "integrates with existing SnmpLib modules" do
       # Verify Manager uses other SnmpLib modules correctly
 
-      # Test OID normalization (should use SnmpLib.OID)
+      # Test OID normalization (should use SnmpKit.SnmpLib.OID)
       string_oid = "1.3.6.1.2.1.1.1.0"
       assert {:error, _} = Manager.get("invalid.host.test", string_oid, timeout: 100)
 
       # Test PDU creation (should use SnmpKit.SnmpLib.PDU)
       assert {:error, _} = Manager.get("invalid.host.test", [1, 3, 6, 1], timeout: 100)
 
-      # Test transport (should use SnmpLib.Transport)
+      # Test transport (should use SnmpKit.SnmpLib.Transport)
       assert {:error, _} = Manager.ping("invalid.host.test", timeout: 100)
     end
   end

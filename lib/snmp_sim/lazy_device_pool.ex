@@ -13,7 +13,7 @@ defmodule SnmpSim.LazyDevicePool do
   use GenServer
   require Logger
 
-  alias SnmpSim.Device
+  alias SnmpKit.SnmpSim.Device
 
   defstruct [
     # Map: port -> device_pid
@@ -254,7 +254,10 @@ defmodule SnmpSim.LazyDevicePool do
       {:error, :max_devices_reached}
     else
       device_type = determine_device_type(port, state.port_assignments)
-      Logger.debug("LazyDevicePool: Creating device for port #{port}, device_type: #{inspect(device_type)}")
+
+      Logger.debug(
+        "LazyDevicePool: Creating device for port #{port}, device_type: #{inspect(device_type)}"
+      )
 
       case device_type do
         nil ->
@@ -268,13 +271,14 @@ defmodule SnmpSim.LazyDevicePool do
             device_id: generate_device_id(device_type, port),
             community: "public"
           }
-          
+
           # Add walk_file for cable_modem devices
-          device_config = if device_type == :cable_modem do
-            Map.put(device_config, :walk_file, "priv/walks/cable_modem.walk")
-          else
-            device_config
-          end
+          device_config =
+            if device_type == :cable_modem do
+              Map.put(device_config, :walk_file, "priv/walks/cable_modem.walk")
+            else
+              device_config
+            end
 
           case Device.start_link(device_config) do
             {:ok, device_pid} ->
@@ -463,12 +467,18 @@ defmodule SnmpSim.LazyDevicePool do
   defp default_port_assignments do
     %{
       # Port ranges to match test expectations
-      cable_modem: 30_000..37_999,      # 8000 ports for cable modems
-      mta: 38_000..38_499,              # 500 ports for MTAs
-      router: 39_000..39_499,           # 500 ports for routers
-      switch: 39_500..39_899,           # 400 ports for switches  
-      cmts: 39_950..39_999,             # 50 ports for CMTS (as expected by test)
-      server: 38_500..38_999            # 500 ports for servers
+      # 8000 ports for cable modems
+      cable_modem: 30_000..37_999,
+      # 500 ports for MTAs
+      mta: 38_000..38_499,
+      # 500 ports for routers
+      router: 39_000..39_499,
+      # 400 ports for switches
+      switch: 39_500..39_899,
+      # 50 ports for CMTS (as expected by test)
+      cmts: 39_950..39_999,
+      # 500 ports for servers
+      server: 38_500..38_999
     }
   end
 end

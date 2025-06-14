@@ -1,4 +1,4 @@
-defmodule SnmpSim.MIB.BehaviorAnalyzer do
+defmodule SnmpKit.SnmpSim.MIB.BehaviorAnalyzer do
   # Suppress warnings for private functions that are only called internally
   @dialyzer [
     {:nowarn_function, finalize_behavior: 1},
@@ -22,15 +22,15 @@ defmodule SnmpSim.MIB.BehaviorAnalyzer do
 
   ## Examples
 
-      behavior = SnmpSim.MIB.BehaviorAnalyzer.analyze_object_behavior(%{
+      behavior = SnmpKit.SnmpSim.MIB.BehaviorAnalyzer.analyze_object_behavior(%{
         name: "ifInOctets",
         oid: "1.3.6.1.2.1.2.2.1.10",
         type: :counter32,
         description: "The total number of octets received on the interface"
       })
-      
+
       # Returns: {:traffic_counter, %{rate_range: {1000, 125_000_000}, increment_pattern: :bursty}}
-      
+
   """
   def analyze_object_behavior(oid_info) do
     oid_info
@@ -46,8 +46,8 @@ defmodule SnmpSim.MIB.BehaviorAnalyzer do
 
   ## Examples
 
-      {:ok, behaviors} = SnmpSim.MIB.BehaviorAnalyzer.analyze_mib_behaviors(compiled_mib)
-      
+      {:ok, behaviors} = SnmpKit.SnmpSim.MIB.BehaviorAnalyzer.analyze_mib_behaviors(compiled_mib)
+
   """
   def analyze_mib_behaviors(mib_objects) when is_map(mib_objects) do
     behaviors =

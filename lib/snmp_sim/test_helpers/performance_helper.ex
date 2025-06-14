@@ -1,10 +1,11 @@
-defmodule SnmpSim.TestHelpers.PerformanceHelper do
+defmodule SnmpKit.SnmpSim.TestHelpers.PerformanceHelper do
   require Logger
+
   @moduledoc """
   Performance testing utilities for SnmpSim.
   """
 
-  alias SnmpSim.Device
+  alias SnmpKit.SnmpSim.Device
 
   @doc """
   Runs a sustained load test with comprehensive monitoring.
@@ -498,10 +499,10 @@ defmodule SnmpSim.TestHelpers.PerformanceHelper do
 
   defp create_test_devices_for_scalability(device_count) do
     # Create devices efficiently for scalability testing
-    SnmpSim.TestHelpers.create_test_devices(count: device_count)
+    SnmpKit.SnmpSim.TestHelpers.create_test_devices(count: device_count)
   end
 
   defp cleanup_test_devices(devices) do
-    SnmpSim.TestHelpers.cleanup_devices(devices)
+    SnmpKit.SnmpSim.TestHelpers.cleanup_devices(devices)
   end
 end

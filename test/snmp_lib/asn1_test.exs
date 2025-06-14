@@ -1,8 +1,8 @@
 defmodule SnmpKit.SnmpLib.ASN1Test do
   use ExUnit.Case, async: true
-  
-  alias SnmpKit.SnmpLib.ASN1
-  
+
+  alias SnmpKit.SnmpKit.SnmpLib.ASN1
+
   @moduletag :unit
   @moduletag :protocol
   @moduletag :phase_2
@@ -24,14 +24,14 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
       {:ok, encoded} = ASN1.encode_integer(-1)
       {:ok, {decoded, <<>>}} = ASN1.decode_integer(encoded)
       assert decoded == -1
-      
+
       {:ok, encoded} = ASN1.encode_integer(-128)
       {:ok, {decoded, <<>>}} = ASN1.decode_integer(encoded)
       assert decoded == -128
     end
 
     test "encodes and decodes large integers" do
-      large_value = 123456789
+      large_value = 123_456_789
       {:ok, encoded} = ASN1.encode_integer(large_value)
       {:ok, {decoded, <<>>}} = ASN1.decode_integer(encoded)
       assert decoded == large_value
@@ -157,7 +157,7 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
       {:ok, int_encoded} = ASN1.encode_integer(42)
       {:ok, str_encoded} = ASN1.encode_octet_string("test")
       content = int_encoded <> str_encoded
-      
+
       {:ok, sequence_encoded} = ASN1.encode_sequence(content)
       {:ok, {decoded_content, <<>>}} = ASN1.decode_sequence(sequence_encoded)
       assert decoded_content == content
@@ -187,7 +187,7 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
       custom_tag = 0xA0
       content = "custom_content"
       {:ok, encoded} = ASN1.encode_custom_tlv(custom_tag, content)
-      
+
       # Should start with our custom tag
       assert <<^custom_tag, _rest::binary>> = encoded
     end
@@ -195,7 +195,7 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
     test "encodes TLV with different tags" do
       {:ok, encoded1} = ASN1.encode_custom_tlv(0x80, "content1")
       {:ok, encoded2} = ASN1.encode_custom_tlv(0x81, "content2")
-      
+
       assert <<0x80, _::binary>> = encoded1
       assert <<0x81, _::binary>> = encoded2
     end
@@ -205,8 +205,9 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
     test "decodes any TLV structure" do
       {:ok, encoded} = ASN1.encode_integer(42)
       {:ok, {tag, content, <<>>}} = ASN1.decode_tlv(encoded)
-      
-      assert tag == 0x02  # INTEGER tag
+
+      # INTEGER tag
+      assert tag == 0x02
       assert content == <<42>>
     end
 
@@ -214,8 +215,9 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
       {:ok, encoded} = ASN1.encode_octet_string("test")
       test_data = encoded <> <<99, 100>>
       {:ok, {tag, content, remaining}} = ASN1.decode_tlv(test_data)
-      
-      assert tag == 0x04  # OCTET STRING tag
+
+      # OCTET STRING tag
+      assert tag == 0x04
       assert content == "test"
       assert remaining == <<99, 100>>
     end
@@ -235,8 +237,8 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
     end
 
     test "encodes and decodes long form lengths" do
-      test_cases = [128, 200, 300, 1000, 65535, 100000]
-      
+      test_cases = [128, 200, 300, 1000, 65535, 100_000]
+
       for length <- test_cases do
         encoded = ASN1.encode_length(length)
         {:ok, {decoded, <<>>}} = ASN1.decode_length(encoded)
@@ -268,7 +270,8 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
 
   describe "Tag parsing" do
     test "parses universal class tags" do
-      info = ASN1.parse_tag(0x02)  # INTEGER
+      # INTEGER
+      info = ASN1.parse_tag(0x02)
       assert info.class == :universal
       assert info.constructed == false
       assert info.tag_number == 2
@@ -276,28 +279,32 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
     end
 
     test "parses constructed tags" do
-      info = ASN1.parse_tag(0x30)  # SEQUENCE
+      # SEQUENCE
+      info = ASN1.parse_tag(0x30)
       assert info.class == :universal
       assert info.constructed == true
       assert info.tag_number == 16
     end
 
     test "parses application class tags" do
-      info = ASN1.parse_tag(0x41)  # Application, primitive, tag 1
+      # Application, primitive, tag 1
+      info = ASN1.parse_tag(0x41)
       assert info.class == :application
       assert info.constructed == false
       assert info.tag_number == 1
     end
 
     test "parses context class tags" do
-      info = ASN1.parse_tag(0x80)  # Context, primitive, tag 0
+      # Context, primitive, tag 0
+      info = ASN1.parse_tag(0x80)
       assert info.class == :context
       assert info.constructed == false
       assert info.tag_number == 0
     end
 
     test "parses private class tags" do
-      info = ASN1.parse_tag(0xC0)  # Private, primitive, tag 0
+      # Private, primitive, tag 0
+      info = ASN1.parse_tag(0xC0)
       assert info.class == :private
       assert info.constructed == false
       assert info.tag_number == 0
@@ -314,14 +321,15 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
       {:ok, int_encoded} = ASN1.encode_integer(42)
       {:ok, str_encoded} = ASN1.encode_octet_string("test")
       combined = int_encoded <> str_encoded
-      
+
       assert :ok = ASN1.validate_ber_structure(combined)
     end
 
     test "validates nested sequences" do
-      {:ok, inner_seq} = ASN1.encode_sequence(<<0x02, 0x01, 0x42>>)  # Sequence with INTEGER 42
+      # Sequence with INTEGER 42
+      {:ok, inner_seq} = ASN1.encode_sequence(<<0x02, 0x01, 0x42>>)
       {:ok, outer_seq} = ASN1.encode_sequence(inner_seq)
-      
+
       assert :ok = ASN1.validate_ber_structure(outer_seq)
     end
 
@@ -346,17 +354,18 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
     test "calculates length for different structure sizes" do
       test_cases = [
         42,
-        123456,
+        123_456,
         "Hello, World!",
         String.duplicate("A", 200)
       ]
-      
+
       for test_value <- test_cases do
-        {:ok, encoded} = case test_value do
-          value when is_integer(value) -> ASN1.encode_integer(value)
-          value when is_binary(value) -> ASN1.encode_octet_string(value)
-        end
-        
+        {:ok, encoded} =
+          case test_value do
+            value when is_integer(value) -> ASN1.encode_integer(value)
+            value when is_binary(value) -> ASN1.encode_octet_string(value)
+          end
+
         {:ok, calculated_length} = ASN1.calculate_ber_length(encoded)
         actual_length = byte_size(encoded)
         assert calculated_length == actual_length
@@ -372,7 +381,7 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
   describe "Round-trip encoding/decoding" do
     test "integer round-trips correctly" do
       test_values = [0, 1, -1, 42, -42, 127, -128, 255, -256, 32767, -32768]
-      
+
       for value <- test_values do
         {:ok, encoded} = ASN1.encode_integer(value)
         {:ok, {decoded, <<>>}} = ASN1.decode_integer(encoded)
@@ -388,7 +397,7 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
         <<0, 1, 2, 255>>,
         String.duplicate("A", 100)
       ]
-      
+
       for value <- test_values do
         {:ok, encoded} = ASN1.encode_octet_string(value)
         {:ok, {decoded, <<>>}} = ASN1.decode_octet_string(encoded)
@@ -403,7 +412,7 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
         [1, 3, 6, 1, 2, 1, 1, 1, 0],
         [1, 3, 6, 1, 4, 1, 200, 1, 2, 3]
       ]
-      
+
       for oid <- test_oids do
         {:ok, encoded} = ASN1.encode_oid(oid)
         {:ok, {decoded, <<>>}} = ASN1.decode_oid(encoded)
@@ -434,19 +443,21 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
 
     test "handles concurrent operations" do
       # Test thread safety
-      tasks = for i <- 1..20 do
-        Task.async(fn ->
-          value = rem(i, 1000)
-          {:ok, encoded} = ASN1.encode_integer(value)
-          {:ok, {decoded, <<>>}} = ASN1.decode_integer(encoded)
-          {i, value, decoded}
-        end)
-      end
-      
+      tasks =
+        for i <- 1..20 do
+          Task.async(fn ->
+            value = rem(i, 1000)
+            {:ok, encoded} = ASN1.encode_integer(value)
+            {:ok, {decoded, <<>>}} = ASN1.decode_integer(encoded)
+            {i, value, decoded}
+          end)
+        end
+
       results = Task.await_many(tasks, 1000)
-      
+
       # Verify all operations completed successfully
       assert length(results) == 20
+
       for {i, original, decoded} <- results do
         expected = rem(i, 1000)
         assert original == expected
@@ -463,42 +474,44 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
         2_147_483_647,
         -2_147_483_648
       ]
-      
+
       for value <- large_values do
         start_time = System.monotonic_time(:microsecond)
         {:ok, encoded} = ASN1.encode_integer(value)
         {:ok, {decoded, <<>>}} = ASN1.decode_integer(encoded)
         end_time = System.monotonic_time(:microsecond)
-        
+
         assert decoded == value
         # Should complete in reasonable time (< 1ms)
-        assert (end_time - start_time) < 1000
+        assert end_time - start_time < 1000
       end
     end
 
     test "handles large octet strings efficiently" do
       large_string = String.duplicate("Hello, World! ", 100)
-      
+
       start_time = System.monotonic_time(:microsecond)
       {:ok, encoded} = ASN1.encode_octet_string(large_string)
       {:ok, {decoded, <<>>}} = ASN1.decode_octet_string(encoded)
       end_time = System.monotonic_time(:microsecond)
-      
+
       assert decoded == large_string
       # Should complete in reasonable time (< 5ms)
-      assert (end_time - start_time) < 5000
+      assert end_time - start_time < 5000
     end
 
     test "handles complex nested structures" do
       # Create a sequence containing multiple nested sequences
-      {:ok, inner1} = ASN1.encode_sequence(<<0x02, 0x01, 0x42>>)  # INTEGER 42
-      {:ok, inner2} = ASN1.encode_sequence(<<0x04, 0x04, "test"::binary>>)  # OCTET STRING "test"
+      # INTEGER 42
+      {:ok, inner1} = ASN1.encode_sequence(<<0x02, 0x01, 0x42>>)
+      # OCTET STRING "test"
+      {:ok, inner2} = ASN1.encode_sequence(<<0x04, 0x04, "test"::binary>>)
       {:ok, outer} = ASN1.encode_sequence(inner1 <> inner2)
-      
+
       # Should be able to decode the outer structure
       {:ok, {content, <<>>}} = ASN1.decode_sequence(outer)
       assert content == inner1 <> inner2
-      
+
       # Should validate correctly
       assert :ok = ASN1.validate_ber_structure(outer)
     end

@@ -1,4 +1,4 @@
-defmodule SnmpSim.Device.ErrorInjector do
+defmodule SnmpKit.SnmpSim.Device.ErrorInjector do
   @moduledoc """
   Error injection functionality for SNMP device simulation.
   Handles various error conditions like timeouts, packet loss, SNMP errors, and malformed responses.

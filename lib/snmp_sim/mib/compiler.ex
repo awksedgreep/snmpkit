@@ -1,4 +1,4 @@
-defmodule SnmpSim.MIB.Compiler do
+defmodule SnmpKit.SnmpSim.MIB.Compiler do
   @moduledoc """
   MIB Compiler for SNMP Simulator (Elixir)
 

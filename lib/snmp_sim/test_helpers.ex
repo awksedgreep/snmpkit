@@ -1,4 +1,4 @@
-defmodule SnmpSim.TestHelpers do
+defmodule SnmpKit.SnmpSim.TestHelpers do
   @moduledoc """
   Comprehensive SNMP testing utilities for SnmpSim.
 

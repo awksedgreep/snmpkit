@@ -1,8 +1,8 @@
 defmodule SnmpKit.SnmpLib.OIDTest do
   use ExUnit.Case, async: true
-  
-  alias SnmpKit.SnmpLib.OID
-  
+
+  alias SnmpKit.SnmpKit.SnmpLib.OID
+
   @moduletag :unit
   @moduletag :protocol
   @moduletag :phase_2
@@ -21,7 +21,7 @@ defmodule SnmpKit.SnmpLib.OIDTest do
     test "handles single component OID" do
       {:ok, oid_list} = OID.string_to_list("42")
       assert oid_list == [42]
-      
+
       {:ok, oid_string} = OID.list_to_string([42])
       assert oid_string == "42"
     end
@@ -52,7 +52,7 @@ defmodule SnmpKit.SnmpLib.OIDTest do
     end
 
     test "handles large OID components" do
-      large_oid = [1, 3, 6, 1, 4, 1, 999999, 1, 2, 3]
+      large_oid = [1, 3, 6, 1, 4, 1, 999_999, 1, 2, 3]
       {:ok, oid_string} = OID.list_to_string(large_oid)
       {:ok, parsed_oid} = OID.string_to_list(oid_string)
       assert parsed_oid == large_oid
@@ -63,7 +63,7 @@ defmodule SnmpKit.SnmpLib.OIDTest do
     test "correctly identifies child relationships" do
       parent = [1, 3, 6, 1, 2, 1]
       child = [1, 3, 6, 1, 2, 1, 1, 1, 0]
-      
+
       assert OID.is_child_of?(child, parent) == true
       assert OID.is_child_of?(parent, child) == false
     end
@@ -71,14 +71,14 @@ defmodule SnmpKit.SnmpLib.OIDTest do
     test "correctly identifies parent relationships" do
       parent = [1, 3, 6, 1, 2, 1]
       child = [1, 3, 6, 1, 2, 1, 1, 1, 0]
-      
+
       assert OID.is_parent_of?(parent, child) == true
       assert OID.is_parent_of?(child, parent) == false
     end
 
     test "rejects equal OIDs as child/parent" do
       oid = [1, 3, 6, 1, 2, 1]
-      
+
       assert OID.is_child_of?(oid, oid) == false
       assert OID.is_parent_of?(oid, oid) == false
     end
@@ -86,7 +86,7 @@ defmodule SnmpKit.SnmpLib.OIDTest do
     test "rejects sibling OIDs as child/parent" do
       oid1 = [1, 3, 6, 1, 2, 1]
       oid2 = [1, 3, 6, 1, 2, 2]
-      
+
       assert OID.is_child_of?(oid1, oid2) == false
       assert OID.is_child_of?(oid2, oid1) == false
     end
@@ -104,6 +104,7 @@ defmodule SnmpKit.SnmpLib.OIDTest do
 
     test "gets immediate children from OID set" do
       parent = [1, 3, 6, 1]
+
       oid_set = [
         [1, 3, 6, 1, 2],
         [1, 3, 6, 1, 4],
@@ -111,7 +112,7 @@ defmodule SnmpKit.SnmpLib.OIDTest do
         [1, 3, 6, 1, 4, 1, 9],
         [1, 3, 6, 2]
       ]
-      
+
       children = OID.get_children(parent, oid_set)
       assert length(children) == 2
       assert [1, 3, 6, 1, 2] in children
@@ -120,24 +121,26 @@ defmodule SnmpKit.SnmpLib.OIDTest do
 
     test "finds next OID in sorted set" do
       current = [1, 3, 6, 1, 2, 1, 1, 1, 0]
+
       oid_set = [
         [1, 3, 6, 1, 2, 1, 1, 1, 0],
         [1, 3, 6, 1, 2, 1, 1, 2, 0],
         [1, 3, 6, 1, 2, 1, 1, 3, 0]
       ]
-      
+
       {:ok, next_oid} = OID.get_next_oid(current, oid_set)
       assert next_oid == [1, 3, 6, 1, 2, 1, 1, 2, 0]
     end
 
     test "handles end of MIB in get_next_oid" do
       current = [1, 3, 6, 1, 2, 1, 1, 3, 0]
+
       oid_set = [
         [1, 3, 6, 1, 2, 1, 1, 1, 0],
         [1, 3, 6, 1, 2, 1, 1, 2, 0],
         [1, 3, 6, 1, 2, 1, 1, 3, 0]
       ]
-      
+
       assert {:error, :end_of_mib} = OID.get_next_oid(current, oid_set)
     end
   end
@@ -148,7 +151,7 @@ defmodule SnmpKit.SnmpLib.OIDTest do
       oid2 = [1, 3, 6, 2]
       oid3 = [1, 3, 6, 1]
       oid4 = [1, 3, 6, 1, 2]
-      
+
       assert OID.compare(oid1, oid2) == :lt
       assert OID.compare(oid2, oid1) == :gt
       assert OID.compare(oid1, oid3) == :eq
@@ -164,8 +167,9 @@ defmodule SnmpKit.SnmpLib.OIDTest do
         [1, 3, 6, 1, 4, 1],
         [1, 3, 6, 1, 1]
       ]
-      
+
       sorted = OID.sort(oids)
+
       expected = [
         [1, 3, 6, 1],
         [1, 3, 6, 1, 1],
@@ -173,7 +177,7 @@ defmodule SnmpKit.SnmpLib.OIDTest do
         [1, 3, 6, 1, 4, 1],
         [1, 3, 6, 2]
       ]
-      
+
       assert sorted == expected
     end
 
@@ -187,7 +191,7 @@ defmodule SnmpKit.SnmpLib.OIDTest do
     test "extracts table index correctly" do
       table_oid = [1, 3, 6, 1, 2, 1, 2, 2, 1, 1]
       instance_oid = [1, 3, 6, 1, 2, 1, 2, 2, 1, 1, 1]
-      
+
       {:ok, index} = OID.extract_table_index(table_oid, instance_oid)
       assert index == [1]
     end
@@ -195,22 +199,24 @@ defmodule SnmpKit.SnmpLib.OIDTest do
     test "extracts complex table index" do
       table_oid = [1, 3, 6, 1, 2, 1, 4, 20, 1, 1]
       instance_oid = [1, 3, 6, 1, 2, 1, 4, 20, 1, 1, 192, 168, 1, 1]
-      
+
       {:ok, index} = OID.extract_table_index(table_oid, instance_oid)
       assert index == [192, 168, 1, 1]
     end
 
     test "rejects invalid table instances" do
       table_oid = [1, 3, 6, 1, 2, 1, 2, 2, 1, 1]
-      invalid_instance = [1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 1]  # Wrong table column
-      
-      assert {:error, :invalid_table_instance} = OID.extract_table_index(table_oid, invalid_instance)
+      # Wrong table column
+      invalid_instance = [1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 1]
+
+      assert {:error, :invalid_table_instance} =
+               OID.extract_table_index(table_oid, invalid_instance)
     end
 
     test "builds table instance from OID and index" do
       table_oid = [1, 3, 6, 1, 2, 1, 2, 2, 1, 1]
       index = [1]
-      
+
       {:ok, instance_oid} = OID.build_table_instance(table_oid, index)
       assert instance_oid == [1, 3, 6, 1, 2, 1, 2, 2, 1, 1, 1]
     end
@@ -218,7 +224,7 @@ defmodule SnmpKit.SnmpLib.OIDTest do
     test "builds complex table instance" do
       table_oid = [1, 3, 6, 1, 2, 1, 4, 20, 1, 1]
       index = [192, 168, 1, 1]
-      
+
       {:ok, instance_oid} = OID.build_table_instance(table_oid, index)
       assert instance_oid == [1, 3, 6, 1, 2, 1, 4, 20, 1, 1, 192, 168, 1, 1]
     end
@@ -229,13 +235,15 @@ defmodule SnmpKit.SnmpLib.OIDTest do
     end
 
     test "parses fixed-length string table index" do
-      index = [116, 101, 115, 116]  # "test" in ASCII
+      # "test" in ASCII
+      index = [116, 101, 115, 116]
       {:ok, value} = OID.parse_table_index(index, {:string, 4})
       assert value == "test"
     end
 
     test "parses variable-length string table index" do
-      index = [4, 116, 101, 115, 116]  # Length-prefixed "test"
+      # Length-prefixed "test"
+      index = [4, 116, 101, 115, 116]
       {:ok, value} = OID.parse_table_index(index, {:variable_string})
       assert value == "test"
     end
@@ -277,10 +285,10 @@ defmodule SnmpKit.SnmpLib.OIDTest do
     test "normalizes different OID formats" do
       {:ok, normalized1} = OID.normalize([1, 3, 6, 1])
       assert normalized1 == [1, 3, 6, 1]
-      
+
       {:ok, normalized2} = OID.normalize("1.3.6.1")
       assert normalized2 == [1, 3, 6, 1]
-      
+
       assert {:error, :invalid_input} = OID.normalize(:invalid)
     end
   end
@@ -317,14 +325,15 @@ defmodule SnmpKit.SnmpLib.OIDTest do
     test "extracts enterprise numbers" do
       {:ok, enterprise_num} = OID.get_enterprise_number([1, 3, 6, 1, 4, 1, 9, 1, 1])
       assert enterprise_num == 9
-      
+
       {:ok, enterprise_num2} = OID.get_enterprise_number([1, 3, 6, 1, 4, 1, 12345])
       assert enterprise_num2 == 12345
     end
 
     test "rejects non-enterprise OIDs for enterprise number extraction" do
       assert {:error, :not_enterprise_oid} = OID.get_enterprise_number([1, 3, 6, 1, 2, 1])
-      assert {:error, :not_enterprise_oid} = OID.get_enterprise_number([1, 3, 6, 1, 4, 1])  # Too short
+      # Too short
+      assert {:error, :not_enterprise_oid} = OID.get_enterprise_number([1, 3, 6, 1, 4, 1])
     end
   end
 
@@ -360,35 +369,38 @@ defmodule SnmpKit.SnmpLib.OIDTest do
   describe "Performance and stress testing" do
     test "handles many OID operations efficiently" do
       # Generate 1000 OIDs
-      oids = for i <- 1..1000 do
-        [1, 3, 6, 1, 4, 1, 9999, i]
-      end
-      
+      oids =
+        for i <- 1..1000 do
+          [1, 3, 6, 1, 4, 1, 9999, i]
+        end
+
       # Test sorting performance
       start_time = System.monotonic_time(:microsecond)
       sorted_oids = OID.sort(oids)
       end_time = System.monotonic_time(:microsecond)
-      
+
       # Should complete in reasonable time (< 10ms)
-      assert (end_time - start_time) < 10000
+      assert end_time - start_time < 10000
       assert length(sorted_oids) == 1000
     end
 
     test "handles concurrent OID operations" do
       # Test thread safety
-      tasks = for i <- 1..50 do
-        Task.async(fn ->
-          oid = [1, 3, 6, 1, 4, 1, 9999, i]
-          {:ok, oid_string} = OID.list_to_string(oid)
-          {:ok, parsed_oid} = OID.string_to_list(oid_string)
-          {i, oid, parsed_oid}
-        end)
-      end
-      
+      tasks =
+        for i <- 1..50 do
+          Task.async(fn ->
+            oid = [1, 3, 6, 1, 4, 1, 9999, i]
+            {:ok, oid_string} = OID.list_to_string(oid)
+            {:ok, parsed_oid} = OID.string_to_list(oid_string)
+            {i, oid, parsed_oid}
+          end)
+        end
+
       results = Task.await_many(tasks, 1000)
-      
+
       # Verify all operations completed successfully
       assert length(results) == 50
+
       for {i, original_oid, parsed_oid} <- results do
         assert original_oid == parsed_oid
         assert List.last(original_oid) == i

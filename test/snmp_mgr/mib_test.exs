@@ -1,7 +1,7 @@
 defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
   use ExUnit.Case, async: false
 
-  alias SnmpKit.SnmpMgr.MIB
+  alias SnmpKit.SnmpKit.SnmpMgr.MIB
   alias SnmpKit.SnmpKit.TestSupport.SNMPSimulator
 
   @moduletag :unit
@@ -20,9 +20,9 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
   end
 
   setup do
-    case GenServer.whereis(SnmpMgr.MIB) do
+    case GenServer.whereis(SnmpKit.SnmpMgr.MIB) do
       nil ->
-        {:ok, _pid} = SnmpMgr.MIB.start_link()
+        {:ok, _pid} = SnmpKit.SnmpMgr.MIB.start_link()
         :ok
 
       _pid ->
@@ -126,7 +126,7 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
       # Perform SNMP walk
       target = SNMPSimulator.device_target(device)
 
-      case SnmpMgr.walk(target, root_oid, community: device.community, timeout: 200) do
+      case SnmpKit.SnmpMgr.walk(target, root_oid, community: device.community, timeout: 200) do
         {:ok, results} when is_list(results) ->
           # For each result, test MIB integration
           # Limit to first 3 for test efficiency

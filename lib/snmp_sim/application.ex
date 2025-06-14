@@ -1,4 +1,4 @@
-defmodule SnmpSim.Application do
+defmodule SnmpKit.SnmpMgr.Application do
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false
@@ -14,7 +14,7 @@ defmodule SnmpSim.Application do
     # Start the supervisor first
     children = [
       # Shared profiles manager for memory-efficient device data
-      SnmpSim.MIB.SharedProfiles,
+      SnmpKit.SnmpSim.MIB.SharedProfiles,
       # Core supervisor for managing device processes
       {DynamicSupervisor, name: SnmpSim.DeviceSupervisor, strategy: :one_for_one}
     ]

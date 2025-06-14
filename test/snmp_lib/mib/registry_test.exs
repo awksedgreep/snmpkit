@@ -79,7 +79,7 @@ defmodule SnmpKit.SnmpKit.SnmpLib.MIB.RegistryTest do
     end
 
     test "handles string OID input" do
-      # This would require SnmpLib.OID.string_to_list to work
+      # This would require SnmpKit.SnmpLib.OID.string_to_list to work
       # For now, test the error case
       assert {:error, :invalid_parent_oid} = Registry.children("invalid")
     end

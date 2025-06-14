@@ -1,4 +1,4 @@
-defmodule SnmpSim.Performance.Benchmarks do
+defmodule SnmpKit.SnmpSim.Performance.Benchmarks do
   @moduledoc """
   Comprehensive benchmarking framework for SNMP simulator performance testing.
 
@@ -12,7 +12,7 @@ defmodule SnmpSim.Performance.Benchmarks do
   """
 
   require Logger
-  alias SnmpSim.Performance.{ResourceManager, OptimizedDevicePool}
+  alias SnmpKit.SnmpSim.Performance.{ResourceManager, OptimizedDevicePool}
 
   # Benchmark configuration
   # 1 minute

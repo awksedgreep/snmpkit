@@ -1,4 +1,4 @@
-defmodule SnmpSim.Performance.OptimizedDevicePool do
+defmodule SnmpKit.SnmpSim.Performance.OptimizedDevicePool do
   @moduledoc """
   High-performance device pool with ETS-based caching and optimization.
   Designed for 10K+ concurrent devices with sub-millisecond lookup times.
@@ -14,9 +14,9 @@ defmodule SnmpSim.Performance.OptimizedDevicePool do
   use GenServer
   require Logger
 
-  alias SnmpSim.Device
+  alias SnmpKit.SnmpSim.Device
 
-  alias SnmpSim.Performance.ResourceManager
+  alias SnmpKit.SnmpSim.Performance.ResourceManager
 
   # ETS table names
   @device_registry :snmp_device_registry
@@ -348,7 +348,11 @@ defmodule SnmpSim.Performance.OptimizedDevicePool do
     # Try to get profile from SharedProfiles, fallback to default profile
     profile =
       try do
-        case SnmpSim.MIB.SharedProfiles.get_oid_value(device_type, "1.3.6.1.2.1.1.1.0", %{}) do
+        case SnmpKit.SnmpSim.MIB.SharedProfiles.get_oid_value(
+               device_type,
+               "1.3.6.1.2.1.1.1.0",
+               %{}
+             ) do
           {:ok, _} ->
             # SharedProfiles has data for this device type, create a simple profile
             %{device_type: device_type, has_data: true}

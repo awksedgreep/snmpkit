@@ -1,6 +1,6 @@
 defmodule SnmpKit.SnmpLib.MonitorTest do
   use ExUnit.Case
-  alias SnmpKit.SnmpLib.Monitor
+  alias SnmpKit.SnmpKit.SnmpLib.Monitor
 
   setup do
     # Start a fresh monitor for each test
@@ -20,7 +20,7 @@ defmodule SnmpKit.SnmpLib.MonitorTest do
 
       # Export as JSON
       json_data = Monitor.export_data(:json, :all_time)
-      
+
       # Parse to verify it's valid JSON
       assert {:ok, decoded} = JSON.decode(json_data)
       assert is_map(decoded)
@@ -40,7 +40,7 @@ defmodule SnmpKit.SnmpLib.MonitorTest do
 
       # Export as CSV
       csv_data = Monitor.export_data(:csv, :all_time)
-      
+
       # Verify CSV format
       assert is_binary(csv_data)
       assert String.contains?(csv_data, "timestamp,device,operation,duration,result,error_type")
@@ -57,7 +57,7 @@ defmodule SnmpKit.SnmpLib.MonitorTest do
 
       # Export as Prometheus
       prom_data = Monitor.export_data(:prometheus, :all_time)
-      
+
       # Verify Prometheus format
       assert is_binary(prom_data)
       assert String.contains?(prom_data, "# HELP")
@@ -85,7 +85,7 @@ defmodule SnmpKit.SnmpLib.MonitorTest do
 
       # Get device stats
       stats = Monitor.get_device_stats("192.168.1.1")
-      
+
       assert stats.total_operations == 2
       assert stats.successful_operations == 1
       assert stats.failed_operations == 1
@@ -106,7 +106,7 @@ defmodule SnmpKit.SnmpLib.MonitorTest do
 
       # Get system stats
       stats = Monitor.get_system_stats()
-      
+
       assert is_map(stats)
       assert stats.total_operations == 1
       assert stats.total_devices == 1

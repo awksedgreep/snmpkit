@@ -1,4 +1,4 @@
-defmodule SnmpSim.TestHelpers.StabilityTestHelper do
+defmodule SnmpKit.SnmpSim.TestHelpers.StabilityTestHelper do
   @moduledoc """
   Specialized testing utilities for stability and endurance testing.
   """
@@ -507,15 +507,15 @@ defmodule SnmpSim.TestHelpers.StabilityTestHelper do
         {:registered_name, []} ->
           # Check if it's a device process by looking at initial call
           case Process.info(pid, :initial_call) do
-            {:initial_call, {SnmpSim.Device, :init, 1}} -> true
-            {:initial_call, {SnmpSim.Core.Server, :init, 1}} -> true
+            {:initial_call, {SnmpKit.SnmpSim.Device, :init, 1}} -> true
+            {:initial_call, {SnmpKit.SnmpSim.Core.Server, :init, 1}} -> true
             _ -> false
           end
 
         {:registered_name, name} ->
           # Don't kill critical named processes
           case name do
-            SnmpSim.MIB.SharedProfiles -> false
+            SnmpKit.SnmpSim.MIB.SharedProfiles -> false
             SnmpSim.LazyDevicePool -> false
             SnmpSim.Application -> false
             _ -> false
