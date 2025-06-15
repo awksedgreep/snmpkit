@@ -304,13 +304,13 @@ defmodule SnmpKit.SnmpLib.ErrorHandler do
   """
   @spec get_device_stats(device_id()) :: {:ok, device_stats()} | {:error, :not_found}
   def get_device_stats(device_id) do
-    # For now, return mock stats - would integrate with actual monitoring
+    # For now, return placeholder stats - would integrate with actual monitoring
     # Add basic validation to make error clauses reachable
     cond do
       device_id == nil or device_id == "" ->
         {:error, :not_found}
 
-      # Mock case: treat "invalid" device as not found for testing
+      # Test case: treat "invalid" device as not found for testing
       device_id == "invalid.device" ->
         {:error, :not_found}
 

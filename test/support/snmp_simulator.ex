@@ -271,5 +271,5 @@ defmodule SnmpKit.TestSupport.SNMPSimulator do
   end
 
   # Note: Profile creation is now handled internally by SnmpKit.SnmpSim.Device
-  # The device mock initialization provides basic system MIB data for testing
+  # The device simulation initialization provides basic system MIB data for testing
 end

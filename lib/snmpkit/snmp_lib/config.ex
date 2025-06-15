@@ -43,7 +43,7 @@ defmodule SnmpKit.SnmpLib.Config do
 
   The configuration system automatically detects the current environment:
   - `:dev` - Development with verbose logging and relaxed timeouts
-  - `:test` - Testing with mocked backends and fast timeouts
+  - `:test` - Testing with simulated backends and fast timeouts
   - `:prod` - Production with optimized settings and monitoring
   - `:staging` - Pre-production environment for integration testing
 

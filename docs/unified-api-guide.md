@@ -255,7 +255,7 @@ defmodule MyNetworkTest do
   use ExUnit.Case
   
   setup do
-    # Start mock devices for each test
+    # Start simulated devices for each test
     {:ok, cable_modem_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(:cable_modem)
     {:ok, router_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(:router)
     
@@ -346,7 +346,7 @@ alias SnmpKit.{SNMP, MIB, Sim}
 | Walk OID tree | `SnmpKit.SNMP.walk/3` | `walk("host", "system")` |
 | Get table | `SnmpKit.SNMP.get_table/3` | `get_table("host", "ifTable")` |
 | Resolve OID name | `SnmpKit.MIB.resolve/1` | `resolve("sysDescr.0")` |
-| Start mock device | `SnmpKit.Sim.start_device/2` | `start_device(profile, port: 1161)` |
+| Start simulated device | `SnmpKit.Sim.start_device/2` | `start_device(profile, port: 1161)` |
 
 ### Performance Operations
 
@@ -421,7 +421,7 @@ case SnmpKit.SNMP.get("host", "oid", timeout: 1000) do
 end
 ```
 
-### 4. Use Mock Devices for Testing
+### 4. Use Simulated Devices for Testing
 
 ```elixir
 # In test setup
@@ -432,7 +432,7 @@ setup do
 end
 
 test "my network function", %{target: target} do
-  # Test against mock device
+  # Test against simulated device
   result = my_network_function(target)
   assert result.status == :ok
 end

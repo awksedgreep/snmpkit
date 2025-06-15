@@ -337,7 +337,7 @@ defmodule SnmpKit.SnmpSim.Device do
   @impl true
   def handle_call(:get_info, _from, state) when is_map(state) do
     # Get OID count (simplified for testing)
-    # Mock value for testing
+    # Placeholder value for testing
     oid_count = 100
 
     info = %{
@@ -660,8 +660,8 @@ defmodule SnmpKit.SnmpSim.Device do
         {:ok, %{state | has_walk_data: true}}
 
       false ->
-        # Fallback to mock implementation for testing
-        Logger.info("Device #{state.device_id} initialized with mock profile for testing")
+        # Fallback to basic implementation for testing
+        Logger.info("Device #{state.device_id} initialized with basic profile for testing")
 
         # Initialize basic counters and gauges for testing
         counters = %{

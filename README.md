@@ -16,7 +16,7 @@ SnmpKit is a complete SNMP (Simple Network Management Protocol) solution built f
 - 📋 **Advanced MIB Support** - Native parsing, compilation, and object resolution
 - 🖥️ **Realistic Device Simulation** - Create SNMP devices for testing and development
 - ⚡ **High Performance** - Optimized for large-scale operations and concurrent requests
-- 🧪 **Testing Friendly** - Comprehensive test helpers and mock devices
+- 🧪 **Testing Friendly** - Comprehensive test helpers and simulated devices
 - 🔧 **Modern Architecture** - GenServer patterns, supervision trees, circuit breakers
 - 📊 **Enterprise Ready** - DOCSIS, standard MIBs, and custom implementations
 - 🚀 **Zero Warnings** - Clean, production-ready codebase
@@ -228,23 +228,23 @@ analysis = SnmpKit.SNMP.analyze_table(results)
 
 ## 🧪 Testing and Development
 
-### Mock Devices for Testing
+### Simulated Devices for Testing
 
 ```elixir
 defmodule MyAppTest do
   use ExUnit.Case
   
   setup do
-    # Start a mock device for testing
+    # Start a simulated device for testing
     {:ok, profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(:generic_router)
     {:ok, device} = SnmpKit.Sim.start_device(profile, port: 1161)
-    
+
     %{device: device, target: "127.0.0.1:1161"}
   end
-  
-  test "can query mock device", %{target: target} do
+
+  test "can query simulated device", %{target: target} do
     {:ok, description} = SnmpKit.SNMP.get(target, "sysDescr.0")
-    assert description =~ "Mock Router"
+    assert description =~ "Simulated Router"
   end
 end
 ```
@@ -272,7 +272,7 @@ end
 - **[Livebook Tour](livebooks/snmpkit_tour.livemd)** - Interactive examples and tutorials
 - **[Examples Directory](examples/)** - Practical usage examples
 - **[MIB Guide](docs/mib-guide.md)** - Working with MIBs and OID resolution
-- **[Testing Guide](docs/testing-guide.md)** - Testing strategies and mock devices
+- **[Testing Guide](docs/testing-guide.md)** - Testing strategies and simulated devices
 
 ## 🚀 Migration from Other Libraries
 

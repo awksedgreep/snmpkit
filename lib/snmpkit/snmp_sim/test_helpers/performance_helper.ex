@@ -488,7 +488,7 @@ defmodule SnmpKit.SnmpSim.TestHelpers.PerformanceHelper do
     else
       # Simplified CPU usage calculation
       # In reality, you'd use system tools or libraries for accurate CPU monitoring
-      # Mock CPU usage
+      # Simulated CPU usage
       cpu_usage = :rand.uniform(100)
       new_samples = [cpu_usage | samples]
 

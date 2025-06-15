@@ -533,7 +533,7 @@ defmodule SnmpKit.SnmpSim.TestHelpers.ProductionTestHelper do
     %{
       test_type: :rate_limiting,
       rate_limiting_effective: true,
-      # Mock value
+      # Placeholder value
       max_allowed_rate: 1000
     }
   end
