@@ -2,25 +2,26 @@
 
 [![Hex.pm](https://img.shields.io/hexpm/v/snmpkit.svg)](https://hex.pm/packages/snmpkit)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/snmpkit)
-[![License](https://img.shields.io/github/license/your-org/snmpkit.svg)](LICENSE)
-[![Build Status](https://img.shields.io/github/workflow/status/your-org/snmpkit/CI)](https://github.com/your-org/snmpkit/actions)
+[![License](https://img.shields.io/github/license/awksedgreep/snmpkit.svg)](LICENSE)
+[![Build Status](https://img.shields.io/github/workflow/status/awksedgreep/snmpkit/CI)](https://github.com/awksedgreep/snmpkit/actions)
 
-**A modern, pure Elixir SNMP library for network monitoring and device simulation.**
+**A modern, comprehensive SNMP toolkit for Elixir - featuring a unified API, pure Elixir implementation, and powerful device simulation.**
 
-SnmpKit is a comprehensive SNMP (Simple Network Management Protocol) implementation built from the ground up in pure Elixir. Unlike traditional Erlang SNMP libraries, SnmpKit provides a modern, developer-friendly API with powerful features for both SNMP client operations and realistic device simulation.
+SnmpKit is a complete SNMP (Simple Network Management Protocol) solution built from the ground up in pure Elixir. It provides a clean, organized API for SNMP operations, MIB management, and realistic device simulation - perfect for network monitoring, testing, and development.
 
 ## ✨ Key Features
 
+- 🎯 **Unified API** - Clean, context-based modules (`SnmpKit.SNMP`, `SnmpKit.MIB`, `SnmpKit.Sim`)
 - 🧬 **Pure Elixir Implementation** - No Erlang SNMP dependencies
-- 📋 **Advanced MIB Parsing** - Native MIB file parsing and object resolution
+- 📋 **Advanced MIB Support** - Native parsing, compilation, and object resolution
 - 🖥️ **Realistic Device Simulation** - Create SNMP devices for testing and development
 - ⚡ **High Performance** - Optimized for large-scale operations and concurrent requests
 - 🧪 **Testing Friendly** - Comprehensive test helpers and mock devices
-- 🔧 **Modern API** - Elixir-friendly interfaces with GenServer patterns
-- 📊 **Enterprise Ready** - Support for DOCSIS, standard MIBs, and custom implementations
-- 🎯 **Interactive Learning** - Includes comprehensive Livebook tour
+- 🔧 **Modern Architecture** - GenServer patterns, supervision trees, circuit breakers
+- 📊 **Enterprise Ready** - DOCSIS, standard MIBs, and custom implementations
+- 🚀 **Zero Warnings** - Clean, production-ready codebase
 
-## 📖 Quick Start
+## 🚀 Quick Start
 
 ### Installation
 
@@ -29,309 +30,318 @@ Add `snmpkit` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:snmpkit, "~> 0.1.0"}
+    {:snmpkit, "~> 0.2.0"}
   ]
 end
 ```
 
-### Basic SNMP Operations
+### Unified API Examples
+
+SnmpKit provides a clean, organized API through context-based modules:
+
+#### 📡 SNMP Operations (`SnmpKit.SNMP`)
 
 ```elixir
-alias SnmpKit.SnmpLib.{Pdu, Message, Types}
+# Basic SNMP operations
+{:ok, description} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
+{:ok, uptime} = SnmpKit.SNMP.get("192.168.1.1", "sysUpTime.0")
 
-# Create a simple GET request
-get_request = %Pdu{
-  type: :get_request,
-  request_id: 12345,
-  error_status: 0,
-  error_index: 0,
-  varbinds: [
-    %{oid: "1.3.6.1.2.1.1.1.0", value: nil}  # sysDescr.0
-  ]
-}
+# Walk operations
+{:ok, system_info} = SnmpKit.SNMP.walk("192.168.1.1", "system")
+{:ok, interface_table} = SnmpKit.SNMP.get_table("192.168.1.1", "ifTable")
 
-# Parse and work with OIDs
-{:ok, parsed_oid} = SnmpKit.SnmpLib.Oid.parse("1.3.6.1.2.1.1.1.0")
+# Bulk operations for efficiency
+{:ok, results} = SnmpKit.SNMP.bulk_walk("192.168.1.1", "interfaces")
+
+# Multi-target operations
+{:ok, results} = SnmpKit.SNMP.get_multi([
+  {"host1", "sysDescr.0"},
+  {"host2", "sysUpTime.0"},
+  {"host3", "ifInOctets.1"}
+])
+
+# Pretty formatting
+{:ok, formatted} = SnmpKit.SNMP.get_pretty("192.168.1.1", "sysUpTime.0")
+# Returns: "12 days, 4:32:10.45"
+
+# Async operations
+task = SnmpKit.SNMP.get_async("192.168.1.1", "sysDescr.0")
+{:ok, result} = Task.await(task)
 ```
 
-### MIB Parsing
+#### 📚 MIB Operations (`SnmpKit.MIB`)
 
 ```elixir
-alias SnmpKit.MibParser
+# OID name resolution
+{:ok, oid} = SnmpKit.MIB.resolve("sysDescr.0")
+# Returns: [1, 3, 6, 1, 2, 1, 1, 1, 0]
 
-# Parse a MIB file
-{:ok, mib} = MibParser.parse_file("path/to/your.mib")
+# Reverse lookup
+{:ok, name} = SnmpKit.MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1, 0])
+# Returns: "sysDescr.0"
 
-# Parse MIB from string
-mib_content = """
-SIMPLE-MIB DEFINITIONS ::= BEGIN
-  simpleObject OBJECT-TYPE
-    SYNTAX Integer32
-    MAX-ACCESS read-only
-    STATUS current
-    DESCRIPTION "A simple object"
-    ::= { 1 3 6 1 4 1 99999 1 }
-END
-"""
+# MIB compilation and loading
+{:ok, compiled} = SnmpKit.MIB.compile("MY-CUSTOM-MIB.mib")
+{:ok, _} = SnmpKit.MIB.load(compiled)
 
-{:ok, parsed_mib} = MibParser.parse_string(mib_content)
+# Tree navigation
+{:ok, children} = SnmpKit.MIB.children([1, 3, 6, 1, 2, 1, 1])
+{:ok, parent} = SnmpKit.MIB.parent([1, 3, 6, 1, 2, 1, 1, 1, 0])
 ```
 
-### Device Simulation
+#### 🧪 Device Simulation (`SnmpKit.Sim`)
 
 ```elixir
-alias SnmpKit.SnmpSim.{Device, TestHelpers.PortAllocator}
+# Load a device profile
+{:ok, profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
+  :cable_modem,
+  {:walk_file, "priv/walks/cable_modem.walk"}
+)
 
-# Start the port allocator
-{:ok, _pid} = PortAllocator.start_link()
+# Start a simulated device
+{:ok, device} = SnmpKit.Sim.start_device(profile, port: 1161)
 
-# Reserve a port for our device
-{:ok, port} = PortAllocator.reserve_port()
+# Create a population of devices for testing
+device_configs = [
+  %{type: :cable_modem, port: 30001, community: "public"},
+  %{type: :switch, port: 30002, community: "public"},
+  %{type: :router, port: 30003, community: "private"}
+]
 
-# Create a device profile
-device_profile = %{
-  device_type: :cable_modem,
-  device_id: "cm_001",
-  port: port,
-  community: "public",
-  objects: %{
-    "1.3.6.1.2.1.1.1.0" => %{
-      value: "ARRIS SURFboard Cable Modem",
-      type: :string,
-      access: :read_only
-    },
-    "1.3.6.1.2.1.1.3.0" => %{
-      value: 0,
-      type: :time_ticks,
-      access: :read_only,
-      behavior: :counter
-    }
-  }
-}
+{:ok, devices} = SnmpKit.Sim.start_device_population(device_configs)
+```
 
-# Start the simulated device
-{:ok, device_pid} = Device.start_link(device_profile)
+#### 🎯 Direct Access (Backward Compatibility)
+
+For convenience, common operations are also available directly:
+
+```elixir
+# These work the same as their SnmpKit.SNMP.* equivalents
+{:ok, value} = SnmpKit.get("192.168.1.1", "sysDescr.0")
+{:ok, results} = SnmpKit.walk("192.168.1.1", "system")
+
+# MIB resolution
+{:ok, oid} = SnmpKit.resolve("sysDescr.0")
+```
+
+### Advanced Features
+
+#### Engine Management and Performance
+
+```elixir
+# Start the SNMP engine for advanced features
+{:ok, _engine} = SnmpKit.SNMP.start_engine()
+
+# Get performance statistics
+{:ok, stats} = SnmpKit.SNMP.get_engine_stats()
+
+# Batch operations for efficiency
+requests = [
+  %{type: :get, target: "host1", oid: "sysDescr.0"},
+  %{type: :walk, target: "host2", oid: "interfaces"}
+]
+{:ok, results} = SnmpKit.SNMP.engine_batch(requests)
+
+# Circuit breaker for reliability
+{:ok, result} = SnmpKit.SNMP.with_circuit_breaker("unreliable.host", fn ->
+  SnmpKit.SNMP.get("unreliable.host", "sysDescr.0")
+end)
+```
+
+#### Streaming and Large-Scale Operations
+
+```elixir
+# Stream large walks to avoid memory issues
+stream = SnmpKit.SNMP.walk_stream("192.168.1.1", "interfaces")
+stream
+|> Stream.take(1000)
+|> Enum.to_list()
+
+# Adaptive bulk operations that optimize themselves
+{:ok, results} = SnmpKit.SNMP.adaptive_walk("192.168.1.1", "interfaces")
+
+# Performance benchmarking
+{:ok, benchmark} = SnmpKit.SNMP.benchmark_device("192.168.1.1", "system")
 ```
 
 ## 🏗️ Architecture
 
-SnmpKit is designed with modularity and extensibility in mind:
+SnmpKit is organized into logical, discoverable modules:
 
+- **`SnmpKit.SNMP`** - Complete SNMP protocol operations
+  - Basic operations: get, set, walk, bulk
+  - Advanced features: streaming, async, multi-target
+  - Performance tools: engine, circuit breaker, metrics
+  - Pretty formatting and analysis
+
+- **`SnmpKit.MIB`** - Comprehensive MIB management
+  - OID resolution and reverse lookup
+  - MIB compilation and loading (both high-level and low-level)
+  - Tree navigation and analysis
+  - Standard and custom MIB support
+
+- **`SnmpKit.Sim`** - Realistic device simulation
+  - Profile-based device behavior
+  - Population management for testing
+  - Integration with test frameworks
+
+- **`SnmpKit`** - Direct access for convenience
+  - Common operations without module prefixes
+  - Backward compatibility for existing code
+  - Simple one-import access
+
+## 📊 Enterprise Features
+
+### DOCSIS and Cable Modem Support
+
+```elixir
+# DOCSIS-specific operations
+{:ok, cm_status} = SnmpKit.SNMP.get("10.1.1.100", "docsIfCmtsServiceAdminStatus.1")
+{:ok, signal_quality} = SnmpKit.SNMP.get("10.1.1.100", "docsIfSigQSignalNoise.1")
+
+# Load DOCSIS MIBs
+{:ok, _} = SnmpKit.MIB.compile("DOCS-CABLE-DEVICE-MIB.mib")
+{:ok, _} = SnmpKit.MIB.compile("DOCS-IF-MIB.mib")
 ```
-SnmpKit/
-├── SnmpLib/           # Core SNMP protocol implementation
-│   ├── Types          # SNMP data types and encoding
-│   ├── Pdu            # Protocol Data Unit handling
-│   ├── Message        # SNMP message formatting
-│   └── Oid            # Object Identifier utilities
-├── MibParser/         # Pure Elixir MIB parsing
-│   ├── Grammar        # Yacc-based MIB grammar
-│   ├── Lexer          # MIB tokenization
-│   └── Resolver       # Object resolution
-└── SnmpSim/           # Device simulation framework
-    ├── Device         # Individual device simulation
-    ├── ProfileLoader  # Device profile management
-    ├── TestHelpers    # Testing utilities
-    └── Application    # Simulation orchestration
+
+### Network Monitoring Integration
+
+```elixir
+# Monitor interface statistics
+interface_oids = [
+  "ifInOctets.1", "ifOutOctets.1",
+  "ifInErrors.1", "ifOutErrors.1"
+]
+
+# Collect metrics from multiple devices
+devices = ["router1", "router2", "switch1", "switch2"]
+
+results = 
+  for device <- devices,
+      oid <- interface_oids do
+    {device, oid, SnmpKit.SNMP.get(device, oid)}
+  end
+
+# Analyze and format results
+analysis = SnmpKit.SNMP.analyze_table(results)
 ```
-
-## 📚 Comprehensive Documentation
-
-### 🎮 Interactive Livebook Tour
-
-Explore SnmpKit interactively with our comprehensive Livebook tour:
-
-```bash
-# Start Livebook
-livebook server
-
-# Open the tour
-open livebooks/snmpkit_tour.livemd
-```
-
-The tour covers:
-- SNMP fundamentals and operations
-- MIB parsing demonstrations
-- Device simulation examples
-- Performance optimization
-- Real-world monitoring scenarios
-- Troubleshooting guides
-- Best practices and patterns
-
-### 📖 Core Concepts
-
-#### SNMP Operations
-
-SnmpKit supports all standard SNMP operations:
-
-- **GET** - Retrieve specific values
-- **GET-NEXT** - Walk the MIB tree
-- **GET-BULK** - Efficient bulk retrieval
-- **SET** - Modify values (in simulation)
-- **WALK** - Complete tree traversal
-
-#### MIB Support
-
-The pure Elixir MIB parser handles:
-
-- Standard MIBs (SNMPv2-SMI, IF-MIB, etc.)
-- DOCSIS MIBs (30+ cable modem MIBs tested)
-- Enterprise MIBs
-- Custom MIB definitions
-- Complex object relationships and imports
-
-#### Device Simulation
-
-Create realistic SNMP devices with:
-
-- **Behavior Simulation** - Counters, timers, realistic data patterns
-- **Error Injection** - Timeout simulation, packet loss
-- **Walk File Support** - Load real device data from captures
-- **Large Scale** - Support for thousands of simulated devices
-- **Dynamic Values** - Time-based and event-driven value changes
 
 ## 🧪 Testing and Development
 
-### Test Helpers
-
-SnmpKit provides comprehensive testing utilities:
+### Mock Devices for Testing
 
 ```elixir
-# Port management for tests
-alias SnmpKit.SnmpSim.TestHelpers.PortAllocator
-
-{:ok, _} = PortAllocator.start_link()
-{:ok, {start_port, end_port}} = PortAllocator.reserve_port_range(10)
-
-# Mock device creation
-mock_devices = DeviceHelper.create_device_population([
-  {:cable_modem, count: 100},
-  {:switch, count: 20},
-  {:router, count: 5}
-])
+defmodule MyAppTest do
+  use ExUnit.Case
+  
+  setup do
+    # Start a mock device for testing
+    {:ok, profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(:generic_router)
+    {:ok, device} = SnmpKit.Sim.start_device(profile, port: 1161)
+    
+    %{device: device, target: "127.0.0.1:1161"}
+  end
+  
+  test "can query mock device", %{target: target} do
+    {:ok, description} = SnmpKit.SNMP.get(target, "sysDescr.0")
+    assert description =~ "Mock Router"
+  end
+end
 ```
 
-### Configuration
+### Performance Testing
+
+```elixir
+# Benchmark different devices and operations
+devices = ["fast.device", "slow.device", "unreliable.device"]
+
+benchmarks = 
+  for device <- devices do
+    SnmpKit.SNMP.benchmark_device(device, "system")
+  end
+
+# Compare performance characteristics
+for {device, {:ok, benchmark}} <- Enum.zip(devices, benchmarks) do
+  IO.puts "#{device}: avg=#{benchmark.avg_response_time}ms, success_rate=#{benchmark.success_rate}%"
+end
+```
+
+## 📚 Documentation
+
+- **[Full API Documentation](https://hexdocs.pm/snmpkit)** - Complete function reference
+- **[Livebook Tour](livebooks/snmpkit_tour.livemd)** - Interactive examples and tutorials
+- **[Examples Directory](examples/)** - Practical usage examples
+- **[MIB Guide](docs/mib-guide.md)** - Working with MIBs and OID resolution
+- **[Testing Guide](docs/testing-guide.md)** - Testing strategies and mock devices
+
+## 🚀 Migration from Other Libraries
+
+### From `:snmp` (Erlang)
+
+```elixir
+# Before (Erlang SNMP)
+:snmp.sync_get(manager, oid, timeout)
+
+# After (SnmpKit)
+SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0", timeout: 5000)
+```
+
+### From Other Elixir SNMP Libraries
+
+```elixir
+# SnmpKit provides more features with cleaner syntax
+{:ok, results} = SnmpKit.SNMP.walk_multi([
+  {"host1", "interfaces"},
+  {"host2", "system"}
+])
+
+# Built-in formatting and analysis
+{:ok, formatted} = SnmpKit.SNMP.walk_pretty("192.168.1.1", "interfaces")
+```
+
+## ⚡ Performance
+
+SnmpKit is designed for high-performance network monitoring:
+
+- **Concurrent Operations** - Efficient handling of thousands of simultaneous requests
+- **Bulk Operations** - Optimized SNMP bulk protocols for large data sets
+- **Connection Pooling** - Managed through the underlying SnmpLib layer
+- **Circuit Breakers** - Automatic failure handling and recovery
+- **Streaming** - Memory-efficient processing of large SNMP walks
+- **Adaptive Algorithms** - Self-tuning bulk sizes and timeouts
+
+## 🔧 Configuration
 
 ```elixir
 # config/config.exs
 config :snmpkit,
-  # Default SNMP settings
   default_community: "public",
   default_timeout: 5000,
   default_retries: 3,
-  
-  # Simulation settings
-  simulation: %{
-    port_range: 30_000..39_999,
-    max_devices: 10_000,
-    default_behaviors: [:realistic_counters, :time_patterns]
-  },
-  
-  # MIB parser settings
-  mib_parser: %{
-    cache_parsed_mibs: true,
-    max_cache_size: 100
-  }
+  default_version: :v2c
+
+# For simulation
+config :snmpkit, :simulation,
+  device_profiles_path: "priv/device_profiles",
+  walk_files_path: "priv/walks"
+
+# For MIB management
+config :snmpkit, :mib,
+  mib_path: ["priv/mibs", "/usr/share/snmp/mibs"],
+  auto_load_standard_mibs: true
 ```
 
-## 🚀 Advanced Usage
+## 🤝 Contributing
 
-### Large-Scale Device Simulation
-
-```elixir
-# Create a population of mixed devices
-device_configs = [
-  {:cable_modem, {:walk_file, "priv/walks/cm.walk"}, count: 1000},
-  {:switch, {:walk_file, "priv/walks/switch.walk"}, count: 50},
-  {:router, {:oid_walk, "priv/walks/router.walk"}, count: 10}
-]
-
-{:ok, devices} = SnmpKit.TestSupport.start_device_population(
-  device_configs,
-  port_range: 30_000..39_999,
-  behaviors: [:realistic_counters, :correlations, :time_patterns]
-)
-```
-
-### Custom MIB Development
-
-```elixir
-# Define enterprise-specific objects
-enterprise_mib = """
-ACME-NETWORK-MIB DEFINITIONS ::= BEGIN
-
-IMPORTS
-    MODULE-IDENTITY, OBJECT-TYPE, Integer32
-        FROM SNMPv2-SMI;
-
-acmeNetworkMIB MODULE-IDENTITY
-    LAST-UPDATED "202312010000Z"
-    ORGANIZATION "ACME Networks"
-    DESCRIPTION "ACME Network Equipment MIB"
-    ::= { enterprises 12345 }
-
-acmeTemperature OBJECT-TYPE
-    SYNTAX      Integer32 (-40..100)
-    UNITS       "degrees Celsius"
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "System temperature"
-    ::= { acmeNetworkMIB 1 }
-
-END
-"""
-
-{:ok, mib} = SnmpKit.MibParser.parse_string(enterprise_mib)
-```
-
-### Performance Optimization
-
-```elixir
-# Batch operations for efficiency
-oids = ["1.3.6.1.2.1.2.2.1.10.1", "1.3.6.1.2.1.2.2.1.16.1"]
-
-bulk_request = %Pdu{
-  type: :get_bulk_request,
-  request_id: 54321,
-  error_status: 0,  # non-repeaters
-  error_index: 10,  # max-repetitions
-  varbinds: Enum.map(oids, &%{oid: &1, value: nil})
-}
-
-# Use connection pooling for high-volume applications
-# Configure appropriate timeouts and retry strategies
-```
-
-## 📊 Performance Characteristics
-
-SnmpKit is optimized for performance:
-
-- **MIB Parsing**: 100+ objects/ms on modern hardware
-- **Device Simulation**: Support for 10,000+ concurrent devices
-- **Memory Efficiency**: Optimized data structures and garbage collection
-- **Concurrent Operations**: Built on Elixir's actor model for scalability
-
-## 🛠️ Development and Contributing
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ### Development Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/snmpkit.git
+git clone https://github.com/awksedgreep/snmpkit.git
 cd snmpkit
-
-# Install dependencies
 mix deps.get
-
-# Run tests
 mix test
-
-# Run with coverage
-mix test --cover
-
-# Generate documentation
-mix docs
 ```
 
 ### Running the Test Suite
@@ -340,55 +350,22 @@ mix docs
 # Run all tests
 mix test
 
-# Run specific test files
-mix test test/snmp_lib_test.exs
-mix test test/mib_parser_test.exs
+# Run with coverage
+mix test --cover
 
-# Run tests with detailed output
-mix test --trace
-
-# Run performance benchmarks
-mix test test/performance/
+# Run specific test categories
+mix test --include docsis
+mix test --include integration
 ```
 
-### Contributing
+## 📈 Roadmap
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
-
-## 📝 Use Cases
-
-SnmpKit is perfect for:
-
-### Network Monitoring Applications
-- ISP infrastructure monitoring
-- Cable modem management systems
-- Switch and router monitoring
-- Performance dashboards
-
-### Testing and Development
-- SNMP application testing
-- Network simulation
-- Load testing SNMP systems
-- Educational purposes
-
-### Enterprise Integration
-- Custom network management tools
-- Integration with existing monitoring systems
-- Automated network discovery
-- Performance analytics
-
-## 🤝 Community and Support
-
-- **Documentation**: [HexDocs](https://hexdocs.pm/snmpkit)
-- **Issues**: [GitHub Issues](https://github.com/your-org/snmpkit/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/snmpkit/discussions)
-- **Examples**: Check the `examples/` directory and Livebook tour
+- 🔐 **SNMPv3 Support** - Authentication and encryption
+- 🌐 **IPv6 Enhancement** - Full IPv6 support throughout
+- 📊 **Advanced Analytics** - Built-in network analysis tools  
+- 🔌 **Plugin System** - Custom protocol extensions
+- 🎯 **More Device Profiles** - Extended simulation library
+- 📱 **Management UI** - Web interface for monitoring
 
 ## 📄 License
 
@@ -396,73 +373,12 @@ SnmpKit is released under the [MIT License](LICENSE).
 
 ## 🙏 Acknowledgments
 
-- The Elixir community for inspiration and support
-- SNMP RFC authors for the protocol specification
-- Contributors who have helped improve this library
-
-## 🔧 Troubleshooting
-
-### Network Connectivity Issues
-
-If you encounter `:ehostunreach` or similar network errors when running SNMP operations:
-
-#### Common Solutions
-
-1. **Network State Refresh**
-   ```bash
-   # Flush routing cache (macOS)
-   sudo route flush
-   
-   # Flush ARP cache
-   sudo arp -a -d
-   
-   # Flush DNS cache (macOS)
-   sudo dscacheutil -flushcache
-   ```
-
-2. **Network Interface Reset**
-   ```bash
-   # Restart network interface (replace en0 with your interface)
-   sudo ifconfig en0 down && sudo ifconfig en0 up
-   ```
-
-3. **Check Network Configuration**
-   ```bash
-   # Verify target is reachable
-   ping 192.168.1.1
-   
-   # Check routing table
-   route -n get 192.168.1.1
-   
-   # Verify SNMP port is accessible
-   nc -u -z 192.168.1.1 161
-   ```
-
-#### Built-in Diagnostic Tools
-
-SnmpKit includes comprehensive diagnostic scripts:
-
-```bash
-# Run network connectivity diagnostics
-mix run scripts/debug_network_routing.exs
-
-# Test SNMP functionality step by step
-mix run scripts/debug_snmp_connectivity.exs
-```
-
-The library automatically retries failed connections with network state refresh, but persistent issues may require manual network troubleshooting.
-
-## 🔮 Roadmap
-
-- [ ] SNMPv3 support with authentication and encryption
-- [ ] SNMP trap/notification handling
-- [ ] Web-based device management interface
-- [ ] Integration with popular monitoring systems
-- [ ] Performance optimizations and benchmarking suite
-- [ ] Additional MIB modules and enterprise support
+- Built with ❤️ for the Elixir community
+- Inspired by the need for modern, testable SNMP tools
+- Thanks to all contributors and early adopters
 
 ---
 
-**Built with ❤️ in Elixir**
+**Ready to simplify your SNMP operations?** Get started with SnmpKit today! 🚀
 
-*SnmpKit: Making SNMP development enjoyable and productive.*
+For questions, issues, or feature requests, please visit our [GitHub repository](https://github.com/awksedgreep/snmpkit).
