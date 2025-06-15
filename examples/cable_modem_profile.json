@@ -1,0 +1,245 @@
+{
+  "device_info": {
+    "type": "cable_modem",
+    "vendor": "ARRIS",
+    "model": "SURFboard SB8200",
+    "description": "DOCSIS 3.1 Cable Modem",
+    "mac_address": "00:11:22:33:44:55"
+  },
+  "oid_definitions": {
+    "1.3.6.1.2.1.1.1.0": {
+      "name": "sysDescr",
+      "type": "STRING",
+      "value": "ARRIS SURFboard SB8200 DOCSIS 3.1 Cable Modem",
+      "access": "read-only"
+    },
+    "1.3.6.1.2.1.1.2.0": {
+      "name": "sysObjectID",
+      "type": "OBJECT_IDENTIFIER",
+      "value": "1.3.6.1.4.1.4115.1.20.1.1.2.25",
+      "access": "read-only"
+    },
+    "1.3.6.1.2.1.1.3.0": {
+      "name": "sysUpTime",
+      "type": "TimeTicks",
+      "value": 0,
+      "access": "read-only",
+      "behavior": "counter"
+    },
+    "1.3.6.1.2.1.1.4.0": {
+      "name": "sysContact",
+      "type": "STRING",
+      "value": "Network Administrator <admin@example.com>",
+      "access": "read-write"
+    },
+    "1.3.6.1.2.1.1.5.0": {
+      "name": "sysName",
+      "type": "STRING",
+      "value": "cable-modem-001",
+      "access": "read-write"
+    },
+    "1.3.6.1.2.1.1.6.0": {
+      "name": "sysLocation",
+      "type": "STRING",
+      "value": "Home Network - Living Room",
+      "access": "read-write"
+    },
+    "1.3.6.1.2.1.2.1.0": {
+      "name": "ifNumber",
+      "type": "INTEGER",
+      "value": 2,
+      "access": "read-only"
+    },
+    "1.3.6.1.2.1.2.2.1.1.1": {
+      "name": "ifIndex.1",
+      "type": "INTEGER",
+      "value": 1,
+      "access": "read-only"
+    },
+    "1.3.6.1.2.1.2.2.1.1.2": {
+      "name": "ifIndex.2",
+      "type": "INTEGER",
+      "value": 2,
+      "access": "read-only"
+    },
+    "1.3.6.1.2.1.2.2.1.2.1": {
+      "name": "ifDescr.1",
+      "type": "STRING",
+      "value": "cable-downstream0/0/0",
+      "access": "read-only"
+    },
+    "1.3.6.1.2.1.2.2.1.2.2": {
+      "name": "ifDescr.2",
+      "type": "STRING",
+      "value": "cable-upstream0/0/0",
+      "access": "read-only"
+    },
+    "1.3.6.1.2.1.2.2.1.3.1": {
+      "name": "ifType.1",
+      "type": "INTEGER",
+      "value": 127,
+      "access": "read-only",
+      "description": "docsCableMaclayer(127)"
+    },
+    "1.3.6.1.2.1.2.2.1.3.2": {
+      "name": "ifType.2",
+      "type": "INTEGER",
+      "value": 127,
+      "access": "read-only",
+      "description": "docsCableMaclayer(127)"
+    },
+    "1.3.6.1.2.1.2.2.1.5.1": {
+      "name": "ifSpeed.1",
+      "type": "Gauge32",
+      "value": 1000000000,
+      "access": "read-only",
+      "description": "1 Gbps downstream"
+    },
+    "1.3.6.1.2.1.2.2.1.5.2": {
+      "name": "ifSpeed.2",
+      "type": "Gauge32",
+      "value": 100000000,
+      "access": "read-only",
+      "description": "100 Mbps upstream"
+    },
+    "1.3.6.1.2.1.2.2.1.8.1": {
+      "name": "ifOperStatus.1",
+      "type": "INTEGER",
+      "value": 1,
+      "access": "read-only",
+      "description": "up(1)"
+    },
+    "1.3.6.1.2.1.2.2.1.8.2": {
+      "name": "ifOperStatus.2",
+      "type": "INTEGER",
+      "value": 1,
+      "access": "read-only",
+      "description": "up(1)"
+    },
+    "1.3.6.1.2.1.2.2.1.10.1": {
+      "name": "ifInOctets.1",
+      "type": "Counter32",
+      "value": 0,
+      "access": "read-only",
+      "behavior": "counter",
+      "increment_rate": 15000
+    },
+    "1.3.6.1.2.1.2.2.1.10.2": {
+      "name": "ifInOctets.2",
+      "type": "Counter32",
+      "value": 0,
+      "access": "read-only",
+      "behavior": "counter",
+      "increment_rate": 8000
+    },
+    "1.3.6.1.2.1.2.2.1.16.1": {
+      "name": "ifOutOctets.1",
+      "type": "Counter32",
+      "value": 0,
+      "access": "read-only",
+      "behavior": "counter",
+      "increment_rate": 12000
+    },
+    "1.3.6.1.2.1.2.2.1.16.2": {
+      "name": "ifOutOctets.2",
+      "type": "Counter32",
+      "value": 0,
+      "access": "read-only",
+      "behavior": "counter",
+      "increment_rate": 18000
+    },
+    "1.3.6.1.2.1.10.127.1.1.1.1.3.2": {
+      "name": "docsIfCmtsUpChannelId.2",
+      "type": "INTEGER",
+      "value": 3,
+      "access": "read-only"
+    },
+    "1.3.6.1.2.1.10.127.1.1.1.1.6.2": {
+      "name": "docsIfCmtsUpChannelFrequency.2",
+      "type": "INTEGER",
+      "value": 36000000,
+      "access": "read-only",
+      "description": "36 MHz upstream frequency"
+    },
+    "1.3.6.1.2.1.10.127.1.1.2.1.1.1": {
+      "name": "docsIfCmtsDownChannelId.1",
+      "type": "INTEGER",
+      "value": 1,
+      "access": "read-only"
+    },
+    "1.3.6.1.2.1.10.127.1.1.2.1.2.1": {
+      "name": "docsIfCmtsDownChannelFrequency.1",
+      "type": "INTEGER",
+      "value": 591000000,
+      "access": "read-only",
+      "description": "591 MHz downstream frequency"
+    },
+    "1.3.6.1.2.1.10.127.1.2.2.1.1.2": {
+      "name": "docsIfCmStatusValue.2",
+      "type": "INTEGER",
+      "value": 12,
+      "access": "read-only",
+      "description": "operational(12)"
+    },
+    "1.3.6.1.2.1.10.127.1.2.2.1.3.2": {
+      "name": "docsIfCmStatusCode.2",
+      "type": "OCTET_STRING",
+      "value": "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+      "access": "read-only"
+    },
+    "1.3.6.1.2.1.10.127.1.2.2.1.12.2": {
+      "name": "docsIfCmStatusUnerroreds.2",
+      "type": "Counter32",
+      "value": 0,
+      "access": "read-only",
+      "behavior": "counter",
+      "increment_rate": 1
+    },
+    "1.3.6.1.2.1.10.127.1.2.2.1.13.2": {
+      "name": "docsIfCmStatusCorrecteds.2",
+      "type": "Counter32",
+      "value": 0,
+      "access": "read-only",
+      "behavior": "counter",
+      "increment_rate": 0.1
+    },
+    "1.3.6.1.2.1.10.127.1.2.2.1.14.2": {
+      "name": "docsIfCmStatusUncorrectables.2",
+      "type": "Counter32",
+      "value": 0,
+      "access": "read-only",
+      "behavior": "counter",
+      "increment_rate": 0.01
+    },
+    "1.3.6.1.2.1.10.127.1.2.2.1.15.2": {
+      "name": "docsIfCmStatusSignalNoise.2",
+      "type": "INTEGER",
+      "value": 35,
+      "access": "read-only",
+      "behavior": "fluctuate",
+      "min_value": 30,
+      "max_value": 40,
+      "description": "Signal-to-noise ratio in dB"
+    },
+    "1.3.6.1.2.1.10.127.1.2.2.1.16.2": {
+      "name": "docsIfCmStatusMicroreflections.2",
+      "type": "INTEGER",
+      "value": 25,
+      "access": "read-only",
+      "behavior": "fluctuate",
+      "min_value": 20,
+      "max_value": 30
+    }
+  },
+  "behaviors": [
+    "counter_increment",
+    "time_based_changes",
+    "signal_fluctuation"
+  ],
+  "metadata": {
+    "created_by": "SnmpKit Cable Modem Profile Generator",
+    "docsis_version": "3.1",
+    "compliance": ["DOCSIS-CABLE-DEVICE-MIB", "DOCS-IF-MIB"],
+    "notes": "Standard cable modem profile with realistic DOCSIS 3.1 values"
+  }
+}

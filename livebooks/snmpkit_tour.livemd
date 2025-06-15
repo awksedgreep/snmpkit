@@ -1,15 +1,16 @@
 # SnmpKit Interactive Tour 🚀
 
-## Welcome to SnmpKit v0.3.0!
+## Welcome to SnmpKit v0.3.1!
 
 This interactive Livebook will take you on a comprehensive tour of SnmpKit's new **unified API**. We'll start by creating a simulated SNMP device and then demonstrate all the powerful features against our own simulation - no external network required!
 
 **What you'll learn:**
-- 🎯 **Unified API** - Clean, context-based modules
-- 📡 **SNMP Operations** - get, walk, bulk, multi-target
-- 📚 **MIB Management** - resolution, compilation, tree navigation
-- 🧪 **Device Simulation** - realistic testing environments
-- ⚡ **Advanced Features** - streaming, performance, analytics
+
+* 🎯 **Unified API** - Clean, context-based modules
+* 📡 **SNMP Operations** - get, walk, bulk, multi-target
+* 📚 **MIB Management** - resolution, compilation, tree navigation
+* 🧪 **Device Simulation** - realistic testing environments
+* ⚡ **Advanced Features** - streaming, performance, analytics
 
 Let's get started! 🚀
 
@@ -19,7 +20,7 @@ First, let's install SnmpKit and configure our environment:
 
 ```elixir
 Mix.install([
-  {:snmpkit, "~> 0.3.0"}
+  {:snmpkit, "~> 0.3.1"}
 ])
 
 # Configure logging for our tour
@@ -41,22 +42,69 @@ Before we can demonstrate SNMP operations, let's create our own simulated networ
 ```elixir
 # First, let's load a cable modem profile
 # This creates a realistic DOCSIS cable modem with hundreds of OIDs
-{:ok, cable_modem_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
+# {:ok, cable_modem_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
+#   :cable_modem
+#   # {:walk_file, "priv/walks/cable_modem.walk"}
+# )
+
+# # Start our simulated cable modem on port 1161
+# {:ok, cable_modem} = Sim.start_device("cm", [
+#   port: 1161,
+#   community: "public"
+# ])
+
+# # Define our target for easy reference
+# cable_modem_target = "127.0.0.1:1161"
+
+# IO.puts("✅ Cable modem simulation started on #{cable_modem_target}")
+# IO.puts("🎯 Ready for SNMP operations!")
+
+# Create a cable modem with essential DOCSIS OIDs
+cable_modem_oids = %{
+  # System Group
+  "1.3.6.1.2.1.1.1.0" => "ARRIS SURFboard SB8200 DOCSIS 3.1 Cable Modem",
+  "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.4115.1.20.1.1.2.25",
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 12345600},
+  "1.3.6.1.2.1.1.4.0" => "admin@example.com",
+  "1.3.6.1.2.1.1.5.0" => "cm-001",
+  "1.3.6.1.2.1.1.6.0" => "Home Network",
+
+  # Interface Group
+  "1.3.6.1.2.1.2.1.0" => 2,
+  "1.3.6.1.2.1.2.2.1.1.1" => 1,
+  "1.3.6.1.2.1.2.2.1.1.2" => 2,
+  "1.3.6.1.2.1.2.2.1.2.1" => "cable-downstream0",
+  "1.3.6.1.2.1.2.2.1.2.2" => "cable-upstream0",
+  "1.3.6.1.2.1.2.2.1.3.1" => 127,  # docsCableMaclayer
+  "1.3.6.1.2.1.2.2.1.3.2" => 127,
+
+  # DOCSIS Specific OIDs
+  "1.3.6.1.2.1.10.127.1.1.1.1.3.2" => %{type: "INTEGER", value: 3},  # docsIfCmtsUpChannelId
+  "1.3.6.1.2.1.10.127.1.1.1.1.6.2" => %{type: "INTEGER", value: 6400000},  # docsIfCmtsUpChannelFrequency
+  "1.3.6.1.2.1.10.127.1.2.2.1.1.2" => %{type: "INTEGER", value: 1},  # docsIfCmStatusValue
+  "1.3.6.1.2.1.10.127.1.2.2.1.12.2" => %{type: "Counter32", value: 1000},  # docsIfCmStatusUnerroreds
+
+  # Cable Modem specific counters
+  "1.3.6.1.2.1.2.2.1.10.1" => %{type: "Counter32", value: 1500000},  # ifInOctets
+  "1.3.6.1.2.1.2.2.1.16.1" => %{type: "Counter32", value: 900000},   # ifOutOctets
+  "1.3.6.1.2.1.2.2.1.11.1" => %{type: "Counter32", value: 12000},    # ifInUcastPkts
+  "1.3.6.1.2.1.2.2.1.17.1" => %{type: "Counter32", value: 8000},     # ifOutUcastPkts
+}
+
+# Create the profile
+{:ok, cm_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
   :cable_modem,
-  {:walk_file, "priv/walks/cable_modem.walk"}
+  {:manual, cable_modem_oids},
+  behaviors: [:counter_increment, :time_based_changes]
 )
 
-# Start our simulated cable modem on port 1161
-{:ok, cable_modem} = Sim.start_device(cable_modem_profile, [
-  port: 1161,
-  community: "public"
-])
+# Start the simulated cable modem
+{:ok, cable_modem} = SnmpKit.Sim.start_device(cm_profile, port: 1161)
 
-# Define our target for easy reference
-cable_modem_target = "127.0.0.1:1161"
+# Test it
+{:ok, description} = SnmpKit.SNMP.get("127.0.0.1:1161", "1.3.6.1.2.1.1.1.0")
+IO.puts("Cable Modem: #{description}")
 
-IO.puts("✅ Cable modem simulation started on #{cable_modem_target}")
-IO.puts("🎯 Ready for SNMP operations!")
 ```
 
 ### Create a Router Simulation
@@ -64,10 +112,66 @@ IO.puts("🎯 Ready for SNMP operations!")
 Let's also create a router simulation to demonstrate multi-target operations:
 
 ```elixir
-# Load and start a router simulation
+# Create a realistic enterprise router with essential OIDs
+router_oids = %{
+  # System Group
+  "1.3.6.1.2.1.1.1.0" => "Cisco IOS Software, C2900 Software, Version 15.1(4)M12a",
+  "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.9.1.576",
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 0},
+  "1.3.6.1.2.1.1.4.0" => "IT Department <it@company.com>",
+  "1.3.6.1.2.1.1.5.0" => "router-001",
+  "1.3.6.1.2.1.1.6.0" => "Main Office - Server Room",
+
+  # Interface Group (more interfaces for a router)
+  "1.3.6.1.2.1.2.1.0" => 5,  # ifNumber (more interfaces)
+
+  # FastEthernet0/0 (WAN)
+  "1.3.6.1.2.1.2.2.1.1.1" => 1,
+  "1.3.6.1.2.1.2.2.1.2.1" => "FastEthernet0/0",
+  "1.3.6.1.2.1.2.2.1.3.1" => 6,  # ethernetCsmacd
+  "1.3.6.1.2.1.2.2.1.5.1" => %{type: "Gauge32", value: 100000000},  # 100Mbps
+  "1.3.6.1.2.1.2.2.1.8.1" => 1,  # up
+
+  # FastEthernet0/1 (LAN)
+  "1.3.6.1.2.1.2.2.1.1.2" => 2,
+  "1.3.6.1.2.1.2.2.1.2.2" => "FastEthernet0/1",
+  "1.3.6.1.2.1.2.2.1.3.2" => 6,
+  "1.3.6.1.2.1.2.2.1.5.2" => %{type: "Gauge32", value: 100000000},
+  "1.3.6.1.2.1.2.2.1.8.2" => 1,
+
+  # Serial0/0/0 (WAN backup)
+  "1.3.6.1.2.1.2.2.1.1.3" => 3,
+  "1.3.6.1.2.1.2.2.1.2.3" => "Serial0/0/0",
+  "1.3.6.1.2.1.2.2.1.3.3" => 22,  # propPointToPointSerial
+  "1.3.6.1.2.1.2.2.1.5.3" => %{type: "Gauge32", value: 1544000},  # T1 speed
+  "1.3.6.1.2.1.2.2.1.8.3" => 2,  # down (backup interface)
+
+  # Loopback0
+  "1.3.6.1.2.1.2.2.1.1.4" => 4,
+  "1.3.6.1.2.1.2.2.1.2.4" => "Loopback0",
+  "1.3.6.1.2.1.2.2.1.3.4" => 24,  # softwareLoopback
+  "1.3.6.1.2.1.2.2.1.8.4" => 1,
+
+  # Traffic counters for active interfaces
+  "1.3.6.1.2.1.2.2.1.10.1" => %{type: "Counter32", value: 0},  # ifInOctets WAN
+  "1.3.6.1.2.1.2.2.1.16.1" => %{type: "Counter32", value: 0},  # ifOutOctets WAN
+  "1.3.6.1.2.1.2.2.1.10.2" => %{type: "Counter32", value: 0},  # ifInOctets LAN
+  "1.3.6.1.2.1.2.2.1.16.2" => %{type: "Counter32", value: 0},  # ifOutOctets LAN
+
+  # IP routing info
+  "1.3.6.1.2.1.4.1.0" => 1,  # ipForwarding (enabled)
+  "1.3.6.1.2.1.4.2.0" => 30, # ipDefaultTTL
+
+  # SNMP community info
+  "1.3.6.1.2.1.11.1.0" => %{type: "Counter32", value: 0},  # snmpInPkts
+  "1.3.6.1.2.1.11.2.0" => %{type: "Counter32", value: 0},  # snmpOutPkts
+}
+
+# Create the router profile
 {:ok, router_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
   :router,
-  {:walk_file, "priv/walks/router.walk"}
+  {:manual, router_oids},
+  behaviors: [:counter_increment, :time_based_changes]
 )
 
 {:ok, router} = Sim.start_device(router_profile, [
@@ -79,6 +183,7 @@ router_target = "127.0.0.1:1162"
 
 IO.puts("✅ Router simulation started on #{router_target}")
 IO.puts("🌐 Now we have a complete simulated network!")
+IO.puts("📊 Loaded #{map_size(router_oids)} router OIDs")
 ```
 
 ### Quick Connectivity Test
@@ -166,9 +271,27 @@ Let's explore interface data, which is crucial for network monitoring:
 ```elixir
 IO.puts("\n=== Interface Information ===\n")
 
-# Get interface count
-{:ok, if_count} = SNMP.get(cable_modem_target, "ifNumber.0")
-IO.puts("Number of interfaces: #{if_count}")
+# Get interface count from cable modem
+{:ok, cm_if_count} = SNMP.get(cable_modem_target, "ifNumber.0")
+IO.puts("Cable Modem interfaces: #{cm_if_count}")
+
+# Get interface count from router
+{:ok, router_if_count} = SNMP.get(router_target, "ifNumber.0")
+IO.puts("Router interfaces: #{router_if_count}")
+
+# Get interface descriptions
+{:ok, cm_if1_desc} = SNMP.get(cable_modem_target, "ifDescr.1")
+{:ok, cm_if2_desc} = SNMP.get(cable_modem_target, "ifDescr.2")
+IO.puts("\nCable Modem Interface Details:")
+IO.puts("  Interface 1: #{cm_if1_desc}")
+IO.puts("  Interface 2: #{cm_if2_desc}")
+
+{:ok, router_if1_desc} = SNMP.get(router_target, "ifDescr.1")
+{:ok, router_if2_desc} = SNMP.get(router_target, "ifDescr.2")
+IO.puts("\nRouter Interface Details:")
+IO.puts("  Interface 1: #{router_if1_desc}")
+IO.puts("  Interface 2: #{router_if2_desc}")
+```
 
 # Get interface table (structured data)
 {:ok, if_table} = SNMP.get_table(cable_modem_target, "ifTable")
@@ -825,3 +948,341 @@ Enum.each(test_targets, fn target ->
   result = NetworkMonitorTest.test_device_monitoring(target)
   case result.status do
     :healthy ->
+      IO.puts("  ✅ #{target}: Healthy (#{result.interface_count} interfaces)")
+    :error ->
+      IO.puts("  ❌ #{target}: Error - #{inspect(result.reason)}")
+  end
+end)
+```
+
+## Chapter 11: Creating Custom Device Simulations 🛠️
+
+One of the most powerful features of SnmpKit is creating realistic device simulations without needing walk files. Let's explore different approaches:
+
+### Method 1: Enterprise Switch Simulation
+
+```elixir
+IO.puts("=== Creating Enterprise Switch Simulation ===\n")
+
+# Define a realistic 24-port enterprise switch
+switch_oids = %{
+  # System Group
+  "1.3.6.1.2.1.1.1.0" => "Cisco IOS Software, C3560CX Software, Version 15.2(4)E10",
+  "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.9.1.1208",
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 0},
+  "1.3.6.1.2.1.1.4.0" => "Network Operations <netops@company.com>",
+  "1.3.6.1.2.1.1.5.0" => "switch-core-01",
+  "1.3.6.1.2.1.1.6.0" => "Main Office - Network Closet A",
+
+  # Switch has many interfaces (24 ports + management)
+  "1.3.6.1.2.1.2.1.0" => 25,  # ifNumber
+}
+
+# Add interfaces programmatically
+switch_oids = Enum.reduce(1..24, switch_oids, fn port, acc ->
+  Map.merge(acc, %{
+    # Interface descriptions
+    "1.3.6.1.2.1.2.2.1.2.#{port}" => "GigabitEthernet0/#{port}",
+    "1.3.6.1.2.1.2.2.1.3.#{port}" => 6,  # ethernetCsmacd
+    "1.3.6.1.2.1.2.2.1.5.#{port}" => %{type: "Gauge32", value: 1000000000},  # 1Gbps
+    "1.3.6.1.2.1.2.2.1.8.#{port}" => if(port <= 12, do: 1, else: 2),  # First 12 up, rest down
+    # Traffic counters for active ports
+    "1.3.6.1.2.1.2.2.1.10.#{port}" => %{type: "Counter32", value: 0},
+    "1.3.6.1.2.1.2.2.1.16.#{port}" => %{type: "Counter32", value: 0},
+  })
+end)
+
+# Add management interface
+switch_oids = Map.merge(switch_oids, %{
+  "1.3.6.1.2.1.2.2.1.2.25" => "Management0",
+  "1.3.6.1.2.1.2.2.1.3.25" => 6,
+  "1.3.6.1.2.1.2.2.1.5.25" => %{type: "Gauge32", value: 100000000},  # 100Mbps
+  "1.3.6.1.2.1.2.2.1.8.25" => 1,
+})
+
+# Create and start the switch
+{:ok, switch_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
+  :switch,
+  {:manual, switch_oids},
+  behaviors: [:counter_increment, :time_based_changes]
+)
+
+{:ok, switch_device} = Sim.start_device(switch_profile, port: 1163)
+switch_target = "127.0.0.1:1163"
+
+IO.puts("✅ Enterprise switch simulation started on #{switch_target}")
+
+# Test the switch
+{:ok, switch_desc} = SNMP.get(switch_target, "sysDescr.0")
+{:ok, switch_interfaces} = SNMP.get(switch_target, "ifNumber.0")
+IO.puts("Switch: #{switch_desc}")
+IO.puts("Interfaces: #{switch_interfaces}")
+
+# Check a few interface statuses
+Enum.each([1, 5, 15, 25], fn port ->
+  case SNMP.get(switch_target, "ifDescr.#{port}") do
+    {:ok, desc} ->
+      case SNMP.get(switch_target, "ifOperStatus.#{port}") do
+        {:ok, status} ->
+          status_text = if status == 1, do: "UP", else: "DOWN"
+          IO.puts("  Port #{port}: #{desc} - #{status_text}")
+        _ -> nil
+      end
+    _ -> nil
+  end
+end)
+```
+
+### Method 2: Wireless Access Point Simulation
+
+```elixir
+IO.puts("\n=== Creating Wireless Access Point Simulation ===\n")
+
+# Define a realistic dual-band wireless AP
+wireless_ap_oids = %{
+  # System Group
+  "1.3.6.1.2.1.1.1.0" => "Ubiquiti UniFi AP AC Pro, Version 4.3.21.11325",
+  "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.41112.1.4.7",
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 0},
+  "1.3.6.1.2.1.1.4.0" => "Wireless Admin <wireless@company.com>",
+  "1.3.6.1.2.1.1.5.0" => "ap-lobby-01",
+  "1.3.6.1.2.1.1.6.0" => "Main Building - Lobby",
+
+  # Wireless interfaces: Management + 2.4GHz + 5GHz
+  "1.3.6.1.2.1.2.1.0" => 3,
+
+  # Management interface (Ethernet)
+  "1.3.6.1.2.1.2.2.1.2.1" => "eth0 (Management)",
+  "1.3.6.1.2.1.2.2.1.3.1" => 6,  # ethernetCsmacd
+  "1.3.6.1.2.1.2.2.1.5.1" => %{type: "Gauge32", value: 1000000000},  # 1Gbps
+  "1.3.6.1.2.1.2.2.1.8.1" => 1,
+
+  # 2.4GHz radio
+  "1.3.6.1.2.1.2.2.1.2.2" => "wlan0 (2.4GHz)",
+  "1.3.6.1.2.1.2.2.1.3.2" => 71,  # ieee80211
+  "1.3.6.1.2.1.2.2.1.5.2" => %{type: "Gauge32", value: 300000000},  # 300Mbps
+  "1.3.6.1.2.1.2.2.1.8.2" => 1,
+
+  # 5GHz radio
+  "1.3.6.1.2.1.2.2.1.2.3" => "wlan1 (5GHz)",
+  "1.3.6.1.2.1.2.2.1.3.3" => 71,  # ieee80211
+  "1.3.6.1.2.1.2.2.1.5.3" => %{type: "Gauge32", value: 1300000000},  # 1.3Gbps
+  "1.3.6.1.2.1.2.2.1.8.3" => 1,
+
+  # Wireless-specific OIDs (simplified)
+  "1.3.6.1.4.1.41112.1.4.1.1.4.1" => 6,    # 2.4GHz channel
+  "1.3.6.1.4.1.41112.1.4.1.1.4.2" => 36,   # 5GHz channel
+  "1.3.6.1.4.1.41112.1.4.1.1.5.1" => 20,   # TX power (dBm)
+  "1.3.6.1.4.1.41112.1.4.1.1.5.2" => 23,   # TX power (dBm)
+  "1.3.6.1.4.1.41112.1.4.1.1.6.1" => 15,   # Connected clients 2.4GHz
+  "1.3.6.1.4.1.41112.1.4.1.1.6.2" => 8,    # Connected clients 5GHz
+
+  # Traffic counters
+  "1.3.6.1.2.1.2.2.1.10.2" => %{type: "Counter32", value: 0},  # 2.4GHz RX
+  "1.3.6.1.2.1.2.2.1.16.2" => %{type: "Counter32", value: 0},  # 2.4GHz TX
+  "1.3.6.1.2.1.2.2.1.10.3" => %{type: "Counter32", value: 0},  # 5GHz RX
+  "1.3.6.1.2.1.2.2.1.16.3" => %{type: "Counter32", value: 0},  # 5GHz TX
+}
+
+# Create and start the wireless AP
+{:ok, ap_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
+  :wireless_ap,
+  {:manual, wireless_ap_oids},
+  behaviors: [:counter_increment, :wireless_fluctuation]
+)
+
+{:ok, ap_device} = Sim.start_device(ap_profile, port: 1164)
+ap_target = "127.0.0.1:1164"
+
+IO.puts("✅ Wireless AP simulation started on #{ap_target}")
+
+# Test the wireless AP
+{:ok, ap_desc} = SNMP.get(ap_target, "sysDescr.0")
+IO.puts("AP: #{ap_desc}")
+
+# Check wireless interfaces
+wireless_interfaces = [
+  {"wlan0 (2.4GHz)", 2},
+  {"wlan1 (5GHz)", 3}
+]
+
+Enum.each(wireless_interfaces, fn {name, index} ->
+  case SNMP.get(ap_target, "ifDescr.#{index}") do
+    {:ok, desc} ->
+      case SNMP.get(ap_target, "ifOperStatus.#{index}") do
+        {:ok, status} ->
+          status_text = if status == 1, do: "UP", else: "DOWN"
+          IO.puts("  #{desc}: #{status_text}")
+        _ -> nil
+      end
+    _ -> nil
+  end
+end)
+```
+
+### Method 3: Network Printer Simulation
+
+```elixir
+IO.puts("\n=== Creating Network Printer Simulation ===\n")
+
+# Define a realistic enterprise network printer
+printer_oids = %{
+  # System Group
+  "1.3.6.1.2.1.1.1.0" => "HP LaserJet Enterprise 600 M603dn, Firmware: 20190515",
+  "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.11.2.3.9.4.2.1.1.3.2.0",
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 0},
+  "1.3.6.1.2.1.1.4.0" => "Print Services <print@company.com>",
+  "1.3.6.1.2.1.1.5.0" => "printer-finance-01",
+  "1.3.6.1.2.1.1.6.0" => "Finance Department - 3rd Floor",
+
+  # Network interface
+  "1.3.6.1.2.1.2.1.0" => 1,
+  "1.3.6.1.2.1.2.2.1.2.1" => "Ethernet",
+  "1.3.6.1.2.1.2.2.1.3.1" => 6,  # ethernetCsmacd
+  "1.3.6.1.2.1.2.2.1.5.1" => %{type: "Gauge32", value: 100000000},  # 100Mbps
+  "1.3.6.1.2.1.2.2.1.8.1" => 1,
+
+  # Printer-specific MIB objects (HP LaserJet)
+  # Printer status
+  "1.3.6.1.2.1.25.3.2.1.5.1" => 3,  # hrPrinterStatus: idle(3)
+  "1.3.6.1.2.1.25.3.2.1.6.1" => 0,  # hrPrinterDetectedErrorState
+
+  # Print engine
+  "1.3.6.1.4.1.11.2.3.9.4.2.1.1.1.1.1" => 3,  # Print engine status: idle
+  "1.3.6.1.4.1.11.2.3.9.4.2.1.1.1.6.1.1" => 52,  # Pages printed (thousands)
+
+  # Supply levels (toner, etc.)
+  "1.3.6.1.2.1.43.11.1.1.9.1.1" => 85,   # Toner level (%)
+  "1.3.6.1.2.1.43.11.1.1.9.1.2" => 40,   # Drum level (%)
+  "1.3.6.1.2.1.43.11.1.1.9.1.3" => 95,   # Fuser level (%)
+
+  # Paper trays
+  "1.3.6.1.2.1.43.8.2.1.10.1.1" => 500,  # Tray 1 capacity
+  "1.3.6.1.2.1.43.8.2.1.11.1.1" => 350,  # Tray 1 current level
+  "1.3.6.1.2.1.43.8.2.1.10.1.2" => 500,  # Tray 2 capacity
+  "1.3.6.1.2.1.43.8.2.1.11.1.2" => 200,  # Tray 2 current level
+
+  # Job statistics
+  "1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.5.0" => %{type: "Counter32", value: 52000},  # Total pages
+  "1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.6.0" => %{type: "Counter32", value: 8500},   # Total jobs
+
+  # Current job info
+  "1.3.6.1.4.1.11.2.3.9.4.2.1.1.1.3.1.1" => 0,  # Current job ID (0 = no job)
+  "1.3.6.1.4.1.11.2.3.9.4.2.1.1.1.5.1.1" => 0,  # Pages remaining
+}
+
+# Create and start the printer
+{:ok, printer_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
+  :printer,
+  {:manual, printer_oids},
+  behaviors: [:supply_depletion, :job_simulation]
+)
+
+{:ok, printer_device} = Sim.start_device(printer_profile, port: 1165)
+printer_target = "127.0.0.1:1165"
+
+IO.puts("✅ Network printer simulation started on #{printer_target}")
+
+# Test the printer
+{:ok, printer_desc} = SNMP.get(printer_target, "sysDescr.0")
+IO.puts("Printer: #{printer_desc}")
+
+# Check printer status and supplies
+printer_checks = [
+  {"Printer Status", "1.3.6.1.2.1.25.3.2.1.5.1"},
+  {"Toner Level", "1.3.6.1.2.1.43.11.1.1.9.1.1"},
+  {"Total Pages", "1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.5.0"},
+  {"Tray 1 Paper", "1.3.6.1.2.1.43.8.2.1.11.1.1"}
+]
+
+Enum.each(printer_checks, fn {name, oid} ->
+  case SNMP.get(printer_target, oid) do
+    {:ok, value} ->
+      formatted_value = case name do
+        "Printer Status" when value == 3 -> "#{value} (Idle)"
+        "Toner Level" -> "#{value}%"
+        "Tray 1 Paper" -> "#{value} sheets"
+        _ -> "#{value}"
+      end
+      IO.puts("  #{name}: #{formatted_value}")
+    {:error, reason} ->
+      IO.puts("  #{name}: Error - #{inspect(reason)}")
+  end
+end)
+```
+
+## Chapter 12: Summary and Next Steps 🎯
+
+Congratulations! You've completed the comprehensive SnmpKit tour. Let's summarize what we've covered:
+
+```elixir
+IO.puts("=== SnmpKit Tour Summary ===\n")
+
+# Count all our simulated devices
+all_devices = [
+  {cable_modem_target, "Cable Modem"},
+  {router_target, "Router"},
+  {switch_target, "Enterprise Switch"},
+  {ap_target, "Wireless Access Point"},
+  {printer_target, "Network Printer"}
+]
+
+IO.puts("🎉 Successfully created #{length(all_devices)} simulated devices:")
+Enum.each(all_devices, fn {target, name} ->
+  case SNMP.get(target, "sysDescr.0", timeout: 1000) do
+    {:ok, _desc} ->
+      IO.puts("  ✅ #{name} (#{target}) - Responding")
+    {:error, _reason} ->
+      IO.puts("  ❌ #{name} (#{target}) - Not responding")
+  end
+end)
+
+IO.puts("\n📚 What you've learned:")
+topics = [
+  "✅ Unified API Architecture (SnmpKit.SNMP, SnmpKit.MIB, SnmpKit.Sim)",
+  "✅ Basic SNMP Operations (get, walk, bulk, multi-target)",
+  "✅ MIB Management (resolution, tree navigation)",
+  "✅ Device Simulation (cable modem, router, switch, wireless AP, printer)",
+  "✅ Performance Optimization (streaming, async, bulk operations)",
+  "✅ Error Handling and Troubleshooting",
+  "✅ Real-world Monitoring Scenarios",
+  "✅ Creating Custom Device Simulations WITHOUT walk files",
+  "✅ Testing Strategies for Development"
+]
+
+Enum.each(topics, &IO.puts("  #{&1}"))
+
+IO.puts("\n🚀 Next Steps:")
+next_steps = [
+  "Explore the full SnmpKit API documentation",
+  "Try monitoring real network devices",
+  "Create custom device profiles for your environment",
+  "Integrate SnmpKit into your monitoring applications",
+  "Contribute device profiles and improvements to the project"
+]
+
+Enum.each(next_steps, fn step ->
+  IO.puts("  • #{step}")
+end)
+
+IO.puts("\n🔗 Resources:")
+IO.puts("  • Documentation: https://hexdocs.pm/snmpkit")
+IO.puts("  • GitHub: https://github.com/awksedgreep/snmpkit")
+IO.puts("  • Hex.pm: https://hex.pm/packages/snmpkit")
+
+IO.puts("\n💡 Pro Tips:")
+tips = [
+  "Use bulk operations for multiple OIDs",
+  "Leverage multi-target for fleet monitoring",
+  "Create realistic simulations for testing",
+  "Use streaming for large datasets",
+  "Implement proper error handling",
+  "Monitor performance with built-in tools"
+]
+
+Enum.each(tips, fn tip ->
+  IO.puts("  💡 #{tip}")
+end)
+
+IO.puts("\n🎯 Happy SNMP monitoring with SnmpKit!")
+```
