@@ -43,7 +43,7 @@ defmodule SnmpKit.SnmpMgr.EngineComprehensiveTest do
         # CircuitBreaker running but Router missing - infrastructure incomplete
         %{skip_engine_tests: true}
 
-      {_cb_pid, _router_pid} ->
+      {cb_pid, router_pid} when cb_pid != nil and router_pid != nil ->
         # Full infrastructure available
         :ok
 
@@ -121,28 +121,23 @@ defmodule SnmpKit.SnmpMgr.EngineComprehensiveTest do
     end
 
     test "validates engine configuration retrieval" do
-      case SnmpKit.SnmpMgr.get_engine_stats() do
-        {:ok, stats} ->
-          assert is_map(stats), "Engine stats should be a map"
+      {:ok, stats} = SnmpKit.SnmpMgr.get_engine_stats()
+      assert is_map(stats), "Engine stats should be a map"
 
-          # Check expected components
-          expected_components = [:router, :pool, :circuit_breaker, :metrics]
+      # Check expected components
+      expected_components = [:router, :pool, :circuit_breaker, :metrics]
 
-          for component <- expected_components do
-            case Map.get(stats, component) do
-              nil ->
-                assert true, "#{component} stats not available (may be optional)"
+      for component <- expected_components do
+        case Map.get(stats, component) do
+          nil ->
+            assert true, "#{component} stats not available (may be optional)"
 
-              component_stats when is_map(component_stats) ->
-                assert true, "#{component} stats available: #{map_size(component_stats)} metrics"
+          component_stats when is_map(component_stats) ->
+            assert true, "#{component} stats available: #{map_size(component_stats)} metrics"
 
-              other ->
-                assert true, "#{component} stats format: #{inspect(other)}"
-            end
-          end
-
-        {:error, reason} ->
-          assert is_atom(reason), "Engine stats error: #{inspect(reason)}"
+          other ->
+            assert true, "#{component} stats format: #{inspect(other)}"
+        end
       end
     end
   end
@@ -663,42 +658,33 @@ defmodule SnmpKit.SnmpMgr.EngineComprehensiveTest do
       _results = SnmpKit.SnmpMgr.engine_batch(test_requests)
 
       # Check that metrics were collected
-      case SnmpKit.SnmpMgr.get_engine_stats() do
-        {:ok, stats} ->
-          # Should have some request metrics
-          if Map.has_key?(stats, :metrics) do
-            metrics = stats.metrics
-            assert is_map(metrics), "Engine should collect request metrics"
+      {:ok, stats} = SnmpKit.SnmpMgr.get_engine_stats()
+      # Should have some request metrics
+      if Map.has_key?(stats, :metrics) do
+        metrics = stats.metrics
+        assert is_map(metrics), "Engine should collect request metrics"
 
-            # Look for common metrics
-            expected_metrics = [:requests_total, :request_duration, :requests_in_flight]
+        # Look for common metrics
+        expected_metrics = [:requests_total, :request_duration, :requests_in_flight]
 
-            found_metrics =
-              Enum.filter(expected_metrics, fn metric ->
-                Map.has_key?(metrics, metric)
-              end)
+        found_metrics =
+          Enum.filter(expected_metrics, fn metric ->
+            Map.has_key?(metrics, metric)
+          end)
 
-            if length(found_metrics) > 0 do
-              assert true, "Engine collected #{length(found_metrics)} expected metrics"
-            else
-              assert true, "Engine metrics available but in different format"
-            end
-          else
-            assert true, "Engine metrics not available (may be optional)"
-          end
-
-        {:error, reason} ->
-          assert is_atom(reason), "Engine metrics error: #{inspect(reason)}"
+        if length(found_metrics) > 0 do
+          assert true, "Engine collected #{length(found_metrics)} expected metrics"
+        else
+          assert true, "Engine metrics available but in different format"
+        end
+      else
+        assert true, "Engine metrics not available (may be optional)"
       end
     end
 
     test "validates engine performance metrics accuracy" do
       # Submit known requests and verify metrics
-      before_stats =
-        case SnmpKit.SnmpMgr.get_engine_stats() do
-          {:ok, stats} -> stats
-          {:error, _} -> %{}
-        end
+      {:ok, before_stats} = SnmpKit.SnmpMgr.get_engine_stats()
 
       test_request = %{
         type: :get,
@@ -712,11 +698,7 @@ defmodule SnmpKit.SnmpMgr.EngineComprehensiveTest do
       # Wait for metrics to update
       Process.sleep(50)
 
-      after_stats =
-        case SnmpKit.SnmpMgr.get_engine_stats() do
-          {:ok, stats} -> stats
-          {:error, _} -> %{}
-        end
+      {:ok, after_stats} = SnmpKit.SnmpMgr.get_engine_stats()
 
       # Compare metrics (if available)
       if Map.has_key?(before_stats, :metrics) and Map.has_key?(after_stats, :metrics) do

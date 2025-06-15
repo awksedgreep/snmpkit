@@ -1,6 +1,5 @@
 defmodule SnmpKit.SnmpMgr.AdaptiveWalkTest do
   use ExUnit.Case, async: true
-  alias SnmpKit.SnmpMgr.AdaptiveWalk
 
   describe "AdaptiveWalk.filter_scope_results/2 with 3-tuple format" do
     test "filters results by scope with 3-tuple format" do

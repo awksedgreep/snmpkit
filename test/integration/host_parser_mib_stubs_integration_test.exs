@@ -130,7 +130,7 @@ defmodule SnmpKit.Integration.HostParserMibStubsIntegrationTest do
         "192.168.1.100:8161"
       ]
 
-      for {group, description} <- bulk_scenarios do
+      for {group, _description} <- bulk_scenarios do
         # Verify group resolves to valid OID prefix
         assert {:ok, oid_prefix} = MIB.resolve(group)
         assert is_list(oid_prefix)

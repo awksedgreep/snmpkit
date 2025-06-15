@@ -10,10 +10,10 @@ defmodule SnmpKit.SnmpLib.PoolTest do
   defp safe_stop_pool(pool_name, timeout \\ 100) do
     try do
       if Process.whereis(pool_name), do: Pool.stop_pool(pool_name, timeout)
-    catch
-      :exit, _ -> :ok
     rescue
       _ -> :ok
+    catch
+      :exit, _ -> :ok
     end
   end
 
@@ -45,10 +45,10 @@ defmodule SnmpKit.SnmpLib.PoolTest do
         if Process.whereis(pool_name) do
           Pool.stop_pool(pool_name, 100)
         end
-      catch
-        :exit, _ -> :ok
       rescue
         _ -> :ok
+      catch
+        :exit, _ -> :ok
       end
     end)
 

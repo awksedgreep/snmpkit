@@ -1,7 +1,7 @@
 defmodule SnmpKit.SnmpSim.LazyDevicePoolTest do
   use ExUnit.Case, async: false
 
-  alias SnmpKit.SnmpSim.{LazyDevicePool, Device}
+  alias SnmpKit.SnmpSim.LazyDevicePool
   alias SnmpKit.SnmpSim.TestHelpers.PortHelper
 
   # Helper function to get unique port for each test using PortHelper
@@ -83,7 +83,7 @@ defmodule SnmpKit.SnmpSim.LazyDevicePoolTest do
       assert stats.devices_created == 2
     end
 
-    test "determines device type based on port range", %{test_port: test_port} do
+    test "determines device type based on port range", %{test_port: _test_port} do
       # Cable modem port (30,000-37,999)
       cable_modem_port = 30_005
       assert {:ok, cable_modem_pid} = LazyDevicePool.get_or_create_device(cable_modem_port)

@@ -233,9 +233,9 @@ defmodule SnmpKit.SnmpSim.TimePatternsTest do
       docsis_rates = TimePatterns.get_interface_traffic_rate(:docsis_downstream, datetime)
       cellular_rates = TimePatterns.get_interface_traffic_rate(:cellular_lte, datetime)
 
-      {eth_min, eth_max, eth_factor} = ethernet_rates
-      {docsis_min, docsis_max, docsis_factor} = docsis_rates
-      {cell_min, cell_max, cell_factor} = cellular_rates
+      {_eth_min, eth_max, eth_factor} = ethernet_rates
+      {_docsis_min, docsis_max, docsis_factor} = docsis_rates
+      {_cell_min, cell_max, cell_factor} = cellular_rates
 
       # Gigabit Ethernet should support high rates
       # 125 MB/s

@@ -455,7 +455,7 @@ defmodule SnmpKit.SnmpMgr.ErrorComprehensiveTest do
       case result do
         {:ok, results} when is_list(results) ->
           # Check for exception values in results
-          exception_values =
+          _exception_values =
             Enum.filter(results, fn
               {_oid, value}
               when value in [:no_such_object, :no_such_instance, :end_of_mib_view] ->
@@ -523,7 +523,7 @@ defmodule SnmpKit.SnmpMgr.ErrorComprehensiveTest do
     end
 
     test "consistent error handling across all API functions", %{device: device} do
-      target = SNMPSimulator.device_target(device)
+      _target = SNMPSimulator.device_target(device)
 
       # Test that all SnmpMgr API functions handle errors consistently
       api_functions = [

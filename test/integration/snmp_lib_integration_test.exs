@@ -7,8 +7,7 @@ defmodule SnmpKit.SnmpLib.Integration.Phase2Test do
   @moduletag :protocol
   @moduletag :phase_2
 
-  # Test timeout for network operations
-  @test_timeout 200
+
 
   describe "PDU + OID Integration" do
     test "builds PDU with OID operations" do
@@ -18,7 +17,7 @@ defmodule SnmpKit.SnmpLib.Integration.Phase2Test do
       # Create PDU with OID
       varbinds = [{oid_list, :null, :null}]
       pdu = PDU.build_get_request_multi(varbinds, 12345)
-      message = PDU.build_message(pdu, "public")
+      _message = PDU.build_message(pdu, "public")
 
       # Verify PDU structure contains our OID
       assert pdu.varbinds == varbinds
@@ -60,9 +59,9 @@ defmodule SnmpKit.SnmpLib.Integration.Phase2Test do
       oid = [1, 3, 6, 1, 2, 1, 1, 1, 0]
 
       # Test different type coercions
-      {:ok, counter_value} = Types.coerce_value(:counter32, 42)
-      {:ok, string_value} = Types.coerce_value(:octet_string, "System Description")
-      {:ok, timeticks_value} = Types.coerce_value(:timeticks, 12345)
+      {:ok, _counter_value} = Types.coerce_value(:counter32, 42)
+      {:ok, _string_value} = Types.coerce_value(:octet_string, "System Description")
+      {:ok, _timeticks_value} = Types.coerce_value(:timeticks, 12345)
 
       varbinds = [
         {oid, :counter32, 42},
@@ -71,7 +70,7 @@ defmodule SnmpKit.SnmpLib.Integration.Phase2Test do
       ]
 
       response_pdu = PDU.build_response(1, 0, 0, varbinds)
-      response_message = PDU.build_message(response_pdu, "public")
+      _response_message = PDU.build_message(response_pdu, "public")
 
       # Verify typed values are preserved
       assert response_pdu.varbinds == varbinds
@@ -251,7 +250,7 @@ defmodule SnmpKit.SnmpLib.Integration.Phase2Test do
       {:ok, system_desc_oid} = OID.string_to_list("1.3.6.1.2.1.1.1.0")
 
       # Step 2: Validate and coerce values using Types module
-      {:ok, description_value} = Types.coerce_value(:octet_string, "Test SNMP Agent")
+      {:ok, _description_value} = Types.coerce_value(:octet_string, "Test SNMP Agent")
 
       # Step 3: Build PDU
       varbinds = [{system_desc_oid, :octet_string, "Test SNMP Agent"}]
@@ -288,7 +287,7 @@ defmodule SnmpKit.SnmpLib.Integration.Phase2Test do
 
     test "handles complex data types in full workflow" do
       # Create varbinds with different SNMP types
-      varbinds = [
+      _varbinds = [
         # System description (string)
         {[1, 3, 6, 1, 2, 1, 1, 1, 0], "Complex Agent"},
         # System uptime (timeticks)
@@ -365,7 +364,7 @@ defmodule SnmpKit.SnmpLib.Integration.Phase2Test do
       for i <- 1..100 do
         oid_string = "1.3.6.1.2.1.1.#{i}.0"
         {:ok, oid} = OID.string_to_list(oid_string)
-        {:ok, value} = Types.coerce_value(:counter32, i)
+        {:ok, _value} = Types.coerce_value(:counter32, i)
 
         varbinds = [{oid, :counter32, i}]
         pdu = PDU.build_get_request_multi(varbinds, i)
@@ -396,7 +395,7 @@ defmodule SnmpKit.SnmpLib.Integration.Phase2Test do
             # Each task performs a complete workflow
             oid_string = "1.3.6.1.2.1.1.1.#{i}"
             {:ok, oid} = OID.string_to_list(oid_string)
-            {:ok, value} = Types.coerce_value(:octet_string, "Value #{i}")
+            {:ok, _value} = Types.coerce_value(:octet_string, "Value #{i}")
 
             varbinds = [{oid, :octet_string, "Value #{i}"}]
             pdu = PDU.build_response(i, 0, 0, varbinds)
@@ -417,7 +416,7 @@ defmodule SnmpKit.SnmpLib.Integration.Phase2Test do
       # Verify all operations completed successfully
       assert length(results) == 50
 
-      for {i, original_oid, original_value, decoded} <- results do
+      for {i, original_oid, _original_value, decoded} <- results do
         assert decoded.pdu.request_id == i
         assert decoded.community == "thread_test"
         assert length(decoded.pdu.varbinds) == 1

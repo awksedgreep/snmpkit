@@ -4,7 +4,6 @@ defmodule SnmpKit.SnmpSim.ErrorInjectorTest do
   alias SnmpKit.SnmpSim.{ErrorInjector}
   alias SnmpKit.SnmpSim.Device
   alias SnmpKit.SnmpSim.MIB.SharedProfiles
-  alias SnmpKit.SnmpSim.{LazyDevicePool}
   alias SnmpKit.SnmpSim.TestHelpers.PortHelper
 
   setup do

@@ -42,7 +42,7 @@ defmodule SnmpKit.SnmpSim.OIDTreeTest do
 
       tree = OIDTree.insert(tree, "1.3.6.1.2.1.2.2.1.10.1", {:counter32, 1_234_567}, behavior)
 
-      assert {:ok, {:counter32, 1_234_567}, behavior} =
+      assert {:ok, {:counter32, 1_234_567}, ^behavior} =
                OIDTree.get(tree, "1.3.6.1.2.1.2.2.1.10.1")
     end
 
@@ -285,7 +285,7 @@ defmodule SnmpKit.SnmpSim.OIDTreeTest do
 
       # Walk through entire table using GETNEXT
       current_oid = "1.3.6.1.2.1.2.2.1.10"
-      count = 0
+      _count = 0
 
       loop_fn = fn loop_fn, oid, acc_count ->
         case OIDTree.get_next(tree, oid) do

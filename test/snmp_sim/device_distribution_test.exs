@@ -338,7 +338,7 @@ defmodule SnmpKit.SnmpSim.DeviceDistributionTest do
     test "detects invalid ranges" do
       invalid_assignments = %{
         # Invalid range
-        type_a: 1000..999
+        type_a: 1000..999//-1
       }
 
       assert {:error, {:invalid_ranges, _}} =

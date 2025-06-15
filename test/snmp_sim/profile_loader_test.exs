@@ -233,7 +233,7 @@ defmodule SnmpKit.SnmpSim.ProfileLoaderTest do
   defp compare_oid_parts([], []), do: false
   defp compare_oid_parts([], _), do: true
   defp compare_oid_parts(_, []), do: false
-  defp compare_oid_parts([h1 | t1], [h2 | t2]) when h1 < h2, do: true
-  defp compare_oid_parts([h1 | t1], [h2 | t2]) when h1 > h2, do: false
+  defp compare_oid_parts([h1 | _t1], [h2 | _t2]) when h1 < h2, do: true
+  defp compare_oid_parts([h1 | _t1], [h2 | _t2]) when h1 > h2, do: false
   defp compare_oid_parts([h1 | t1], [h2 | t2]) when h1 == h2, do: compare_oid_parts(t1, t2)
 end

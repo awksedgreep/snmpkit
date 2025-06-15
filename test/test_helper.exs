@@ -65,17 +65,7 @@ for port <- [161, 1161, 4161] do
   end
 end
 
-# Ensure test support modules are compiled
-support_dir = Path.join(__DIR__, "support")
-
-if File.exists?(support_dir) do
-  support_dir
-  |> File.ls!()
-  |> Enum.filter(&String.ends_with?(&1, ".ex"))
-  |> Enum.each(fn file ->
-    Code.require_file(file, support_dir)
-  end)
-end
+# Test support modules are automatically compiled by Mix - no manual loading needed
 
 # Start PortAllocator for test port management
 case SnmpKit.SnmpSim.TestHelpers.PortAllocator.start_link() do

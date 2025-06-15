@@ -500,7 +500,7 @@ defmodule SnmpKit.SnmpMgr.BulkOperationsTest do
         end)
 
       case {bulk_result, individual_results} do
-        {{:ok, bulk_data}, individual_data} when is_list(individual_data) ->
+        {{:ok, _bulk_data}, individual_data} when is_list(individual_data) ->
           # Both should work, bulk should be competitive
           assert bulk_time > 0
           assert individual_time > 0

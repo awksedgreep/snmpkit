@@ -46,7 +46,7 @@ defmodule SnmpSimIntegrationTest do
 
     test "loads profile and starts device successfully" do
       # Load profile from walk file
-      {:ok, profile} =
+      {:ok, _profile} =
         ProfileLoader.load_profile(
           :cable_modem,
           {:walk_file, "priv/walks/cable_modem.walk"}
@@ -83,7 +83,7 @@ defmodule SnmpSimIntegrationTest do
     end
 
     test "handles GETNEXT operations correctly" do
-      {:ok, profile} =
+      {:ok, _profile} =
         ProfileLoader.load_profile(
           :cable_modem,
           {:walk_file, "priv/walks/cable_modem.walk"}
@@ -117,7 +117,7 @@ defmodule SnmpSimIntegrationTest do
     end
 
     test "responds with proper error for non-existent OIDs" do
-      {:ok, profile} =
+      {:ok, _profile} =
         ProfileLoader.load_profile(
           :cable_modem,
           {:walk_file, "priv/walks/cable_modem.walk"}
@@ -186,7 +186,7 @@ defmodule SnmpSimIntegrationTest do
     end
 
     test "device info and statistics work correctly" do
-      {:ok, profile} =
+      {:ok, _profile} =
         ProfileLoader.load_profile(
           :cable_modem,
           {:walk_file, "priv/walks/cable_modem.walk"}
@@ -219,7 +219,7 @@ defmodule SnmpSimIntegrationTest do
     end
 
     test "device reboot functionality works" do
-      {:ok, profile} =
+      {:ok, _profile} =
         ProfileLoader.load_profile(
           :cable_modem,
           {:walk_file, "priv/walks/cable_modem.walk"}
@@ -291,7 +291,7 @@ defmodule SnmpSimIntegrationTest do
     end
 
     test "handles multiple concurrent requests per device" do
-      {:ok, profile} =
+      {:ok, _profile} =
         ProfileLoader.load_profile(
           :cable_modem,
           {:walk_file, "priv/walks/cable_modem.walk"}
@@ -312,7 +312,7 @@ defmodule SnmpSimIntegrationTest do
 
       # Send multiple concurrent requests
       tasks =
-        for i <- 1..20 do
+        for _i <- 1..20 do
           Task.async(fn ->
             send_snmp_get(port, "1.3.6.1.2.1.1.1.0")
           end)
@@ -334,7 +334,7 @@ defmodule SnmpSimIntegrationTest do
     end
 
     test "device memory usage remains stable" do
-      {:ok, profile} =
+      {:ok, _profile} =
         ProfileLoader.load_profile(
           :cable_modem,
           {:walk_file, "priv/walks/cable_modem.walk"}
@@ -359,9 +359,9 @@ defmodule SnmpSimIntegrationTest do
       initial_memory = get_process_memory(device)
 
       # Send many requests to stress test memory (with small delays to avoid overwhelming)
-      for _i <- 1..50 do
+      for i <- 1..50 do
         send_snmp_get(port, "1.3.6.1.2.1.1.1.0")
-        if rem(_i, 10) == 0, do: Process.sleep(10)
+        if rem(i, 10) == 0, do: Process.sleep(10)
       end
 
       Process.sleep(200)
@@ -419,7 +419,7 @@ defmodule SnmpSimIntegrationTest do
 
     @tag :slow
     test "handles invalid community strings" do
-      {:ok, profile} =
+      {:ok, _profile} =
         ProfileLoader.load_profile(
           :cable_modem,
           {:walk_file, "priv/walks/cable_modem.walk"}
@@ -451,7 +451,7 @@ defmodule SnmpSimIntegrationTest do
       # Trap exits to handle GenServer failures properly
       Process.flag(:trap_exit, true)
 
-      {:ok, profile} =
+      {:ok, _profile} =
         ProfileLoader.load_profile(
           :cable_modem,
           {:walk_file, "priv/walks/cable_modem.walk"}

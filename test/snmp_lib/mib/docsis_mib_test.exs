@@ -96,7 +96,7 @@ defmodule SnmpKit.SnmpLib.MIB.DocsisMibTest do
 
       # Should contain TEXTUAL-CONVENTION definitions
       # Note: Some MIBs might not have textual conventions
-      textual_conventions = get_definitions_by_type(mib, :textual_convention)
+      _textual_conventions = get_definitions_by_type(mib, :textual_convention)
       # Just check if parsing succeeded rather than requiring specific types
       assert is_list(mib.definitions), "Should have parsed definitions"
 

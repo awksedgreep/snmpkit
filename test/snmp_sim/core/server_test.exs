@@ -28,7 +28,7 @@ defmodule SnmpKit.SnmpSim.Core.ServerTest do
 
       # Send multiple concurrent requests
       tasks =
-        for i <- 1..10 do
+        for _i <- 1..10 do
           Task.async(fn ->
             send_test_snmp_request(port, "1.3.6.1.2.1.1.1.0")
           end)
@@ -70,7 +70,7 @@ defmodule SnmpKit.SnmpSim.Core.ServerTest do
 
       # Send 50 requests (reduced for better reliability)
       tasks =
-        for i <- 1..50 do
+        for _i <- 1..50 do
           Task.async(fn ->
             send_test_snmp_request(port, "1.3.6.1.2.1.1.1.0")
           end)
@@ -119,7 +119,7 @@ defmodule SnmpKit.SnmpSim.Core.ServerTest do
       assert initial_stats.packets_received == 0
 
       # Send some requests
-      for i <- 1..5 do
+      for _i <- 1..5 do
         send_test_snmp_request(port, "1.3.6.1.2.1.1.1.0")
       end
 
@@ -267,7 +267,7 @@ defmodule SnmpKit.SnmpSim.Core.ServerTest do
       {:ok, server} = Server.start_link(port, device_handler: handler)
 
       # Send some requests
-      for i <- 1..5 do
+      for _i <- 1..5 do
         send_test_snmp_request(port, "1.3.6.1.2.1.1.1.0")
       end
 

@@ -1,7 +1,7 @@
 defmodule SnmpKit.SnmpMgr.MetricsIntegrationTest do
   use ExUnit.Case, async: false
 
-  alias SnmpKit.SnmpMgr.{Metrics, Config}
+  alias SnmpKit.SnmpMgr.Metrics
   alias SnmpKit.TestSupport.SNMPSimulator
 
   @moduletag :unit

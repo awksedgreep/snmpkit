@@ -4,7 +4,7 @@ defmodule SnmpKit.SnmpLib.MIB.ParserTest do
 
   @moduletag :parsing_edge_cases
 
-  alias SnmpKit.SnmpLib.MIB.{Parser, Error}
+  alias SnmpKit.SnmpLib.MIB.Parser
 
   describe "basic MIB parsing" do
     test "parses minimal MIB structure" do
