@@ -17,7 +17,12 @@ defmodule Snmpkit.MixProject do
         "coveralls.html": :test
       ],
       compilers: [:yecc] ++ Mix.compilers(),
-      deps: deps()
+      deps: deps(),
+
+      # Hex package metadata
+      description: description(),
+      package: package(),
+      docs: docs()
     ]
   end
 
@@ -48,6 +53,69 @@ defmodule Snmpkit.MixProject do
       {:excoveralls, "~> 0.18", only: :test},
       {:benchee, "~> 1.1", only: [:dev, :test]},
       {:stream_data, "~> 0.5", only: :test}
+    ]
+  end
+
+  defp description do
+    """
+    A comprehensive SNMP toolkit for Elixir featuring a unified API, pure Elixir
+    implementation, and powerful device simulation. Perfect for network monitoring,
+    testing, and development with support for SNMP operations, MIB management,
+    and realistic device simulation.
+    """
+  end
+
+  defp package do
+    [
+      name: "snmpkit",
+      maintainers: ["SnmpKit Team"],
+      licenses: ["MIT"],
+      links: %{
+        "GitHub" => "https://github.com/awksedgreep/snmpkit",
+        "Documentation" => "https://hexdocs.pm/snmpkit"
+      },
+      files: ~w(lib priv src mix.exs README.md LICENSE.md),
+      exclude_patterns: ["priv/walks/*"]
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      extras: [
+        "README.md",
+        "docs/unified-api-guide.md",
+        "docs/v0.3.0-release-notes.md"
+      ],
+      groups_for_modules: [
+        "Core API": [
+          SnmpKit,
+          SnmpKit.SNMP,
+          SnmpKit.MIB,
+          SnmpKit.Sim
+        ],
+        "SNMP Protocol": [
+          SnmpKit.SnmpLib,
+          SnmpKit.SnmpLib.Types,
+          SnmpKit.SnmpLib.Pdu,
+          SnmpKit.SnmpLib.Message,
+          SnmpKit.SnmpLib.Oid
+        ],
+        "MIB Support": [
+          SnmpKit.MibParser,
+          SnmpKit.SnmpMgr.MIB,
+          SnmpKit.SnmpLib.MIB
+        ],
+        "Device Simulation": [
+          SnmpKit.SnmpSim,
+          SnmpKit.SnmpSim.Device,
+          SnmpKit.SnmpSim.ProfileLoader
+        ],
+        "Network Management": [
+          SnmpKit.SnmpMgr,
+          SnmpKit.TestSupport
+        ]
+      ]
     ]
   end
 end
