@@ -48,6 +48,29 @@ defmodule SnmpKit.SnmpMgr.MIB do
     "ifOutQLen" => [1, 3, 6, 1, 2, 1, 2, 2, 1, 21],
     "ifSpecific" => [1, 3, 6, 1, 2, 1, 2, 2, 1, 22],
 
+    # Interface Extensions (ifX) group (1.3.6.1.2.1.31)
+    "ifXTable" => [1, 3, 6, 1, 2, 1, 31, 1],
+    "ifXEntry" => [1, 3, 6, 1, 2, 1, 31, 1, 1],
+    "ifName" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 1],
+    "ifInMulticastPkts" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 2],
+    "ifInBroadcastPkts" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 3],
+    "ifOutMulticastPkts" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 4],
+    "ifOutBroadcastPkts" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 5],
+    "ifHCInOctets" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 6],
+    "ifHCInUcastPkts" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 7],
+    "ifHCInMulticastPkts" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 8],
+    "ifHCInBroadcastPkts" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 9],
+    "ifHCOutOctets" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 10],
+    "ifHCOutUcastPkts" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 11],
+    "ifHCOutMulticastPkts" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 12],
+    "ifHCOutBroadcastPkts" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 13],
+    "ifLinkUpDownTrapEnable" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 14],
+    "ifHighSpeed" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 15],
+    "ifPromiscuousMode" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 16],
+    "ifConnectorPresent" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 17],
+    "ifAlias" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 18],
+    "ifCounterDiscontinuityTime" => [1, 3, 6, 1, 2, 1, 31, 1, 1, 19],
+
     # IP group (1.3.6.1.2.1.4)
     "ipForwarding" => [1, 3, 6, 1, 2, 1, 4, 1],
     "ipDefaultTTL" => [1, 3, 6, 1, 2, 1, 4, 2],
@@ -83,7 +106,45 @@ defmodule SnmpKit.SnmpMgr.MIB do
     "snmpOutSetRequests" => [1, 3, 6, 1, 2, 1, 11, 27],
     "snmpOutGetResponses" => [1, 3, 6, 1, 2, 1, 11, 28],
     "snmpOutTraps" => [1, 3, 6, 1, 2, 1, 11, 29],
-    "snmpEnableAuthenTraps" => [1, 3, 6, 1, 2, 1, 11, 30]
+    "snmpEnableAuthenTraps" => [1, 3, 6, 1, 2, 1, 11, 30],
+
+    # Common group prefixes for bulk walking
+    "system" => [1, 3, 6, 1, 2, 1, 1],
+    "interfaces" => [1, 3, 6, 1, 2, 1, 2],
+    "if" => [1, 3, 6, 1, 2, 1, 2],
+    "ifX" => [1, 3, 6, 1, 2, 1, 31],
+    "ip" => [1, 3, 6, 1, 2, 1, 4],
+    "icmp" => [1, 3, 6, 1, 2, 1, 5],
+    "tcp" => [1, 3, 6, 1, 2, 1, 6],
+    "udp" => [1, 3, 6, 1, 2, 1, 7],
+    "snmp" => [1, 3, 6, 1, 2, 1, 11],
+    "mib-2" => [1, 3, 6, 1, 2, 1],
+    "mgmt" => [1, 3, 6, 1, 2],
+    "internet" => [1, 3, 6, 1],
+
+    # Common enterprise OIDs
+    "enterprises" => [1, 3, 6, 1, 4, 1],
+    "cisco" => [1, 3, 6, 1, 4, 1, 9],
+    "hp" => [1, 3, 6, 1, 4, 1, 11],
+    "3com" => [1, 3, 6, 1, 4, 1, 43],
+    "sun" => [1, 3, 6, 1, 4, 1, 42],
+    "dec" => [1, 3, 6, 1, 4, 1, 36],
+    "ibm" => [1, 3, 6, 1, 4, 1, 2],
+    "microsoft" => [1, 3, 6, 1, 4, 1, 311],
+    "netapp" => [1, 3, 6, 1, 4, 1, 789],
+    "juniper" => [1, 3, 6, 1, 4, 1, 2636],
+    "fortinet" => [1, 3, 6, 1, 4, 1, 12356],
+    "paloalto" => [1, 3, 6, 1, 4, 1, 25461],
+    "mikrotik" => [1, 3, 6, 1, 4, 1, 14988],
+
+    # Cable/DOCSIS industry OIDs
+    "cablelabs" => [1, 3, 6, 1, 4, 1, 4491],
+    "docsis" => [1, 3, 6, 1, 2, 1, 127],
+    "cableDataPrivateMib" => [1, 3, 6, 1, 4, 1, 4491, 2, 1],
+    "arris" => [1, 3, 6, 1, 4, 1, 4115],
+    "motorola" => [1, 3, 6, 1, 4, 1, 1166],
+    "scientificatlanta" => [1, 3, 6, 1, 4, 1, 1429],
+    "broadcom" => [1, 3, 6, 1, 4, 1, 4413]
   }
 
   ## Public API

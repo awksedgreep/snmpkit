@@ -65,8 +65,6 @@ defmodule SnmpKit.SnmpMgr.CircuitBreakerIntegrationTest do
     end
 
     test "circuit breaker handles successful operations", %{device: device, circuit_breaker: cb} do
-      skip_if_no_device(device)
-
       # Test successful operation through circuit breaker
       target = SNMPSimulator.device_target(device)
 
@@ -91,8 +89,6 @@ defmodule SnmpKit.SnmpMgr.CircuitBreakerIntegrationTest do
 
   describe "Circuit Breaker Error Handling" do
     test "circuit breaker protects against failures", %{device: device, circuit_breaker: cb} do
-      skip_if_no_device(device)
-
       # Test operation that will likely fail (invalid community)
       target = SNMPSimulator.device_target(device)
 
@@ -158,8 +154,6 @@ defmodule SnmpKit.SnmpMgr.CircuitBreakerIntegrationTest do
       device: device,
       circuit_breaker: cb
     } do
-      skip_if_no_device(device)
-
       # Test circuit breaker with bulk operations
       target = SNMPSimulator.device_target(device)
 
@@ -200,11 +194,4 @@ defmodule SnmpKit.SnmpMgr.CircuitBreakerIntegrationTest do
         error -> {:error, error}
       end
   end
-
-  defp skip_if_no_device(nil), do: {:skip, "SNMP simulator not available"}
-
-  defp skip_if_no_device(%{setup_error: error}),
-    do: {:skip, "Setup error: #{inspect(error)}"}
-
-  defp skip_if_no_device(_device), do: :ok
 end

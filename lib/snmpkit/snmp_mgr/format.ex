@@ -170,11 +170,10 @@ defmodule SnmpKit.SnmpMgr.Format do
   def format_by_type(:integer, value) when is_integer(value) and value in 1..200,
     do: interface_type(value)
 
+  def format_by_type(:object_identifier, value) when is_list(value), do: Enum.join(value, ".")
+  def format_by_type(:object_identifier, value) when is_binary(value), do: value
   def format_by_type(:ip_address, value), do: ip_address(value)
   def format_by_type(:mac_address, value), do: mac_address(value)
-  # Auto-detect MAC addresses in octet strings (6 bytes = MAC address)
-  def format_by_type(:octet_string, value) when is_binary(value) and byte_size(value) == 6,
-    do: mac_address(value)
 
   def format_by_type(_type, value) when is_binary(value), do: value
   def format_by_type(_type, value) when is_integer(value), do: Integer.to_string(value)

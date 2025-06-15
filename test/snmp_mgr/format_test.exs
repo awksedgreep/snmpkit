@@ -171,22 +171,73 @@ defmodule SnmpKit.SnmpMgr.FormatTest do
   end
 
   describe "format_by_type/2 with MAC addresses" do
-    test "auto-detects MAC address in 6-byte octet string" do
+    test "formats explicit MAC address type correctly" do
       mac_binary = <<0x00, 0x1B, 0x21, 0x3C, 0x4D, 0x5E>>
-      result = SnmpKit.SnmpMgr.Format.format_by_type(:octet_string, mac_binary)
+      result = SnmpKit.SnmpMgr.Format.format_by_type(:mac_address, mac_binary)
       assert result == "00:1b:21:3c:4d:5e"
     end
 
-    test "does not format non-6-byte octet strings as MAC" do
+    test "keeps octet strings as-is regardless of length" do
       short_binary = <<0x00, 0x1B>>
       result = SnmpKit.SnmpMgr.Format.format_by_type(:octet_string, short_binary)
       assert result == short_binary
+
+      six_byte_binary = <<0x00, 0x1B, 0x21, 0x3C, 0x4D, 0x5E>>
+      result2 = SnmpKit.SnmpMgr.Format.format_by_type(:octet_string, six_byte_binary)
+      assert result2 == six_byte_binary
     end
 
-    test "formats explicit mac_address type" do
-      mac_list = [0, 27, 33, 60, 77, 94]
-      result = SnmpKit.SnmpMgr.Format.format_by_type(:mac_address, mac_list)
+    test "formats explicit MAC addresses correctly" do
+      mac_string = "00:1b:21:3c:4d:5e"
+      result = Format.mac_address(mac_string)
       assert result == "00:1b:21:3c:4d:5e"
+    end
+  end
+
+  describe "format_by_type/2 object identifier formatting" do
+    test "formats object identifier list as dotted decimal string" do
+      result = Format.format_by_type(:object_identifier, [1, 3, 6, 1, 4, 1, 14988, 1])
+      assert result == "1.3.6.1.4.1.14988.1"
+    end
+
+    test "passes through object identifier string unchanged" do
+      result = Format.format_by_type(:object_identifier, "1.3.6.1.4.1.14988.1")
+      assert result == "1.3.6.1.4.1.14988.1"
+    end
+
+    test "handles single element object identifier" do
+      result = Format.format_by_type(:object_identifier, [1])
+      assert result == "1"
+    end
+
+    test "handles empty object identifier" do
+      result = Format.format_by_type(:object_identifier, [])
+      assert result == ""
+    end
+  end
+
+  describe "format_by_type/2 explicit type handling" do
+    test "formats explicit MAC address type as MAC" do
+      # Explicit MAC address type
+      mac_bytes = <<0x00, 0x1B, 0x21, 0x3C, 0x4D, 0x5E>>
+      result = Format.format_by_type(:mac_address, mac_bytes)
+      assert result == "00:1b:21:3c:4d:5e"
+    end
+
+    test "keeps octet strings as strings regardless of length" do
+      # Interface names should remain as strings
+      assert Format.format_by_type(:octet_string, "ether1") == "ether1"
+      assert Format.format_by_type(:octet_string, "ether2") == "ether2"
+      assert Format.format_by_type(:octet_string, "wifi1 ") == "wifi1 "
+      assert Format.format_by_type(:octet_string, "bridge") == "bridge"
+      assert Format.format_by_type(:octet_string, "wlan01") == "wlan01"
+    end
+
+    test "handles binary octet strings as strings" do
+      # Even 6-byte binary data should remain as-is if typed as octet_string
+      binary_data = <<0x00, 0x1B, 0x21, 0x3C, 0x4D, 0x5E>>
+      result = Format.format_by_type(:octet_string, binary_data)
+      assert result == binary_data
     end
   end
 end

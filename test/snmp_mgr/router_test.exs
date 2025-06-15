@@ -91,7 +91,6 @@ defmodule SnmpKit.SnmpMgr.RouterIntegrationTest do
 
   describe "Router Strategy Configuration" do
     test "router supports different routing strategies", %{device: device} do
-      skip_if_no_device(device)
 
       strategies = [:round_robin, :least_connections, :weighted]
 
@@ -137,7 +136,4 @@ defmodule SnmpKit.SnmpMgr.RouterIntegrationTest do
   end
 
   # Helper functions per @testing_rules
-  defp skip_if_no_device(nil), do: ExUnit.skip("SNMP simulator not available")
-  defp skip_if_no_device(%{setup_error: error}), do: ExUnit.skip("Setup error: #{inspect(error)}")
-  defp skip_if_no_device(_device), do: :ok
 end

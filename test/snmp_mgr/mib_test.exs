@@ -34,7 +34,6 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
 
   describe "MIB Integration with snmp_lib Operations" do
     test "MIB name resolution works with SNMP operations", %{device: device} do
-      skip_if_no_device(device)
 
       # Test MIB name resolution for standard names
       standard_names = ["sysDescr", "sysUpTime", "sysName"]
@@ -57,7 +56,6 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
     end
 
     test "MIB reverse lookup integration", %{device: device} do
-      skip_if_no_device(device)
 
       # Get a value first
       target = SNMPSimulator.device_target(device)
@@ -84,7 +82,6 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
 
   describe "Enhanced MIB with SnmpKit.SnmpLib.MIB Integration" do
     test "integrates with SnmpKit.SnmpLib.MIB for enhanced functionality", %{device: device} do
-      skip_if_no_device(device)
 
       # Test basic MIB functionality
       standard_oids = [
@@ -117,7 +114,6 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
     end
 
     test "MIB tree walking integration", %{device: device} do
-      skip_if_no_device(device)
 
       # Test MIB tree functionality with SNMP data
       # System group
@@ -151,7 +147,4 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
   end
 
   # Helper functions
-  defp skip_if_no_device(nil), do: ExUnit.skip("SNMP simulator not available")
-  defp skip_if_no_device(%{setup_error: error}), do: ExUnit.skip("Setup error: #{inspect(error)}")
-  defp skip_if_no_device(_device), do: :ok
 end

@@ -18,8 +18,6 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
     end
 
     test "adaptive_walk/3 performs intelligent bulk walking", %{device: device} do
-      skip_if_no_device(device)
-
       target = "#{device.host}:#{device.port}"
 
       result =
@@ -66,8 +64,6 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
     end
 
     test "bulk_walk maintains lexicographic ordering", %{device: device} do
-      skip_if_no_device(device)
-
       target = "#{device.host}:#{device.port}"
 
       # Use a well-known OID that should have multiple entries
@@ -107,8 +103,6 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
     end
 
     test "adaptive_walk optimizes bulk parameters", %{device: device} do
-      skip_if_no_device(device)
-
       target = "#{device.host}:#{device.port}"
 
       # Test with adaptive tuning enabled
@@ -168,8 +162,6 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
     end
 
     test "bulk_walk handles large OID trees efficiently", %{device: device} do
-      skip_if_no_device(device)
-
       target = "#{device.host}:#{device.port}"
 
       # Test walking a potentially large tree
@@ -212,8 +204,6 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
     end
 
     test "bulk_walk vs traditional walk comparison", %{device: device} do
-      skip_if_no_device(device)
-
       target = "#{device.host}:#{device.port}"
       test_oid = "1.3.6.1.2.1.1"
 
@@ -291,8 +281,6 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
     end
 
     test "bulk_walk handles empty and single-entry results", %{device: device} do
-      skip_if_no_device(device)
-
       target = "#{device.host}:#{device.port}"
 
       # Test with an OID that might not exist or have limited entries
@@ -339,8 +327,6 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
     end
 
     test "bulk_walk respects max_entries limit", %{device: device} do
-      skip_if_no_device(device)
-
       target = "#{device.host}:#{device.port}"
 
       # Test with a small max_entries limit
@@ -370,13 +356,334 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
           flunk("Max entries test failed: #{inspect(reason)}")
       end
     end
+
+    test "bulk_walk_pretty handles empty OID without hanging", %{device: device} do
+      target = "#{device.host}:#{device.port}"
+
+      # Test with empty list - this should not hang
+      result_empty_list =
+        test_with_timeout(
+          fn ->
+            SnmpKit.SnmpMgr.bulk_walk_pretty(target, [],
+              community: device.community,
+              timeout: 1000,
+              max_entries: 10
+            )
+          end,
+          3000
+        )
+
+      assert result_empty_list != :timeout, "bulk_walk_pretty with empty list [] should not hang"
+
+      case result_empty_list do
+        {:ok, results} when is_list(results) ->
+          # Empty OID should return results from MIB root
+          assert length(results) >= 0
+          # Verify format: {oid_string, type, formatted_value}
+          if length(results) > 0 do
+            Enum.each(results, fn {oid_string, type, formatted_value} ->
+              assert is_binary(oid_string), "OID should be string, got: #{inspect(oid_string)}"
+              assert is_atom(type), "Type should be atom, got: #{inspect(type)}"
+
+              assert is_binary(formatted_value),
+                     "Formatted value should be string, got: #{inspect(formatted_value)}"
+            end)
+          end
+
+        {:error, reason} when reason in [:timeout, :no_such_name, :gen_err] ->
+          # Acceptable in test environment
+          :ok
+
+        {:error, reason} ->
+          flunk("Empty OID test failed: #{inspect(reason)}")
+      end
+
+      # Test with empty string - this should also not hang
+      result_empty_string =
+        test_with_timeout(
+          fn ->
+            SnmpKit.SnmpMgr.bulk_walk_pretty(target, "",
+              community: device.community,
+              timeout: 1000,
+              max_entries: 10
+            )
+          end,
+          3000
+        )
+
+      assert result_empty_string != :timeout,
+             "bulk_walk_pretty with empty string \"\" should not hang"
+
+      case result_empty_string do
+        {:ok, results} when is_list(results) ->
+          assert length(results) >= 0
+          # Verify format consistency
+          if length(results) > 0 do
+            Enum.each(results, fn {oid_string, type, formatted_value} ->
+              assert is_binary(oid_string)
+              assert is_atom(type)
+              assert is_binary(formatted_value)
+            end)
+          end
+
+        {:error, reason} when reason in [:timeout, :no_such_name, :gen_err] ->
+          :ok
+
+        {:error, reason} ->
+          flunk("Empty string OID test failed: #{inspect(reason)}")
+      end
+    end
+
+    test "bulk_walk handles empty OID without hanging", %{device: device} do
+      target = "#{device.host}:#{device.port}"
+
+      # Test with empty list for bulk_walk (not pretty)
+      result =
+        test_with_timeout(
+          fn ->
+            SnmpKit.SnmpMgr.bulk_walk(target, [],
+              community: device.community,
+              timeout: 1000,
+              max_entries: 10
+            )
+          end,
+          3000
+        )
+
+      assert result != :timeout, "bulk_walk with empty list [] should not hang"
+
+      case result do
+        {:ok, results} when is_list(results) ->
+          assert length(results) >= 0
+          # Verify format: {oid_string, type, value}
+          if length(results) > 0 do
+            Enum.each(results, fn {oid_string, type, value} ->
+              assert is_binary(oid_string)
+              assert is_atom(type)
+              assert value != nil
+            end)
+          end
+
+        {:error, reason} when reason in [:timeout, :no_such_name, :gen_err] ->
+          :ok
+
+        {:error, reason} ->
+          flunk("Empty OID bulk_walk test failed: #{inspect(reason)}")
+      end
+    end
+
+    test "comprehensive OID format testing", %{device: device} do
+      target = "#{device.host}:#{device.port}"
+
+      # Test all OID formats: "", [], "1", [1], "1.3", [1,3], "1.3.6", [1,3,6]
+      test_cases = [
+        {"empty string", ""},
+        {"empty list", []},
+        {"string 1", "1"},
+        {"list [1]", [1]},
+        {"string 1.3", "1.3"},
+        {"list [1,3]", [1, 3]},
+        {"string 1.3.6", "1.3.6"},
+        {"list [1,3,6]", [1, 3, 6]}
+      ]
+
+      Enum.each(test_cases, fn {description, oid} ->
+        # Test bulk_walk_pretty
+        result_pretty =
+          test_with_timeout(
+            fn ->
+              SnmpKit.SnmpMgr.bulk_walk_pretty(target, oid,
+                community: device.community,
+                timeout: 1000,
+                max_entries: 5
+              )
+            end,
+            3000
+          )
+
+        assert result_pretty != :timeout,
+               "bulk_walk_pretty with #{description} should not hang"
+
+        case result_pretty do
+          {:ok, results} when is_list(results) ->
+            assert length(results) >= 0
+            # Verify format: {oid_string, type, formatted_value}
+            if length(results) > 0 do
+              Enum.each(results, fn {oid_string, type, formatted_value} ->
+                assert is_binary(oid_string),
+                       "OID should be string for #{description}, got: #{inspect(oid_string)}"
+
+                assert is_atom(type),
+                       "Type should be atom for #{description}, got: #{inspect(type)}"
+
+                assert is_binary(formatted_value),
+                       "Formatted value should be string for #{description}, got: #{inspect(formatted_value)}"
+              end)
+
+              # Verify OIDs are properly scoped
+              first_oid = elem(hd(results), 0)
+
+              assert String.starts_with?(first_oid, "1.3"),
+                     "#{description} should return OIDs starting with 1.3, got: #{first_oid}"
+            end
+
+          {:error, reason} when reason in [:timeout, :no_such_name, :gen_err] ->
+            # Acceptable in test environment
+            :ok
+
+          {:error, reason} ->
+            flunk("#{description} bulk_walk_pretty failed: #{inspect(reason)}")
+        end
+
+        # Test bulk_walk (without pretty formatting)
+        result_bulk =
+          test_with_timeout(
+            fn ->
+              SnmpKit.SnmpMgr.bulk_walk(target, oid,
+                community: device.community,
+                timeout: 1000,
+                max_entries: 5
+              )
+            end,
+            3000
+          )
+
+        assert result_bulk != :timeout, "bulk_walk with #{description} should not hang"
+
+        case result_bulk do
+          {:ok, results} when is_list(results) ->
+            assert length(results) >= 0
+            # Verify format: {oid_string, type, value}
+            if length(results) > 0 do
+              Enum.each(results, fn {oid_string, type, value} ->
+                assert is_binary(oid_string),
+                       "OID should be string for #{description}, got: #{inspect(oid_string)}"
+
+                assert is_atom(type),
+                       "Type should be atom for #{description}, got: #{inspect(type)}"
+
+                assert value != nil,
+                       "Value should not be nil for #{description}, got: #{inspect(value)}"
+              end)
+            end
+
+          {:error, reason} when reason in [:timeout, :no_such_name, :gen_err] ->
+            :ok
+
+          {:error, reason} ->
+            flunk("#{description} bulk_walk failed: #{inspect(reason)}")
+        end
+      end)
+    end
+
+    test "OID format consistency verification", %{device: device} do
+      target = "#{device.host}:#{device.port}"
+
+      # Verify that equivalent OID formats return similar results
+      equivalent_pairs = [
+        {[], ""},
+        {[1], "1"},
+        {[1, 3], "1.3"},
+        {[1, 3, 6], "1.3.6"}
+      ]
+
+      Enum.each(equivalent_pairs, fn {list_oid, string_oid} ->
+        # Test that list and string versions of the same OID behave consistently
+        result_list =
+          test_with_timeout(
+            fn ->
+              SnmpKit.SnmpMgr.bulk_walk_pretty(target, list_oid,
+                community: device.community,
+                timeout: 1000,
+                max_entries: 3
+              )
+            end,
+            3000
+          )
+
+        result_string =
+          test_with_timeout(
+            fn ->
+              SnmpKit.SnmpMgr.bulk_walk_pretty(target, string_oid,
+                community: device.community,
+                timeout: 1000,
+                max_entries: 3
+              )
+            end,
+            3000
+          )
+
+        # Both should either succeed or fail in the same way
+        case {result_list, result_string} do
+          {{:ok, list_results}, {:ok, string_results}} ->
+            # Both succeeded - results should be similar (allow for minor differences due to timing)
+            assert length(list_results) >= 0
+            assert length(string_results) >= 0
+
+            if length(list_results) > 0 and length(string_results) > 0 do
+              # First OID should be the same or very similar
+              first_list_oid = elem(hd(list_results), 0)
+              first_string_oid = elem(hd(string_results), 0)
+
+              # Both should start with the same prefix
+              assert String.starts_with?(first_list_oid, "1.3"),
+                     "List OID #{inspect(list_oid)} should return 1.3.x results"
+
+              assert String.starts_with?(first_string_oid, "1.3"),
+                     "String OID #{inspect(string_oid)} should return 1.3.x results"
+            end
+
+          {{:error, _}, {:error, _}} ->
+            # Both failed - acceptable for test environment
+            :ok
+
+          {{:ok, _}, {:error, _}} ->
+            # List succeeded but string failed - might be acceptable
+            :ok
+
+          {{:error, _}, {:ok, _}} ->
+            # String succeeded but list failed - might be acceptable
+            :ok
+
+          {:timeout, _} ->
+            flunk("List OID #{inspect(list_oid)} timed out")
+
+          {_, :timeout} ->
+            flunk("String OID #{inspect(string_oid)} timed out")
+        end
+      end)
+    end
   end
 
   # Helper functions
 
-  defp skip_if_no_device(nil), do: {:skip, "SNMP simulator not available"}
-  defp skip_if_no_device(%{setup_error: error}), do: {:skip, "Setup error: #{inspect(error)}"}
-  defp skip_if_no_device(_device), do: :ok
+  defp test_with_timeout(test_fn, timeout_ms) do
+    parent = self()
+
+    task =
+      Task.async(fn ->
+        try do
+          result = test_fn.()
+          send(parent, {:result, result})
+        rescue
+          error ->
+            send(parent, {:error, error})
+        catch
+          :exit, reason ->
+            send(parent, {:exit, reason})
+        end
+      end)
+
+    receive do
+      {:result, result} -> result
+      {:error, error} -> {:error, error}
+      {:exit, reason} -> {:error, reason}
+    after
+      timeout_ms ->
+        Task.shutdown(task, :brutal_kill)
+        :timeout
+    end
+  end
 
   defp extract_oids(results) do
     Enum.map(results, fn

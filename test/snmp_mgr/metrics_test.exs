@@ -36,7 +36,6 @@ defmodule SnmpKit.SnmpMgr.MetricsIntegrationTest do
       device: device,
       metrics: metrics
     } do
-      skip_if_no_device(device)
 
       # Perform SNMP GET with metrics collection
       target = SNMPSimulator.device_target(device)
@@ -67,7 +66,6 @@ defmodule SnmpKit.SnmpMgr.MetricsIntegrationTest do
     end
 
     test "records metrics during failed SNMP operations", %{device: device, metrics: metrics} do
-      skip_if_no_device(device)
 
       # Perform SNMP GET to invalid OID with short timeout
       target = SNMPSimulator.device_target(device)
@@ -100,7 +98,6 @@ defmodule SnmpKit.SnmpMgr.MetricsIntegrationTest do
 
   describe "SNMP Operation Metrics Collection" do
     test "tracks response times for SNMP operations", %{device: device, metrics: metrics} do
-      skip_if_no_device(device)
 
       # Perform multiple operations to collect timing data
       target = SNMPSimulator.device_target(device)
@@ -131,7 +128,6 @@ defmodule SnmpKit.SnmpMgr.MetricsIntegrationTest do
     end
 
     test "differentiates metrics by operation type", %{device: device, metrics: metrics} do
-      skip_if_no_device(device)
 
       # Perform different SNMP operations
       target = SNMPSimulator.device_target(device)
@@ -176,7 +172,6 @@ defmodule SnmpKit.SnmpMgr.MetricsIntegrationTest do
 
   describe "Bulk Operations Metrics" do
     test "tracks bulk operation performance", %{device: device, metrics: metrics} do
-      skip_if_no_device(device)
 
       # Perform bulk operation with metrics collection
       target = SNMPSimulator.device_target(device)
@@ -228,7 +223,6 @@ defmodule SnmpKit.SnmpMgr.MetricsIntegrationTest do
 
   describe "Multi-target Metrics" do
     test "aggregates metrics across multiple targets", %{device: device, metrics: metrics} do
-      skip_if_no_device(device)
 
       target = SNMPSimulator.device_target(device)
       # Simulate multiple targets using same device
@@ -259,9 +253,6 @@ defmodule SnmpKit.SnmpMgr.MetricsIntegrationTest do
   end
 
   # Helper functions
-  defp skip_if_no_device(nil), do: ExUnit.skip("SNMP simulator not available")
-  defp skip_if_no_device(%{setup_error: error}), do: ExUnit.skip("Setup error: #{inspect(error)}")
-  defp skip_if_no_device(_device), do: :ok
 
   defp find_metric(metrics, type, name) do
     Enum.find(Map.values(metrics), fn metric ->

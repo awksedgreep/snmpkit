@@ -110,7 +110,9 @@ defmodule SnmpKit.SnmpLib.Transport do
   @spec create_client_socket(socket_options()) :: {:ok, socket()} | {:error, atom()}
   def create_client_socket(options \\ []) do
     # Use ephemeral port (0) for client connections - bypass validation for ephemeral ports
-    case resolve_address("0.0.0.0") do
+    bind_address = "0.0.0.0"
+
+    case resolve_address(bind_address) do
       {:ok, resolved_address} ->
         client_options =
           Keyword.merge(
@@ -124,9 +126,17 @@ defmodule SnmpKit.SnmpLib.Transport do
             ] ++ options
           )
 
-        case :gen_udp.open(0, [:binary, {:ip, resolved_address} | client_options]) do
+        # Add IP binding if not 0.0.0.0
+        final_options =
+          if resolved_address != {0, 0, 0, 0} do
+            [{:ip, resolved_address} | client_options]
+          else
+            client_options
+          end
+
+        case :gen_udp.open(0, [:binary | final_options]) do
           {:ok, socket} ->
-            Logger.debug("Created UDP socket bound to #{format_endpoint(resolved_address, 0)}")
+            Logger.debug("Created UDP socket bound to #{inspect(resolved_address)}:0")
             {:ok, socket}
 
           {:error, reason} ->
@@ -210,9 +220,23 @@ defmodule SnmpKit.SnmpLib.Transport do
           :ok | {:error, atom()}
   def send_packet(socket, dest_address, dest_port, data)
       when is_binary(data) do
+    Logger.debug(
+      "send_packet called with: socket=#{inspect(socket)}, dest_address=#{inspect(dest_address)}, dest_port=#{inspect(dest_port)}, data_size=#{byte_size(data)}"
+    )
+
     case {resolve_address(dest_address), validate_port(dest_port)} do
       {{:ok, resolved_address}, true} ->
-        case :gen_udp.send(socket, resolved_address, dest_port, data) do
+        Logger.debug(
+          "Address resolved to: #{inspect(resolved_address)}, port validated: #{dest_port}"
+        )
+
+        Logger.debug(
+          "About to call :gen_udp.send with: socket=#{inspect(socket)}, ip=#{inspect(resolved_address)}, port=#{dest_port}, data_type=#{inspect(data)}"
+        )
+
+        result = :gen_udp.send(socket, resolved_address, dest_port, data)
+
+        case result do
           :ok ->
             Logger.debug(
               "Sent #{byte_size(data)} bytes to #{format_endpoint(resolved_address, dest_port)}"
@@ -222,13 +246,29 @@ defmodule SnmpKit.SnmpLib.Transport do
 
           {:error, reason} ->
             Logger.error("Failed to send packet: #{inspect(reason)}")
+
+            Logger.error(
+              "gen_udp.send failed with: socket=#{inspect(socket)}, ip=#{inspect(resolved_address)}, port=#{dest_port}, data_size=#{byte_size(data)}"
+            )
+
+            Logger.error("Socket info: #{inspect(:inet.sockname(socket))}")
+
+            Logger.error(
+              "Data sample: #{inspect(binary_part(data, 0, min(50, byte_size(data))))}"
+            )
+
             {:error, reason}
         end
 
       {{:error, reason}, _} ->
+        Logger.error(
+          "Address resolution failed: #{inspect(reason)} for address: #{inspect(dest_address)}"
+        )
+
         {:error, reason}
 
       {_, false} ->
+        Logger.error("Port validation failed for port: #{inspect(dest_port)}")
         {:error, :invalid_port}
     end
   end
@@ -253,6 +293,17 @@ defmodule SnmpKit.SnmpLib.Transport do
       {:ok, {data, from_ip, from_port}} = SnmpKit.SnmpLib.Transport.receive_packet(socket)
       {:ok, {data, from_ip, from_port}} = SnmpKit.SnmpLib.Transport.receive_packet(socket, 10000)
   """
+  @spec send_and_receive_packet(
+          :inet.socket_address(),
+          port_number(),
+          packet_data(),
+          non_neg_integer()
+        ) ::
+          {:ok, {packet_data(), :inet.socket_address(), port_number()}} | {:error, atom()}
+  def send_and_receive_packet(_dest_address, _dest_port, _data, _timeout \\ 5000) do
+    {:error, :not_supported}
+  end
+
   @spec receive_packet(socket(), non_neg_integer()) ::
           {:ok, {packet_data(), :inet.socket_address(), port_number()}} | {:error, atom()}
   def receive_packet(socket, timeout \\ 5000) when is_integer(timeout) and timeout >= 0 do
@@ -363,6 +414,26 @@ defmodule SnmpKit.SnmpLib.Transport do
 
           {:error, reason} ->
             Logger.error("Failed to resolve hostname #{address}: #{inspect(reason)}")
+            {:error, :hostname_resolution_failed}
+        end
+    end
+  end
+
+  def resolve_address(address) when is_list(address) do
+    # Handle charlist input (from mix run -e single quotes)
+    case :inet.parse_address(address) do
+      {:ok, ip_tuple} ->
+        {:ok, ip_tuple}
+
+      {:error, :einval} ->
+        # Try hostname resolution
+        case :inet.gethostbyname(address) do
+          {:ok, {:hostent, _name, _aliases, :inet, 4, [ip_tuple | _]}} ->
+            {:ok, ip_tuple}
+
+          {:error, reason} ->
+            address_str = List.to_string(address)
+            Logger.error("Failed to resolve hostname #{address_str}: #{inspect(reason)}")
             {:error, :hostname_resolution_failed}
         end
     end
@@ -646,4 +717,18 @@ defmodule SnmpKit.SnmpLib.Transport do
       _ -> {:error, :stats_unavailable}
     end
   end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 end

@@ -47,7 +47,6 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
 
   describe "Configuration Integration with snmp_lib Operations" do
     test "config defaults are used in SNMP operations", %{device: device} do
-      skip_if_no_device(device)
 
       # Set config defaults
       Config.set_default_community(device.community)
@@ -66,7 +65,6 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
     end
 
     test "explicit options override config defaults", %{device: device} do
-      skip_if_no_device(device)
 
       # Set different config defaults
       Config.set_default_community("wrong_community")
@@ -86,7 +84,6 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
 
   describe "Version-specific Configuration" do
     test "SNMPv1 operations use configured version", %{device: device} do
-      skip_if_no_device(device)
 
       Config.set_default_version(:v1)
 
@@ -105,7 +102,6 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
     end
 
     test "SNMPv2c operations use configured version", %{device: device} do
-      skip_if_no_device(device)
 
       Config.set_default_version(:v2c)
 
@@ -135,7 +131,6 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
 
   describe "MIB Path Integration" do
     test "MIB paths are used for OID resolution", %{device: device} do
-      skip_if_no_device(device)
 
       # Add some MIB paths
       Config.add_mib_path("/usr/share/snmp/mibs")
@@ -156,7 +151,6 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
 
   describe "Configuration Merge Integration" do
     test "Config.merge_opts works with snmp_lib operations", %{device: device} do
-      skip_if_no_device(device)
 
       # Set config defaults
       Config.set_default_community(device.community)
@@ -189,7 +183,4 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
   end
 
   # Helper functions
-  defp skip_if_no_device(nil), do: ExUnit.skip("SNMP simulator not available")
-  defp skip_if_no_device(%{setup_error: error}), do: ExUnit.skip("Setup error: #{inspect(error)}")
-  defp skip_if_no_device(_device), do: :ok
 end

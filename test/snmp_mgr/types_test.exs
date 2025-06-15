@@ -57,7 +57,6 @@ defmodule SnmpKit.SnmpMgr.TypesIntegrationTest do
 
   describe "Integration with SNMP Operations" do
     test "type encoding works with SET operations", %{device: device} do
-      skip_if_no_device(device)
 
       # Test that encoded values work with snmp_lib SET operations
       # Note: SET operations often fail on read-only OIDs, but we test the encoding integration
@@ -96,7 +95,4 @@ defmodule SnmpKit.SnmpMgr.TypesIntegrationTest do
   end
 
   # Helper functions
-  defp skip_if_no_device(nil), do: ExUnit.skip("SNMP simulator not available")
-  defp skip_if_no_device(%{setup_error: error}), do: ExUnit.skip("Setup error: #{inspect(error)}")
-  defp skip_if_no_device(_device), do: :ok
 end

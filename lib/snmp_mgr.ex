@@ -717,27 +717,76 @@ defmodule SnmpKit.SnmpMgr do
   end
 
   @doc """
-  Performs an SNMP BULK WALK operation and returns formatted results.
+  Performs an SNMP BULK WALK operation and returns raw results with type information.
 
-  Returns a list of {oid, formatted_value} tuples where values are automatically
-  formatted based on their SNMP types.
+  Returns a list of {oid_string, type, raw_value} tuples where:
+  - oid_string: OID formatted as dotted decimal string
+  - type: SNMP type atom (:string, :integer, :gauge32, etc.)
+  - raw_value: Raw unformatted value from SNMP response
+
+  ## Examples
+
+      # Bulk walk interface table with raw values
+      {:ok, results} = SnmpMgr.bulk_walk("192.168.1.1", "1.3.6.1.2.1.2.2")
+      # Returns: [
+      #   {"1.3.6.1.2.1.2.2.1.2.1", :octet_string, "eth0"},
+      #   {"1.3.6.1.2.1.2.2.1.5.1", :gauge32, 1000000000},
+      #   ...
+      # ]
+
+  """
+  @spec bulk_walk(target(), oid(), opts()) ::
+          {:ok, [{String.t(), atom(), any()}]} | {:error, any()}
+  def bulk_walk(target, oid, opts \\ []) do
+    case SnmpKit.SnmpMgr.AdaptiveWalk.bulk_walk(target, oid, opts) do
+      {:ok, results} ->
+        formatted_results =
+          Enum.map(results, fn {oid_list, type, value} ->
+            # Convert OID list to dotted string format
+            oid_string =
+              case oid_list do
+                oid when is_list(oid) -> Enum.join(oid, ".")
+                oid when is_binary(oid) -> oid
+              end
+
+            {oid_string, type, value}
+          end)
+
+        {:ok, formatted_results}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Performs an SNMP BULK WALK operation and returns formatted results with type information.
+
+  Returns a list of {oid_string, type, formatted_value} tuples where:
+  - oid_string: OID formatted as dotted decimal string
+  - type: SNMP type atom (:string, :integer, :gauge32, etc.)
+  - formatted_value: Human-readable formatted value
 
   ## Examples
 
       # Bulk walk interface table with automatic formatting
       {:ok, results} = SnmpMgr.bulk_walk_pretty("192.168.1.1", "1.3.6.1.2.1.2.2")
-      # Returns: [{"1.3.6.1.2.1.2.2.1.2.1", "eth0"}, {"1.3.6.1.2.1.2.2.1.5.1", "1 Gbps"}, ...]
+      # Returns: [
+      #   {"1.3.6.1.2.1.2.2.1.2.1", :octet_string, "eth0"},
+      #   {"1.3.6.1.2.1.2.2.1.5.1", :gauge32, "1 Gbps"},
+      #   ...
+      # ]
 
   """
   @spec bulk_walk_pretty(target(), oid(), opts()) ::
-          {:ok, [{String.t(), String.t()}]} | {:error, any()}
+          {:ok, [{String.t(), atom(), String.t()}]} | {:error, any()}
   def bulk_walk_pretty(target, oid, opts \\ []) do
-    case SnmpKit.SnmpMgr.AdaptiveWalk.bulk_walk(target, oid, opts) do
+    case bulk_walk(target, oid, opts) do
       {:ok, results} ->
         formatted_results =
-          Enum.map(results, fn {oid, type, value} ->
+          Enum.map(results, fn {oid_string, type, value} ->
             formatted_value = SnmpKit.SnmpMgr.Format.format_by_type(type, value)
-            {oid, formatted_value}
+            {oid_string, type, formatted_value}
           end)
 
         {:ok, formatted_results}

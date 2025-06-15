@@ -311,16 +311,41 @@ defmodule SnmpKit.SnmpMgr.Core do
   """
   @spec parse_oid(oid()) :: {:ok, list(non_neg_integer())} | {:error, term()}
   def parse_oid(oid) do
-    # Try MIB registry first for symbolic names like "sysDescr.0"
-    case try_mib_resolution(oid) do
-      {:ok, oid_list} ->
-        {:ok, oid_list}
+    # Handle empty OID case - empty OID means start from MIB root
+    case oid do
+      [] ->
+        {:ok, [1, 3]}
 
-      {:error, _} ->
-        # Fall back to basic OID parsing for numeric strings and lists
-        case SnmpKit.SnmpLib.OID.normalize(oid) do
-          {:ok, oid_list} -> {:ok, oid_list}
-          {:error, reason} -> {:error, reason}
+      "" ->
+        {:ok, [1, 3]}
+
+      [1] ->
+        # Single element [1] is invalid in SNMP, use [1,3] instead
+        {:ok, [1, 3]}
+
+      _ ->
+        # Try MIB registry first for symbolic names like "sysDescr.0"
+        case try_mib_resolution(oid) do
+          {:ok, oid_list} ->
+            # Handle empty result from MIB resolution
+            case oid_list do
+              [] -> {:ok, [1, 3]}
+              _ -> {:ok, oid_list}
+            end
+
+          {:error, _} ->
+            # Fall back to basic OID parsing for numeric strings and lists
+            case SnmpKit.SnmpLib.OID.normalize(oid) do
+              {:ok, oid_list} ->
+                # Handle empty result from normalization
+                case oid_list do
+                  [] -> {:ok, [1, 3]}
+                  _ -> {:ok, oid_list}
+                end
+
+              {:error, reason} ->
+                {:error, reason}
+            end
         end
     end
   end
@@ -333,10 +358,17 @@ defmodule SnmpKit.SnmpMgr.Core do
   end
 
   defp try_mib_resolution(oid) when is_list(oid) do
-    # For lists, validate directly
-    case SnmpKit.SnmpLib.OID.valid_oid?(oid) do
-      :ok -> {:ok, oid}
-      error -> error
+    # For lists, handle empty case and validate directly
+    case oid do
+      # Let the caller handle empty OID conversion
+      [] ->
+        {:ok, []}
+
+      _ ->
+        case SnmpKit.SnmpLib.OID.valid_oid?(oid) do
+          :ok -> {:ok, oid}
+          error -> error
+        end
     end
   end
 

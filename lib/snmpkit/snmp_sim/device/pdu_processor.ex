@@ -35,7 +35,8 @@ defmodule SnmpKit.SnmpSim.Device.PduProcessor do
       end
     else
       Logger.debug("Processing PDU with legacy processor for device #{state.device_type}")
-      Logger.debug("PDU varbinds: #{inspect(pdu.variable_bindings)}")
+      varbinds_for_debug = Map.get(pdu, :varbinds, Map.get(pdu, :variable_bindings, []))
+      Logger.debug("PDU varbinds: #{inspect(varbinds_for_debug)}")
       # Original complex processing for non-walk devices
       case pdu.type do
         :get_request ->

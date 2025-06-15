@@ -521,8 +521,7 @@ defmodule SnmpKit.SnmpLib.Manager do
   end
 
   defp send_and_receive(socket, host, port, packet, timeout) do
-    Logger.debug("Sending SNMP packet to #{inspect(host)}:#{port}")
-
+    # Normal send-and-receive flow
     with :ok <- SnmpKit.SnmpLib.Transport.send_packet(socket, host, port, packet) do
       Logger.debug("Packet sent successfully, waiting for response (timeout: #{timeout}ms)")
 
@@ -532,16 +531,16 @@ defmodule SnmpKit.SnmpLib.Manager do
           {:ok, response_packet}
 
         {:error, :timeout} = timeout_error ->
-          Logger.debug("Transport timeout after #{timeout}ms")
+          Logger.debug("Timeout waiting for response after #{timeout}ms")
           timeout_error
 
         {:error, reason} ->
-          Logger.debug("Transport error: #{inspect(reason)}")
+          Logger.debug("Error receiving response: #{inspect(reason)}")
           {:error, {:network_error, reason}}
       end
     else
       {:error, reason} ->
-        Logger.debug("Send packet failed: #{inspect(reason)}")
+        Logger.debug("Error sending packet: #{inspect(reason)}")
         {:error, {:network_error, reason}}
     end
   end

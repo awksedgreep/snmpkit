@@ -7,11 +7,7 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
   """
 
   @default_initial_bulk_size 10
-  @default_max_bulk_size 50
-  @default_min_bulk_size 1
-  # milliseconds
-  @default_performance_threshold 100
-  @default_max_entries 10_000
+  @default_max_entries 1_000
 
   @doc """
   Performs an adaptive bulk walk that automatically tunes parameters.
@@ -42,17 +38,18 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
       # [{"1.3.6.1.2.1.1.1.0", :octet_string, "Cisco IOS Software, Version 15.1"}]
   """
   def bulk_walk(target, root_oid, opts \\ []) do
-    adaptive_tuning = Keyword.get(opts, :adaptive_tuning, true)
     max_entries = Keyword.get(opts, :max_entries, @default_max_entries)
 
     case resolve_oid(root_oid) do
       {:ok, start_oid} ->
-        if adaptive_tuning do
-          adaptive_bulk_walk(target, start_oid, start_oid, [], max_entries, opts)
-        else
-          # Fall back to regular bulk walk
-          SnmpKit.SnmpMgr.Bulk.walk_bulk(target, root_oid, opts)
-        end
+        # Handle empty OID by using standard MIB-II subtree
+        {actual_start_oid, filter_oid} =
+          case start_oid do
+            [] -> {[1, 3], []}
+            _ -> {start_oid, start_oid}
+          end
+
+        simple_bulk_walk(target, actual_start_oid, filter_oid, [], max_entries, opts)
 
       error ->
         error
@@ -186,53 +183,10 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
 
   # Private functions
 
-  defp adaptive_bulk_walk(target, current_oid, root_oid, acc, remaining, opts)
+  # Simple recursive PDU processor
+  defp simple_bulk_walk(target, current_oid, filter_oid, acc, remaining, opts)
        when remaining > 0 do
-    # Start with conservative bulk size
-    initial_bulk_size = Keyword.get(opts, :initial_bulk_size, @default_initial_bulk_size)
-
-    performance_threshold =
-      Keyword.get(opts, :performance_threshold, @default_performance_threshold)
-
-    # Initialize adaptive state
-    state = %{
-      current_bulk_size: initial_bulk_size,
-      consecutive_successes: 0,
-      consecutive_errors: 0,
-      avg_response_time: nil,
-      total_requests: 0
-    }
-
-    adaptive_walk_loop(
-      target,
-      current_oid,
-      root_oid,
-      acc,
-      remaining,
-      opts,
-      state,
-      performance_threshold
-    )
-  end
-
-  defp adaptive_bulk_walk(_target, _current_oid, _root_oid, acc, 0, _opts) do
-    {:ok, Enum.reverse(acc)}
-  end
-
-  defp adaptive_walk_loop(
-         target,
-         current_oid,
-         root_oid,
-         acc,
-         remaining,
-         opts,
-         state,
-         performance_threshold
-       ) do
-    bulk_size = max(1, min(state.current_bulk_size, remaining))
-
-    # Measure request time
-    start_time = System.monotonic_time(:millisecond)
+    bulk_size = min(remaining, Keyword.get(opts, :max_repetitions, 10))
 
     bulk_opts =
       opts
@@ -241,115 +195,113 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
 
     case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, current_oid, bulk_opts) do
       {:ok, results} ->
-        end_time = System.monotonic_time(:millisecond)
-        response_time = end_time - start_time
-
-        # Filter results within scope
-        {in_scope, next_oid} = filter_scope_results(results, root_oid)
-
-        if Enum.empty?(in_scope) or next_oid == nil do
+        # Check for end of MIB conditions first
+        if has_end_of_mib?(results) do
           {:ok, Enum.reverse(acc)}
         else
-          # Update adaptive state based on performance
-          new_state =
-            update_adaptive_state(state, response_time, length(in_scope), performance_threshold)
+          # Filter results based on base OID
+          filtered_results = filter_results_by_base_oid(results, filter_oid)
 
-          new_acc = Enum.reverse(in_scope) ++ acc
-          new_remaining = remaining - length(in_scope)
+          # Stop if no more results in scope
+          if Enum.empty?(filtered_results) do
+            {:ok, Enum.reverse(acc)}
+          else
+            # Get next OID for continuation
+            next_oid = get_next_oid(results)
 
-          adaptive_walk_loop(
-            target,
-            next_oid,
-            root_oid,
-            new_acc,
-            new_remaining,
-            opts,
-            new_state,
-            performance_threshold
-          )
+            # Stop if we can't determine next OID or if it's the same (no progress)
+            if next_oid == nil or next_oid == current_oid do
+              {:ok, Enum.reverse(acc)}
+            else
+              # Add filtered results to accumulator
+              new_acc = Enum.reverse(filtered_results) ++ acc
+              new_remaining = remaining - length(filtered_results)
+
+              # Continue recursively
+              simple_bulk_walk(target, next_oid, filter_oid, new_acc, new_remaining, opts)
+            end
+          end
         end
+
+      {:error, :endOfMibView} ->
+        {:ok, Enum.reverse(acc)}
+
+      {:error, :noSuchName} ->
+        {:ok, Enum.reverse(acc)}
 
       {:error, _} = error ->
-        # Handle error by reducing bulk size
-        new_state = handle_walk_error(state)
+        error
+    end
+  end
 
-        if new_state.current_bulk_size < @default_min_bulk_size do
-          error
-        else
-          adaptive_walk_loop(
-            target,
-            current_oid,
-            root_oid,
-            acc,
-            remaining,
-            opts,
-            new_state,
-            performance_threshold
-          )
+  defp simple_bulk_walk(_target, _current_oid, _filter_oid, acc, 0, _opts) do
+    {:ok, Enum.reverse(acc)}
+  end
+
+  # Check if any result contains end-of-MIB indicators
+  defp has_end_of_mib?(results) do
+    Enum.any?(results, fn result ->
+      case result do
+        {_oid, :endOfMibView, _} -> true
+        {_oid, :noSuchObject, _} -> true
+        {_oid, :noSuchInstance, _} -> true
+        _ -> false
+      end
+    end)
+  end
+
+  # Filter results to only include those within the base OID scope
+  defp filter_results_by_base_oid(results, filter_oid) do
+    Enum.filter(results, fn result ->
+      case result do
+        {oid_list, _type, _value} when is_list(oid_list) ->
+          oid_in_scope?(oid_list, filter_oid)
+
+        {oid_string, _type, _value} when is_binary(oid_string) ->
+          case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
+            {:ok, oid_list} -> oid_in_scope?(oid_list, filter_oid)
+            _ -> false
+          end
+
+        _ ->
+          false
+      end
+    end)
+  end
+
+  # Get the next OID for continuing the walk
+  defp get_next_oid(results) do
+    case List.last(results) do
+      {oid_list, _type, _value} when is_list(oid_list) ->
+        oid_list
+
+      {oid_string, _type, _value} when is_binary(oid_string) ->
+        case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
+          {:ok, oid_list} -> oid_list
+          _ -> nil
         end
+
+      _ ->
+        nil
+    end
+  end
+
+  # Check if OID is within scope of the filter OID
+  defp oid_in_scope?(oid_list, filter_oid) do
+    case filter_oid do
+      [] ->
+        # Empty filter means accept everything
+        true
+
+      _ ->
+        # Check if OID starts with filter OID
+        List.starts_with?(oid_list, filter_oid)
     end
   end
 
   defp adaptive_table_walk(target, current_oid, root_oid, acc, remaining, opts) do
-    # Similar to adaptive_bulk_walk but optimized for table structure
-    adaptive_bulk_walk(target, current_oid, root_oid, acc, remaining, opts)
-  end
-
-  defp update_adaptive_state(state, response_time, result_count, performance_threshold) do
-    new_avg_time =
-      if state.avg_response_time do
-        (state.avg_response_time + response_time) / 2
-      else
-        response_time
-      end
-
-    new_state = %{
-      state
-      | avg_response_time: new_avg_time,
-        total_requests: state.total_requests + 1
-    }
-
-    cond do
-      # Response time too high, reduce bulk size
-      response_time > performance_threshold and state.current_bulk_size > @default_min_bulk_size ->
-        %{
-          new_state
-          | current_bulk_size: max(@default_min_bulk_size, state.current_bulk_size - 5),
-            consecutive_successes: 0,
-            consecutive_errors: state.consecutive_errors + 1
-        }
-
-      # Good performance and full result set, try increasing bulk size
-      response_time < performance_threshold / 2 and
-        result_count == state.current_bulk_size and
-          state.current_bulk_size < @default_max_bulk_size ->
-        %{
-          new_state
-          | current_bulk_size: min(@default_max_bulk_size, state.current_bulk_size + 5),
-            consecutive_successes: state.consecutive_successes + 1,
-            consecutive_errors: 0
-        }
-
-      # Stable performance
-      true ->
-        %{
-          new_state
-          | consecutive_successes: state.consecutive_successes + 1,
-            consecutive_errors: 0
-        }
-    end
-  end
-
-  defp handle_walk_error(state) do
-    # Reduce bulk size on error
-    new_bulk_size = max(@default_min_bulk_size, div(state.current_bulk_size, 2))
-
-    %{
-      state
-      | current_bulk_size: new_bulk_size,
-        consecutive_errors: state.consecutive_errors + 1,
-        consecutive_successes: 0
-    }
+    # Use simple bulk walk for table operations too
+    simple_bulk_walk(target, current_oid, root_oid, acc, remaining, opts)
   end
 
   defp benchmark_bulk_size(target, oid_list, bulk_size, iterations, opts) do
@@ -407,46 +359,6 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
     }
   end
 
-  defp filter_scope_results(results, root_oid) do
-    in_scope_results =
-      results
-      |> Enum.filter(fn
-        # Handle 3-tuple format (preferred - from snmp_lib v1.0.5+)
-        {oid_string, _type, _value} ->
-          case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
-            {:ok, oid_list} -> List.starts_with?(oid_list, root_oid)
-            _ -> false
-          end
-
-        # Handle 2-tuple format (backward compatibility)
-        {oid_string, _value} ->
-          case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
-            {:ok, oid_list} -> List.starts_with?(oid_list, root_oid)
-            _ -> false
-          end
-      end)
-
-    next_oid =
-      case List.last(results) do
-        {oid_string, _type, _value} ->
-          case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
-            {:ok, oid_list} -> oid_list
-            _ -> nil
-          end
-
-        {oid_string, _value} ->
-          case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
-            {:ok, oid_list} -> oid_list
-            _ -> nil
-          end
-
-        _ ->
-          nil
-      end
-
-    {in_scope_results, next_oid}
-  end
-
   defp determine_default_bulk_size(target) do
     # Simple heuristic based on target type
     cond do
@@ -458,19 +370,27 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
   end
 
   defp resolve_oid(oid) when is_binary(oid) do
-    case SnmpKit.SnmpLib.OID.string_to_list(oid) do
-      {:ok, oid_list} ->
-        {:ok, oid_list}
+    case oid do
+      "" ->
+        # Empty string means start from MIB root
+        {:ok, []}
 
-      {:error, _} ->
-        # Try as symbolic name
-        case SnmpKit.SnmpMgr.MIB.resolve(oid) do
-          {:ok, resolved_oid} -> {:ok, resolved_oid}
-          error -> error
+      _ ->
+        case SnmpKit.SnmpLib.OID.string_to_list(oid) do
+          {:ok, oid_list} ->
+            {:ok, oid_list}
+
+          {:error, _} ->
+            # Try as symbolic name
+            case SnmpKit.SnmpMgr.MIB.resolve(oid) do
+              {:ok, resolved_oid} -> {:ok, resolved_oid}
+              error -> error
+            end
         end
     end
   end
 
   defp resolve_oid(oid) when is_list(oid), do: {:ok, oid}
+
   defp resolve_oid(_), do: {:error, :invalid_oid_format}
 end

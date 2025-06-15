@@ -25,7 +25,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
   describe "SnmpMgr Full Integration" do
     test "get/3 complete integration flow", %{device: device} do
-      skip_if_no_device(device)
 
       # Test complete flow through all layers: API -> Core -> SnmpKit.SnmpLib.Manager
       result =
@@ -54,7 +53,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "set/4 complete integration flow", %{device: device} do
-      skip_if_no_device(device)
 
       # Test SET operation through snmp_lib
       result =
@@ -76,7 +74,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "get_bulk/3 complete integration flow", %{device: device} do
-      skip_if_no_device(device)
 
       # Test GET-BULK operation through SnmpKit.SnmpLib.Manager
       result =
@@ -100,7 +97,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "walk/3 complete integration flow", %{device: device} do
-      skip_if_no_device(device)
 
       # Test WALK operation through snmp_lib integration
       result =
@@ -131,7 +127,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "get_next/3 complete integration flow", %{device: device} do
-      skip_if_no_device(device)
 
       # Test GET-NEXT operation through SnmpKit.SnmpLib.Manager
       result =
@@ -156,7 +151,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
   describe "SnmpMgr Multi-Operation Integration" do
     test "get_multi/1 processes multiple requests", %{device: device} do
-      skip_if_no_device(device)
 
       # Use same device with different OIDs for multi-operation testing
       requests = [
@@ -187,7 +181,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "get_bulk_multi/1 processes multiple bulk requests", %{device: device} do
-      skip_if_no_device(device)
 
       # Use same device with different OID trees for bulk testing
       requests = [
@@ -218,7 +211,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
   describe "SnmpMgr Configuration Integration" do
     test "global configuration affects operations", %{device: device} do
-      skip_if_no_device(device)
 
       # Set custom defaults using simulator community
       SnmpKit.SnmpMgr.Config.set_default_community(device.community)
@@ -236,7 +228,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "request options override configuration", %{device: device} do
-      skip_if_no_device(device)
 
       # Set one default
       SnmpKit.SnmpMgr.Config.set_default_timeout(200)
@@ -275,7 +266,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
   describe "SnmpMgr OID Processing Integration" do
     test "string OIDs processed through SnmpKit.SnmpLib.OID", %{device: device} do
-      skip_if_no_device(device)
 
       # Test various OID formats through SnmpKit.SnmpLib.OID integration
       oid_formats = [
@@ -297,7 +287,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "list OIDs processed through SnmpKit.SnmpLib.OID", %{device: device} do
-      skip_if_no_device(device)
 
       # Test list format OIDs
       list_oids = [
@@ -319,7 +308,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "symbolic OIDs through MIB integration", %{device: device} do
-      skip_if_no_device(device)
 
       # Test symbolic OIDs that should resolve through MIB integration
       symbolic_oids = [
@@ -341,7 +329,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "invalid OIDs handled properly", %{device: device} do
-      skip_if_no_device(device)
 
       invalid_oids = [
         "invalid.oid.format",
@@ -407,7 +394,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "timeout handling through snmp_lib", %{device: device} do
-      skip_if_no_device(device)
 
       # Test timeout behavior through snmp_lib with simulator
       timeouts = [1, 10, 50, 200]
@@ -451,7 +437,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "community string validation", %{device: device} do
-      skip_if_no_device(device)
 
       # Test community string handling through snmp_lib
       communities = [device.community, "wrong_community", ""]
@@ -481,7 +466,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
   describe "SnmpMgr Version Compatibility Integration" do
     test "SNMPv1 operations through snmp_lib", %{device: device} do
-      skip_if_no_device(device)
 
       # Test SNMPv1 operations
       result =
@@ -496,7 +480,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "SNMPv2c operations through snmp_lib", %{device: device} do
-      skip_if_no_device(device)
 
       # Test SNMPv2c operations
       result =
@@ -522,7 +505,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "bulk operations require v2c", %{device: device} do
-      skip_if_no_device(device)
 
       # Bulk operations should work with v2c
       result_v2c =
@@ -549,7 +531,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "walk adapts to version", %{device: device} do
-      skip_if_no_device(device)
 
       # Walk should adapt behavior based on version
       result_v1 =
@@ -597,7 +578,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
   describe "SnmpMgr Performance Integration" do
     test "concurrent operations through snmp_lib", %{device: device} do
-      skip_if_no_device(device)
 
       # Test concurrent operations to validate snmp_lib integration
       tasks =
@@ -621,7 +601,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "rapid sequential operations", %{device: device} do
-      skip_if_no_device(device)
 
       # Test rapid operations to ensure snmp_lib handles them properly
       start_time = System.monotonic_time(:millisecond)
@@ -649,7 +628,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "memory usage with many operations", %{device: device} do
-      skip_if_no_device(device)
 
       # Test memory usage during many operations
       initial_memory = :erlang.memory(:total)
@@ -678,7 +656,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
   describe "SnmpMgr Components Integration Test" do
     test "all components work together", %{device: device} do
-      skip_if_no_device(device)
 
       # Test that all SnmpMgr components integrate properly with snmp_lib
 
@@ -732,10 +709,4 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
   end
 
   # Helper functions
-  defp skip_if_no_device(nil), do: {:skip, "SNMP simulator not available"}
-
-  defp skip_if_no_device(%{setup_error: error}),
-    do: {:skip, "Setup error: #{inspect(error)}"}
-
-  defp skip_if_no_device(_device), do: :ok
 end
