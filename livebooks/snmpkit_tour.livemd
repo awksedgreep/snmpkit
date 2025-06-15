@@ -1,16 +1,15 @@
 # SnmpKit Interactive Tour 🚀
 
-## Welcome to SnmpKit v0.3.1!
+Welcome to SnmpKit v0.3.0!
 
 This interactive Livebook will take you on a comprehensive tour of SnmpKit's new **unified API**. We'll start by creating a simulated SNMP device and then demonstrate all the powerful features against our own simulation - no external network required!
 
 **What you'll learn:**
-
-* 🎯 **Unified API** - Clean, context-based modules
-* 📡 **SNMP Operations** - get, walk, bulk, multi-target
-* 📚 **MIB Management** - resolution, compilation, tree navigation
-* 🧪 **Device Simulation** - realistic testing environments
-* ⚡ **Advanced Features** - streaming, performance, analytics
+- 🎯 **Unified API** - Clean, context-based modules
+- 📡 **SNMP Operations** - get, walk, bulk, multi-target
+- 📚 **MIB Management** - resolution, compilation, tree navigation
+- 🧪 **Device Simulation** - realistic testing environments
+- ⚡ **Advanced Features** - streaming, performance, analytics
 
 Let's get started! 🚀
 
@@ -20,7 +19,7 @@ First, let's install SnmpKit and configure our environment:
 
 ```elixir
 Mix.install([
-  {:snmpkit, "~> 0.3.1"}
+  {:snmpkit, "~> 0.3.0"}
 ])
 
 # Configure logging for our tour
@@ -40,31 +39,12 @@ Before we can demonstrate SNMP operations, let's create our own simulated networ
 ### Create a Cable Modem Simulation
 
 ```elixir
-# First, let's load a cable modem profile
-# This creates a realistic DOCSIS cable modem with hundreds of OIDs
-# {:ok, cable_modem_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
-#   :cable_modem
-#   # {:walk_file, "priv/walks/cable_modem.walk"}
-# )
-
-# # Start our simulated cable modem on port 1161
-# {:ok, cable_modem} = Sim.start_device("cm", [
-#   port: 1161,
-#   community: "public"
-# ])
-
-# # Define our target for easy reference
-# cable_modem_target = "127.0.0.1:1161"
-
-# IO.puts("✅ Cable modem simulation started on #{cable_modem_target}")
-# IO.puts("🎯 Ready for SNMP operations!")
-
-# Create a cable modem with essential DOCSIS OIDs
+# Create a realistic DOCSIS cable modem with essential OIDs
 cable_modem_oids = %{
   # System Group
   "1.3.6.1.2.1.1.1.0" => "ARRIS SURFboard SB8200 DOCSIS 3.1 Cable Modem",
   "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.4115.1.20.1.1.2.25",
-  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 12345600},
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 0},
   "1.3.6.1.2.1.1.4.0" => "admin@example.com",
   "1.3.6.1.2.1.1.5.0" => "cm-001",
   "1.3.6.1.2.1.1.6.0" => "Home Network",
@@ -91,20 +71,24 @@ cable_modem_oids = %{
   "1.3.6.1.2.1.2.2.1.17.1" => %{type: "Counter32", value: 8000},     # ifOutUcastPkts
 }
 
-# Create the profile
-{:ok, cm_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
+# Create the cable modem profile
+{:ok, cable_modem_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
   :cable_modem,
   {:manual, cable_modem_oids},
   behaviors: [:counter_increment, :time_based_changes]
 )
 
-# Start the simulated cable modem
-{:ok, cable_modem} = SnmpKit.Sim.start_device(cm_profile, port: 1161)
+# Start our simulated cable modem on port 1161
+{:ok, cable_modem} = Sim.start_device(cable_modem_profile, [
+  port: 1161,
+  community: "public"
+])
 
-# Test it
-{:ok, description} = SnmpKit.SNMP.get("127.0.0.1:1161", "1.3.6.1.2.1.1.1.0")
-IO.puts("Cable Modem: #{description}")
+# Define our target for easy reference
+cable_modem_target = "127.0.0.1:1161"
 
+IO.puts("✅ Cable modem simulation started on #{cable_modem_target}")
+IO.puts("🎯 Ready for SNMP operations!")
 ```
 
 ### Create a Router Simulation
@@ -293,25 +277,7 @@ IO.puts("  Interface 1: #{router_if1_desc}")
 IO.puts("  Interface 2: #{router_if2_desc}")
 ```
 
-# Get interface table (structured data)
-{:ok, if_table} = SNMP.get_table(cable_modem_target, "ifTable")
-IO.puts("Interface table has #{length(if_table)} entries")
-
-# Display interface information
-if_table
-|> Enum.take(2)
-|> Enum.with_index(1)
-|> Enum.each(fn {interface, index} ->
-  IO.puts("\nInterface #{index}:")
-  interface
-  |> Enum.take(5)
-  |> Enum.each(fn {oid, value} ->
-    IO.puts("  #{oid}: #{value}")
-  end)
-end)
-```
-
-### Bulk Operations for Efficiency
+### Bulk Operations
 
 For large amounts of data, bulk operations are much more efficient:
 
@@ -461,505 +427,11 @@ end)
 IO.puts("\nParent of sysDescr.0: #{Enum.join(parent_oid, ".")} (#{parent_name})")
 ```
 
-### Integration: MIB + SNMP Operations
-
-Let's combine MIB resolution with SNMP operations for powerful network monitoring:
-
-```elixir
-IO.puts("\n=== MIB + SNMP Integration ===\n")
-
-# Define monitoring objects by name (more readable)
-monitoring_objects = [
-  "sysDescr.0",
-  "sysUpTime.0",
-  "sysContact.0",
-  "ifNumber.0"
-]
-
-IO.puts("Network monitoring using named objects:")
-Enum.each(monitoring_objects, fn object_name ->
-  case MIB.resolve(object_name) do
-    {:ok, oid} ->
-      case SNMP.get(cable_modem_target, object_name) do
-        {:ok, value} ->
-          IO.puts("  ✅ #{object_name}: #{value}")
-        {:error, reason} ->
-          IO.puts("  ❌ #{object_name}: #{inspect(reason)}")
-      end
-    {:error, reason} ->
-      IO.puts("  ❌ #{object_name}: MIB resolution failed - #{reason}")
-  end
-end)
-```
-
-### Enterprise MIB Support
-
-SnmpKit includes support for enterprise-specific MIBs:
-
-```elixir
-IO.puts("\n=== Enterprise MIB Support ===\n")
-
-# Try some enterprise-specific OIDs (these work with our simulated devices)
-enterprise_objects = [
-  "enterprises",
-  "snmpV2",
-  "mib-2"
-]
-
-IO.puts("Enterprise MIB objects:")
-Enum.each(enterprise_objects, fn name ->
-  case MIB.resolve(name) do
-    {:ok, oid} ->
-      IO.puts("  #{name} → #{Enum.join(oid, ".")}")
-    {:error, reason} ->
-      IO.puts("  #{name} → #{reason}")
-  end
-end)
-```
-
-## Chapter 4: Advanced SNMP Features ⚡
-
-Let's explore some of SnmpKit's advanced features for high-performance and large-scale operations.
-
-### Streaming Operations
-
-For very large datasets, streaming prevents memory issues:
-
-```elixir
-IO.puts("=== Streaming Operations ===\n")
-
-# Create a stream for large interface walks
-interface_stream = SNMP.walk_stream(cable_modem_target, "interfaces")
-
-# Process the stream efficiently
-results = interface_stream
-|> Stream.take(10)  # Just take first 10 for demo
-|> Enum.to_list()
-
-IO.puts("Streamed #{length(results)} interface objects:")
-results
-|> Enum.take(3)
-|> Enum.each(fn {oid, value} ->
-  IO.puts("  #{oid}: #{inspect(value)}")
-end)
-
-# Table streaming for structured data
-table_stream = SNMP.table_stream(cable_modem_target, "ifTable")
-table_results = table_stream |> Stream.take(5) |> Enum.to_list()
-IO.puts("\nStreamed #{length(table_results)} table entries")
-```
-
-### Performance Analysis
-
-SnmpKit includes tools for analyzing and optimizing SNMP performance:
-
-```elixir
-IO.puts("\n=== Performance Analysis ===\n")
-
-# Benchmark a device's performance characteristics
-{:ok, benchmark} = SNMP.benchmark_device(cable_modem_target, "system")
-IO.puts("Device benchmark results:")
-IO.puts("  Optimal bulk size: #{benchmark.optimal_bulk_size}")
-IO.puts("  Average response time: #{benchmark.avg_response_time}ms")
-IO.puts("  Success rate: #{benchmark.success_rate}%")
-
-# Analyze table data for insights
-{:ok, if_table} = SNMP.get_table(cable_modem_target, "ifTable")
-{:ok, analysis} = SNMP.analyze_table(if_table)
-IO.puts("\nInterface table analysis:")
-IO.puts("  Completeness: #{analysis.completeness}%")
-IO.puts("  Total entries: #{analysis.total_entries}")
-```
-
-### Async Operations
-
-For non-blocking operations, use the async versions:
-
-```elixir
-IO.puts("\n=== Async Operations ===\n")
-
-# Start multiple async operations
-async_tasks = [
-  SNMP.get_async(cable_modem_target, "sysDescr.0"),
-  SNMP.get_async(router_target, "sysDescr.0"),
-  SNMP.walk_async(cable_modem_target, "system"),
-  SNMP.get_bulk_async(router_target, "interfaces")
-]
-
-# Wait for all to complete
-results = Enum.map(async_tasks, &Task.await(&1, 5000))
-
-IO.puts("Async operations completed:")
-results
-|> Enum.with_index()
-|> Enum.each(fn {result, index} ->
-  case result do
-    {:ok, data} when is_list(data) ->
-      IO.puts("  Task #{index + 1}: ✅ #{length(data)} items")
-    {:ok, data} ->
-      IO.puts("  Task #{index + 1}: ✅ #{inspect(data)}")
-    {:error, reason} ->
-      IO.puts("  Task #{index + 1}: ❌ #{inspect(reason)}")
-  end
-end)
-```
-
-## Chapter 5: SnmpKit.Sim - Device Simulation 🧪
-
-One of SnmpKit's most unique features is comprehensive device simulation. Let's explore the simulation capabilities!
-
-### Creating Device Populations
-
-```elixir
-IO.puts("=== Device Population Simulation ===\n")
-
-# Create a population of different device types
-device_configs = [
-  %{type: :cable_modem, port: 2001, community: "public"},
-  %{type: :cable_modem, port: 2002, community: "public"},
-  %{type: :switch, port: 2003, community: "private"},
-  %{type: :router, port: 2004, community: "public"}
-]
-
-{:ok, device_population} = Sim.start_device_population(device_configs)
-IO.puts("Started #{length(device_population)} simulated devices")
-
-# Test the population
-population_targets = [
-  "127.0.0.1:2001",
-  "127.0.0.1:2002",
-  "127.0.0.1:2003",
-  "127.0.0.1:2004"
-]
-
-IO.puts("\nTesting device population:")
-Enum.each(population_targets, fn target ->
-  case SNMP.get(target, "sysDescr.0", timeout: 1000) do
-    {:ok, description} ->
-      IO.puts("  ✅ #{target}: #{description}")
-    {:error, reason} ->
-      IO.puts("  ❌ #{target}: #{inspect(reason)}")
-  end
-end)
-```
-
-### Simulation with Real Device Data
-
-Our simulations can load real device walk files for authentic behavior:
-
-```elixir
-IO.puts("\n=== Real Device Data Simulation ===\n")
-
-# The simulated devices are loaded from actual SNMP walks
-# This means they respond with realistic data and OID trees
-
-# Let's explore what's available on our cable modem
-{:ok, cable_modem_system} = SNMP.walk(cable_modem_target, "system")
-IO.puts("Cable modem system group has #{length(cable_modem_system)} objects")
-
-# Look for DOCSIS-specific OIDs (cable modem technology)
-docsis_tests = [
-  "1.3.6.1.2.1.10.127.1.1.1.1.6.2",  # docsIfDownChannelPower
-  "1.3.6.1.2.1.10.127.1.1.4.1.5.2",  # docsIfSigQSignalNoise
-  "1.3.6.1.2.1.10.127.1.2.2.1.3.2"   # docsIfCmtsCmStatusValue
-]
-
-IO.puts("\nDOCSIS-specific objects:")
-Enum.each(docsis_tests, fn oid ->
-  case SNMP.get(cable_modem_target, oid) do
-    {:ok, value} ->
-      IO.puts("  ✅ #{oid}: #{value}")
-    {:error, reason} ->
-      IO.puts("  ❌ #{oid}: #{inspect(reason)}")
-  end
-end)
-```
-
-## Chapter 6: Direct Access API 🎯
-
-For convenience, SnmpKit provides direct access to common operations without module prefixes:
-
-```elixir
-IO.puts("=== Direct Access API ===\n")
-
-# These functions are available directly on SnmpKit
-{:ok, direct_desc} = SnmpKit.get(cable_modem_target, "sysDescr.0")
-IO.puts("Direct get: #{direct_desc}")
-
-{:ok, direct_oid} = SnmpKit.resolve("sysUpTime.0")
-IO.puts("Direct resolve: #{Enum.join(direct_oid, ".")}")
-
-{:ok, direct_walk} = SnmpKit.walk(cable_modem_target, "system")
-IO.puts("Direct walk: #{length(direct_walk)} objects")
-
-# These are equivalent to their module-prefixed versions
-{:ok, module_desc} = SNMP.get(cable_modem_target, "sysDescr.0")
-{:ok, module_oid} = MIB.resolve("sysUpTime.0")
-
-IO.puts("\nConsistency check:")
-IO.puts("  Direct vs Module get: #{direct_desc == module_desc}")
-IO.puts("  Direct vs Module resolve: #{direct_oid == module_oid}")
-```
-
-## Chapter 7: Real-World Monitoring Scenarios 🌐
-
-Let's put it all together with some realistic network monitoring scenarios:
-
-### Scenario 1: Interface Monitoring
-
-```elixir
-IO.puts("=== Scenario 1: Interface Monitoring ===\n")
-
-# Monitor all interfaces on both devices
-devices = [
-  {cable_modem_target, "Cable Modem"},
-  {router_target, "Router"}
-]
-
-Enum.each(devices, fn {target, name} ->
-  IO.puts("#{name} (#{target}):")
-
-  # Get interface count
-  case SNMP.get(target, "ifNumber.0") do
-    {:ok, if_count} ->
-      IO.puts("  Interfaces: #{if_count}")
-
-      # Get interface details for first interface
-      case SNMP.get(target, "ifDescr.1") do
-        {:ok, if_desc} ->
-          IO.puts("  Interface 1: #{if_desc}")
-
-          # Get traffic counters
-          case SNMP.get(target, "ifInOctets.1") do
-            {:ok, in_octets} ->
-              IO.puts("  Bytes In: #{in_octets}")
-            _ -> nil
-          end
-
-          case SNMP.get(target, "ifOutOctets.1") do
-            {:ok, out_octets} ->
-              IO.puts("  Bytes Out: #{out_octets}")
-            _ -> nil
-          end
-        _ -> nil
-      end
-    _ ->
-      IO.puts("  Unable to query interfaces")
-  end
-
-  IO.puts("")
-end)
-```
-
-### Scenario 2: System Health Check
-
-```elixir
-IO.puts("=== Scenario 2: System Health Check ===\n")
-
-# Define health check objects
-health_checks = [
-  {"sysDescr.0", "System Description"},
-  {"sysUpTime.0", "Uptime"},
-  {"sysContact.0", "Contact"},
-  {"sysLocation.0", "Location"}
-]
-
-# Check both devices
-Enum.each(devices, fn {target, name} ->
-  IO.puts("Health check for #{name}:")
-
-  Enum.each(health_checks, fn {oid, description} ->
-    case SNMP.get(target, oid) do
-      {:ok, value} ->
-        formatted_value = if oid == "sysUpTime.0" do
-          case SNMP.get_pretty(target, oid) do
-            {:ok, pretty} -> pretty
-            _ -> value
-          end
-        else
-          value
-        end
-        IO.puts("  ✅ #{description}: #{formatted_value}")
-      {:error, reason} ->
-        IO.puts("  ❌ #{description}: #{inspect(reason)}")
-    end
-  end)
-
-  IO.puts("")
-end)
-```
-
-### Scenario 3: Bulk Data Collection
-
-```elixir
-IO.puts("=== Scenario 3: Bulk Data Collection ===\n")
-
-# Efficiently collect large amounts of data
-collection_targets = [
-  {cable_modem_target, "interfaces", "Interface data"},
-  {router_target, "system", "System data"}
-]
-
-Enum.each(collection_targets, fn {target, oid_group, description} ->
-  IO.puts("Collecting #{description} from #{target}...")
-
-  start_time = System.monotonic_time(:millisecond)
-
-  case SNMP.bulk_walk(target, oid_group) do
-    {:ok, results} ->
-      end_time = System.monotonic_time(:millisecond)
-      duration = end_time - start_time
-
-      IO.puts("  ✅ Collected #{length(results)} objects in #{duration}ms")
-      IO.puts("  Rate: #{Float.round(length(results) / duration * 1000, 1)} objects/second")
-    {:error, reason} ->
-      IO.puts("  ❌ Collection failed: #{inspect(reason)}")
-  end
-end)
-```
-
-## Chapter 8: Error Handling and Troubleshooting 🔧
-
-Real-world SNMP operations need robust error handling. Let's explore SnmpKit's error handling capabilities:
-
-```elixir
-IO.puts("=== Error Handling Examples ===\n")
-
-# Test various error conditions
-error_tests = [
-  {"Invalid host", "192.0.2.1", "sysDescr.0"},  # RFC 5737 test address
-  {"Invalid OID", cable_modem_target, "1.1.1.1.1.1.1.999"},
-  {"Timeout", cable_modem_target, "sysDescr.0"},  # With very short timeout
-  {"Invalid community", cable_modem_target, "sysDescr.0"}  # Wrong community
-]
-
-Enum.each(error_tests, fn {test_name, target, oid} ->
-  IO.puts("Testing: #{test_name}")
-
-  opts = case test_name do
-    "Timeout" -> [timeout: 1]  # Very short timeout
-    "Invalid community" -> [community: "wrong"]
-    _ -> []
-  end
-
-  case SNMP.get(target, oid, opts) do
-    {:ok, value} ->
-      IO.puts("  Unexpected success: #{value}")
-    {:error, :timeout} ->
-      IO.puts("  ✅ Timeout handled correctly")
-    {:error, {:network_error, reason}} ->
-      IO.puts("  ✅ Network error handled: #{reason}")
-    {:error, reason} ->
-      IO.puts("  ✅ Error handled: #{inspect(reason)}")
-  end
-end)
-```
-
-## Chapter 9: Performance Tips and Best Practices 📈
-
-Let's explore performance optimization and best practices:
-
-```elixir
-IO.puts("=== Performance Best Practices ===\n")
-
-# 1. Use bulk operations for multiple values
-IO.puts("1. Bulk vs Individual Operations:")
-
-# Time individual gets
-start_time = System.monotonic_time(:microsecond)
-individual_results = Enum.map(1..5, fn i ->
-  SNMP.get(cable_modem_target, "ifDescr.#{i}")
-end)
-individual_time = System.monotonic_time(:microsecond) - start_time
-
-# Time bulk operation
-start_time = System.monotonic_time(:microsecond)
-{:ok, bulk_results} = SNMP.bulk_walk(cable_modem_target, "ifDescr")
-bulk_time = System.monotonic_time(:microsecond) - start_time
-
-IO.puts("  Individual gets: #{individual_time}μs")
-IO.puts("  Bulk operation: #{bulk_time}μs")
-if bulk_time < individual_time do
-  IO.puts("  ✅ Bulk is #{Float.round(individual_time / bulk_time, 1)}x faster")
-else
-  IO.puts("  Individual operations were faster (small dataset)")
-end
-
-# 2. Use multi-target for multiple devices
-IO.puts("\n2. Multi-target Operations:")
-multi_start = System.monotonic_time(:microsecond)
-{:ok, _multi_results} = SNMP.get_multi([
-  {cable_modem_target, "sysDescr.0"},
-  {router_target, "sysDescr.0"}
-])
-multi_time = System.monotonic_time(:microsecond) - multi_start
-IO.puts("  Multi-target time: #{multi_time}μs")
-
-# 3. Use appropriate timeouts
-IO.puts("\n3. Timeout Configuration:")
-timeout_tests = [1000, 2000, 5000]
-Enum.each(timeout_tests, fn timeout ->
-  start_time = System.monotonic_time(:millisecond)
-  case SNMP.get(cable_modem_target, "sysDescr.0", timeout: timeout) do
-    {:ok, _} ->
-      actual_time = System.monotonic_time(:millisecond) - start_time
-      IO.puts("  Timeout #{timeout}ms: completed in #{actual_time}ms")
-    {:error, :timeout} ->
-      IO.puts("  Timeout #{timeout}ms: timed out")
-  end
-end)
-```
-
-## Chapter 10: Testing with Simulated Devices 🧪
-
-Perfect for development and CI/CD pipelines:
-
-```elixir
-IO.puts("=== Testing Strategies ===\n")
-
-# Example test function
-defmodule NetworkMonitorTest do
-  def test_device_monitoring(target) do
-    # Test basic connectivity
-    with {:ok, _desc} <- SNMP.get(target, "sysDescr.0"),
-         {:ok, _uptime} <- SNMP.get(target, "sysUpTime.0"),
-         {:ok, interfaces} <- SNMP.walk(target, "interfaces") do
-      %{
-        status: :healthy,
-        interface_count: length(interfaces),
-        timestamp: DateTime.utc_now()
-      }
-    else
-      {:error, reason} ->
-        %{
-          status: :error,
-          reason: reason,
-          timestamp: DateTime.utc_now()
-        }
-    end
-  end
-end
-
-# Test against our simulated devices
-test_targets = [cable_modem_target, router_target]
-
-IO.puts("Running tests against simulated devices:")
-Enum.each(test_targets, fn target ->
-  result = NetworkMonitorTest.test_device_monitoring(target)
-  case result.status do
-    :healthy ->
-      IO.puts("  ✅ #{target}: Healthy (#{result.interface_count} interfaces)")
-    :error ->
-      IO.puts("  ❌ #{target}: Error - #{inspect(result.reason)}")
-  end
-end)
-```
-
-## Chapter 11: Creating Custom Device Simulations 🛠️
+## Chapter 4: Creating Custom Device Simulations 🛠️
 
 One of the most powerful features of SnmpKit is creating realistic device simulations without needing walk files. Let's explore different approaches:
 
-### Method 1: Enterprise Switch Simulation
+### Enterprise Switch Simulation
 
 ```elixir
 IO.puts("=== Creating Enterprise Switch Simulation ===\n")
@@ -1033,7 +505,7 @@ Enum.each([1, 5, 15, 25], fn port ->
 end)
 ```
 
-### Method 2: Wireless Access Point Simulation
+### Wireless Access Point Simulation
 
 ```elixir
 IO.puts("\n=== Creating Wireless Access Point Simulation ===\n")
@@ -1080,209 +552,4 @@ wireless_ap_oids = %{
   # Traffic counters
   "1.3.6.1.2.1.2.2.1.10.2" => %{type: "Counter32", value: 0},  # 2.4GHz RX
   "1.3.6.1.2.1.2.2.1.16.2" => %{type: "Counter32", value: 0},  # 2.4GHz TX
-  "1.3.6.1.2.1.2.2.1.10.3" => %{type: "Counter32", value: 0},  # 5GHz RX
-  "1.3.6.1.2.1.2.2.1.16.3" => %{type: "Counter32", value: 0},  # 5GHz TX
-}
-
-# Create and start the wireless AP
-{:ok, ap_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
-  :wireless_ap,
-  {:manual, wireless_ap_oids},
-  behaviors: [:counter_increment, :wireless_fluctuation]
-)
-
-{:ok, ap_device} = Sim.start_device(ap_profile, port: 1164)
-ap_target = "127.0.0.1:1164"
-
-IO.puts("✅ Wireless AP simulation started on #{ap_target}")
-
-# Test the wireless AP
-{:ok, ap_desc} = SNMP.get(ap_target, "sysDescr.0")
-IO.puts("AP: #{ap_desc}")
-
-# Check wireless interfaces
-wireless_interfaces = [
-  {"wlan0 (2.4GHz)", 2},
-  {"wlan1 (5GHz)", 3}
-]
-
-Enum.each(wireless_interfaces, fn {name, index} ->
-  case SNMP.get(ap_target, "ifDescr.#{index}") do
-    {:ok, desc} ->
-      case SNMP.get(ap_target, "ifOperStatus.#{index}") do
-        {:ok, status} ->
-          status_text = if status == 1, do: "UP", else: "DOWN"
-          IO.puts("  #{desc}: #{status_text}")
-        _ -> nil
-      end
-    _ -> nil
-  end
-end)
-```
-
-### Method 3: Network Printer Simulation
-
-```elixir
-IO.puts("\n=== Creating Network Printer Simulation ===\n")
-
-# Define a realistic enterprise network printer
-printer_oids = %{
-  # System Group
-  "1.3.6.1.2.1.1.1.0" => "HP LaserJet Enterprise 600 M603dn, Firmware: 20190515",
-  "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.11.2.3.9.4.2.1.1.3.2.0",
-  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 0},
-  "1.3.6.1.2.1.1.4.0" => "Print Services <print@company.com>",
-  "1.3.6.1.2.1.1.5.0" => "printer-finance-01",
-  "1.3.6.1.2.1.1.6.0" => "Finance Department - 3rd Floor",
-
-  # Network interface
-  "1.3.6.1.2.1.2.1.0" => 1,
-  "1.3.6.1.2.1.2.2.1.2.1" => "Ethernet",
-  "1.3.6.1.2.1.2.2.1.3.1" => 6,  # ethernetCsmacd
-  "1.3.6.1.2.1.2.2.1.5.1" => %{type: "Gauge32", value: 100000000},  # 100Mbps
-  "1.3.6.1.2.1.2.2.1.8.1" => 1,
-
-  # Printer-specific MIB objects (HP LaserJet)
-  # Printer status
-  "1.3.6.1.2.1.25.3.2.1.5.1" => 3,  # hrPrinterStatus: idle(3)
-  "1.3.6.1.2.1.25.3.2.1.6.1" => 0,  # hrPrinterDetectedErrorState
-
-  # Print engine
-  "1.3.6.1.4.1.11.2.3.9.4.2.1.1.1.1.1" => 3,  # Print engine status: idle
-  "1.3.6.1.4.1.11.2.3.9.4.2.1.1.1.6.1.1" => 52,  # Pages printed (thousands)
-
-  # Supply levels (toner, etc.)
-  "1.3.6.1.2.1.43.11.1.1.9.1.1" => 85,   # Toner level (%)
-  "1.3.6.1.2.1.43.11.1.1.9.1.2" => 40,   # Drum level (%)
-  "1.3.6.1.2.1.43.11.1.1.9.1.3" => 95,   # Fuser level (%)
-
-  # Paper trays
-  "1.3.6.1.2.1.43.8.2.1.10.1.1" => 500,  # Tray 1 capacity
-  "1.3.6.1.2.1.43.8.2.1.11.1.1" => 350,  # Tray 1 current level
-  "1.3.6.1.2.1.43.8.2.1.10.1.2" => 500,  # Tray 2 capacity
-  "1.3.6.1.2.1.43.8.2.1.11.1.2" => 200,  # Tray 2 current level
-
-  # Job statistics
-  "1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.5.0" => %{type: "Counter32", value: 52000},  # Total pages
-  "1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.6.0" => %{type: "Counter32", value: 8500},   # Total jobs
-
-  # Current job info
-  "1.3.6.1.4.1.11.2.3.9.4.2.1.1.1.3.1.1" => 0,  # Current job ID (0 = no job)
-  "1.3.6.1.4.1.11.2.3.9.4.2.1.1.1.5.1.1" => 0,  # Pages remaining
-}
-
-# Create and start the printer
-{:ok, printer_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
-  :printer,
-  {:manual, printer_oids},
-  behaviors: [:supply_depletion, :job_simulation]
-)
-
-{:ok, printer_device} = Sim.start_device(printer_profile, port: 1165)
-printer_target = "127.0.0.1:1165"
-
-IO.puts("✅ Network printer simulation started on #{printer_target}")
-
-# Test the printer
-{:ok, printer_desc} = SNMP.get(printer_target, "sysDescr.0")
-IO.puts("Printer: #{printer_desc}")
-
-# Check printer status and supplies
-printer_checks = [
-  {"Printer Status", "1.3.6.1.2.1.25.3.2.1.5.1"},
-  {"Toner Level", "1.3.6.1.2.1.43.11.1.1.9.1.1"},
-  {"Total Pages", "1.3.6.1.4.1.11.2.3.9.4.2.1.4.1.2.5.0"},
-  {"Tray 1 Paper", "1.3.6.1.2.1.43.8.2.1.11.1.1"}
-]
-
-Enum.each(printer_checks, fn {name, oid} ->
-  case SNMP.get(printer_target, oid) do
-    {:ok, value} ->
-      formatted_value = case name do
-        "Printer Status" when value == 3 -> "#{value} (Idle)"
-        "Toner Level" -> "#{value}%"
-        "Tray 1 Paper" -> "#{value} sheets"
-        _ -> "#{value}"
-      end
-      IO.puts("  #{name}: #{formatted_value}")
-    {:error, reason} ->
-      IO.puts("  #{name}: Error - #{inspect(reason)}")
-  end
-end)
-```
-
-## Chapter 12: Summary and Next Steps 🎯
-
-Congratulations! You've completed the comprehensive SnmpKit tour. Let's summarize what we've covered:
-
-```elixir
-IO.puts("=== SnmpKit Tour Summary ===\n")
-
-# Count all our simulated devices
-all_devices = [
-  {cable_modem_target, "Cable Modem"},
-  {router_target, "Router"},
-  {switch_target, "Enterprise Switch"},
-  {ap_target, "Wireless Access Point"},
-  {printer_target, "Network Printer"}
-]
-
-IO.puts("🎉 Successfully created #{length(all_devices)} simulated devices:")
-Enum.each(all_devices, fn {target, name} ->
-  case SNMP.get(target, "sysDescr.0", timeout: 1000) do
-    {:ok, _desc} ->
-      IO.puts("  ✅ #{name} (#{target}) - Responding")
-    {:error, _reason} ->
-      IO.puts("  ❌ #{name} (#{target}) - Not responding")
-  end
-end)
-
-IO.puts("\n📚 What you've learned:")
-topics = [
-  "✅ Unified API Architecture (SnmpKit.SNMP, SnmpKit.MIB, SnmpKit.Sim)",
-  "✅ Basic SNMP Operations (get, walk, bulk, multi-target)",
-  "✅ MIB Management (resolution, tree navigation)",
-  "✅ Device Simulation (cable modem, router, switch, wireless AP, printer)",
-  "✅ Performance Optimization (streaming, async, bulk operations)",
-  "✅ Error Handling and Troubleshooting",
-  "✅ Real-world Monitoring Scenarios",
-  "✅ Creating Custom Device Simulations WITHOUT walk files",
-  "✅ Testing Strategies for Development"
-]
-
-Enum.each(topics, &IO.puts("  #{&1}"))
-
-IO.puts("\n🚀 Next Steps:")
-next_steps = [
-  "Explore the full SnmpKit API documentation",
-  "Try monitoring real network devices",
-  "Create custom device profiles for your environment",
-  "Integrate SnmpKit into your monitoring applications",
-  "Contribute device profiles and improvements to the project"
-]
-
-Enum.each(next_steps, fn step ->
-  IO.puts("  • #{step}")
-end)
-
-IO.puts("\n🔗 Resources:")
-IO.puts("  • Documentation: https://hexdocs.pm/snmpkit")
-IO.puts("  • GitHub: https://github.com/awksedgreep/snmpkit")
-IO.puts("  • Hex.pm: https://hex.pm/packages/snmpkit")
-
-IO.puts("\n💡 Pro Tips:")
-tips = [
-  "Use bulk operations for multiple OIDs",
-  "Leverage multi-target for fleet monitoring",
-  "Create realistic simulations for testing",
-  "Use streaming for large datasets",
-  "Implement proper error handling",
-  "Monitor performance with built-in tools"
-]
-
-Enum.each(tips, fn tip ->
-  IO.puts("  💡 #{tip}")
-end)
-
-IO.puts("\n🎯 Happy SNMP monitoring with SnmpKit!")
-```
+  "1.3.6.1.2.1.2.2.1.10.3" => %{type: "Counter32", value: 0},
