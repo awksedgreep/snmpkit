@@ -6,7 +6,8 @@ defmodule SnmpKit.SnmpMgr.Walk do
   using the GETNEXT operation repeatedly until the end of the subtree.
   """
 
-  @default_max_repetitions 100
+
+  @default_max_iterations 100
   @default_timeout 5000
 
   @doc """
@@ -24,13 +25,13 @@ defmodule SnmpKit.SnmpMgr.Walk do
 
       iex> SnmpKit.SnmpMgr.Walk.walk("192.168.1.1", [1, 3, 6, 1, 2, 1, 1])
       {:ok, [
-        {"1.3.6.1.2.1.1.1.0", "System description"},
-        {"1.3.6.1.2.1.1.2.0", "1.3.6.1.4.1.9.1.1"},
-        {"1.3.6.1.2.1.1.3.0", 12345}
+        {[1,3,6,1,2,1,1,1,0], :octet_string, "System description"},
+        {[1,3,6,1,2,1,1,2,0], :object_identifier, [1,3,6,1,4,1,9,1,1]},
+        {[1,3,6,1,2,1,1,3,0], :timeticks, 12345}
       ]}
   """
   def walk(target, root_oid, opts \\ []) do
-    version = Keyword.get(opts, :version, :v1)
+    version = Keyword.get(opts, :version, :v2c)
 
     case version do
       :v2c ->
@@ -38,13 +39,17 @@ defmodule SnmpKit.SnmpMgr.Walk do
         SnmpKit.SnmpMgr.Bulk.walk_bulk(target, root_oid, opts)
 
       _ ->
-        # Fall back to traditional GETNEXT walk
-        max_repetitions = Keyword.get(opts, :max_repetitions, @default_max_repetitions)
+        # Fall back to traditional GETNEXT walk (SNMPv1)
+        # Use max_iterations instead of max_repetitions for v1 (which doesn't support bulk operations)
+        max_iterations = Keyword.get(opts, :max_iterations, @default_max_iterations)
         _timeout = Keyword.get(opts, :timeout, @default_timeout)
+
+        # Remove max_repetitions from opts for v1 operations since it's not supported
+        v1_opts = Keyword.delete(opts, :max_repetitions)
 
         case resolve_oid(root_oid) do
           {:ok, start_oid} ->
-            walk_from_oid(target, start_oid, start_oid, [], max_repetitions, opts)
+            walk_from_oid(target, start_oid, start_oid, [], max_iterations, v1_opts)
 
           error ->
             error
@@ -64,7 +69,7 @@ defmodule SnmpKit.SnmpMgr.Walk do
   - `opts` - Options including :version, :max_repetitions, :timeout, :community
   """
   def walk_table(target, table_oid, opts \\ []) do
-    version = Keyword.get(opts, :version, :v1)
+    version = Keyword.get(opts, :version, :v2c)
 
     case version do
       :v2c ->
@@ -72,10 +77,14 @@ defmodule SnmpKit.SnmpMgr.Walk do
         SnmpKit.SnmpMgr.Bulk.get_table_bulk(target, table_oid, opts)
 
       _ ->
-        # Fall back to traditional GETNEXT walk
+        # Fall back to traditional GETNEXT walk (SNMPv1)
+        # Use max_iterations instead of max_repetitions for v1
+        max_iterations = Keyword.get(opts, :max_iterations, @default_max_iterations)
+        v1_opts = Keyword.delete(opts, :max_repetitions)
+
         case resolve_oid(table_oid) do
           {:ok, start_oid} ->
-            walk_from_oid(target, start_oid, start_oid, [], @default_max_repetitions, opts)
+            walk_from_oid(target, start_oid, start_oid, [], max_iterations, v1_opts)
 
           error ->
             error
@@ -94,7 +103,9 @@ defmodule SnmpKit.SnmpMgr.Walk do
   def walk_column(target, column_oid, opts \\ []) do
     case resolve_oid(column_oid) do
       {:ok, start_oid} ->
-        walk_from_oid(target, start_oid, start_oid, [], @default_max_repetitions, opts)
+        max_iterations = Keyword.get(opts, :max_iterations, @default_max_iterations)
+        v1_opts = Keyword.delete(opts, :max_repetitions)
+        walk_from_oid(target, start_oid, start_oid, [], max_iterations, v1_opts)
 
       error ->
         error
@@ -105,11 +116,11 @@ defmodule SnmpKit.SnmpMgr.Walk do
 
   defp walk_from_oid(target, current_oid, root_oid, acc, remaining, opts) when remaining > 0 do
     case SnmpKit.SnmpMgr.Core.send_get_next_request(target, current_oid, opts) do
-      {:ok, {next_oid_string, value}} ->
+      {:ok, {next_oid_string, type, value}} ->
         case SnmpKit.SnmpLib.OID.string_to_list(next_oid_string) do
           {:ok, next_oid} ->
             if still_in_scope?(next_oid, root_oid) do
-              new_acc = [{next_oid_string, value} | acc]
+              new_acc = [{next_oid_string, type, value} | acc]
               walk_from_oid(target, next_oid, root_oid, new_acc, remaining - 1, opts)
             else
               # Walked beyond the root scope
@@ -120,12 +131,22 @@ defmodule SnmpKit.SnmpMgr.Walk do
             {:ok, Enum.reverse(acc)}
         end
 
+
+
       {:error, {:snmp_error, :endOfMibView}} ->
         # Reached end of MIB
         {:ok, Enum.reverse(acc)}
 
       {:error, {:snmp_error, :noSuchName}} ->
         # No more objects
+        {:ok, Enum.reverse(acc)}
+
+      {:error, :end_of_mib_view} ->
+        # Reached end of MIB (alternative format)
+        {:ok, Enum.reverse(acc)}
+
+      {:error, :no_such_name} ->
+        # No more objects (alternative format)
         {:ok, Enum.reverse(acc)}
 
       {:error, _} = error ->
@@ -159,4 +180,7 @@ defmodule SnmpKit.SnmpMgr.Walk do
 
   defp resolve_oid(oid) when is_list(oid), do: {:ok, oid}
   defp resolve_oid(_), do: {:error, :invalid_oid_format}
+
+  # Type information must never be inferred - it must be preserved from SNMP responses
+  # Removing type inference functions to prevent loss of critical type information
 end

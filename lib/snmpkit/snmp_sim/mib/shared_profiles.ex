@@ -801,16 +801,20 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
 
   defp convert_type_to_atom(type) when is_binary(type) do
     case String.upcase(type) do
+      "OCTET STRING" -> :octet_string
       "STRING" -> :octet_string
       "INTEGER" -> :integer
       "GAUGE32" -> :gauge32
       "COUNTER32" -> :counter32
       "COUNTER64" -> :counter64
       "TIMETICKS" -> :timeticks
+      "OBJECT IDENTIFIER" -> :object_identifier
       "OID" -> :object_identifier
+      "IP ADDRESS" -> :ip_address
       "IPADDRESS" -> :ip_address
       "OPAQUE" -> :opaque
       "BITS" -> :bits
+      "NULL" -> :null
       _ -> String.to_atom(String.downcase(type))
     end
   end

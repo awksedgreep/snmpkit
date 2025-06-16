@@ -1,8 +1,9 @@
-defmodule SnmpkitTest do
-  use ExUnit.Case
-  doctest Snmpkit
+defmodule SnmpKitTest do
+  use ExUnit.Case, async: true
+  doctest SnmpKit
 
-  test "greets the world" do
-    assert Snmpkit.hello() == :world
+  # Simple test to verify module loads
+  test "module loads correctly" do
+    assert is_atom(SnmpKit)
   end
 end

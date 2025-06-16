@@ -211,8 +211,20 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
       nil ->
         {:error, :no_such_name}
 
+      %{type: type, value: value} ->
+        {:ok, {type, value}}
+
+      # Handle simple string values
+      value when is_binary(value) ->
+        {:ok, {"STRING", value}}
+
+      # Handle simple integer values
+      value when is_integer(value) ->
+        {:ok, {"INTEGER", value}}
+
+      # Handle other simple values
       value ->
-        {:ok, value}
+        {:ok, {"STRING", to_string(value)}}
     end
   end
 
@@ -428,21 +440,35 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
 
     Logger.debug("get_dynamic_oid_value called with oid_string: #{inspect(oid_string)}")
 
-    # Check if this is a device with walk data
-    if Map.get(state, :has_walk_data, false) do
+    # Check for manual OID map first
+    cond do
+      Map.has_key?(state, :oid_map) ->
+        Logger.debug("Device has manual oid_map, checking for OID: #{oid_string}")
+        case get_oid_value_from_map(oid_string, state.oid_map) do
+          {:ok, {type, value}} ->
+            Logger.debug("Found in manual oid_map: type=#{inspect(type)}, value=#{inspect(value)}")
+            atom_type = convert_snmp_type(type)
+            {:ok, {oid_string, atom_type, value}}
+          {:error, :no_such_name} ->
+            Logger.debug("Not found in manual oid_map")
+            {:error, :no_such_name}
+        end
+
+      Map.get(state, :has_walk_data, false) ->
       Logger.debug("Device has walk data, checking SharedProfiles")
 
       case SharedProfiles.get_oid_value(state.device_type, oid_string, state.walk_data) do
         {:ok, {type, value}} ->
           Logger.debug("Found in SharedProfiles: type=#{inspect(type)}, value=#{inspect(value)}")
-          {:ok, {oid_string, String.to_atom(String.downcase(type)), value}}
+          {:ok, {oid_string, convert_snmp_type(type), value}}
 
         _ ->
           Logger.debug("Not found in SharedProfiles, returning error")
           {:error, :no_such_name}
       end
-    else
-      Logger.debug("Device has no walk data, checking fallback OIDs")
+
+      true ->
+        Logger.debug("Device has no walk data, checking fallback OIDs")
       # Legacy device without walk data - use fallback values
       cond do
         # Fallback to basic system OIDs if not found in SharedProfiles
@@ -568,18 +594,18 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
           oid_list = string_to_oid_list(next_oid)
 
           case get_oid_value(oid_list, state) do
-            {:ok, %{type: type, value: value}} ->
+            {:ok, {type, value}} when is_binary(type) ->
               result =
                 {:ok,
-                 {string_to_oid_list(next_oid), String.to_atom(String.downcase(type)), value}}
+                 {string_to_oid_list(next_oid), convert_snmp_type(type), value}}
 
-              result
-
-            {:ok, {_oid_string, type, value}} ->
-              result = {:ok, {string_to_oid_list(next_oid), type, value}}
               result
 
             {:ok, {type, value}} ->
+              result = {:ok, {string_to_oid_list(next_oid), type, value}}
+              result
+
+            {:ok, {_oid_string, type, value}} ->
               result = {:ok, {string_to_oid_list(next_oid), type, value}}
               result
 
@@ -595,17 +621,39 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
 
   defp get_next_oid_value_from_map(oid, oid_map) do
     oid_string = oid_to_string(oid)
-    oid_keys = Map.keys(oid_map) |> Enum.sort()
+
+    # Use proper lexicographic OID sorting instead of string sorting
+    oid_keys =
+      Map.keys(oid_map)
+      |> Enum.filter(fn oid_key ->
+        case validate_and_parse_oid(oid_key) do
+          {:ok, _} -> true
+          {:error, _} -> false
+        end
+      end)
+      |> Enum.sort_by(fn oid_key ->
+        {:ok, parts} = validate_and_parse_oid(oid_key)
+        parts
+      end)
 
     case find_next_oid(oid_keys, oid_string) do
       {:ok, next_oid_string} ->
         case Map.get(oid_map, next_oid_string) do
           %{type: type, value: value} ->
             {:ok,
-             {string_to_oid_list(next_oid_string), String.to_atom(String.downcase(type)), value}}
+             {string_to_oid_list(next_oid_string), convert_snmp_type(type), value}}
 
-          nil ->
-            {:error, :end_of_mib_view}
+          # Handle simple string values
+          value when is_binary(value) ->
+            {:ok, {string_to_oid_list(next_oid_string), :octet_string, value}}
+
+          # Handle simple integer values
+          value when is_integer(value) ->
+            {:ok, {string_to_oid_list(next_oid_string), :integer, value}}
+
+          # Handle other simple values
+          value ->
+            {:ok, {string_to_oid_list(next_oid_string), :octet_string, to_string(value)}}
         end
 
       {:error, :not_found} ->
@@ -1706,4 +1754,26 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
         end
     end
   end
+
+  # Helper function to convert SNMP type strings to proper atoms
+  defp convert_snmp_type(type) when is_atom(type), do: type
+  defp convert_snmp_type(type) when is_binary(type) do
+    case String.upcase(type) do
+      "OCTET STRING" -> :octet_string
+      "STRING" -> :octet_string
+      "INTEGER" -> :integer
+      "COUNTER32" -> :counter32
+      "GAUGE32" -> :gauge32
+      "TIMETICKS" -> :timeticks
+      "COUNTER64" -> :counter64
+      "IP ADDRESS" -> :ip_address
+      "IPADDRESS" -> :ip_address
+      "OPAQUE" -> :opaque
+      "OBJECT IDENTIFIER" -> :object_identifier
+      "OID" -> :object_identifier
+      "NULL" -> :null
+      _ -> String.to_atom(String.downcase(type))
+    end
+  end
+  defp convert_snmp_type(_), do: :octet_string
 end

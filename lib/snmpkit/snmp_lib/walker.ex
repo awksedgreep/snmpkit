@@ -535,14 +535,9 @@ defmodule SnmpKit.SnmpLib.Walker do
               oid_in_table?(oid, table_prefix)
           end
 
-        {oid, value} ->
-          # Handle legacy 2-tuple format
-          case value do
-            {:end_of_mib_view, _} -> false
-            {:no_such_object, _} -> false
-            {:no_such_instance, _} -> false
-            _ -> oid_in_table?(oid, table_prefix)
-          end
+        {_oid, _value} ->
+          # Reject 2-tuple format - type information must be preserved
+          false
       end)
 
     continue? = length(valid_varbinds) == length(varbinds)
@@ -562,14 +557,9 @@ defmodule SnmpKit.SnmpLib.Walker do
               oid_in_subtree?(oid, subtree_prefix)
           end
 
-        {oid, value} ->
-          # Handle legacy 2-tuple format
-          case value do
-            {:end_of_mib_view, _} -> false
-            {:no_such_object, _} -> false
-            {:no_such_instance, _} -> false
-            _ -> oid_in_subtree?(oid, subtree_prefix)
-          end
+        {_oid, _value} ->
+          # Reject 2-tuple format - type information must be preserved
+          false
       end)
 
     continue? = length(valid_varbinds) == length(varbinds)

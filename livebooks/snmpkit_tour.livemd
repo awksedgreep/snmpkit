@@ -1,15 +1,18 @@
 # SnmpKit Interactive Tour 🚀
 
+## Section
+
 Welcome to SnmpKit v0.3.0!
 
 This interactive Livebook will take you on a comprehensive tour of SnmpKit's new **unified API**. We'll start by creating a simulated SNMP device and then demonstrate all the powerful features against our own simulation - no external network required!
 
 **What you'll learn:**
-- 🎯 **Unified API** - Clean, context-based modules
-- 📡 **SNMP Operations** - get, walk, bulk, multi-target
-- 📚 **MIB Management** - resolution, compilation, tree navigation
-- 🧪 **Device Simulation** - realistic testing environments
-- ⚡ **Advanced Features** - streaming, performance, analytics
+
+* 🎯 **Unified API** - Clean, context-based modules
+* 📡 **SNMP Operations** - get, walk, bulk, multi-target
+* 📚 **MIB Management** - resolution, compilation, tree navigation
+* 🧪 **Device Simulation** - realistic testing environments
+* ⚡ **Advanced Features** - streaming, performance, analytics
 
 Let's get started! 🚀
 
@@ -89,6 +92,9 @@ cable_modem_target = "127.0.0.1:1161"
 
 IO.puts("✅ Cable modem simulation started on #{cable_modem_target}")
 IO.puts("🎯 Ready for SNMP operations!")
+
+# Make target available to other cells
+cable_modem_target
 ```
 
 ### Create a Router Simulation
@@ -168,6 +174,9 @@ router_target = "127.0.0.1:1162"
 IO.puts("✅ Router simulation started on #{router_target}")
 IO.puts("🌐 Now we have a complete simulated network!")
 IO.puts("📊 Loaded #{map_size(router_oids)} router OIDs")
+
+# Make targets available to other cells
+{cable_modem_target, router_target}
 ```
 
 ### Quick Connectivity Test
@@ -175,6 +184,10 @@ IO.puts("📊 Loaded #{map_size(router_oids)} router OIDs")
 Let's verify our simulated devices are responding:
 
 ```elixir
+# Get targets from previous cells
+cable_modem_target = "127.0.0.1:1161"
+router_target = "127.0.0.1:1162"
+
 # Test cable modem
 case SNMP.get(cable_modem_target, "sysDescr.0") do
   {:ok, description} ->
@@ -201,6 +214,9 @@ Now let's explore the comprehensive SNMP operations available through `SnmpKit.S
 ### Basic GET Operations
 
 ```elixir
+# Set targets for this cell
+cable_modem_target = "127.0.0.1:1161"
+
 IO.puts("=== Basic SNMP GET Operations ===\n")
 
 # Standard GET operation
@@ -209,7 +225,7 @@ IO.puts("System Description: #{system_desc}")
 
 # GET with type information
 {:ok, {oid, type, value}} = SNMP.get_with_type(cable_modem_target, "sysUpTime.0")
-IO.puts("System Uptime: #{value} (#{type}) at OID #{Enum.join(oid, ".")}")
+IO.puts("System Uptime: #{value} (#{type}) at OID #{oid}")  # Remove Enum.join
 
 # GET with pretty formatting
 {:ok, formatted_uptime} = SNMP.get_pretty(cable_modem_target, "sysUpTime.0")
@@ -218,6 +234,7 @@ IO.puts("Formatted Uptime: #{formatted_uptime}")
 # GET system contact
 {:ok, contact} = SNMP.get(cable_modem_target, "sysContact.0")
 IO.puts("System Contact: #{contact}")
+
 ```
 
 ### WALK Operations
@@ -225,10 +242,14 @@ IO.puts("System Contact: #{contact}")
 WALK operations traverse the SNMP tree to get multiple related values:
 
 ```elixir
+# Set targets for this cell
+cable_modem_target = "127.0.0.1:1161"
+router_target = "127.0.0.1:1162"
+
 IO.puts("\n=== SNMP WALK Operations ===\n")
 
 # Walk the system group
-{:ok, system_info} = SNMP.walk(cable_modem_target, "system")
+{:ok, system_info} = SNMP.walk(cable_modem_target, "1.3.6.1.2.1.1.1")
 IO.puts("System group contains #{length(system_info)} objects:")
 
 # Display first few system objects
@@ -253,6 +274,10 @@ end)
 Let's explore interface data, which is crucial for network monitoring:
 
 ```elixir
+# Set targets for this cell
+cable_modem_target = "127.0.0.1:1161"
+router_target = "127.0.0.1:1162"
+
 IO.puts("\n=== Interface Information ===\n")
 
 # Get interface count from cable modem
@@ -282,6 +307,10 @@ IO.puts("  Interface 2: #{router_if2_desc}")
 For large amounts of data, bulk operations are much more efficient:
 
 ```elixir
+# Set targets for this cell
+cable_modem_target = "127.0.0.1:1161"
+router_target = "127.0.0.1:1162"
+
 IO.puts("\n=== Bulk Operations ===\n")
 
 # Standard bulk walk
@@ -312,6 +341,10 @@ end)
 One of SnmpKit's powerful features is querying multiple devices simultaneously:
 
 ```elixir
+# Set targets for this cell
+cable_modem_target = "127.0.0.1:1161"
+router_target = "127.0.0.1:1162"
+
 IO.puts("\n=== Multi-Target Operations ===\n")
 
 # Query both devices for system information
@@ -553,3 +586,4 @@ wireless_ap_oids = %{
   "1.3.6.1.2.1.2.2.1.10.2" => %{type: "Counter32", value: 0},  # 2.4GHz RX
   "1.3.6.1.2.1.2.2.1.16.2" => %{type: "Counter32", value: 0},  # 2.4GHz TX
   "1.3.6.1.2.1.2.2.1.10.3" => %{type: "Counter32", value: 0},
+```

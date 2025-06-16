@@ -29,7 +29,10 @@ defmodule SnmpKit.SnmpMgr do
   """
   def get(target, oid, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-    SnmpKit.SnmpMgr.Core.send_get_request(target, oid, merged_opts)
+    case SnmpKit.SnmpMgr.Core.send_get_request(target, oid, merged_opts) do
+      {:ok, {_type, value}} -> {:ok, value}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @doc """
@@ -75,6 +78,27 @@ defmodule SnmpKit.SnmpMgr do
       # {"1.3.6.1.2.1.1.1.0", "Linux hostname 5.4.0 #1 SMP"}
   """
   def get_next(target, oid, opts \\ []) do
+    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+    case SnmpKit.SnmpMgr.Core.send_get_next_request(target, oid, merged_opts) do
+      {:ok, {oid_string, _type, value}} -> {:ok, {oid_string, value}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Performs an SNMP GET-NEXT request and returns the result with type information.
+
+  ## Parameters
+  - `target` - The target device (host:port format)
+  - `oid` - The OID to use as starting point for GET-NEXT
+  - `opts` - Options including :community, :timeout, :retries
+
+  ## Examples
+
+      {:ok, {oid, type, val}} = SnmpMgr.get_next_with_type("device.local", "1.3.6.1.2.1.1")
+      # {"1.3.6.1.2.1.1.1.0", :octet_string, "Linux hostname 5.4.0 #1 SMP"}
+  """
+  def get_next_with_type(target, oid, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
     SnmpKit.SnmpMgr.Core.send_get_next_request(target, oid, merged_opts)
   end
@@ -142,14 +166,15 @@ defmodule SnmpKit.SnmpMgr do
       # Note: This function makes actual network calls and is not suitable for doctests
       {:ok, results} = SnmpMgr.get_bulk("switch.local", "ifTable", max_repetitions: 10)
       # [
-      #   {"1.3.6.1.2.1.2.2.1.1.1", 1},                    # ifIndex.1
-      #   {"1.3.6.1.2.1.2.2.1.2.1", "FastEthernet0/1"},    # ifDescr.1
-      #   {"1.3.6.1.2.1.2.2.1.8.1", 1},                    # ifOperStatus.1 (up)
-      #   {"1.3.6.1.2.1.2.2.1.1.2", 2},                    # ifIndex.2
-      #   {"1.3.6.1.2.1.2.2.1.2.2", "FastEthernet0/2"},    # ifDescr.2
+      #   {[1,3,6,1,2,1,2,2,1,1,1], :integer, 1},                     # ifIndex.1
+      #   {[1,3,6,1,2,1,2,2,1,2,1], :octet_string, "FastEthernet0/1"}, # ifDescr.1
+      #   {[1,3,6,1,2,1,2,2,1,8,1], :integer, 1},                     # ifOperStatus.1 (up)
+      #   {[1,3,6,1,2,1,2,2,1,1,2], :integer, 2},                     # ifIndex.2
+      #   {[1,3,6,1,2,1,2,2,1,2,2], :octet_string, "FastEthernet0/2"}, # ifDescr.2
       #   # ... up to max_repetitions entries
       # ]
   """
+  @spec get_bulk(target(), oid(), opts()) :: {:ok, [{list(), atom(), any()}]} | {:error, any()}
   def get_bulk(target, oid, opts \\ []) do
     # Check if user explicitly specified a version other than v2c
     case Keyword.get(opts, :version) do
@@ -210,16 +235,17 @@ defmodule SnmpKit.SnmpMgr do
   ## Examples
 
       # Note: This function makes actual network calls and is not suitable for doctests
-      {:ok, results} = SnmpKit.SnmpMgr.Walk("device.local", "1.3.6.1.2.1.1")
+      {:ok, results} = SnmpMgr.walk("device.local", "1.3.6.1.2.1.1")
       # [
-      #   {"1.3.6.1.2.1.1.1.0", "Linux hostname 5.4.0-42-generic"},  # sysDescr
-      #   {"1.3.6.1.2.1.1.2.0", [1,3,6,1,4,1,8072,3,2,10]},         # sysObjectID
-      #   {"1.3.6.1.2.1.1.3.0", {:timeticks, 12345678}},             # sysUpTime
-      #   {"1.3.6.1.2.1.1.4.0", "admin@company.com"},                # sysContact
-      #   {"1.3.6.1.2.1.1.5.0", "server01.company.com"},             # sysName
-      #   {"1.3.6.1.2.1.1.6.0", "Data Center Room 42"}               # sysLocation
+      #   {[1,3,6,1,2,1,1,1,0], :octet_string, "Linux hostname 5.4.0-42-generic"}, # sysDescr
+      #   {[1,3,6,1,2,1,1,2,0], :object_identifier, [1,3,6,1,4,1,8072,3,2,10]},   # sysObjectID
+      #   {[1,3,6,1,2,1,1,3,0], :timeticks, 12345678},                           # sysUpTime
+      #   {[1,3,6,1,2,1,1,4,0], :octet_string, "admin@company.com"},             # sysContact
+      #   {[1,3,6,1,2,1,1,5,0], :octet_string, "server01.company.com"},          # sysName
+      #   {[1,3,6,1,2,1,1,6,0], :octet_string, "Data Center Room 42"}            # sysLocation
       # ]
   """
+  @spec walk(target(), oid(), opts()) :: {:ok, [{list(), atom(), any()}]} | {:error, any()}
   def walk(target, root_oid, opts \\ []) do
     SnmpKit.SnmpMgr.Walk.walk(target, root_oid, opts)
   end
@@ -237,13 +263,14 @@ defmodule SnmpKit.SnmpMgr do
       # Note: This function makes actual network calls and is not suitable for doctests
       {:ok, entries} = SnmpMgr.walk_table("switch.local", "ifTable")
       # [
-      #   {"1.3.6.1.2.1.2.2.1.1.1", 1},
-      #   {"1.3.6.1.2.1.2.2.1.2.1", "GigabitEthernet0/1"},
-      #   {"1.3.6.1.2.1.2.2.1.3.1", 6},  # ethernetCsmacd
-      #   {"1.3.6.1.2.1.2.2.1.5.1", 1000000000},  # 1 Gbps
-      #   # ... all interface table entries
+      #   {[1,3,6,1,2,1,2,2,1,1,1], :integer, 1},                              # ifIndex.1
+      #   {[1,3,6,1,2,1,2,2,1,2,1], :octet_string, "GigabitEthernet0/1"},      # ifDescr.1
+      #   {[1,3,6,1,2,1,2,2,1,3,1], :integer, 6},                              # ifType.1 (ethernetCsmacd)
+      #   {[1,3,6,1,2,1,2,2,1,5,1], :gauge32, 1000000000},                     # ifSpeed.1 (1 Gbps)
+      #   # ... all interface table entries with type information
       # ]
   """
+  @spec walk_table(target(), oid(), opts()) :: {:ok, [{list(), atom(), any()}]} | {:error, any()}
   def walk_table(target, table_oid, opts \\ []) do
     SnmpKit.SnmpMgr.Walk.walk_table(target, table_oid, opts)
   end

@@ -1,5 +1,5 @@
 defmodule SnmpKit.SnmpSim.CorrelationEngineTest do
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
   alias SnmpKit.SnmpSim.CorrelationEngine
 
   describe "apply_correlations/5" do

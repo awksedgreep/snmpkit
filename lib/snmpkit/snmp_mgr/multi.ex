@@ -57,8 +57,8 @@ defmodule SnmpKit.SnmpMgr.Multi do
       ...> ]
       iex> SnmpKit.SnmpMgr.Multi.get_bulk_multi(requests, max_repetitions: 20)
       [
-        {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "eth0"}, ...]},
-        {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "GigE0/1"}, ...]},
+        {:ok, [{[1,3,6,1,2,1,2,2,1,2,1], :octet_string, "eth0"}, ...]},
+        {:ok, [{[1,3,6,1,2,1,2,2,1,2,1], :octet_string, "GigE0/1"}, ...]},
         {:error, :timeout}
       ]
   """
@@ -89,8 +89,8 @@ defmodule SnmpKit.SnmpMgr.Multi do
       ...> ]
       iex> SnmpKit.SnmpMgr.Multi.walk_multi(requests, version: :v2c)
       [
-        {:ok, [{"1.3.6.1.2.1.1.1.0", "Device 1"}, ...]},
-        {:ok, [{"1.3.6.1.2.1.2.1.0", 24}, ...]},
+        {:ok, [{[1,3,6,1,2,1,1,1,0], :octet_string, "Device 1"}, ...]},
+        {:ok, [{[1,3,6,1,2,1,2,1,0], :integer, 24}, ...]},
         {:error, :timeout}
       ]
   """

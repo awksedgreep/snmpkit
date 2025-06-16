@@ -22,8 +22,8 @@ defmodule SnmpKit.SnmpSim.Device.PduProcessor do
     Logger.debug("process_pdu called with PDU type: #{inspect(pdu.type)}")
     Logger.debug("Device has_walk_data: #{inspect(state.has_walk_data)}")
 
-    # Route to walk-based processor if device has walk data
-    if state.has_walk_data do
+    # Route to walk-based processor if device has walk data or manual oid_map
+    if state.has_walk_data or (Map.has_key?(state, :oid_map) and map_size(state.oid_map) > 0) do
       Logger.debug("Processing PDU with walk-based processor for device #{state.device_type}")
 
       case pdu.type do

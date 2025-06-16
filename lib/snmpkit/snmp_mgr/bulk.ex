@@ -21,9 +21,9 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
       iex> SnmpKit.SnmpMgr.Bulk.get_bulk("192.168.1.1", "ifTable", max_repetitions: 20)
       {:ok, [
-        {"1.3.6.1.2.1.2.2.1.2.1", "eth0"},
-        {"1.3.6.1.2.1.2.2.1.2.2", "eth1"},
-        # ... up to 20 entries
+        {[1,3,6,1,2,1,2,2,1,2,1], :octet_string, "eth0"},
+        {[1,3,6,1,2,1,2,2,1,2,2], :octet_string, "eth1"},
+        # ... up to 20 entries with type information
       ]}
   """
   def get_bulk(target, oids, opts \\ []) do
@@ -242,22 +242,21 @@ defmodule SnmpKit.SnmpMgr.Bulk do
     in_scope_results =
       results
       |> Enum.filter(fn
-        # Handle 3-tuple format (preferred - from snmp_lib v1.0.5+)
+        # Only accept 3-tuple format with proper type information
         {oid_list, _type, _value} -> List.starts_with?(oid_list, root_oid)
-        # Handle 2-tuple format (backward compatibility)
-        {oid_list, _value} -> List.starts_with?(oid_list, root_oid)
+        # Reject 2-tuple format - type information must be preserved
+        {_oid_list, _value} -> false
       end)
       |> Enum.map(fn
         # Convert 3-tuple to standardized format with oid_string
         {oid_list, type, value} -> {Enum.join(oid_list, "."), type, value}
-        # Convert 2-tuple to standardized format with type inference
-        {oid_list, value} -> {Enum.join(oid_list, "."), infer_snmp_type(value), value}
       end)
 
     next_oid =
       case List.last(results) do
         {oid_list, _type, _value} -> oid_list
-        {oid_list, _value} -> oid_list
+        # Do not accept 2-tuple format - type information must be preserved
+        {_oid_list, _value} -> nil
         _ -> nil
       end
 
@@ -300,14 +299,6 @@ defmodule SnmpKit.SnmpMgr.Bulk do
   defp resolve_oid(oid) when is_list(oid), do: {:ok, oid}
   defp resolve_oid(_), do: {:error, :invalid_oid_format}
 
-  defp infer_snmp_type(value) when is_binary(value), do: :octet_string
-  defp infer_snmp_type(value) when is_integer(value) and value >= 0, do: :integer
-  defp infer_snmp_type(value) when is_integer(value), do: :integer
-  defp infer_snmp_type({:timeticks, _}), do: :timeticks
-  defp infer_snmp_type({:counter32, _}), do: :counter32
-  defp infer_snmp_type({:counter64, _}), do: :counter64
-  defp infer_snmp_type({:gauge32, _}), do: :gauge32
-  defp infer_snmp_type({:unsigned32, _}), do: :unsigned32
-  defp infer_snmp_type(:null), do: :null
-  defp infer_snmp_type(_), do: :unknown
+  # Type information must never be inferred - it must be preserved from SNMP responses
+  # Removing type inference functions to prevent loss of critical type information
 end

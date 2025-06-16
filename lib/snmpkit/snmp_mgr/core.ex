@@ -41,9 +41,9 @@ defmodule SnmpKit.SnmpMgr.Core do
 
     # Use SnmpKit.SnmpLib.Manager for the actual operation
     case SnmpKit.SnmpLib.Manager.get(host, oid_parsed, snmp_lib_opts) do
-      {:ok, {_type, value}} -> {:ok, value}
-      # Fallback for older versions
-      {:ok, value} -> {:ok, value}
+      {:ok, {type, value}} -> {:ok, {type, value}}
+      # Type information must be preserved - reject responses without type information
+      {:ok, value} -> {:error, {:type_information_lost, "SNMP GET operation must preserve type information. Got value without type: #{inspect(value)}"}}
       {:error, reason} -> {:error, reason}
     end
   end
@@ -85,9 +85,8 @@ defmodule SnmpKit.SnmpMgr.Core do
         {:ok, {oid_string, type, value}}
 
       {:ok, value} ->
-        # Handle case where snmp_lib returns just value without type (older versions)
-        inferred_type = infer_snmp_type(value)
-        {:ok, {oid_string, inferred_type, value}}
+        # Type information must be preserved - reject responses without type information
+        {:error, {:type_information_lost, "SNMP GET operation must preserve type information. Got value without type for OID #{oid_string}: #{inspect(value)}"}}
 
       {:error, reason} ->
         {:error, reason}
@@ -127,9 +126,15 @@ defmodule SnmpKit.SnmpMgr.Core do
 
     # Use the new SnmpKit.SnmpLib.Manager.get_next function which properly handles version logic
     case SnmpKit.SnmpLib.Manager.get_next(host, oid_parsed, snmp_lib_opts) do
-      {:ok, {next_oid, _type, value}} -> {:ok, {next_oid, value}}
-      # Fallback for older versions
-      {:ok, {next_oid, value}} -> {:ok, {next_oid, value}}
+      {:ok, {next_oid, type, value}} ->
+        # Convert OID list to string for compatibility with walk_from_oid function
+        # ALWAYS preserve type information - this is critical for SNMP
+        next_oid_string = if is_list(next_oid), do: Enum.join(next_oid, "."), else: next_oid
+        {:ok, {next_oid_string, type, value}}
+      # Type information must be preserved - reject 2-tuple responses
+      {:ok, {next_oid, value}} ->
+        next_oid_string = if is_list(next_oid), do: Enum.join(next_oid, "."), else: next_oid
+        {:error, {:type_information_lost, "SNMP GET_NEXT operation must preserve type information. Got 2-tuple for OID #{next_oid_string}: #{inspect(value)}"}}
       {:error, reason} -> {:error, reason}
     end
   end
@@ -374,15 +379,7 @@ defmodule SnmpKit.SnmpMgr.Core do
 
   defp try_mib_resolution(_), do: {:error, :invalid_input}
 
-  # Helper function to infer SNMP type from value when type is not provided
-  defp infer_snmp_type(value) when is_binary(value), do: :octet_string
-  defp infer_snmp_type(value) when is_integer(value) and value >= 0, do: :integer
-  defp infer_snmp_type(value) when is_integer(value), do: :integer
-  defp infer_snmp_type({:timeticks, _}), do: :timeticks
-  defp infer_snmp_type({:counter32, _}), do: :counter32
-  defp infer_snmp_type({:counter64, _}), do: :counter64
-  defp infer_snmp_type({:gauge32, _}), do: :gauge32
-  defp infer_snmp_type({:unsigned32, _}), do: :unsigned32
-  defp infer_snmp_type(:null), do: :null
-  defp infer_snmp_type(_), do: :unknown
+  # Type information must never be inferred - it must be preserved from SNMP responses
+  # Removing type inference functions to prevent loss of critical type information
+  # Any SNMP operation that does not preserve type information should fail with an error
 end

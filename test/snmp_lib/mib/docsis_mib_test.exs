@@ -1,5 +1,5 @@
 defmodule SnmpKit.SnmpLib.MIB.DocsisMibTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias SnmpKit.SnmpLib.MIB.Parser
 

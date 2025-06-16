@@ -40,7 +40,9 @@ defmodule SnmpKit.SnmpSim.Device do
     # Active error injection conditions
     :error_conditions,
     # Flag indicating if device has walk data loaded
-    :has_walk_data
+    :has_walk_data,
+    # Manual OID map for devices created with {:manual, oid_map}
+    :oid_map
   ]
 
   @default_community "public"
@@ -263,32 +265,42 @@ defmodule SnmpKit.SnmpSim.Device do
         mac_address =
           Map.get(device_config, :mac_address, generate_mac_address(device_type, port))
 
-        # Load walk file if provided and set flag
-        has_walk_data =
-          case Map.get(device_config, :walk_file) do
-            nil ->
-              false
+        # Extract OID map from profile if provided
+        {oid_map, has_walk_data} =
+          case Map.get(device_config, :profile) do
+            %{oid_map: oid_map} when is_map(oid_map) and map_size(oid_map) > 0 ->
+              Logger.info("Device #{device_id} loading #{map_size(oid_map)} OIDs from manual profile")
+              {oid_map, true}
 
-            walk_file ->
-              Logger.info(
-                "Loading walk file #{walk_file} for device type #{inspect(device_type)}"
-              )
-
-              case SnmpKit.SnmpSim.MIB.SharedProfiles.load_walk_profile(device_type, walk_file) do
-                :ok ->
-                  Logger.info(
-                    "Successfully loaded walk file #{walk_file} for device type #{inspect(device_type)}"
-                  )
-
-                  true
-
-                {:error, reason} ->
-                  Logger.warning(
-                    "Failed to load walk file #{walk_file} for device type #{inspect(device_type)}: #{inspect(reason)}"
-                  )
-
+            _ ->
+              # Load walk file if provided and set flag
+              walk_data_loaded = case Map.get(device_config, :walk_file) do
+                nil ->
                   false
+
+                walk_file ->
+                  Logger.info(
+                    "Loading walk file #{walk_file} for device type #{inspect(device_type)}"
+                  )
+
+                  case SnmpKit.SnmpSim.MIB.SharedProfiles.load_walk_profile(device_type, walk_file) do
+                    :ok ->
+                      Logger.info(
+                        "Successfully loaded walk file #{walk_file} for device type #{inspect(device_type)}"
+                      )
+
+                      true
+
+                    {:error, reason} ->
+                      Logger.warning(
+                        "Failed to load walk file #{walk_file} for device type #{inspect(device_type)}: #{inspect(reason)}"
+                      )
+
+                      false
+                  end
               end
+
+              {%{}, walk_data_loaded}
           end
 
         # Start the UDP server for this device
@@ -307,7 +319,8 @@ defmodule SnmpKit.SnmpSim.Device do
               community: community,
               last_access: System.monotonic_time(:millisecond),
               error_conditions: %{},
-              has_walk_data: has_walk_data
+              has_walk_data: has_walk_data,
+              oid_map: oid_map
             }
 
             # Set up the SNMP handler for this device
