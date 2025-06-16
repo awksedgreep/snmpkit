@@ -24,3 +24,43 @@ snmpkit-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Development and debugging files (root only)
+/debug_*.exs
+/test_*.exs
+/reproduce_*.exs
+/verify_*.exs
+/*_debug.exs
+/*_test.exs
+/*_fix.exs
+/actual_*.exs
+/comprehensive_*.exs
+/format_*.exs
+/simple_*.exs
+/strict_*.exs
+/type_*.exs
+
+# Temporary markdown files (root only)
+/*_SUMMARY.md
+/*_GUIDE.md
+/*_TESTS.md
+/*_FIX*.md
+/*_BUG*.md
+/*_REQUIREMENTS.md
+/DOCUMENTATION_*.md
+/MIB_*.md
+/PERMANENT_*.md
+/SIMULATOR_*.md
+/SNMP_*.md
+/TEST_*.md
+/TYPE_*.md
+/simulator_*.md
+
+# Development shell scripts
+/*.sh
+!/scripts/
+
+# Backup and temporary files
+*.bak
+*.tmp
+*~

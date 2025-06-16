@@ -4,7 +4,7 @@ defmodule Snmpkit.MixProject do
   def project do
     [
       app: :snmpkit,
-      version: "0.3.4",
+      version: "0.3.5",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -84,8 +84,20 @@ defmodule Snmpkit.MixProject do
       main: "readme",
       extras: [
         "README.md",
+        "CONTRIBUTING.md",
+        "LICENSE",
+        "docs/mib-guide.md",
+        "docs/testing-guide.md",
         "docs/unified-api-guide.md",
-        "docs/v0.3.0-release-notes.md"
+        "docs/v0.2.0-release-notes.md",
+        "docs/v0.3.0-release-notes.md",
+        "docs/v0.3.1-release-notes.md",
+        "docs/v0.3.2-release-notes.md",
+        "docs/v0.3.3-release-notes.md",
+        "docs/v0.3.4-release-notes.md",
+        "docs/v0.3.5-release-notes.md",
+        "livebooks/snmpkit_tour.livemd",
+        "examples/README.md"
       ],
       groups_for_modules: [
         "Core API": [

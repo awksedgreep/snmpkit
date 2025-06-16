@@ -2,7 +2,7 @@
 
 ## Section
 
-Welcome to SnmpKit v0.3.0!
+Welcome to SnmpKit v0.3.5!
 
 This interactive Livebook will take you on a comprehensive tour of SnmpKit's new **unified API**. We'll start by creating a simulated SNMP device and then demonstrate all the powerful features against our own simulation - no external network required!
 
@@ -22,7 +22,7 @@ First, let's install SnmpKit and configure our environment:
 
 ```elixir
 Mix.install([
-  {:snmpkit, "~> 0.3.0"}
+  {:snmpkit, "~> 0.3.5"}
 ])
 
 # Configure logging for our tour
@@ -31,7 +31,7 @@ Logger.configure(level: :info)
 # Import the unified API modules for convenience
 alias SnmpKit.{SNMP, MIB, Sim}
 
-IO.puts("🎉 SnmpKit v0.3.0 loaded successfully!")
+IO.puts("🎉 SnmpKit v0.3.5 loaded successfully!")
 IO.puts("📚 Ready to explore the unified API!")
 ```
 
@@ -255,8 +255,8 @@ IO.puts("System group contains #{length(system_info)} objects:")
 # Display first few system objects
 system_info
 |> Enum.take(5)
-|> Enum.each(fn {oid, value} ->
-  IO.puts("  #{oid} = #{inspect(value)}")
+|> Enum.each(fn {oid, type, value} ->
+  IO.puts("  #{oid} (#{type}) = #{inspect(value)}")
 end)
 
 # Walk with pretty formatting
@@ -355,15 +355,23 @@ multi_targets = [
   {router_target, "sysContact.0"}
 ]
 
-{:ok, multi_results} = SNMP.get_multi(multi_targets)
+multi_results = SNMP.get_multi(multi_targets)
 IO.puts("Multi-target query results:")
+IO.puts("Raw results: #{inspect(multi_results)}")
 
+# Process results based on actual format
 multi_results
-|> Enum.each(fn
-  {:ok, {target, oid, value}} ->
-    IO.puts("  ✅ #{target} #{oid}: #{value}")
-  {:error, {target, oid, reason}} ->
-    IO.puts("  ❌ #{target} #{oid}: #{inspect(reason)}")
+|> Enum.with_index()
+|> Enum.each(fn {result, index} ->
+  {target, oid} = Enum.at(multi_targets, index)
+  case result do
+    {:ok, value} ->
+      IO.puts("  ✅ #{target} #{oid}: #{inspect(value)}")
+    {:error, reason} ->
+      IO.puts("  ❌ #{target} #{oid}: #{inspect(reason)}")
+    _ ->
+      IO.puts("  ? #{target} #{oid}: #{inspect(result)}")
+  end
 end)
 
 # Multi-target walk operations
@@ -372,8 +380,30 @@ walk_targets = [
   {router_target, "system"}
 ]
 
-{:ok, multi_walk_results} = SNMP.walk_multi(walk_targets)
+multi_walk_results = SNMP.walk_multi(walk_targets)
 IO.puts("\nMulti-target walk completed for #{length(multi_walk_results)} targets")
+
+# Display walk results
+multi_walk_results
+|> Enum.with_index()
+|> Enum.each(fn {result, index} ->
+  {target, oid} = Enum.at(walk_targets, index)
+  case result do
+    {:ok, walk_data} ->
+      IO.puts("  ✅ #{target} #{oid}: #{length(walk_data)} objects")
+      # Show first few objects
+      walk_data
+      |> Enum.take(3)
+      |> Enum.each(fn {obj_oid, type, value} ->
+        oid_str = if is_list(obj_oid), do: Enum.join(obj_oid, "."), else: obj_oid
+        IO.puts("    #{oid_str} (#{type}) = #{inspect(value)}")
+      end)
+    {:error, reason} ->
+      IO.puts("  ❌ #{target} #{oid}: #{inspect(reason)}")
+    _ ->
+      IO.puts("  ? #{target} #{oid}: #{inspect(result)}")
+  end
+end)
 ```
 
 ## Chapter 3: SnmpKit.MIB - MIB Management 📚
@@ -441,15 +471,17 @@ IO.puts("\n=== MIB Tree Navigation ===\n")
 {:ok, system_oid} = MIB.resolve("system")
 {:ok, system_children} = MIB.children(system_oid)
 
-IO.puts("System group (#{Enum.join(system_oid, ".")}) has #{length(system_children)} children:")
+system_oid_str = if is_list(system_oid), do: Enum.join(system_oid, "."), else: inspect(system_oid)
+IO.puts("System group (#{system_oid_str}) has #{length(system_children)} children:")
 system_children
 |> Enum.take(5)
 |> Enum.each(fn child_oid ->
+  oid_str = if is_list(child_oid), do: Enum.join(child_oid, "."), else: inspect(child_oid)
   case MIB.reverse_lookup(child_oid) do
     {:ok, name} ->
-      IO.puts("  #{Enum.join(child_oid, ".")} (#{name})")
+      IO.puts("  #{oid_str} (#{name})")
     {:error, _} ->
-      IO.puts("  #{Enum.join(child_oid, ".")}")
+      IO.puts("  #{oid_str}")
   end
 end)
 
@@ -457,7 +489,8 @@ end)
 {:ok, sys_descr_oid} = MIB.resolve("sysDescr.0")
 {:ok, parent_oid} = MIB.parent(sys_descr_oid)
 {:ok, parent_name} = MIB.reverse_lookup(parent_oid)
-IO.puts("\nParent of sysDescr.0: #{Enum.join(parent_oid, ".")} (#{parent_name})")
+parent_oid_str = if is_list(parent_oid), do: Enum.join(parent_oid, "."), else: inspect(parent_oid)
+IO.puts("\nParent of sysDescr.0: #{parent_oid_str} (#{parent_name})")
 ```
 
 ## Chapter 4: Creating Custom Device Simulations 🛠️
@@ -585,5 +618,81 @@ wireless_ap_oids = %{
   # Traffic counters
   "1.3.6.1.2.1.2.2.1.10.2" => %{type: "Counter32", value: 0},  # 2.4GHz RX
   "1.3.6.1.2.1.2.2.1.16.2" => %{type: "Counter32", value: 0},  # 2.4GHz TX
-  "1.3.6.1.2.1.2.2.1.10.3" => %{type: "Counter32", value: 0},
+  "1.3.6.1.2.1.2.2.1.10.3" => %{type: "Counter32", value: 0},  # 5GHz RX
+  "1.3.6.1.2.1.2.2.1.16.3" => %{type: "Counter32", value: 0}   # 5GHz TX
+}
+
+# Create the wireless AP profile
+{:ok, wireless_ap_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
+  :wireless_ap,
+  {:manual, wireless_ap_oids},
+  behaviors: [:counter_increment, :time_based_changes]
+)
+
+# NOTE: If you get port conflicts, restart your Livebook runtime to clean up previous devices
+
+# Try to find an available port starting from 1164
+{wireless_ap, wireless_ap_target} =
+  Enum.reduce_while(1164..1170, nil, fn port, _acc ->
+    case Sim.start_device(wireless_ap_profile, [port: port, community: "public"]) do
+      {:ok, device} ->
+        target = "127.0.0.1:#{port}"
+        {:halt, {device, target}}
+      {:error, :eaddrinuse} ->
+        IO.puts("Port #{port} in use, trying next...")
+        {:cont, nil}
+      {:error, reason} ->
+        IO.puts("Port #{port} failed: #{inspect(reason)}")
+        {:cont, nil}
+    end
+  end) ||
+  raise "Could not find available port for wireless AP. Try restarting runtime."
+
+IO.puts("✅ Wireless AP simulation started on #{wireless_ap_target}")
+
+# Test the wireless AP
+{:ok, ap_desc} = SNMP.get(wireless_ap_target, "sysDescr.0")
+{:ok, ap_interfaces} = SNMP.get(wireless_ap_target, "ifNumber.0")
+IO.puts("Wireless AP: #{ap_desc}")
+IO.puts("Interfaces: #{ap_interfaces}")
+
+# Check wireless-specific data
+case SNMP.get(wireless_ap_target, "1.3.6.1.4.1.41112.1.4.1.1.6.1") do
+  {:ok, clients_24} -> IO.puts("2.4GHz Clients: #{clients_24}")
+  _ -> IO.puts("2.4GHz Clients: Not available")
+end
+
+case SNMP.get(wireless_ap_target, "1.3.6.1.4.1.41112.1.4.1.1.6.2") do
+  {:ok, clients_5} -> IO.puts("5GHz Clients: #{clients_5}")
+  _ -> IO.puts("5GHz Clients: Not available")
+end
+
+wireless_ap_target
 ```
+
+## Congratulations! 🎉
+
+You've completed the SnmpKit Interactive Tour! You've learned how to:
+
+* 🎯 **Use the Unified API** - Clean, context-based modules for different operations
+* 📡 **Perform SNMP Operations** - GET, WALK, bulk operations, and multi-target queries
+* 📚 **Work with MIBs** - Resolve OIDs, navigate the MIB tree, and understand SNMP data
+* 🧪 **Create Device Simulations** - Build realistic test environments without real hardware
+* ⚡ **Leverage Advanced Features** - Streaming, performance optimization, and analytics
+
+### Next Steps
+
+1. **Explore the Documentation**: [https://hexdocs.pm/snmpkit](https://hexdocs.pm/snmpkit)
+2. **Try the Examples**: Check out the `examples/` directory for more practical use cases
+3. **Read the Guides**:
+   * [MIB Guide](../docs/mib-guide.md) - Deep dive into MIB management
+   * [Testing Guide](../docs/testing-guide.md) - Testing strategies and patterns
+4. **Build Something Cool**: Use SnmpKit in your own projects!
+
+### Community
+
+* **Issues & Questions**: [GitHub Issues](https://github.com/awksedgreep/snmpkit/issues)
+* **Contributing**: [Contributing Guide](../CONTRIBUTING.md)
+* **Discussions**: Share your SnmpKit projects and get help
+
+**Happy SNMP monitoring with SnmpKit!** 🚀
