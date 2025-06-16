@@ -4,7 +4,7 @@ defmodule Snmpkit.MixProject do
   def project do
     [
       app: :snmpkit,
-      version: "0.3.5",
+      version: "0.3.6",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -81,7 +81,7 @@ defmodule Snmpkit.MixProject do
 
   defp docs do
     [
-      main: "readme",
+      main: "api-reference",
       extras: [
         "README.md",
         "CONTRIBUTING.md",
