@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.7] - 2024-12-22
+
+### Fixed
+- **Port Option Handling**: Fixed critical bug where the `:port` option in function calls was being ignored
+  - When target was specified as hostname without port (e.g., `"device.local"`), the port option was incorrectly overwritten with default port 161
+  - Target with embedded port (e.g., `"device.local:8161"`) now correctly takes precedence over port option
+  - Established clear port precedence rules: embedded port > port option > default port (161)
+  - Fixed in `SnmpKit.SnmpMgr.Core.send_get_request/3`, `send_set_request/4`, and `send_get_bulk_request/3`
+  - Added comprehensive unit tests for port option handling
+  - Maintains full backward compatibility
+
 ## [0.3.4] - 2024-12-16
 
 ### Added

@@ -20,9 +20,15 @@ defmodule SnmpKit.SnmpMgr.Core do
     {host, updated_opts} =
       case SnmpKit.SnmpMgr.Target.parse(target) do
         {:ok, %{host: host, port: port}} ->
-          # Use parsed port, overriding any default
-          opts_with_port = Keyword.put(opts, :port, port)
-          {host, opts_with_port}
+          # Only use parsed port if the target actually contained a port specification
+          if target_contains_port?(target) do
+            # Target contained port - use parsed port
+            opts_with_port = Keyword.put(opts, :port, port)
+            {host, opts_with_port}
+          else
+            # Target didn't contain port - preserve user's port option
+            {host, opts}
+          end
 
         {:error, _reason} ->
           # Failed to parse, use as-is
@@ -41,10 +47,17 @@ defmodule SnmpKit.SnmpMgr.Core do
 
     # Use SnmpKit.SnmpLib.Manager for the actual operation
     case SnmpKit.SnmpLib.Manager.get(host, oid_parsed, snmp_lib_opts) do
-      {:ok, {type, value}} -> {:ok, {type, value}}
+      {:ok, {type, value}} ->
+        {:ok, {type, value}}
+
       # Type information must be preserved - reject responses without type information
-      {:ok, value} -> {:error, {:type_information_lost, "SNMP GET operation must preserve type information. Got value without type: #{inspect(value)}"}}
-      {:error, reason} -> {:error, reason}
+      {:ok, value} ->
+        {:error,
+         {:type_information_lost,
+          "SNMP GET operation must preserve type information. Got value without type: #{inspect(value)}"}}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -86,7 +99,9 @@ defmodule SnmpKit.SnmpMgr.Core do
 
       {:ok, value} ->
         # Type information must be preserved - reject responses without type information
-        {:error, {:type_information_lost, "SNMP GET operation must preserve type information. Got value without type for OID #{oid_string}: #{inspect(value)}"}}
+        {:error,
+         {:type_information_lost,
+          "SNMP GET operation must preserve type information. Got value without type for OID #{oid_string}: #{inspect(value)}"}}
 
       {:error, reason} ->
         {:error, reason}
@@ -131,11 +146,17 @@ defmodule SnmpKit.SnmpMgr.Core do
         # ALWAYS preserve type information - this is critical for SNMP
         next_oid_string = if is_list(next_oid), do: Enum.join(next_oid, "."), else: next_oid
         {:ok, {next_oid_string, type, value}}
+
       # Type information must be preserved - reject 2-tuple responses
       {:ok, {next_oid, value}} ->
         next_oid_string = if is_list(next_oid), do: Enum.join(next_oid, "."), else: next_oid
-        {:error, {:type_information_lost, "SNMP GET_NEXT operation must preserve type information. Got 2-tuple for OID #{next_oid_string}: #{inspect(value)}"}}
-      {:error, reason} -> {:error, reason}
+
+        {:error,
+         {:type_information_lost,
+          "SNMP GET_NEXT operation must preserve type information. Got 2-tuple for OID #{next_oid_string}: #{inspect(value)}"}}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -148,9 +169,15 @@ defmodule SnmpKit.SnmpMgr.Core do
     {host, updated_opts} =
       case SnmpKit.SnmpMgr.Target.parse(target) do
         {:ok, %{host: host, port: port}} ->
-          # Use parsed port, overriding any default
-          opts_with_port = Keyword.put(opts, :port, port)
-          {host, opts_with_port}
+          # Only use parsed port if the target actually contained a port specification
+          if target_contains_port?(target) do
+            # Target contained port - use parsed port
+            opts_with_port = Keyword.put(opts, :port, port)
+            {host, opts_with_port}
+          else
+            # Target didn't contain port - preserve user's port option
+            {host, opts}
+          end
 
         {:error, _reason} ->
           # Failed to parse, use as-is
@@ -194,9 +221,15 @@ defmodule SnmpKit.SnmpMgr.Core do
         {host, updated_opts} =
           case SnmpKit.SnmpMgr.Target.parse(target) do
             {:ok, %{host: host, port: port}} ->
-              # Use parsed port, overriding any default
-              opts_with_port = Keyword.put(opts, :port, port)
-              {host, opts_with_port}
+              # Only use parsed port if the target actually contained a port specification
+              if target_contains_port?(target) do
+                # Target contained port - use parsed port
+                opts_with_port = Keyword.put(opts, :port, port)
+                {host, opts_with_port}
+              else
+                # Target didn't contain port - preserve user's port option
+                {host, opts}
+              end
 
             {:error, _reason} ->
               # Failed to parse, use as-is
@@ -382,4 +415,48 @@ defmodule SnmpKit.SnmpMgr.Core do
   # Type information must never be inferred - it must be preserved from SNMP responses
   # Removing type inference functions to prevent loss of critical type information
   # Any SNMP operation that does not preserve type information should fail with an error
+
+  # Private helper to check if target contains port specification
+  defp target_contains_port?(target) when is_binary(target) do
+    cond do
+      # RFC 3986 bracket notation: [IPv6]:port
+      String.starts_with?(target, "[") and String.contains?(target, "]:") ->
+        case String.split(target, "]:", parts: 2) do
+          [_ipv6_part, port_part] ->
+            case Integer.parse(port_part) do
+              {port, ""} when port > 0 and port <= 65535 -> true
+              _ -> false
+            end
+
+          _ ->
+            false
+        end
+
+      # Plain IPv6 addresses (contain :: or multiple colons) - no port embedded
+      String.contains?(target, "::") ->
+        false
+
+      target |> String.graphemes() |> Enum.count(&(&1 == ":")) > 1 ->
+        false
+
+      # IPv4 or simple hostname with port
+      String.contains?(target, ":") ->
+        case String.split(target, ":", parts: 2) do
+          [_host_part, port_part] ->
+            case Integer.parse(port_part) do
+              {port, ""} when port > 0 and port <= 65535 -> true
+              _ -> false
+            end
+
+          _ ->
+            false
+        end
+
+      # No colon at all
+      true ->
+        false
+    end
+  end
+
+  defp target_contains_port?(_), do: false
 end
