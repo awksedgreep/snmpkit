@@ -7,7 +7,7 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
   """
 
   import Bitwise
-  alias SnmpKit.SnmpLib.PDU.Constants
+  alias SnmpKit.SnmpLib.PDU.{Constants, V3Encoder}
 
   @type message :: Constants.message()
   @type pdu :: Constants.pdu()
@@ -33,7 +33,19 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
   @spec decode_message(binary()) :: {:ok, message()} | {:error, atom()}
   def decode_message(data) when is_binary(data) do
     try do
-      decode_snmp_message_comprehensive(data)
+      # Check if this is a SNMPv3 message by looking at version
+      case peek_version(data) do
+        {:ok, 3} ->
+          # Delegate to SNMPv3 decoder
+          V3Encoder.decode_message(data, nil)
+
+        {:ok, _version} ->
+          # Use standard v1/v2c decoder
+          decode_snmp_message_comprehensive(data)
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     rescue
       error -> {:error, {:decoding_error, error}}
     catch
@@ -46,10 +58,68 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
   @doc """
   Decodes an SNMP message from binary format (alias for decode_message/1).
   """
+  @doc """
+  Decodes an SNMP message with security user (SNMPv3).
+  """
+  @spec decode_message(binary(), map() | nil) :: {:ok, message()} | {:error, atom()}
+  def decode_message(data, user) when is_binary(data) do
+    case peek_version(data) do
+      {:ok, 3} ->
+        V3Encoder.decode_message(data, user)
+
+      {:ok, _version} ->
+        # v1/v2c messages don't use security users
+        decode_message(data)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Decodes a PDU from binary format.
+  """
+  @spec decode_pdu(binary()) :: {:ok, pdu()} | {:error, atom()}
+  def decode_pdu(data) when is_binary(data) do
+    try do
+      case parse_pdu_comprehensive(data) do
+        {:ok, pdu} -> {:ok, pdu}
+        {:error, reason} -> {:error, reason}
+      end
+    rescue
+      error -> {:error, {:decoding_error, error}}
+    catch
+      error -> {:error, {:decoding_error, error}}
+    end
+  end
+
+  @doc """
+  Decodes an SNMP message from binary format (alias for decode_message/1).
+  """
   @spec decode(binary()) :: {:ok, message()} | {:error, atom()}
   def decode(data) when is_binary(data) do
     decode_message(data)
   end
+
+  # Private helper to peek at version without full decoding
+  defp peek_version(<<0x30, _length, 0x02, _version_length, version, _rest::binary>>) do
+    {:ok, version}
+  end
+
+  defp peek_version(data) when is_binary(data) do
+    case parse_sequence(data) do
+      {:ok, {content, _remaining}} ->
+        case parse_integer(content) do
+          {:ok, {version, _rest}} -> {:ok, version}
+          {:error, reason} -> {:error, reason}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp peek_version(_), do: {:error, :invalid_data}
 
   @doc """
   Alias for decode/1.

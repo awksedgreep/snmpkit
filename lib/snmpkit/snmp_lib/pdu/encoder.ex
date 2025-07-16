@@ -7,7 +7,7 @@ defmodule SnmpKit.SnmpLib.PDU.Encoder do
   """
 
   import Bitwise
-  alias SnmpKit.SnmpLib.PDU.Constants
+  alias SnmpKit.SnmpLib.PDU.{Constants, V3Encoder}
 
   @type message :: Constants.message()
   @type pdu :: Constants.pdu()
@@ -37,6 +37,11 @@ defmodule SnmpKit.SnmpLib.PDU.Encoder do
   Encodes an SNMP message to binary format.
   """
   @spec encode_message(message()) :: {:ok, binary()} | {:error, atom()}
+  def encode_message(%{version: 3} = message) do
+    # Delegate SNMPv3 messages to specialized encoder
+    V3Encoder.encode_message(message, nil)
+  end
+
   def encode_message(%{version: version, community: community, pdu: pdu}) do
     try do
       encode_snmp_message_fast(version, community, pdu)
@@ -48,6 +53,33 @@ defmodule SnmpKit.SnmpLib.PDU.Encoder do
   end
 
   def encode_message(_), do: {:error, :invalid_message_format}
+
+  @doc """
+  Encodes an SNMP message with security user (SNMPv3).
+  """
+  @spec encode_message(message(), map() | nil) :: {:ok, binary()} | {:error, atom()}
+  def encode_message(%{version: 3} = message, user) do
+    V3Encoder.encode_message(message, user)
+  end
+
+  def encode_message(message, _user) do
+    # Fall back to regular encoding for v1/v2c
+    encode_message(message)
+  end
+
+  @doc """
+  Encodes a PDU to binary format.
+  """
+  @spec encode_pdu(pdu()) :: {:ok, binary()} | {:error, atom()}
+  def encode_pdu(pdu) when is_map(pdu) do
+    try do
+      encode_pdu_fast(pdu)
+    rescue
+      error -> {:error, {:encoding_error, error}}
+    catch
+      error -> {:error, {:encoding_error, error}}
+    end
+  end
 
   @doc """
   Encodes an SNMP message to binary format (alias for encode_message/1).

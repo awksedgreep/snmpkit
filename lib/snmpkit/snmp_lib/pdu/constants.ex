@@ -6,6 +6,8 @@ defmodule SnmpKit.SnmpLib.PDU.Constants do
   and utility functions used throughout the SNMP PDU system.
   """
 
+  import Bitwise
+
   # Type definitions
   @type snmp_type ::
           :integer
@@ -80,10 +82,37 @@ defmodule SnmpKit.SnmpLib.PDU.Constants do
 
   @type pdu :: base_pdu() | bulk_pdu()
 
-  @type message :: %{
+  # SNMPv1/v2c message format
+  @type v1v2c_message :: %{
           version: snmp_version() | non_neg_integer(),
           community: binary(),
           pdu: pdu()
+        }
+
+  # SNMPv3 message format
+  @type v3_message :: %{
+          version: 3,
+          msg_id: non_neg_integer(),
+          msg_max_size: non_neg_integer(),
+          msg_flags: binary(),
+          msg_security_model: non_neg_integer(),
+          msg_security_parameters: binary(),
+          msg_data: scoped_pdu()
+        }
+
+  @type message :: v1v2c_message() | v3_message()
+
+  # SNMPv3 specific types
+  @type scoped_pdu :: %{
+          context_engine_id: binary(),
+          context_name: binary(),
+          pdu: pdu()
+        }
+
+  @type msg_flags :: %{
+          auth: boolean(),
+          priv: boolean(),
+          reportable: boolean()
         }
 
   # Error status code accessors
@@ -93,6 +122,13 @@ defmodule SnmpKit.SnmpLib.PDU.Constants do
   def bad_value, do: @bad_value
   def read_only, do: @read_only
   def gen_err, do: @gen_err
+
+  # SNMPv3 constants
+  @usm_security_model 3
+  @default_max_message_size 65507
+
+  def usm_security_model, do: @usm_security_model
+  def default_max_message_size, do: @default_max_message_size
 
   # PDU type constants accessors
   def get_request, do: @get_request
@@ -218,4 +254,44 @@ defmodule SnmpKit.SnmpLib.PDU.Constants do
   def error_status_to_atom(@read_only), do: :read_only
   def error_status_to_atom(@gen_err), do: :gen_err
   def error_status_to_atom(code), do: code
+
+  @doc """
+  Encodes SNMPv3 message flags to binary format.
+  """
+  @spec encode_msg_flags(msg_flags()) :: binary()
+  def encode_msg_flags(%{auth: auth, priv: priv, reportable: reportable}) do
+    flags = 0
+    flags = if auth, do: flags ||| 0x01, else: flags
+    flags = if priv, do: flags ||| 0x02, else: flags
+    flags = if reportable, do: flags ||| 0x04, else: flags
+    <<flags>>
+  end
+
+  @doc """
+  Decodes SNMPv3 message flags from binary format.
+  """
+  @spec decode_msg_flags(binary()) :: msg_flags()
+  def decode_msg_flags(<<flags::8>>) do
+    %{
+      auth: (flags &&& 0x01) != 0,
+      priv: (flags &&& 0x02) != 0,
+      reportable: (flags &&& 0x04) != 0
+    }
+  end
+
+  @doc """
+  Creates default SNMPv3 message flags for a security level.
+  """
+  @spec default_msg_flags(atom()) :: msg_flags()
+  def default_msg_flags(:no_auth_no_priv) do
+    %{auth: false, priv: false, reportable: true}
+  end
+
+  def default_msg_flags(:auth_no_priv) do
+    %{auth: true, priv: false, reportable: true}
+  end
+
+  def default_msg_flags(:auth_priv) do
+    %{auth: true, priv: true, reportable: true}
+  end
 end

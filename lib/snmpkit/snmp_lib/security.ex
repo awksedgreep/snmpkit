@@ -270,10 +270,9 @@ defmodule SnmpKit.SnmpLib.Security do
   This is typically done during the first communication with a remote agent
   to establish security context.
   """
-  @spec discover_engine(binary(), keyword()) :: {:error, :snmpv3_not_implemented}
+  @spec discover_engine(binary(), keyword()) :: {:ok, engine_id()} | {:error, atom()}
   def discover_engine(host, opts \\ []) do
-    # Implementation would send an engine discovery request
-    # For now, return a placeholder implementation
+    # Implementation delegates to USM module
     USM.discover_engine(host, opts)
   end
 
