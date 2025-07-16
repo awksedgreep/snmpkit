@@ -263,7 +263,7 @@ lreverse(_Tag, L) when is_list(L) ->
     lists:reverse(L);
 lreverse(Tag, X) ->
     exit({bad_list, Tag, X}).
--file("/Users/mcotner/.asdf/installs/erlang/27.1/lib/parsetools-2.6/include/yeccpre.hrl", 0).
+-file("/Users/mcotner/.asdf/installs/erlang/27.3.3/lib/parsetools-2.6/include/yeccpre.hrl", 0).
 %%
 %% %CopyrightBegin%
 %%

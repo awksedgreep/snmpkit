@@ -18,6 +18,7 @@ defmodule Snmpkit.MixProject do
       ],
       compilers: [:yecc] ++ Mix.compilers(),
       deps: deps(),
+      dialyzer: dialyzer(),
 
       # Hex package metadata
       description: description(),
@@ -127,6 +128,19 @@ defmodule Snmpkit.MixProject do
           SnmpKit.SnmpMgr,
           SnmpKit.TestSupport
         ]
+      ]
+    ]
+  end
+
+  defp dialyzer do
+    [
+      plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
+      plt_add_apps: [:mix, :ex_unit],
+      ignore_warnings: ".dialyzer_ignore.exs",
+      flags: [
+        :error_handling,
+        :underspecs,
+        :unknown
       ]
     ]
   end

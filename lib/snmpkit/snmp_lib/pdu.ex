@@ -63,13 +63,13 @@ defmodule SnmpKit.SnmpLib.PDU do
 
   ```elixir
   # GET request for system description
-  {:ok, pdu} = SnmpKit.SnmpLib.PDU.build_get_request([1, 3, 6, 1, 2, 1, 1, 1, 0], 123)
+  pdu = SnmpKit.SnmpLib.PDU.build_get_request([1, 3, 6, 1, 2, 1, 1, 1, 0], 123)
 
   # GETBULK request for interface table
-  {:ok, pdu} = SnmpKit.SnmpLib.PDU.build_get_bulk_request([1, 3, 6, 1, 2, 1, 2, 2, 1], 124, 0, 10)
+  pdu = SnmpKit.SnmpLib.PDU.build_get_bulk_request([1, 3, 6, 1, 2, 1, 2, 2, 1], 124, 0, 10)
 
   # SET request
-  {:ok, pdu} = SnmpKit.SnmpLib.PDU.build_set_request([1, 3, 6, 1, 2, 1, 1, 5, 0], {:octet_string, "New Name"}, 125)
+  pdu = SnmpKit.SnmpLib.PDU.build_set_request([1, 3, 6, 1, 2, 1, 1, 5, 0], {:octet_string, "New Name"}, 125)
   ```
 
   ### Building Messages
@@ -164,7 +164,7 @@ defmodule SnmpKit.SnmpLib.PDU do
 
   ## Examples
 
-      iex> {:ok, pdu} = SnmpKit.SnmpLib.PDU.build_get_request([1, 3, 6, 1, 2, 1, 1, 1, 0], 123)
+      iex> pdu = SnmpKit.SnmpLib.PDU.build_get_request([1, 3, 6, 1, 2, 1, 1, 1, 0], 123)
       iex> pdu.type
       :get_request
   """
@@ -182,7 +182,7 @@ defmodule SnmpKit.SnmpLib.PDU do
   ## Examples
 
       iex> varbinds = [{[1, 3, 6, 1, 2, 1, 1, 1, 0], :null, :null}]
-      iex> {:ok, pdu} = SnmpKit.SnmpLib.PDU.build_get_request_multi(varbinds, 123)
+      iex> pdu = SnmpKit.SnmpLib.PDU.build_get_request_multi(varbinds, 123)
       iex> pdu.type
       :get_request
   """
@@ -201,7 +201,7 @@ defmodule SnmpKit.SnmpLib.PDU do
 
   ## Examples
 
-      iex> {:ok, pdu} = SnmpKit.SnmpLib.PDU.build_get_next_request([1, 3, 6, 1, 2, 1, 1], 124)
+      iex> pdu = SnmpKit.SnmpLib.PDU.build_get_next_request([1, 3, 6, 1, 2, 1, 1], 123)
       iex> pdu.type
       :get_next_request
   """
@@ -221,7 +221,7 @@ defmodule SnmpKit.SnmpLib.PDU do
 
   ## Examples
 
-      iex> {:ok, pdu} = SnmpKit.SnmpLib.PDU.build_get_bulk_request([1, 3, 6, 1, 2, 1, 2, 2, 1], 125, 0, 10)
+      iex> pdu = SnmpKit.SnmpLib.PDU.build_get_bulk_request([1, 3, 6, 1, 2, 1, 2, 2], 123, 0, 10)
       iex> pdu.type
       :get_bulk_request
   """
@@ -246,7 +246,7 @@ defmodule SnmpKit.SnmpLib.PDU do
 
   ## Examples
 
-      iex> {:ok, pdu} = SnmpKit.SnmpLib.PDU.build_set_request([1, 3, 6, 1, 2, 1, 1, 5, 0], {:octet_string, "New Name"}, 126)
+      iex> pdu = SnmpKit.SnmpLib.PDU.build_set_request([1, 3, 6, 1, 2, 1, 1, 5, 0], {:octet_string, "Test"}, 123)
       iex> pdu.type
       :set_request
   """
@@ -287,7 +287,7 @@ defmodule SnmpKit.SnmpLib.PDU do
 
   ## Examples
 
-      iex> {:ok, pdu} = SnmpKit.SnmpLib.PDU.build_get_request([1, 3, 6, 1, 2, 1, 1, 1, 0], 123)
+      iex> pdu = SnmpKit.SnmpLib.PDU.build_get_request([1, 3, 6, 1, 2, 1, 1, 1, 0], 123)
       iex> message = SnmpKit.SnmpLib.PDU.build_message(pdu, "public", :v2c)
       iex> message.version
       1

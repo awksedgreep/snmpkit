@@ -60,8 +60,16 @@ defmodule SnmpKit.SnmpLib.PDU.Constants do
   @type snmp_value :: any()
   @type varbind :: {oid(), atom(), snmp_value()}
 
-  @type pdu :: %{
+  @type base_pdu :: %{
           type: pdu_type(),
+          request_id: non_neg_integer(),
+          error_status: error_status(),
+          error_index: non_neg_integer(),
+          varbinds: [varbind()]
+        }
+
+  @type bulk_pdu :: %{
+          type: :get_bulk_request,
           request_id: non_neg_integer(),
           error_status: error_status(),
           error_index: non_neg_integer(),
@@ -69,6 +77,8 @@ defmodule SnmpKit.SnmpLib.PDU.Constants do
           non_repeaters: non_neg_integer(),
           max_repetitions: non_neg_integer()
         }
+
+  @type pdu :: base_pdu() | bulk_pdu()
 
   @type message :: %{
           version: snmp_version() | non_neg_integer(),

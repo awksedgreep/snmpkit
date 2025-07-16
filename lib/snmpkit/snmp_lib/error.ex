@@ -476,7 +476,27 @@ defmodule SnmpKit.SnmpLib.Error do
       iex> :gen_err in atoms
       true
   """
-  @spec all_error_atoms() :: [atom()]
+  @spec all_error_atoms() :: [
+          :no_error
+          | :too_big
+          | :no_such_name
+          | :bad_value
+          | :read_only
+          | :gen_err
+          | :no_access
+          | :wrong_type
+          | :wrong_length
+          | :wrong_encoding
+          | :wrong_value
+          | :no_creation
+          | :inconsistent_value
+          | :resource_unavailable
+          | :commit_failed
+          | :undo_failed
+          | :authorization_error
+          | :not_writable
+          | :inconsistent_name
+        ]
   def all_error_atoms do
     [
       :no_error,

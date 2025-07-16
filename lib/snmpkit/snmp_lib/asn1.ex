@@ -124,7 +124,7 @@ defmodule SnmpKit.SnmpLib.ASN1 do
       iex> byte_size(encoded) > 3
       true
   """
-  @spec encode_integer(integer()) :: {:ok, binary()} | {:error, atom()}
+  @spec encode_integer(integer()) :: {:ok, binary()}
   def encode_integer(value) when is_integer(value) do
     content = encode_integer_content(value)
     tlv_bytes = encode_tlv(@tag_integer, content)
@@ -143,7 +143,7 @@ defmodule SnmpKit.SnmpLib.ASN1 do
       {:ok, encoded} = SnmpKit.SnmpLib.ASN1.encode_octet_string("Hello")
       {:ok, encoded} = SnmpKit.SnmpLib.ASN1.encode_octet_string(<<1, 2, 3, 4>>)
   """
-  @spec encode_octet_string(binary()) :: {:ok, binary()} | {:error, atom()}
+  @spec encode_octet_string(binary()) :: {:ok, binary()}
   def encode_octet_string(value) when is_binary(value) do
     tlv_bytes = encode_tlv(@tag_octet_string, value)
     {:ok, tlv_bytes}
