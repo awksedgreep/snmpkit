@@ -63,6 +63,7 @@ defmodule SnmpKit.SnmpLib.Security.Auth do
       algorithm: :none,
       digest_size: 0,
       truncated_size: 0,
+      max_key_size: 0,
       secure: false,
       rfc: "N/A"
     },
@@ -70,6 +71,7 @@ defmodule SnmpKit.SnmpLib.Security.Auth do
       algorithm: :md5,
       digest_size: 16,
       truncated_size: 12,
+      max_key_size: 64,
       # Deprecated
       secure: false,
       rfc: "RFC 3414"
@@ -78,6 +80,7 @@ defmodule SnmpKit.SnmpLib.Security.Auth do
       algorithm: :sha,
       digest_size: 20,
       truncated_size: 12,
+      max_key_size: 64,
       # Deprecated
       secure: false,
       rfc: "RFC 3414"
@@ -86,6 +89,7 @@ defmodule SnmpKit.SnmpLib.Security.Auth do
       algorithm: :sha224,
       digest_size: 28,
       truncated_size: 16,
+      max_key_size: 64,
       secure: true,
       rfc: "RFC 7860"
     },
@@ -93,6 +97,7 @@ defmodule SnmpKit.SnmpLib.Security.Auth do
       algorithm: :sha256,
       digest_size: 32,
       truncated_size: 16,
+      max_key_size: 64,
       secure: true,
       rfc: "RFC 7860"
     },
@@ -100,6 +105,7 @@ defmodule SnmpKit.SnmpLib.Security.Auth do
       algorithm: :sha384,
       digest_size: 48,
       truncated_size: 24,
+      max_key_size: 64,
       secure: true,
       rfc: "RFC 7860"
     },
@@ -107,6 +113,7 @@ defmodule SnmpKit.SnmpLib.Security.Auth do
       algorithm: :sha512,
       digest_size: 64,
       truncated_size: 32,
+      max_key_size: 64,
       secure: true,
       rfc: "RFC 7860"
     }
@@ -210,7 +217,7 @@ defmodule SnmpKit.SnmpLib.Security.Auth do
     {:ok, <<>>}
   end
 
-  def authenticate(protocol, auth_key, message) when is_atom(protocol) do
+  def authenticate(protocol, auth_key, message) when is_atom(protocol) and is_binary(auth_key) do
     case protocol_info(protocol) do
       nil ->
         Logger.error("Unsupported authentication protocol: #{protocol}")
@@ -239,6 +246,11 @@ defmodule SnmpKit.SnmpLib.Security.Auth do
             {:error, :authentication_failed}
         end
     end
+  end
+
+  def authenticate(protocol, auth_key, _message) when is_atom(protocol) do
+    Logger.error("Invalid authentication key type: #{inspect(auth_key)}")
+    {:error, :invalid_key_type}
   end
 
   def authenticate(protocol, _auth_key, _message) do
@@ -336,6 +348,13 @@ defmodule SnmpKit.SnmpLib.Security.Auth do
             )
 
             {:error, :key_too_short}
+
+          key_length > spec.max_key_size ->
+            Logger.error(
+              "Authentication key too long for #{protocol}: #{key_length} > #{spec.max_key_size}"
+            )
+
+            {:error, :invalid_key_length}
 
           not spec.secure ->
             Logger.warning("Using deprecated authentication protocol: #{protocol}")

@@ -142,7 +142,8 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
 
     test "rejects invalid OIDs" do
       assert {:error, :invalid_oid} = ASN1.encode_oid([])
-      assert {:error, :invalid_oid} = ASN1.encode_oid([1])
+      # Single-component OIDs are valid
+      assert {:ok, _} = ASN1.encode_oid([1])
       assert {:error, :invalid_oid} = ASN1.encode_oid(:not_a_list)
     end
 

@@ -472,7 +472,7 @@ defmodule SnmpKit.SnmpLib.Security.Priv do
     end
   end
 
-  defp validate_plaintext(plaintext) when is_binary(plaintext) and byte_size(plaintext) > 0 do
+  defp validate_plaintext(plaintext) when is_binary(plaintext) do
     :ok
   end
 

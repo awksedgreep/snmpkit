@@ -73,7 +73,12 @@ defmodule SnmpKit.SnmpLib.PDU.Encoder do
   @spec encode_pdu(pdu()) :: {:ok, binary()} | {:error, atom()}
   def encode_pdu(pdu) when is_map(pdu) do
     try do
-      encode_pdu_fast(pdu)
+      case encode_pdu_fast(pdu) do
+        {:ok, result} when is_binary(result) -> {:ok, result}
+        {:error, reason} -> {:error, reason}
+        result when is_binary(result) -> {:ok, result}
+        other -> {:error, {:invalid_pdu_result, other}}
+      end
     rescue
       error -> {:error, {:encoding_error, error}}
     catch
@@ -511,6 +516,17 @@ defmodule SnmpKit.SnmpLib.PDU.Encoder do
 
       _ ->
         bytes
+    end
+  end
+
+  defp encode_oid_fast([first]) when first >= 0 and first < 3 do
+    # Single component OID - encode directly
+    case encode_oid_subids_fast([first], []) do
+      {:ok, content} ->
+        {:ok, encode_tag_length_value(@object_identifier, byte_size(content), content)}
+
+      error ->
+        error
     end
   end
 

@@ -149,6 +149,16 @@ defmodule SnmpKit.SnmpLib.ASN1 do
     {:ok, tlv_bytes}
   end
 
+  def encode_octet_string({:ok, binary}) when is_binary(binary) do
+    encode_octet_string(binary)
+  end
+
+  def encode_octet_string(value) when not is_binary(value) do
+    require Logger
+    Logger.error("encode_octet_string received non-binary value: #{inspect(value)}")
+    {:error, {:invalid_type, value}}
+  end
+
   @doc """
   Encodes an ASN.1 NULL value.
 
@@ -203,10 +213,10 @@ defmodule SnmpKit.SnmpLib.ASN1 do
       {:error, :invalid_oid}
 
       iex> SnmpKit.SnmpLib.ASN1.encode_oid([1])
-      {:error, :invalid_oid}
+      {:ok, <<6, 1, 1>>}
   """
   @spec encode_oid(oid()) :: {:ok, binary()} | {:error, atom()}
-  def encode_oid(oid_list) when is_list(oid_list) and length(oid_list) >= 2 do
+  def encode_oid(oid_list) when is_list(oid_list) and length(oid_list) >= 1 do
     case encode_oid_content(oid_list) do
       {:ok, content} ->
         tlv_bytes = encode_tlv(@tag_oid, content)
@@ -666,6 +676,11 @@ defmodule SnmpKit.SnmpLib.ASN1 do
   end
 
   # OID content encoding
+  defp encode_oid_content([first]) when first < 3 do
+    # Single component OID - encode directly
+    {:ok, encode_oid_subidentifier(first)}
+  end
+
   defp encode_oid_content([first, second | rest]) when first < 3 and second < 40 do
     first_byte = first * 40 + second
     first_encoded = encode_oid_subidentifier(first_byte)
