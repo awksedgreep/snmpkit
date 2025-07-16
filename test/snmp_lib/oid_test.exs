@@ -13,6 +13,11 @@ defmodule SnmpKit.SnmpLib.OIDTest do
       assert oid_list == [1, 3, 6, 1, 2, 1, 1, 1, 0]
     end
 
+    test "converts valid OID string with leading dot to list" do
+      {:ok, oid_list} = OID.string_to_list(".1.3.6.1.2.1.1.1.0")
+      assert oid_list == [1, 3, 6, 1, 2, 1, 1, 1, 0]
+    end
+
     test "converts valid OID list to string" do
       {:ok, oid_string} = OID.list_to_string([1, 3, 6, 1, 2, 1, 1, 1, 0])
       assert oid_string == "1.3.6.1.2.1.1.1.0"
@@ -26,9 +31,21 @@ defmodule SnmpKit.SnmpLib.OIDTest do
       assert oid_string == "42"
     end
 
+    test "handles single component OID with leading dot" do
+      {:ok, oid_list} = OID.string_to_list(".42")
+      assert oid_list == [42]
+    end
+
+    test "handles short OID with leading dot" do
+      {:ok, oid_list} = OID.string_to_list(".1.3.6")
+      assert oid_list == [1, 3, 6]
+    end
+
     test "rejects empty OID string" do
       assert {:error, :empty_oid} = OID.string_to_list("")
       assert {:error, :empty_oid} = OID.string_to_list("   ")
+      assert {:error, :empty_oid} = OID.string_to_list(".")
+      assert {:error, :empty_oid} = OID.string_to_list("  .  ")
     end
 
     test "rejects empty OID list" do
@@ -39,6 +56,9 @@ defmodule SnmpKit.SnmpLib.OIDTest do
       assert {:error, :invalid_oid_string} = OID.string_to_list("1.3.6.1.a.2")
       assert {:error, :invalid_oid_string} = OID.string_to_list("1..3.6.1")
       assert {:error, :invalid_oid_string} = OID.string_to_list("1.3.6.1.")
+      assert {:error, :invalid_oid_string} = OID.string_to_list(".1.3.6.1.a.2")
+      assert {:error, :invalid_oid_string} = OID.string_to_list(".1..3.6.1")
+      assert {:error, :invalid_oid_string} = OID.string_to_list(".1.3.6.1.")
     end
 
     test "rejects negative components" do
@@ -349,6 +369,9 @@ defmodule SnmpKit.SnmpLib.OIDTest do
     test "handles whitespace in OID strings" do
       {:ok, oid} = OID.string_to_list("  1.3.6.1.2.1  ")
       assert oid == [1, 3, 6, 1, 2, 1]
+
+      {:ok, oid_with_dot} = OID.string_to_list("  .1.3.6.1.2.1  ")
+      assert oid_with_dot == [1, 3, 6, 1, 2, 1]
     end
 
     test "handles very long OIDs" do

@@ -8,16 +8,27 @@ defmodule SnmpKit.SnmpLib.OID do
   ## Features
 
   - String/list format conversions with validation
+  - Support for both OID formats: "1.3.6.1.2.1.1" and ".1.3.6.1.2.1.1"
   - OID tree operations (parent/child relationships)
   - SNMP table index parsing and construction
   - OID comparison and sorting
   - Enterprise OID utilities
   - Performance-optimized operations
 
+  ## OID Format Support
+
+  SnmpKit supports both common OID string formats:
+  - **Traditional format**: "1.3.6.1.2.1.1.1.0" (Elixir/Erlang style)
+  - **Standard format**: ".1.3.6.1.2.1.1.1.0" (RFC standard with leading dot)
+
+  Both formats parse to identical internal representations and can be used
+  interchangeably throughout the library.
+
   ## Examples
 
-      # Basic conversions
+      # Basic conversions - both formats supported
       {:ok, oid_list} = SnmpKit.SnmpLib.OID.string_to_list("1.3.6.1.2.1.1.1.0")
+      {:ok, same_list} = SnmpKit.SnmpLib.OID.string_to_list(".1.3.6.1.2.1.1.1.0")
       {:ok, oid_string} = SnmpKit.SnmpLib.OID.list_to_string([1, 3, 6, 1, 2, 1, 1, 1, 0])
 
       # Tree operations
@@ -54,7 +65,7 @@ defmodule SnmpKit.SnmpLib.OID do
 
   ## Parameters
 
-  - `oid_string`: Dot-separated OID string (e.g., "1.3.6.1.2.1.1.1.0")
+  - `oid_string`: Dot-separated OID string (e.g., "1.3.6.1.2.1.1.1.0" or ".1.3.6.1.2.1.1.1.0")
 
   ## Returns
 
@@ -67,8 +78,16 @@ defmodule SnmpKit.SnmpLib.OID do
       iex> SnmpKit.SnmpLib.OID.string_to_list("1.3.6.1.2.1.1.1.0")
       {:ok, [1, 3, 6, 1, 2, 1, 1, 1, 0]}
 
+      # OIDs with leading dot (standard format)
+      iex> SnmpKit.SnmpLib.OID.string_to_list(".1.3.6.1.2.1.1.1.0")
+      {:ok, [1, 3, 6, 1, 2, 1, 1, 1, 0]}
+
       # Short OIDs
       iex> SnmpKit.SnmpLib.OID.string_to_list("1.3.6")
+      {:ok, [1, 3, 6]}
+
+      # Short OIDs with leading dot
+      iex> SnmpKit.SnmpLib.OID.string_to_list(".1.3.6")
       {:ok, [1, 3, 6]}
 
       # Error cases
@@ -88,17 +107,32 @@ defmodule SnmpKit.SnmpLib.OID do
         {:error, :empty_oid}
 
       trimmed_string ->
-        parts = String.split(trimmed_string, ".")
+        # Handle leading dot by removing it
+        normalized_string =
+          if String.starts_with?(trimmed_string, ".") do
+            String.slice(trimmed_string, 1..-1//1)
+          else
+            trimmed_string
+          end
 
-        case parse_oid_components(parts) do
-          {:ok, oid_list} ->
-            case validate_oid_list(oid_list) do
-              :ok -> {:ok, oid_list}
-              {:error, reason} -> {:error, reason}
+        # Check if we're left with an empty string after removing leading dot
+        case normalized_string do
+          "" ->
+            {:error, :empty_oid}
+
+          _ ->
+            parts = String.split(normalized_string, ".")
+
+            case parse_oid_components(parts) do
+              {:ok, oid_list} ->
+                case validate_oid_list(oid_list) do
+                  :ok -> {:ok, oid_list}
+                  {:error, reason} -> {:error, reason}
+                end
+
+              {:error, reason} ->
+                {:error, reason}
             end
-
-          {:error, reason} ->
-            {:error, reason}
         end
     end
   end
