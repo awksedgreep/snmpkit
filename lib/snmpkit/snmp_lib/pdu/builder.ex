@@ -110,6 +110,8 @@ defmodule SnmpKit.SnmpLib.PDU.Builder do
     %{
       type: :get_bulk_request,
       request_id: request_id,
+      error_status: Constants.no_error(),
+      error_index: 0,
       non_repeaters: non_repeaters,
       max_repetitions: max_repetitions,
       varbinds: [{normalized_oid, :null, :null}]
