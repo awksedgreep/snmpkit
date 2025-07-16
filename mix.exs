@@ -97,6 +97,7 @@ defmodule Snmpkit.MixProject do
         "docs/v0.3.3-release-notes.md",
         "docs/v0.3.4-release-notes.md",
         "docs/v0.3.5-release-notes.md",
+        "docs/v0.4.0-release-notes.md",
         "livebooks/snmpkit_tour.livemd",
         "examples/README.md"
       ],
