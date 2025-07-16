@@ -42,7 +42,8 @@ defmodule SnmpKit.SnmpLib.MIB.Utilities do
 
     case resolve_oid_tree(root_oids, oid_table, MapSet.new()) do
       {:ok, resolved_table} -> {:ok, resolved_table}
-      {:error, unresolved} -> {:error, MapSet.to_list(unresolved)}
+      {:error, reason} when is_binary(reason) -> {:error, [reason]}
+      {:error, unresolved} when is_list(unresolved) -> {:error, unresolved}
     end
   end
 

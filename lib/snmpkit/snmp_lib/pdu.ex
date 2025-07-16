@@ -226,7 +226,7 @@ defmodule SnmpKit.SnmpLib.PDU do
       :get_bulk_request
   """
   @spec build_get_bulk_request(
-          oid() | [oid()],
+          oid(),
           non_neg_integer(),
           non_neg_integer(),
           non_neg_integer()
