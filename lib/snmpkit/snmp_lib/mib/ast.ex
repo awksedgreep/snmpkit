@@ -424,7 +424,7 @@ defmodule SnmpKit.SnmpLib.MIB.AST do
   @doc """
   Build an OID tree from definitions for fast lookups.
   """
-  @spec build_oid_tree([definition()]) :: oid_tree()
+  @spec build_oid_tree([definition()]) :: :ets.tid()
   def build_oid_tree(definitions) do
     # Use ETS for performance with large MIBs
     tid = :ets.new(:oid_tree, [:set, :protected])

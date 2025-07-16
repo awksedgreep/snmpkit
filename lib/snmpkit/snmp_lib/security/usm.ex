@@ -128,7 +128,7 @@ defmodule SnmpKit.SnmpLib.Security.USM do
       {:ok, engine_id} = SnmpKit.SnmpLib.Security.USM.discover_engine("192.168.1.1")
       {:ok, engine_id} = SnmpKit.SnmpLib.Security.USM.discover_engine("10.0.0.1", port: 1161, timeout: 5000)
   """
-  @spec discover_engine(binary(), keyword()) :: {:ok, engine_id()} | {:error, atom()}
+  @spec discover_engine(binary(), keyword()) :: {:error, :snmpv3_not_implemented}
   def discover_engine(host, _opts \\ []) do
     Logger.debug("Starting engine discovery for host: #{host}")
 
@@ -146,7 +146,7 @@ defmodule SnmpKit.SnmpLib.Security.USM do
   and engine time.
   """
   @spec synchronize_time(binary(), engine_id(), keyword()) ::
-          {:ok, {engine_boots(), engine_time()}} | {:error, atom()}
+          {:error, :snmpv3_not_implemented}
   def synchronize_time(_host, engine_id, _opts \\ []) do
     Logger.debug("Starting time synchronization with engine: #{Base.encode16(engine_id)}")
 
@@ -168,7 +168,7 @@ defmodule SnmpKit.SnmpLib.Security.USM do
   message based on the user's security level configuration.
   """
   @spec process_outgoing_message(user_entry(), binary(), security_level()) ::
-          {:ok, binary()} | {:error, atom()}
+          {:error, :snmpv3_not_implemented}
   def process_outgoing_message(_user, _message, security_level) do
     Logger.debug("Processing outgoing message with security level: #{security_level}")
 
