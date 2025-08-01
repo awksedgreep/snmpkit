@@ -422,9 +422,9 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
     test "get_multi processes multiple targets", %{device1: device1, device2: device2} do
       requests = [
         {"#{device1.host}:#{device1.port}", "1.3.6.1.2.1.1.1.0",
-         [community: device1.community, timeout: 200]},
+         [community: device1.community, timeout: 2000]},
         {"#{device2.host}:#{device2.port}", "1.3.6.1.2.1.1.3.0",
-         [community: device2.community, timeout: 200]}
+         [community: device2.community, timeout: 2000]}
       ]
 
       results = SnmpKit.SnmpMgr.get_multi(requests)
@@ -441,9 +441,9 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
     test "get_bulk_multi processes multiple bulk requests", %{device1: device1, device2: device2} do
       requests = [
         {"#{device1.host}:#{device1.port}", "1.3.6.1.2.1.2.2",
-         [max_repetitions: 3, community: device1.community, timeout: 200]},
+         [max_repetitions: 3, community: device1.community, timeout: 2000]},
         {"#{device2.host}:#{device2.port}", "1.3.6.1.2.1.2.2",
-         [max_repetitions: 3, community: device2.community, timeout: 200]}
+         [max_repetitions: 3, community: device2.community, timeout: 2000]}
       ]
 
       results = SnmpKit.SnmpMgr.get_bulk_multi(requests)

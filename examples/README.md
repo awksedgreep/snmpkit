@@ -109,6 +109,16 @@ Specialized examples for cable network management.
 - Signal quality measurements
 - Upstream/downstream channel information
 
+### ⚡ High-Performance Polling
+Examples for scalable, high-concurrency SNMP operations.
+
+**[scalable_high_concurrency_polling.exs](scalable_high_concurrency_polling.exs)**
+- Poll thousands of devices efficiently
+- Demonstrates new MultiV2 architecture
+- Eliminates GenServer bottlenecks
+- Cable modem fleet management patterns
+- Performance benchmarking and monitoring
+
 ## Code Patterns
 
 ### Basic SNMP Operations
