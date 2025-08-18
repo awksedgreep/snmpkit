@@ -12,47 +12,50 @@ SnmpKit v0.2.0 introduces a **unified API** that organizes all functionality int
 
 | Module | Purpose | Functions |
 |--------|---------|-----------|
-| `SnmpKit.SNMP` | SNMP protocol operations | get, walk, bulk, set, multi-target, streaming |
+| `SnmpKit` | Preferred concise helpers | get, set, walk, walk_table, get_bulk, bulk_walk, get_bulk_multi, walk_multi |
+| `SnmpKit.SNMP` | Full namespaced API | async ops, streaming, pretty formatting, engine/metrics |
 | `SnmpKit.MIB` | MIB management | resolve, compile, load, tree navigation |
 | `SnmpKit.Sim` | Device simulation | start devices, create populations, testing |
-| `SnmpKit` | Direct access | Common operations for convenience |
 
 ### Design Benefits
 
+✅ **Concise by default** - Prefer `SnmpKit` helpers for common tasks  
 ✅ **No Naming Conflicts** - Context prevents function name collisions  
 ✅ **Improved Discoverability** - Related functions grouped logically  
 ✅ **Clear Documentation** - Module boundaries define responsibilities  
-✅ **Backward Compatibility** - Existing code continues to work  
-✅ **Flexible Usage** - Choose namespaced or direct access as preferred  
+✅ **Backward Compatibility** - Namespaced API remains available  
+✅ **Flexible Usage** - Use concise helpers or full namespaced API as needed  
 
-## 📡 SNMP Operations (`SnmpKit.SNMP`)
+## 📡 SNMP Operations (prefer concise helpers on `SnmpKit`)
+
+While the namespaced `SnmpKit.SNMP` API remains available, prefer the concise helpers on `SnmpKit` for everyday use. They are thin delegates with the same behavior.
 
 ### Basic Operations
 
 ```elixir
 # GET operations
-{:ok, value} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
-{:ok, {oid, type, value}} = SnmpKit.SNMP.get_with_type("192.168.1.1", "sysUpTime.0")
-
-# SET operations (to simulation devices)
-:ok = SnmpKit.SNMP.set("127.0.0.1:1161", "sysContact.0", "admin@example.com")
+{:ok, value} = SnmpKit.get("192.168.1.1", "sysDescr.0")
 
 # WALK operations
-{:ok, results} = SnmpKit.SNMP.walk("192.168.1.1", "system")
-{:ok, table} = SnmpKit.SNMP.get_table("192.168.1.1", "ifTable")
+{:ok, results} = SnmpKit.walk("192.168.1.1", "system")
+{:ok, table} = SnmpKit.walk_table("192.168.1.1", "ifTable")
+
+# SET operations (to simulation devices)
+:ok = SnmpKit.set("127.0.0.1:1161", "sysContact.0", "admin@example.com")
 ```
 
 ### Bulk Operations
 
 ```elixir
 # Efficient bulk retrieval
-{:ok, results} = SnmpKit.SNMP.get_bulk("192.168.1.1", "interfaces", max_repetitions: 10)
+{:ok, results} = SnmpKit.get_bulk("192.168.1.1", "interfaces", max_repetitions: 10)
 
-# Adaptive bulk walking (auto-optimizes)
-{:ok, results} = SnmpKit.SNMP.adaptive_walk("192.168.1.1", "interfaces")
+# Bulk walk (uses GETBULK for v2c)
+{:ok, results} = SnmpKit.bulk_walk("192.168.1.1", "system")
 
-# Traditional bulk walk
-{:ok, results} = SnmpKit.SNMP.bulk_walk("192.168.1.1", "system")
+# Bang variants (raise on error)
+results = SnmpKit.get_bulk!("192.168.1.1", "interfaces", max_repetitions: 10)
+results = SnmpKit.bulk_walk!("192.168.1.1", "system")
 ```
 
 ### Multi-Target Operations
@@ -65,24 +68,30 @@ targets_and_oids = [
   {"ap1.example.com", "sysLocation.0"}
 ]
 
-{:ok, results} = SnmpKit.SNMP.get_multi(targets_and_oids)
+{:ok, results} = SnmpKit.get_multi(targets_and_oids)
 
 # Bulk operations across multiple targets
-{:ok, results} = SnmpKit.SNMP.walk_multi([
+{:ok, results} = SnmpKit.walk_multi([
   {"host1", "interfaces"},
   {"host2", "system"}
 ])
+
+# GETBULK across multiple targets
+{:ok, results} = SnmpKit.get_bulk_multi([
+  {"switch1", "ifTable"},
+  {"switch2", "ifTable"}
+], max_repetitions: 20)
 ```
 
 ### Streaming Operations
 
 ```elixir
-# Memory-efficient streaming for large datasets
-stream = SnmpKit.SNMP.walk_stream("192.168.1.1", "interfaces")
+# Memory-efficient streaming for large datasets (bulk semantics enforced)
+stream = SnmpKit.SNMP.bulk_walk_stream("192.168.1.1", "interfaces")
 results = stream |> Stream.take(1000) |> Enum.to_list()
 
-# Table streaming
-table_stream = SnmpKit.SNMP.table_stream("192.168.1.1", "ifTable")
+# Table streaming with bulk semantics
+table_stream = SnmpKit.SNMP.table_bulk_stream("192.168.1.1", "ifTable")
 ```
 
 ### Async Operations
@@ -118,7 +127,7 @@ task = SnmpKit.SNMP.get_bulk_async("192.168.1.1", "interfaces")
 
 # Circuit breaker for reliability
 {:ok, result} = SnmpKit.SNMP.with_circuit_breaker("unreliable.host", fn ->
-  SnmpKit.SNMP.get("unreliable.host", "sysDescr.0")
+  SnmpKit.get("unreliable.host", "sysDescr.0")
 end)
 
 # Performance analysis
@@ -127,7 +136,7 @@ end)
 
 # Metrics recording
 SnmpKit.SNMP.record_metric(:counter, :requests_total, 1, %{host: "router1"})
-```
+```)
 
 ## 📚 MIB Operations (`SnmpKit.MIB`)
 

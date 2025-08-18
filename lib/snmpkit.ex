@@ -35,6 +35,22 @@ defmodule SnmpKit do
   defdelegate set(target, oid, value, opts), to: SnmpKit.SnmpMgr
   defdelegate resolve(name), to: SnmpKit.SnmpMgr.MIB
 
+  # Bulk operations (top-level convenience)
+  defdelegate get_bulk(target, oid_or_oids), to: SnmpKit.SnmpMgr
+  defdelegate get_bulk(target, oid_or_oids, opts), to: SnmpKit.SnmpMgr
+  defdelegate bulk_walk(target, root_oid), to: SnmpKit.SnmpMgr
+  defdelegate bulk_walk(target, root_oid, opts), to: SnmpKit.SnmpMgr
+
+  # Walk table convenience
+  defdelegate walk_table(target, table_oid), to: SnmpKit.SnmpMgr
+  defdelegate walk_table(target, table_oid, opts), to: SnmpKit.SnmpMgr
+
+  # Multi-target bulk helpers
+  defdelegate get_bulk_multi(targets_and_oids), to: SnmpKit.SnmpMgr
+  defdelegate get_bulk_multi(targets_and_oids, opts), to: SnmpKit.SnmpMgr
+  defdelegate walk_multi(targets_and_oids), to: SnmpKit.SnmpMgr
+  defdelegate walk_multi(targets_and_oids, opts), to: SnmpKit.SnmpMgr
+
   defmodule SNMP do
     @moduledoc """
     SNMP client operations for querying and managing SNMP devices.
@@ -70,6 +86,28 @@ defmodule SnmpKit do
     defdelegate bulk_walk(target, oid), to: SnmpKit.SnmpMgr
     defdelegate bulk_walk(target, oid, opts), to: SnmpKit.SnmpMgr
 
+    @doc """
+    Like get_bulk/3 but raises on error.
+    """
+    @spec get_bulk!(term(), term(), keyword()) :: term()
+    def get_bulk!(target, oid, opts \\ []) do
+      case get_bulk(target, oid, opts) do
+        {:ok, result} -> result
+        {:error, reason} -> raise("get_bulk! failed: #{inspect(reason)}")
+      end
+    end
+
+    @doc """
+    Like bulk_walk/3 but raises on error.
+    """
+    @spec bulk_walk!(term(), term(), keyword()) :: term()
+    def bulk_walk!(target, root_oid, opts \\ []) do
+      case bulk_walk(target, root_oid, opts) do
+        {:ok, result} -> result
+        {:error, reason} -> raise("bulk_walk! failed: #{inspect(reason)}")
+      end
+    end
+
     # Walk Operations
     defdelegate walk(target, oid), to: SnmpKit.SnmpMgr
     defdelegate walk(target, oid, opts), to: SnmpKit.SnmpMgr
@@ -97,6 +135,25 @@ defmodule SnmpKit do
     defdelegate walk_stream(target, root_oid, opts), to: SnmpKit.SnmpMgr
     defdelegate table_stream(target, table_oid), to: SnmpKit.SnmpMgr
     defdelegate table_stream(target, table_oid, opts), to: SnmpKit.SnmpMgr
+
+    @doc """
+    Streaming variant of bulk_walk/3 that enforces bulk semantics (v2c) and lazily
+    retrieves data in chunks.
+    """
+    @spec bulk_walk_stream(term(), term(), keyword()) :: Enumerable.t()
+    def bulk_walk_stream(target, root_oid, opts \\ []) do
+      opts = Keyword.put_new(opts, :version, :v2c)
+      SnmpKit.SnmpMgr.Stream.walk_stream(target, root_oid, opts)
+    end
+
+    @doc """
+    Streaming variant of table walk that enforces bulk semantics (v2c).
+    """
+    @spec table_bulk_stream(term(), term(), keyword()) :: Enumerable.t()
+    def table_bulk_stream(target, table_oid, opts \\ []) do
+      opts = Keyword.put_new(opts, :version, :v2c)
+      SnmpKit.SnmpMgr.Stream.table_stream(target, table_oid, opts)
+    end
 
     # Analysis and Utilities
     defdelegate analyze_table(table_data), to: SnmpKit.SnmpMgr

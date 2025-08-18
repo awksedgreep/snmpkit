@@ -556,7 +556,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
     Process.send_after(self(), {:request_timeout, ref}, timeout)
   end
 
-  defp handle_udp_response_shared(state, socket, ip, port, data) do
+  defp handle_udp_response_shared(state, socket, _ip, _port, data) do
     case SnmpKit.SnmpLib.PDU.decode_message(data) do
       {:ok, message} ->
         handle_snmp_response_shared(state, socket, message)
@@ -567,12 +567,8 @@ defmodule SnmpKit.SnmpMgr.Engine do
     end
   end
 
-  defp handle_udp_response(state, socket, ip, port, data) do
-    # Legacy function - redirect to shared version
-    handle_udp_response_shared(state, socket, ip, port, data)
-  end
 
-  defp handle_snmp_response_shared(state, socket, message) do
+  defp handle_snmp_response_shared(state, _socket, message) do
     request_id = message.pdu.request_id
 
     # Find the pending request
@@ -598,43 +594,8 @@ defmodule SnmpKit.SnmpMgr.Engine do
     end
   end
 
-  defp handle_snmp_response(state, socket, message) do
-    # Legacy function - redirect to shared version
-    handle_snmp_response_shared(state, socket, message)
-  end
 
-  defp find_request_by_id(connections, request_id) do
-    Enum.find_value(connections, fn {conn_id, conn} ->
-      case Enum.find(conn.active_requests, fn req -> req.request_id == request_id end) do
-        nil -> nil
-        request -> {:ok, conn_id, request}
-      end
-    end) || {:error, :not_found}
-  end
 
-  defp update_connection_after_response(state, conn_id, completed_request) do
-    connection = Map.get(state.connections, conn_id)
-    updated_requests = List.delete(connection.active_requests, completed_request)
-
-    new_status = if Enum.empty?(updated_requests), do: :idle, else: :active
-
-    updated_connection = %{
-      connection
-      | active_requests: updated_requests,
-        status: new_status,
-        # Reset error count on successful response
-        error_count: 0
-    }
-
-    new_connections = Map.put(state.connections, conn_id, updated_connection)
-
-    # Update metrics
-    response_time = System.monotonic_time(:millisecond) - completed_request.submitted_at
-    metrics = update_metrics(state.metrics, :requests_completed, 1)
-    metrics = update_avg_response_time(metrics, response_time)
-
-    %{state | connections: new_connections, metrics: metrics}
-  end
 
   defp handle_request_timeout_shared(state, ref) do
     # Find timed out request by ref
@@ -656,10 +617,6 @@ defmodule SnmpKit.SnmpMgr.Engine do
     end
   end
 
-  defp handle_request_timeout(state, ref) do
-    # Legacy function - redirect to shared version
-    handle_request_timeout_shared(state, ref)
-  end
 
   defp handle_no_connections(state, requests) do
     # Fail all requests due to no available connections

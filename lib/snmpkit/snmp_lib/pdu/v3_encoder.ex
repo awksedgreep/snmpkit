@@ -102,8 +102,6 @@ defmodule SnmpKit.SnmpLib.PDU.V3Encoder do
 
   # ASN.1 tags
   @sequence 0x30
-  @octet_string 0x04
-  @integer 0x02
 
   @doc """
   Encodes a SNMPv3 message with security processing.

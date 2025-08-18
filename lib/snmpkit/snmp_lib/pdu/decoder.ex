@@ -56,9 +56,6 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
   def decode_message(_), do: {:error, :invalid_input}
 
   @doc """
-  Decodes an SNMP message from binary format (alias for decode_message/1).
-  """
-  @doc """
   Decodes an SNMP message with security user (SNMPv3).
   """
   @spec decode_message(binary(), map() | nil) :: {:ok, message()} | {:error, atom()}

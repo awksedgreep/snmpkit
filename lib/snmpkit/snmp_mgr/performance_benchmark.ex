@@ -127,7 +127,6 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
     baseline_memory = get_process_memory()
     
     # Start memory monitoring
-    memory_samples = []
     monitor_pid = spawn_link(fn -> 
       monitor_memory_loop(self(), [])
     end)
@@ -166,7 +165,6 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
   """
   def monitor_buffer_usage(targets, max_concurrent, timeout) do
     # Start buffer monitoring
-    buffer_samples = []
     monitor_pid = spawn_link(fn -> 
       monitor_buffer_loop(self(), [])
     end)
@@ -204,18 +202,26 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
   
   defp start_simulation_devices(device_count) do
     # Start simulated SNMP devices for realistic testing
-    case SnmpKit.TestSupport.SNMPSimulator.create_device_fleet(
-      count: device_count,
-      device_type: :cable_modem,
-      port_start: 40000
-    ) do
-      {:ok, devices} -> 
-        # Wait for devices to be ready using SNMP ping
-        wait_for_devices_ready(devices)
-        {:ok, devices}
-      {:error, reason} -> 
-        Logger.error("Failed to start simulation devices: #{inspect(reason)}")
-        {:error, reason}
+    sim_mod = Module.concat([SnmpKit, TestSupport, SNMPSimulator])
+
+    if Code.ensure_loaded?(sim_mod) and function_exported?(sim_mod, :create_device_fleet, 1) do
+      case apply(sim_mod, :create_device_fleet, [[
+             count: device_count,
+             device_type: :cable_modem,
+             port_start: 40000
+           ]]) do
+        {:ok, devices} ->
+          # Wait for devices to be ready using SNMP ping
+          wait_for_devices_ready(devices)
+          {:ok, devices}
+
+        {:error, reason} ->
+          Logger.error("Failed to start simulation devices: #{inspect(reason)}")
+          {:error, reason}
+      end
+    else
+      Logger.warning("SNMPSimulator not available; cannot start simulated devices")
+      {:error, :simulator_not_available}
     end
   end
   
@@ -264,7 +270,13 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
   end
   
   defp cleanup_simulation_devices(devices) do
-    SnmpKit.TestSupport.SNMPSimulator.stop_devices(devices)
+    sim_mod = Module.concat([SnmpKit, TestSupport, SNMPSimulator])
+
+    if Code.ensure_loaded?(sim_mod) and function_exported?(sim_mod, :stop_devices, 1) do
+      apply(sim_mod, :stop_devices, [devices])
+    else
+      :ok
+    end
   end
   
   defp generate_real_targets(devices, requests_per_target) do
@@ -277,15 +289,6 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
     |> List.flatten()
   end
   
-  defp generate_test_targets(target_count, requests_per_target) do
-    # Generate targets that will timeout predictably for benchmarking
-    for i <- 1..target_count do
-      for j <- 1..requests_per_target do
-        {"127.0.0.#{i}", "1.3.6.1.2.1.1.#{j}.0"}
-      end
-    end
-    |> List.flatten()
-  end
   
   defp benchmark_multiv2(targets, max_concurrent, timeout) do
     start_time = System.monotonic_time(:millisecond)

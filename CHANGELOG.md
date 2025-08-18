@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-08-18
+
+### Added
+- New concise helpers on `SnmpKit` for bulk and multi operations:
+  - `get_bulk/2-3`, `bulk_walk/2-3`, `walk_table/2-3`
+  - `get_bulk_multi/1-2`, `walk_multi/1-2`
+- Bang variants for bulk helpers in `SnmpKit.SNMP`:
+  - `get_bulk!/3`, `bulk_walk!/3`
+- Streaming helpers that enforce bulk semantics (v2c) in `SnmpKit.SNMP`:
+  - `bulk_walk_stream/3`, `table_bulk_stream/3`
+- Documentation updates to prefer concise `SnmpKit` helpers by default
+
+### Changed
+- Unified API Guide updated to show `SnmpKit.*` helpers as the preferred entry points
+
+### Notes
+- These are thin delegates; no underlying behavior changes to request/response processing
+- Backward compatibility preserved; namespaced `SnmpKit.SNMP.*` APIs remain available
+
 ## [0.3.7] - 2024-12-22
 
 ### Fixed
