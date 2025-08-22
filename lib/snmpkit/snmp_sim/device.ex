@@ -42,7 +42,10 @@ defmodule SnmpKit.SnmpSim.Device do
     # Flag indicating if device has walk data loaded
     :has_walk_data,
     # Manual OID map for devices created with {:manual, oid_map}
-    :oid_map
+    :oid_map,
+    # Modem firmware upgrade support (DOCSIS)
+    :upgrade_enabled,
+    :upgrade
   ]
 
   @default_community "public"
@@ -306,6 +309,15 @@ defmodule SnmpKit.SnmpSim.Device do
         # Start the UDP server for this device
         case Server.start_link(port, community: community) do
           {:ok, server_pid} ->
+            # Initialize modem upgrade defaults
+            upgrade_enabled =
+              case device_type do
+                :cable_modem -> Map.get(device_config, :upgrade_enabled, true)
+                _ -> false
+              end
+
+            upgrade_opts = Map.get(device_config, :upgrade_opts, %{})
+
             state = %__MODULE__{
               device_id: device_id,
               port: port,
@@ -320,7 +332,9 @@ defmodule SnmpKit.SnmpSim.Device do
               last_access: System.monotonic_time(:millisecond),
               error_conditions: %{},
               has_walk_data: has_walk_data,
-              oid_map: oid_map
+              oid_map: oid_map,
+              upgrade_enabled: upgrade_enabled,
+              upgrade: SnmpKit.SnmpSim.Device.ModemUpgrade.default_state(upgrade_opts)
             }
 
             # Set up the SNMP handler for this device
@@ -624,6 +638,34 @@ defmodule SnmpKit.SnmpSim.Device do
   def handle_info({:error_injection, :clear_all}, state) do
     Logger.info("Clearing all error conditions for device #{state.device_id}")
     {:noreply, %{state | error_conditions: %{}}}
+  end
+
+  # Modem upgrade messages
+  @impl true
+  def handle_info({:modem_upgrade, {:set, field, value}}, state) do
+    new_upgrade = SnmpKit.SnmpSim.Device.ModemUpgrade.apply_set(field, value, state.upgrade)
+    {:noreply, %{state | upgrade: new_upgrade}}
+  end
+
+  @impl true
+  def handle_info({:modem_upgrade, :trigger}, state) do
+    # Start the upgrade state machine if enabled and not already running
+    {maybe_msgs, new_upgrade} =
+      SnmpKit.SnmpSim.Device.ModemUpgrade.trigger(state.upgrade,
+        invalid_server_regex: Map.get(state.upgrade, :invalid_server_regex)
+      )
+
+    # Schedule phase messages
+    Enum.each(maybe_msgs, fn {delay_ms, msg} -> Process.send_after(self(), msg, delay_ms) end)
+
+    {:noreply, %{state | upgrade: new_upgrade}}
+  end
+
+  @impl true
+  def handle_info({:modem_upgrade, {:phase, phase}}, state) do
+    {maybe_msgs, new_upgrade} = SnmpKit.SnmpSim.Device.ModemUpgrade.advance_phase(state.upgrade, phase)
+    Enum.each(maybe_msgs, fn {delay_ms, msg} -> Process.send_after(self(), msg, delay_ms) end)
+    {:noreply, %{state | upgrade: new_upgrade}}
   end
 
   @impl true

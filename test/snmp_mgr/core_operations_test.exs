@@ -60,13 +60,13 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
           # Successful SET through snmp_lib
           assert is_binary(value) or is_atom(value) or is_integer(value)
 
-        {:error, reason} when reason in [:read_only, :no_access] ->
+        {:error, reason} when reason in [:read_only, :no_access, :not_writable] ->
           # Expected errors for read-only objects or access restrictions
           assert true
 
         {:error, reason} ->
           # Accept valid SNMP errors from simulator
-          assert reason in [:noSuchObject, :timeout, :gen_err]
+          assert reason in [:noSuchObject, :timeout, :gen_err, :not_writable]
       end
     end
 

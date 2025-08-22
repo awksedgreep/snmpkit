@@ -2,6 +2,24 @@ defmodule SnmpKit.SnmpMgr.MultiReturnFormatTest do
   use ExUnit.Case, async: true
   alias SnmpKit.SnmpMgr.Multi
 
+  setup_all do
+    # Ensure the SnmpMgr Engine is running for these tests
+    case Process.whereis(SnmpKit.SnmpMgr.Engine) do
+      nil ->
+        {:ok, _pid} = SnmpKit.SnmpMgr.Engine.start_link(name: SnmpKit.SnmpMgr.Engine)
+        on_exit(fn ->
+          case Process.whereis(SnmpKit.SnmpMgr.Engine) do
+            nil -> :ok
+            pid when is_pid(pid) -> GenServer.stop(pid)
+          end
+        end)
+        :ok
+
+      _pid ->
+        :ok
+    end
+  end
+
   describe "return_format option with simulated network calls" do
     test "default behavior returns list format" do
       # Use invalid hosts to ensure we get consistent error responses

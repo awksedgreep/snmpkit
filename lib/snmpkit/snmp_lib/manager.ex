@@ -844,6 +844,20 @@ defmodule SnmpKit.SnmpLib.Manager do
   defp decode_error_status(3), do: :bad_value
   defp decode_error_status(4), do: :read_only
   defp decode_error_status(5), do: :gen_err
+  # SNMPv2c additional error codes (RFC 3416)
+  defp decode_error_status(6), do: :no_access
+  defp decode_error_status(7), do: :wrong_type
+  defp decode_error_status(8), do: :wrong_length
+  defp decode_error_status(9), do: :wrong_encoding
+  defp decode_error_status(10), do: :wrong_value
+  defp decode_error_status(11), do: :no_creation
+  defp decode_error_status(12), do: :inconsistent_value
+  defp decode_error_status(13), do: :resource_unavailable
+  defp decode_error_status(14), do: :commit_failed
+  defp decode_error_status(15), do: :undo_failed
+  defp decode_error_status(16), do: :authorization_error
+  defp decode_error_status(17), do: :not_writable
+  defp decode_error_status(18), do: :inconsistent_name
   defp decode_error_status(error), do: {:unknown_error, error}
 
   defp merge_default_opts(opts) do

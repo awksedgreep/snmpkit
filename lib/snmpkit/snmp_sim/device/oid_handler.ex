@@ -148,53 +148,81 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
 
   def get_oid_value(oid, device_struct)
       when is_list(oid) and is_map(device_struct) and is_map_key(device_struct, :device_type) do
-    # Check if device has walk data loaded in SharedProfiles
-    if Map.get(device_struct, :has_walk_data, false) do
-      # Convert device_type to atom since SharedProfiles uses atoms as keys
-      device_type_atom =
-        if is_binary(device_struct.device_type),
-          do: String.to_atom(device_struct.device_type),
-          else: device_struct.device_type
+    oid_string = oid_to_string(oid)
 
-      oid_string = oid_to_string(oid)
+    # DOCSIS upgrade OIDs overrides for :cable_modem
+    case {device_struct.device_type, oid_string} do
+      {:cable_modem, "1.3.6.1.2.1.69.1.3.2.0"} ->
+        # docsIfDocsDevSwOperStatus (read-only)
+        {:ok, {oid_string, :integer, Map.get(device_struct.upgrade, :oper_status, 1)}}
 
-      case SnmpKit.SnmpSim.MIB.SharedProfiles.get_oid_value(
-             device_type_atom,
-             oid_string,
-             device_struct
-           ) do
-        {:ok, {type, value}} -> {:ok, {oid_string, type, value}}
-        {:error, reason} -> {:error, reason}
-      end
-    else
-      case get_device_specific_value(device_struct.device_type, oid) do
-        {:ok, value} -> {:ok, value}
-        {:error, _} -> {:error, :no_such_name}
-      end
+      {:cable_modem, "1.3.6.1.2.1.69.1.3.3.0"} ->
+        # docsDevSwServer (IpAddress; read-write)
+        server_str = Map.get(device_struct.upgrade, :server, "0.0.0.0")
+        {:ok, {oid_string, :ip_address, ip_string_to_binary(server_str)}}
+
+      {:cable_modem, "1.3.6.1.2.1.69.1.3.1.0"} ->
+        # docsDevSwAdminStatus (INTEGER; read-write)
+        {:ok, {oid_string, :integer, Map.get(device_struct.upgrade, :admin_status, 2)}}
+
+      _ ->
+        # Check if device has walk data loaded in SharedProfiles
+        if Map.get(device_struct, :has_walk_data, false) do
+          # Convert device_type to atom since SharedProfiles uses atoms as keys
+          device_type_atom =
+            if is_binary(device_struct.device_type),
+              do: String.to_atom(device_struct.device_type),
+              else: device_struct.device_type
+
+          case SnmpKit.SnmpSim.MIB.SharedProfiles.get_oid_value(
+                 device_type_atom,
+                 oid_string,
+                 device_struct
+               ) do
+            {:ok, {type, value}} -> {:ok, {oid_string, type, value}}
+            {:error, reason} -> {:error, reason}
+          end
+        else
+          case get_device_specific_value(device_struct.device_type, oid) do
+            {:ok, value} -> {:ok, value}
+            {:error, _} -> {:error, :no_such_name}
+          end
+        end
     end
   end
 
   def get_oid_value(oid, device_struct)
       when is_binary(oid) and is_map(device_struct) and is_map_key(device_struct, :device_type) do
-    # Check if device has walk data loaded in SharedProfiles
-    if Map.get(device_struct, :has_walk_data, false) do
-      # Convert device_type to atom since SharedProfiles uses atoms as keys
-      device_type_atom =
-        if is_binary(device_struct.device_type),
-          do: String.to_atom(device_struct.device_type),
-          else: device_struct.device_type
+    # DOCSIS upgrade OIDs overrides for :cable_modem
+    case {device_struct.device_type, oid} do
+      {:cable_modem, "1.3.6.1.2.1.69.1.3.1.0"} ->
+        {:ok, {oid, :integer, Map.get(device_struct.upgrade, :admin_status, 2)}}
+      {:cable_modem, "1.3.6.1.2.1.69.1.3.3.0"} ->
+        server_str = Map.get(device_struct.upgrade, :server, "0.0.0.0")
+        {:ok, {oid, :ip_address, ip_string_to_binary(server_str)}}
+      {:cable_modem, "1.3.6.1.2.1.69.1.3.4.0"} ->
+        {:ok, {oid, :octet_string, Map.get(device_struct.upgrade, :filename, "")}}
+      _ ->
+        # Check if device has walk data loaded in SharedProfiles
+        if Map.get(device_struct, :has_walk_data, false) do
+          # Convert device_type to atom since SharedProfiles uses atoms as keys
+          device_type_atom =
+            if is_binary(device_struct.device_type),
+              do: String.to_atom(device_struct.device_type),
+              else: device_struct.device_type
 
-      case SnmpKit.SnmpSim.MIB.SharedProfiles.get_oid_value(device_type_atom, oid, device_struct) do
-        {:ok, {type, value}} -> {:ok, {oid, type, value}}
-        {:error, reason} -> {:error, reason}
-      end
-    else
-      oid_list = string_to_oid_list(oid)
+          case SnmpKit.SnmpSim.MIB.SharedProfiles.get_oid_value(device_type_atom, oid, device_struct) do
+            {:ok, {type, value}} -> {:ok, {oid, type, value}}
+            {:error, reason} -> {:error, reason}
+          end
+        else
+          oid_list = string_to_oid_list(oid)
 
-      case get_device_specific_value(device_struct.device_type, oid_list) do
-        {:ok, value} -> {:ok, value}
-        {:error, _} -> {:error, :no_such_name}
-      end
+          case get_device_specific_value(device_struct.device_type, oid_list) do
+            {:ok, value} -> {:ok, value}
+            {:error, _} -> {:error, :no_such_name}
+          end
+        end
     end
   end
 
@@ -1776,4 +1804,19 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
     end
   end
   defp convert_snmp_type(_), do: :octet_string
+
+  defp ip_string_to_binary(str) when is_binary(str) do
+    case String.split(str, ".") do
+      [a,b,c,d] ->
+        with {ai, ""} <- Integer.parse(a), true <- ai >= 0 and ai <= 255,
+             {bi, ""} <- Integer.parse(b), true <- bi >= 0 and bi <= 255,
+             {ci, ""} <- Integer.parse(c), true <- ci >= 0 and ci <= 255,
+             {di, ""} <- Integer.parse(d), true <- di >= 0 and di <= 255 do
+          <<ai, bi, ci, di>>
+        else
+          _ -> <<0,0,0,0>>
+        end
+      _ -> <<0,0,0,0>>
+    end
+  end
 end

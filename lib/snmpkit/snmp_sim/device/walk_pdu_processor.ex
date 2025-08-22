@@ -163,19 +163,139 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
 
   @doc """
   Process a SET request for walk-based devices.
-  Since walk files contain read-only data, all SET requests return readOnly error.
+  Supports special-case writable OIDs for DOCSIS modem upgrade flow.
+  Other OIDs remain read-only.
   """
-  def process_set_request(pdu, _state) do
-    Logger.debug("WalkPduProcessor: Processing SET request - returning readOnly error")
+  def process_set_request(pdu, state) do
+    Logger.debug("WalkPduProcessor: Processing SET request (with writable OIDs for :cable_modem)")
 
-    %{
-      pdu
-      | type: :get_response,
-        # readOnly error
-        error_status: 4,
-        # First varbind caused the error
-        error_index: 1
-    }
+    {all_ok?, err_index, err_status, _new_state} =
+      pdu.varbinds
+      |> Enum.with_index(1)
+      |> Enum.reduce({true, 0, 0, state}, fn {vb, idx}, {ok?, _ei, _es, st} ->
+        case handle_set_varbind(vb, st) do
+          {:ok, st2} -> {ok? and true, 0, 0, st2}
+          {:error, code_atom} -> {false, idx, error_code(code_atom), st}
+        end
+      end)
+
+    if all_ok? do
+      # No error; when admin trigger is set, send trigger message
+      maybe_trigger = Enum.any?(pdu.varbinds, &admin_trigger?/1)
+      if maybe_trigger do
+        send(self(), {:modem_upgrade, :trigger})
+      end
+
+      %{
+        pdu
+        | type: :get_response,
+          error_status: 0,
+          error_index: 0
+      }
+    else
+      %{
+        pdu
+        | type: :get_response,
+          error_status: err_status,
+          error_index: err_index
+      }
+    end
+  end
+
+  defp admin_trigger?({oid, _type, value}), do: admin_trigger?({oid, value})
+  defp admin_trigger?({oid, value}) do
+    oid_str = oid_to_string(oid)
+    oid_str == "1.3.6.1.2.1.69.1.3.1.0" and is_integer(value) and value == 1
+  end
+
+  # Handle a single SET varbind for DOCSIS upgrade OIDs; others are read-only
+  defp handle_set_varbind({oid, _type, value}, state), do: handle_set_varbind({oid, value}, state)
+  defp handle_set_varbind({oid, value}, state) do
+    oid_str = oid_to_string(oid)
+
+    case {state.device_type, oid_str} do
+      {:cable_modem, "1.3.6.1.2.1.69.1.3.3.0"} ->
+        # docsDevSwServer (IpAddress; read-write)
+        case value do
+          v when is_binary(v) ->
+            if ip_string_valid?(v) do
+              send(self(), {:modem_upgrade, {:set, :server, v}})
+              {:ok, state}
+            else
+              {:error, :wrongValue}
+            end
+          _ ->
+            {:error, :wrongType}
+        end
+
+      {:cable_modem, "1.3.6.1.2.1.69.1.3.4.0"} ->
+        # docsDevSwFilename (SnmpAdminString SIZE(0..64); read-write)
+        case value do
+          v when is_binary(v) and byte_size(v) <= 64 ->
+            send(self(), {:modem_upgrade, {:set, :filename, v}})
+            {:ok, state}
+          v when is_binary(v) ->
+            {:error, :wrongLength}
+          _ ->
+            {:error, :wrongType}
+        end
+
+      {:cable_modem, "1.3.6.1.2.1.69.1.3.1.0"} ->
+        # docsDevSwAdminStatus (INTEGER; read-write)
+        case value do
+          v when is_integer(v) and v in [1, 2, 3] ->
+            cond do
+              state.upgrade_enabled == false -> {:error, :notWritable}
+              # Already in-progress and trying to trigger again
+              v == 1 and Map.get(state.upgrade, :oper_status) == 1 -> {:error, :inconsistentValue}
+              # Trigger requires valid server/filename
+              v == 1 and (state.upgrade.server == "0.0.0.0" or state.upgrade.filename in ["", "(unknown)"]) ->
+                {:error, :wrongValue}
+              true ->
+                send(self(), {:modem_upgrade, {:set, :admin_status, v}})
+                {:ok, state}
+            end
+          v when is_integer(v) ->
+            {:error, :wrongValue}
+          _ ->
+            {:error, :wrongType}
+        end
+
+      # All other OIDs are read-only
+      _ ->
+        {:error, :notWritable}
+    end
+  end
+
+  # Map error atoms to SNMPv2c error-status codes
+  defp error_code(:noAccess), do: 6
+  defp error_code(:wrongType), do: 7
+  defp error_code(:wrongLength), do: 8
+  defp error_code(:wrongEncoding), do: 9
+  defp error_code(:wrongValue), do: 10
+  defp error_code(:noCreation), do: 11
+  defp error_code(:inconsistentValue), do: 12
+  defp error_code(:resourceUnavailable), do: 13
+  defp error_code(:commitFailed), do: 14
+  defp error_code(:undoFailed), do: 15
+  defp error_code(:authorizationError), do: 16
+  defp error_code(:notWritable), do: 17
+  defp error_code(:inconsistentName), do: 18
+  defp error_code(_), do: 5
+
+  defp ip_string_valid?(str) when is_binary(str) do
+    case String.split(str, ".") do
+      [a,b,c,d] ->
+        with {ai, ""} <- Integer.parse(a), true <- ai >= 0 and ai <= 255,
+             {bi, ""} <- Integer.parse(b), true <- bi >= 0 and bi <= 255,
+             {ci, ""} <- Integer.parse(c), true <- ci >= 0 and ci <= 255,
+             {di, ""} <- Integer.parse(d), true <- di >= 0 and di <= 255 do
+          true
+        else
+          _ -> false
+        end
+      _ -> false
+    end
   end
 
   defp get_next_varbind_value_v1(oid, state) do
@@ -265,8 +385,27 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
     oid_string = oid_to_string(oid)
     oid_list = normalize_oid_to_list(oid)
 
-    # Check for dynamic values first
-    cond do
+    # DOCSIS modem upgrade scalar overrides
+    case {state.device_type, oid_string} do
+      {:cable_modem, "1.3.6.1.2.1.69.1.3.2.0"} ->
+        # docsDevSwOperStatus (INTEGER; read-only)
+        {:ok, {oid_list, :integer, Map.get(state.upgrade, :oper_status, 5)}}
+
+      {:cable_modem, "1.3.6.1.2.1.69.1.3.3.0"} ->
+        # docsDevSwServer (IpAddress; read-write)
+        {:ok, {oid_list, :ip_address, Map.get(state.upgrade, :server, "0.0.0.0")}}
+
+      {:cable_modem, "1.3.6.1.2.1.69.1.3.4.0"} ->
+        # docsDevSwFilename (SnmpAdminString; read-write)
+        {:ok, {oid_list, :octet_string, Map.get(state.upgrade, :filename, "(unknown)")}}
+
+      {:cable_modem, "1.3.6.1.2.1.69.1.3.1.0"} ->
+        # docsDevSwAdminStatus (INTEGER; read-write)
+        {:ok, {oid_list, :integer, Map.get(state.upgrade, :admin_status, 2)}}
+
+      _ ->
+        # Check for dynamic values first
+        cond do
       # Dynamic counters
       Map.has_key?(state.counters, oid_string) ->
         {oid_list, :counter32, Map.get(state.counters, oid_string)}
@@ -317,6 +456,7 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
         end
     end
   end
+end
 
   defp get_next_varbind_value(oid, state, pdu_version) do
     oid_string = oid_to_string(oid)

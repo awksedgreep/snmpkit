@@ -69,7 +69,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
         {:error, reason} ->
           # Accept valid SNMP errors (many objects are read-only)
-          assert reason in [:read_only, :no_access, :timeout, :noSuchObject, :gen_err]
+          assert reason in [:not_writable, :read_only, :no_access, :timeout, :noSuchObject, :gen_err]
       end
     end
 
