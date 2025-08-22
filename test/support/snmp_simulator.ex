@@ -213,6 +213,56 @@ defmodule SnmpKit.TestSupport.SNMPSimulator do
   end
 
   @doc """
+  Starts a cable_modem device without any walk/profile configured.
+  This simulates a manual device that relies on built-in handlers.
+
+  Options:
+  - :port (optional) – UDP port to bind; auto-selected if omitted
+  - :community (optional) – community string; defaults to "public"
+  - :upgrade_enabled (optional) – enable/disable modem upgrade flow; defaults true
+  - :upgrade_opts (optional) – map passed to ModemUpgrade.default_state/1
+  """
+  def start_modem(opts \\ []) do
+    port = Keyword.get(opts, :port, get_available_port())
+    community = Keyword.get(opts, :community, @default_community)
+    upgrade_enabled = Keyword.get(opts, :upgrade_enabled, true)
+    upgrade_opts = Keyword.get(opts, :upgrade_opts, %{})
+
+    device_config = %{
+      port: port,
+      device_type: :cable_modem,
+      device_id: "manual_modem_#{port}",
+      community: community,
+      # no walk_file and no profile
+      manual_device: true,
+      upgrade_enabled: upgrade_enabled,
+      upgrade_opts: upgrade_opts
+    }
+
+    case Device.start_link(device_config) do
+      {:ok, pid} ->
+        {:ok,
+         %{
+           device: pid,
+           host: "127.0.0.1",
+           port: port,
+           community: community,
+           device_type: :cable_modem
+         }}
+
+      error -> error
+    end
+  end
+
+  @doc """
+  Stops a modem started via start_modem/1.
+  Accepts the same map returned by start_modem/1 or a PID.
+  """
+  def stop_modem(%{device: pid}) when is_pid(pid), do: stop_device(%{device: pid})
+  def stop_modem(pid) when is_pid(pid), do: stop_device(%{device: pid})
+  def stop_modem(_), do: :ok
+
+  @doc """
   Gets device target string for SnmpMgr operations.
   """
   def device_target(%{host: host, port: port}) do

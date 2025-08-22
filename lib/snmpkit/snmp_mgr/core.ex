@@ -191,11 +191,25 @@ defmodule SnmpKit.SnmpMgr.Core do
         {:error, _} -> oid
       end
 
-    # Convert value to snmp_lib format
+    # Convert value to snmp_lib format expected by SnmpKit.SnmpLib.Manager
     typed_value =
-      case SnmpKit.SnmpMgr.Types.encode_value(value, opts) do
-        {:ok, tv} -> tv
-        {:error, _} -> value
+      cond do
+        # Already typed tuple - normalize type to manager's expected atoms
+        match?({t, _v} when is_atom(t), value) ->
+          normalize_manager_typed(value)
+
+        is_binary(value) ->
+          {:string, value}
+
+        is_integer(value) ->
+          {:integer, value}
+
+        # IPv4 tuple
+        match?({a, b, c, d} when is_integer(a) and is_integer(b) and is_integer(c) and is_integer(d), value) ->
+          {:ip_address, value}
+
+        true ->
+          {:opaque, value}
       end
 
     # Map options to snmp_lib format
@@ -206,6 +220,33 @@ defmodule SnmpKit.SnmpMgr.Core do
       {:ok, result} -> {:ok, result}
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  # Normalize typed values to the atoms that SnmpKit.SnmpLib.Manager expects
+  defp normalize_manager_typed({type, val}) when is_atom(type) do
+    mapped_type =
+      case type do
+        :string -> :string
+        :octet_string -> :string
+        :octetString -> :string
+        :integer -> :integer
+        :unsigned32 -> :integer
+        :gauge32 -> :gauge32
+        :counter32 -> :counter32
+        :counter64 -> :counter64
+        :timeticks -> :timeticks
+        :timeTicks -> :timeticks
+        :ip_address -> :ip_address
+        :ipAddress -> :ip_address
+        :object_identifier -> :object_identifier
+        :objectId -> :object_identifier
+        :oid -> :object_identifier
+        :null -> :null
+        :opaque -> :opaque
+        other -> other
+      end
+
+    {mapped_type, val}
   end
 
   @doc """

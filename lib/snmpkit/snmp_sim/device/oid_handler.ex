@@ -468,9 +468,9 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
 
     Logger.debug("get_dynamic_oid_value called with oid_string: #{inspect(oid_string)}")
 
-    # Check for manual OID map first
+    # Check for manual OID map first (only if non-empty)
     cond do
-      Map.has_key?(state, :oid_map) ->
+      (Map.has_key?(state, :oid_map) and is_map(state.oid_map) and map_size(state.oid_map) > 0) ->
         Logger.debug("Device has manual oid_map, checking for OID: #{oid_string}")
         case get_oid_value_from_map(oid_string, state.oid_map) do
           {:ok, {type, value}} ->
@@ -483,89 +483,111 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
         end
 
       Map.get(state, :has_walk_data, false) ->
-      Logger.debug("Device has walk data, checking SharedProfiles")
+        Logger.debug("Device has walk data, checking SharedProfiles")
 
-      case SharedProfiles.get_oid_value(state.device_type, oid_string, state.walk_data) do
-        {:ok, {type, value}} ->
-          Logger.debug("Found in SharedProfiles: type=#{inspect(type)}, value=#{inspect(value)}")
-          {:ok, {oid_string, convert_snmp_type(type), value}}
+        case SharedProfiles.get_oid_value(state.device_type, oid_string, state) do
+          {:ok, {type, value}} ->
+            Logger.debug("Found in SharedProfiles: type=#{inspect(type)}, value=#{inspect(value)}")
+            {:ok, {oid_string, convert_snmp_type(type), value}}
 
-        _ ->
-          Logger.debug("Not found in SharedProfiles, returning error")
-          {:error, :no_such_name}
-      end
+          _ ->
+            Logger.debug("Not found in SharedProfiles, returning error")
+            {:error, :no_such_name}
+        end
 
       true ->
         Logger.debug("Device has no walk data, checking fallback OIDs")
-      # Legacy device without walk data - use fallback values
-      cond do
-        # Fallback to basic system OIDs if not found in SharedProfiles
-        oid_string == "1.3.6.1.2.1.1.1.0" ->
-          Logger.debug("Matched sysDescr OID")
-          # sysDescr - system description (OCTET STRING)
-          device_type_str =
-            case state.device_type do
-              :cable_modem -> "Motorola SB6141 DOCSIS 3.0 Cable Modem"
-              :cmts -> "Cisco CMTS Cable Modem Termination System"
-              :router -> "Cisco Router"
-              _ -> "SNMP Simulator Device"
-            end
+        # Legacy device without walk data - special-case DOCSIS upgrade scalars and other basics
+        # IMPORTANT: If a profile was explicitly provided but contains no OIDs,
+        # do NOT serve built-in defaults for RFC1213 system group. Return no_such_name instead.
+        cond do
+          # DOCSIS modem upgrade scalars (support manual modem without walk)
+          state.device_type == :cable_modem and oid_string == "1.3.6.1.2.1.69.1.3.2.0" ->
+            {:ok, {oid_string, :integer, Map.get(state.upgrade, :oper_status, 5)}}
 
-          {:ok, {oid_string, :octet_string, device_type_str}}
+          state.device_type == :cable_modem and oid_string == "1.3.6.1.2.1.69.1.3.3.0" ->
+            # docsDevSwServer as IpAddress; encode as 4-octet binary for SNMP encoder
+            server_str = Map.get(state.upgrade, :server, "0.0.0.0")
+            {:ok, {oid_string, :ip_address, ip_string_to_binary(server_str)}}
 
-        oid_string == "1.3.6.1.2.1.1.2.0" ->
-          # sysObjectID - object identifier (OBJECT IDENTIFIER)
-          {:ok, {oid_string, :object_identifier, [1, 3, 6, 1, 4, 1, 1, 1]}}
+          state.device_type == :cable_modem and oid_string == "1.3.6.1.2.1.69.1.3.4.0" ->
+            {:ok, {oid_string, :octet_string, Map.get(state.upgrade, :filename, "(unknown)")}}
 
-        oid_string == "1.3.6.1.2.1.1.3.0" ->
-          # sysUpTime - calculate based on uptime_start
-          uptime_ticks = calculate_uptime_ticks(state)
-          {:ok, {oid_string, :timeticks, uptime_ticks}}
+          state.device_type == :cable_modem and oid_string == "1.3.6.1.2.1.69.1.3.1.0" ->
+            {:ok, {oid_string, :integer, Map.get(state.upgrade, :admin_status, 2)}}
 
-        oid_string == "1.3.6.1.2.1.1.4.0" ->
-          # sysContact - contact info (OCTET STRING)
-          {:ok, {oid_string, :octet_string, "admin@example.com"}}
+          # If profile was provided but empty, suppress system defaults
+          Map.get(state, :profile_provided, false) and map_size(Map.get(state, :oid_map, %{})) == 0 and
+              String.starts_with?(oid_string, "1.3.6.1.2.1.1.") ->
+            {:error, :no_such_name}
 
-        oid_string == "1.3.6.1.2.1.1.5.0" ->
-          # sysName - system name (OCTET STRING)
-          device_name = state.device_id || "device_#{state.port}"
-          {:ok, {oid_string, :octet_string, device_name}}
+          # Fallback to basic system OIDs if not found in SharedProfiles
+          oid_string == "1.3.6.1.2.1.1.1.0" ->
+            Logger.debug("Matched sysDescr OID")
+            # sysDescr - system description (OCTET STRING)
+            device_type_str =
+              case state.device_type do
+                :cable_modem -> "Motorola SB6141 DOCSIS 3.0 Cable Modem"
+                :cmts -> "Cisco CMTS Cable Modem Termination System"
+                :router -> "Cisco Router"
+                _ -> "SNMP Simulator Device"
+              end
 
-        oid_string == "1.3.6.1.2.1.1.6.0" ->
-          # sysLocation - location (OCTET STRING)
-          {:ok, {oid_string, :octet_string, "Customer Premises"}}
+            {:ok, {oid_string, :octet_string, device_type_str}}
 
-        oid_string == "1.3.6.1.2.1.1.7.0" ->
-          # sysServices - services (INTEGER)
-          {:ok, {oid_string, :integer, 2}}
+          oid_string == "1.3.6.1.2.1.1.2.0" ->
+            # sysObjectID - object identifier (OBJECT IDENTIFIER)
+            {:ok, {oid_string, :object_identifier, [1, 3, 6, 1, 4, 1, 1, 1]}}
 
-        oid_string == "1.3.6.1.2.1.2.1.0" ->
-          # ifNumber - number of network interfaces (INTEGER)
-          {:ok, {oid_string, :integer, 2}}
+          oid_string == "1.3.6.1.2.1.1.3.0" ->
+            # sysUpTime - calculate based on uptime_start
+            uptime_ticks = calculate_uptime_ticks(state)
+            {:ok, {oid_string, :timeticks, uptime_ticks}}
 
-        # Interface table OIDs (1.3.6.1.2.1.2.2.1.x.y where x is column, y is interface index)
-        String.starts_with?(oid_string, "1.3.6.1.2.1.2.2.1.") ->
-          handle_interface_oid(oid_string, state)
+          oid_string == "1.3.6.1.2.1.1.4.0" ->
+            # sysContact - contact info (OCTET STRING)
+            {:ok, {oid_string, :octet_string, "admin@example.com"}}
 
-        # High Capacity (HC) Interface Counters (1.3.6.1.2.1.31.1.1.1.x.y)
-        String.starts_with?(oid_string, "1.3.6.1.2.1.31.1.1.1.") ->
-          handle_hc_interface_oid(oid_string, state)
+          oid_string == "1.3.6.1.2.1.1.5.0" ->
+            # sysName - system name (OCTET STRING)
+            device_name = state.device_id || "device_#{state.port}"
+            {:ok, {oid_string, :octet_string, device_name}}
 
-        # DOCSIS Cable Modem SNR (1.3.6.1.2.1.10.127.1.1.4.1.5.x)
-        String.starts_with?(oid_string, "1.3.6.1.2.1.10.127.1.1.4.1.5.") ->
-          handle_docsis_snr_oid(oid_string, state)
+          oid_string == "1.3.6.1.2.1.1.6.0" ->
+            # sysLocation - location (OCTET STRING)
+            {:ok, {oid_string, :octet_string, "Customer Premises"}}
 
-        # Host Resources MIB - Processor Load (1.3.6.1.2.1.25.3.3.1.2.x)
-        String.starts_with?(oid_string, "1.3.6.1.2.1.25.3.3.1.2.") ->
-          handle_host_processor_oid(oid_string, state)
+          oid_string == "1.3.6.1.2.1.1.7.0" ->
+            # sysServices - services (INTEGER)
+            {:ok, {oid_string, :integer, 2}}
 
-        # Host Resources MIB - Storage Used (1.3.6.1.2.1.25.2.3.1.6.x)
-        String.starts_with?(oid_string, "1.3.6.1.2.1.25.2.3.1.6.") ->
-          handle_host_storage_oid(oid_string, state)
+          oid_string == "1.3.6.1.2.1.2.1.0" ->
+            # ifNumber - number of network interfaces (INTEGER)
+            {:ok, {oid_string, :integer, 2}}
 
-        true ->
-          {:error, :no_such_name}
-      end
+          # Interface table OIDs (1.3.6.1.2.1.2.2.1.x.y where x is column, y is interface index)
+          String.starts_with?(oid_string, "1.3.6.1.2.1.2.2.1.") ->
+            handle_interface_oid(oid_string, state)
+
+          # High Capacity (HC) Interface Counters (1.3.6.1.2.1.31.1.1.1.x.y)
+          String.starts_with?(oid_string, "1.3.6.1.2.1.31.1.1.1.") ->
+            handle_hc_interface_oid(oid_string, state)
+
+          # DOCSIS Cable Modem SNR (1.3.6.1.2.1.10.127.1.1.4.1.5.x)
+          String.starts_with?(oid_string, "1.3.6.1.2.1.10.127.1.1.4.1.5.") ->
+            handle_docsis_snr_oid(oid_string, state)
+
+          # Host Resources MIB - Processor Load (1.3.6.1.2.1.25.3.3.1.2.x)
+          String.starts_with?(oid_string, "1.3.6.1.2.1.25.3.3.1.2.") ->
+            handle_host_processor_oid(oid_string, state)
+
+          # Host Resources MIB - Storage Used (1.3.6.1.2.1.25.2.3.1.6.x)
+          String.starts_with?(oid_string, "1.3.6.1.2.1.25.2.3.1.6.") ->
+            handle_host_storage_oid(oid_string, state)
+
+          true ->
+            {:error, :no_such_name}
+        end
     end
   end
 

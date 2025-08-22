@@ -455,6 +455,20 @@ defmodule SnmpKit.SnmpSim.Core.Server do
           normalized_oid = normalize_oid(oid)
           {normalized_oid, :octet_string, value}
 
+        # Handle 2-tuple format with integer -> INTEGER
+        {oid, value} when is_integer(value) ->
+          normalized_oid = normalize_oid(oid)
+          {normalized_oid, :integer, value}
+
+        # Handle 2-tuple ip tuple -> IpAddress (4-octet binary)
+        {oid, {a, b, c, d} = ip}
+            when is_integer(a) and is_integer(b) and is_integer(c) and is_integer(d) ->
+          normalized_oid = normalize_oid(oid)
+          case validate_ip_tuple(ip) do
+            :ok -> {normalized_oid, :ip_address, <<a, b, c, d>>}
+            {:error, _} -> {normalized_oid, :ip_address, <<0, 0, 0, 0>>}
+          end
+
         # Handle 3-tuple format {oid, type, value}
         {oid, type, value} ->
           normalized_oid = normalize_oid(oid)
@@ -483,6 +497,31 @@ defmodule SnmpKit.SnmpSim.Core.Server do
     end
   end
 
+  # Normalize IpAddress value from string or tuple to 4-octet binary
+  defp normalize_varbind_value(:ip_address, value) when is_binary(value) do
+    parts = String.split(value, ".")
+    case parts do
+      [a, b, c, d] ->
+        with {ai, ""} <- Integer.parse(a), true <- ai in 0..255,
+             {bi, ""} <- Integer.parse(b), true <- bi in 0..255,
+             {ci, ""} <- Integer.parse(c), true <- ci in 0..255,
+             {di, ""} <- Integer.parse(d), true <- di in 0..255 do
+          <<ai, bi, ci, di>>
+        else
+          _ -> <<0, 0, 0, 0>>
+        end
+      _ -> <<0, 0, 0, 0>>
+    end
+  end
+
+  defp normalize_varbind_value(:ip_address, {a, b, c, d} = ip)
+       when is_integer(a) and is_integer(b) and is_integer(c) and is_integer(d) do
+    case validate_ip_tuple(ip) do
+      :ok -> <<a, b, c, d>>
+      {:error, _} -> <<0, 0, 0, 0>>
+    end
+  end
+
   defp normalize_varbind_value(:end_of_mib_view, {:end_of_mib_view, nil}) do
     # Convert {:end_of_mib_view, nil} to just nil
     nil
@@ -496,6 +535,14 @@ defmodule SnmpKit.SnmpSim.Core.Server do
   defp normalize_varbind_value(_type, value) do
     # For all other types, return value as-is
     value
+  end
+
+  defp validate_ip_tuple({a, b, c, d}) do
+    if a in 0..255 and b in 0..255 and c in 0..255 and d in 0..255 do
+      :ok
+    else
+      {:error, :invalid_ip}
+    end
   end
 
   # Simple OID string parser - converts dotted notation to list

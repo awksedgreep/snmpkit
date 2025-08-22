@@ -43,6 +43,10 @@ defmodule SnmpKit.SnmpSim.Device do
     :has_walk_data,
     # Manual OID map for devices created with {:manual, oid_map}
     :oid_map,
+    # Tracks if a profile (of any source) was explicitly provided at start
+    :profile_provided,
+    # Manual device flag to force no shared profile usage
+    :manual_device,
     # Modem firmware upgrade support (DOCSIS)
     :upgrade_enabled,
     :upgrade
@@ -333,6 +337,8 @@ defmodule SnmpKit.SnmpSim.Device do
               error_conditions: %{},
               has_walk_data: has_walk_data,
               oid_map: oid_map,
+              profile_provided: Map.has_key?(device_config, :profile),
+              manual_device: Map.get(device_config, :manual_device, false),
               upgrade_enabled: upgrade_enabled,
               upgrade: SnmpKit.SnmpSim.Device.ModemUpgrade.default_state(upgrade_opts)
             }
@@ -698,52 +704,79 @@ defmodule SnmpKit.SnmpSim.Device do
   # Private functions
 
   defp initialize_device_state(state) do
-    # Try to load actual profile data from SharedProfiles
-    profiles = SnmpKit.SnmpSim.MIB.SharedProfiles.list_profiles()
+    # Manual devices force no shared profile usage
+    if Map.get(state, :manual_device, false) do
+      Logger.info("Device #{state.device_id} initialized as manual device with basic profile")
 
-    Logger.info(
-      "Device #{state.device_id} checking profiles: #{inspect(profiles)} for device_type: #{inspect(state.device_type)}"
-    )
+      counters = %{
+        "1.3.6.1.2.1.2.2.1.10.1" => 0,
+        "1.3.6.1.2.1.2.2.1.16.1" => 0
+      }
 
-    case Enum.member?(profiles, state.device_type) do
-      true ->
-        Logger.info(
-          "Device #{state.device_id} initialized with profile for device type: #{state.device_type}"
-        )
+      gauges = %{
+        "1.3.6.1.2.1.2.2.1.5.1" => 100_000_000,
+        "1.3.6.1.2.1.2.2.1.4.1" => 1500
+      }
 
-        # Profile exists in SharedProfiles, device will use it via OidHandler
-        {:ok, %{state | has_walk_data: true}}
+      status_vars = initialize_status_vars(state)
 
-      false ->
-        # Fallback to basic implementation for testing
-        Logger.info("Device #{state.device_id} initialized with basic profile for testing")
+      {:ok,
+       %{
+         state
+         | counters: counters,
+           gauges: gauges,
+           status_vars: status_vars,
+           error_conditions: state.error_conditions,
+           has_walk_data: false
+       }}
+    else
+      # Try to load actual profile data from SharedProfiles
+      profiles = SnmpKit.SnmpSim.MIB.SharedProfiles.list_profiles()
 
-        # Initialize basic counters and gauges for testing
-        counters = %{
-          # ifInOctets
-          "1.3.6.1.2.1.2.2.1.10.1" => 0,
-          # ifOutOctets
-          "1.3.6.1.2.1.2.2.1.16.1" => 0
-        }
+      Logger.info(
+        "Device #{state.device_id} checking profiles: #{inspect(profiles)} for device_type: #{inspect(state.device_type)}"
+      )
 
-        gauges = %{
-          # ifSpeed
-          "1.3.6.1.2.1.2.2.1.5.1" => 100_000_000,
-          # ifMtu
-          "1.3.6.1.2.1.2.2.1.4.1" => 1500
-        }
+      case Enum.member?(profiles, state.device_type) do
+        true ->
+          Logger.info(
+            "Device #{state.device_id} initialized with profile for device type: #{state.device_type}"
+          )
 
-        status_vars = initialize_status_vars(state)
+          # Profile exists in SharedProfiles, device will use it via OidHandler
+          {:ok, %{state | has_walk_data: true}}
 
-        {:ok,
-         %{
-           state
-           | counters: counters,
-             gauges: gauges,
-             status_vars: status_vars,
-             error_conditions: state.error_conditions,
-             has_walk_data: false
-         }}
+        false ->
+          # Fallback to basic implementation for testing
+          Logger.info("Device #{state.device_id} initialized with basic profile for testing")
+
+          # Initialize basic counters and gauges for testing
+          counters = %{
+            # ifInOctets
+            "1.3.6.1.2.1.2.2.1.10.1" => 0,
+            # ifOutOctets
+            "1.3.6.1.2.1.2.2.1.16.1" => 0
+          }
+
+          gauges = %{
+            # ifSpeed
+            "1.3.6.1.2.1.2.2.1.5.1" => 100_000_000,
+            # ifMtu
+            "1.3.6.1.2.1.2.2.1.4.1" => 1500
+          }
+
+          status_vars = initialize_status_vars(state)
+
+          {:ok,
+           %{
+             state
+             | counters: counters,
+               gauges: gauges,
+               status_vars: status_vars,
+               error_conditions: state.error_conditions,
+               has_walk_data: false
+           }}
+      end
     end
   end
 

@@ -60,9 +60,16 @@ defmodule SnmpKit.SnmpSim.Device.PduProcessor do
           response
 
         :set_request ->
-          # For legacy devices, return readOnly error for all SET attempts
-          varbinds = Map.get(pdu, :varbinds, Map.get(pdu, :variable_bindings, []))
-          create_set_error_response(pdu, varbinds)
+          # Route cable_modem SET operations to the DOCSIS upgrade handler even without walk data
+          case state.device_type do
+            :cable_modem ->
+              WalkPduProcessor.process_set_request(pdu, state)
+
+            _ ->
+              # For other legacy devices, return readOnly error for all SET attempts
+              varbinds = Map.get(pdu, :varbinds, Map.get(pdu, :variable_bindings, []))
+              create_set_error_response(pdu, varbinds)
+          end
 
         _ ->
           process_unsupported_pdu(pdu)

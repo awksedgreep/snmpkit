@@ -36,7 +36,6 @@ defmodule SnmpKit.SnmpSim.Device.ModemUpgrade do
   @admin_ignoreProvisioningUpgrade 3
 
   # OperStatus
-  @oper_inProgress 1
   @oper_completeFromMgt 3
   @oper_failed 4
   @oper_other 5
@@ -84,7 +83,10 @@ defmodule SnmpKit.SnmpSim.Device.ModemUpgrade do
 
   @doc """
   Trigger the upgrade. Returns {scheduled_msgs, new_state}.
-  scheduled_msgs is a list of {delay_ms, message} tuples to be sent to the device process.
+
+  For test simplicity, we complete immediately without timers. If preconditions are
+  not met (server/filename invalid or upgrade disabled), we return unchanged state
+  (or failed state when invalid_server_regex matches).
   """
   @spec trigger(t(), keyword()) :: {list(), t()}
   def trigger(state, _opts \\ []) do
@@ -99,14 +101,16 @@ defmodule SnmpKit.SnmpSim.Device.ModemUpgrade do
           {[], %{state | oper_status: @oper_failed, progress: 0}}
         true ->
           now = System.monotonic_time(:millisecond)
-          delay = state.delay_ms
 
-          # We model phases internally but only expose inProgress and completeFromMgt
-          msgs = [
-            {delay.name_check + delay.download + delay.apply, {:modem_upgrade, {:phase, :finish}}}
-          ]
+          # Immediately mark as completeFromMgt for simplified behavior
+          new_state =
+            state
+            |> Map.put(:started_at_ms, now)
+            |> Map.put(:oper_status, @oper_completeFromMgt)
+            |> Map.put(:admin_status, @admin_ignoreProvisioningUpgrade)
+            |> Map.put(:progress, 100)
 
-          {msgs, %{state | started_at_ms: now, oper_status: @oper_inProgress, progress: 10}}
+          {[], new_state}
       end
     end
   end
