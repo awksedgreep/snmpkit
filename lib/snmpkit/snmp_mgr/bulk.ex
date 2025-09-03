@@ -86,7 +86,19 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
     case resolve_oid(table_oid) do
       {:ok, start_oid} ->
-        bulk_walk_table(target, start_oid, start_oid, [], max_entries, opts)
+        case bulk_walk_table(target, start_oid, start_oid, [], max_entries, opts) do
+          {:ok, results} ->
+            # Convert OID lists to strings for final output
+            formatted_results =
+              Enum.map(results, fn
+                {oid_list, type, value} -> {Enum.join(oid_list, "."), type, value}
+              end)
+
+            {:ok, formatted_results}
+
+          error ->
+            error
+        end
 
       error ->
         error
@@ -117,7 +129,19 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
     case resolve_oid(root_oid) do
       {:ok, start_oid} ->
-        bulk_walk_subtree(target, start_oid, start_oid, [], max_entries, opts)
+        case bulk_walk_subtree(target, start_oid, start_oid, [], max_entries, opts) do
+          {:ok, results} ->
+            # Convert OID lists to strings for final output
+            formatted_results =
+              Enum.map(results, fn
+                {oid_list, type, value} -> {Enum.join(oid_list, "."), type, value}
+              end)
+
+            {:ok, formatted_results}
+
+          error ->
+            error
+        end
 
       error ->
         error
@@ -247,10 +271,8 @@ defmodule SnmpKit.SnmpMgr.Bulk do
         # Reject 2-tuple format - type information must be preserved
         {_oid_list, _value} -> false
       end)
-      |> Enum.map(fn
-        # Convert 3-tuple to standardized format with oid_string
-        {oid_list, type, value} -> {Enum.join(oid_list, "."), type, value}
-      end)
+
+    # Keep OIDs as lists internally - conversion to strings happens at final output
 
     next_oid =
       case List.last(results) do
@@ -283,20 +305,39 @@ defmodule SnmpKit.SnmpMgr.Bulk do
   end
 
   defp resolve_oid(oid) when is_binary(oid) do
-    case SnmpKit.SnmpLib.OID.string_to_list(oid) do
-      {:ok, oid_list} ->
-        {:ok, oid_list}
+    case String.trim(oid) do
+      "" ->
+        # Empty string fallback
+        {:ok, [1, 3]}
 
-      {:error, _} ->
-        # Try as symbolic name
-        case SnmpKit.SnmpMgr.MIB.resolve(oid) do
-          {:ok, resolved_oid} -> {:ok, resolved_oid}
-          error -> error
+      trimmed ->
+        case SnmpKit.SnmpLib.OID.string_to_list(trimmed) do
+          {:ok, oid_list} when oid_list != [] ->
+            {:ok, oid_list}
+
+          {:ok, []} ->
+            # Empty result fallback
+            {:ok, [1, 3]}
+
+          {:error, _} ->
+            # Try as symbolic name
+            case SnmpKit.SnmpMgr.MIB.resolve(trimmed) do
+              {:ok, resolved_oid} when is_list(resolved_oid) -> {:ok, resolved_oid}
+              error -> error
+            end
         end
     end
   end
 
-  defp resolve_oid(oid) when is_list(oid), do: {:ok, oid}
+  defp resolve_oid(oid) when is_list(oid) do
+    # Validate list format before returning
+    case SnmpKit.SnmpLib.OID.valid_oid?(oid) do
+      :ok -> {:ok, oid}
+      {:error, :empty_oid} -> {:ok, [1, 3]}
+      error -> error
+    end
+  end
+
   defp resolve_oid(_), do: {:error, :invalid_oid_format}
 
   # Type information must never be inferred - it must be preserved from SNMP responses

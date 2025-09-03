@@ -251,16 +251,22 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
   end
 
   # Filter results to only include those within the base OID scope
+  # Results should always be in {oid_list, type, value} format internally
   defp filter_results_by_base_oid(results, filter_oid) do
     Enum.filter(results, fn result ->
       case result do
         {oid_list, _type, _value} when is_list(oid_list) ->
           oid_in_scope?(oid_list, filter_oid)
 
+        # Legacy support for mixed formats - convert and warn
         {oid_string, _type, _value} when is_binary(oid_string) ->
           case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
-            {:ok, oid_list} -> oid_in_scope?(oid_list, filter_oid)
-            _ -> false
+            {:ok, oid_list} ->
+              # TODO: Fix upstream to return list format consistently
+              oid_in_scope?(oid_list, filter_oid)
+
+            _ ->
+              false
           end
 
         _ ->
@@ -270,15 +276,21 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
   end
 
   # Get the next OID for continuing the walk
+  # Should always return list format for internal operations
   defp get_next_oid(results) do
     case List.last(results) do
       {oid_list, _type, _value} when is_list(oid_list) ->
         oid_list
 
+      # Legacy support for mixed formats - convert and return list
       {oid_string, _type, _value} when is_binary(oid_string) ->
         case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
-          {:ok, oid_list} -> oid_list
-          _ -> nil
+          {:ok, oid_list} ->
+            # TODO: Fix upstream to return list format consistently
+            oid_list
+
+          _ ->
+            nil
         end
 
       _ ->
@@ -370,27 +382,41 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
   end
 
   defp resolve_oid(oid) when is_binary(oid) do
-    case oid do
+    case String.trim(oid) do
       "" ->
-        # Empty string means start from MIB root
-        {:ok, []}
+        # Empty string means start from MIB root - use standard fallback
+        {:ok, [1, 3]}
 
-      _ ->
-        case SnmpKit.SnmpLib.OID.string_to_list(oid) do
-          {:ok, oid_list} ->
+      trimmed ->
+        case SnmpKit.SnmpLib.OID.string_to_list(trimmed) do
+          {:ok, oid_list} when oid_list != [] ->
             {:ok, oid_list}
+
+          {:ok, []} ->
+            # Empty result fallback
+            {:ok, [1, 3]}
 
           {:error, _} ->
             # Try as symbolic name
-            case SnmpKit.SnmpMgr.MIB.resolve(oid) do
-              {:ok, resolved_oid} -> {:ok, resolved_oid}
-              error -> error
+            case SnmpKit.SnmpMgr.MIB.resolve(trimmed) do
+              {:ok, resolved_oid} when is_list(resolved_oid) ->
+                {:ok, resolved_oid}
+
+              error ->
+                error
             end
         end
     end
   end
 
-  defp resolve_oid(oid) when is_list(oid), do: {:ok, oid}
+  defp resolve_oid(oid) when is_list(oid) do
+    # Validate list format before returning
+    case SnmpKit.SnmpLib.OID.valid_oid?(oid) do
+      :ok -> {:ok, oid}
+      {:error, :empty_oid} -> {:ok, [1, 3]}
+      error -> error
+    end
+  end
 
   defp resolve_oid(_), do: {:error, :invalid_oid_format}
 end

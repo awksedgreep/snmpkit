@@ -1,5 +1,5 @@
 defmodule SnmpKit.SnmpMgr.V2Walk do
-  @modledoc """
+  @moduledoc """
   Handles the logic for performing an SNMP walk for a single target.
 
   This module is designed to be called from a concurrent execution environment

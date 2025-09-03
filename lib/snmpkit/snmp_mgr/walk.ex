@@ -6,7 +6,6 @@ defmodule SnmpKit.SnmpMgr.Walk do
   using the GETNEXT operation repeatedly until the end of the subtree.
   """
 
-
   @default_max_iterations 100
   @default_timeout 5000
 
@@ -131,8 +130,6 @@ defmodule SnmpKit.SnmpMgr.Walk do
             {:ok, Enum.reverse(acc)}
         end
 
-
-
       {:error, {:snmp_error, :endOfMibView}} ->
         # Reached end of MIB
         {:ok, Enum.reverse(acc)}
@@ -165,22 +162,42 @@ defmodule SnmpKit.SnmpMgr.Walk do
   end
 
   defp resolve_oid(oid) when is_binary(oid) do
-    case SnmpKit.SnmpLib.OID.string_to_list(oid) do
-      {:ok, oid_list} ->
-        {:ok, oid_list}
+    case String.trim(oid) do
+      "" ->
+        # Empty string fallback
+        {:ok, [1, 3]}
 
-      {:error, _} ->
-        # Try as symbolic name
-        case SnmpKit.SnmpMgr.MIB.resolve(oid) do
-          {:ok, resolved_oid} -> {:ok, resolved_oid}
-          error -> error
+      trimmed ->
+        case SnmpKit.SnmpLib.OID.string_to_list(trimmed) do
+          {:ok, oid_list} when oid_list != [] ->
+            {:ok, oid_list}
+
+          {:ok, []} ->
+            # Empty result fallback
+            {:ok, [1, 3]}
+
+          {:error, _} ->
+            # Try as symbolic name
+            case SnmpKit.SnmpMgr.MIB.resolve(trimmed) do
+              {:ok, resolved_oid} when is_list(resolved_oid) -> {:ok, resolved_oid}
+              error -> error
+            end
         end
     end
   end
 
-  defp resolve_oid(oid) when is_list(oid), do: {:ok, oid}
+  defp resolve_oid(oid) when is_list(oid) do
+    # Validate list format before returning
+    case SnmpKit.SnmpLib.OID.valid_oid?(oid) do
+      :ok -> {:ok, oid}
+      {:error, :empty_oid} -> {:ok, [1, 3]}
+      error -> error
+    end
+  end
+
   defp resolve_oid(_), do: {:error, :invalid_oid_format}
 
   # Type information must never be inferred - it must be preserved from SNMP responses
   # Removing type inference functions to prevent loss of critical type information
+  # All operations must reject responses with type_information_lost to maintain data integrity
 end
