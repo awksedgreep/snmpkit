@@ -1,0 +1,66 @@
+MIB search path: /Users/mcotner/.snmp/mibs:/opt/homebrew/Cellar/net-snmp/5.9.4/share/snmp/mibs:/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES
+Cannot find module (DOCS-IF-MIB): At line 37 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-LOADBALANCING-MIB): At line 39 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-IF3-MIB): At line 43 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-QOS-MIB): At line 53 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Bad operator (_): At line 2601 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Did not find 'topCcmtsMibObject' in module TOPVISION-CCMTS-MIB (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-LICENSE-MIB.mib)
+Unlinked OID in TOPVISION-LICENSE-MIB: topLicenseManageObject ::= { topCcmtsMibObject 33 }
+Undefined identifier: topCcmtsMibObject near line 425 of /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-LICENSE-MIB.mib
+Unlinked OID in TOPVISION-LICENSE-MIB: topCcmtsLicenseObject ::= { topCcmtsMibObject 32 }
+Undefined identifier: topCcmtsMibObject near line 33 of /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-LICENSE-MIB.mib
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsMfgLicenseSN ::= { topCcmtsLicenseSummaryEntry 5 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDevLicenseSN ::= { topCcmtsLicenseSummaryEntry 4 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsLicSummaryDeviceSN ::= { topCcmtsLicenseSummaryEntry 3 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDevLicenseStat ::= { topCcmtsLicenseSummaryEntry 2 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsLicSummaryDeviceMAC ::= { topCcmtsLicenseSummaryEntry 1 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseTftpServerEntry ::= { topLicenseTftpServerTable 1 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topRmdcUpgradeLicenseObject ::= { topLicenseManageObject 4 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseTftpServerTable ::= { topLicenseManageObject 3 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseRmdcForceUpgradeObject ::= { topLicenseManageObject 2 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseLoadObject ::= { topLicenseManageObject 1 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsLicenseObject ::= { topCcmtsMibObject 32 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseManageObject ::= { topCcmtsMibObject 33 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsManufactureLicenseSignature ::= { topCcmtsManufactureLicenseEntry 5 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsManufactureLicensePublicKey ::= { topCcmtsManufactureLicenseEntry 4 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsManufactureLicenseSerialNumber ::= { topCcmtsManufactureLicenseEntry 3 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsManufactureLicenseSubject ::= { topCcmtsManufactureLicenseEntry 2 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsMFGLicenseDeviceMAC ::= { topCcmtsManufactureLicenseEntry 1 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseUpgradeRecordEntry ::= { topLicenseUpgradeRecordTable 1 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsUpgradeLiceseAction ::= { topRmdcUpgradeLicenseObject 3 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsUpgradeLiceseEndId ::= { topRmdcUpgradeLicenseObject 2 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsUpgradeLiceseStartId ::= { topRmdcUpgradeLicenseObject 1 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseTftpServerIp ::= { topLicenseTftpServerEntry 2 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicTftpServerCcmtsID ::= { topLicenseTftpServerEntry 1 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseUpgradeRecordTable ::= { topCcmtsLicenseObject 4 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsLicenseSummaryTable ::= { topCcmtsLicenseObject 3 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDeviceLicenseTable ::= { topCcmtsLicenseObject 2 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsManufactureLicenseTable ::= { topCcmtsLicenseObject 1 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDeviceLicenseEntry ::= { topCcmtsDeviceLicenseTable 1 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseRmdcForceUpgrade ::= { topLicenseRmdcForceUpgradeObject 1 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseUpgradeAction ::= { topLicenseLoadObject 7 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseLoadSrcPath ::= { topLicenseLoadObject 6 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseLoadFtpPassword ::= { topLicenseLoadObject 5 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseLoadFtpUserName ::= { topLicenseLoadObject 4 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseLoadServerIpv6Addr ::= { topLicenseLoadObject 3 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseLoadServerIpAddr ::= { topLicenseLoadObject 2 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseLoadMethod ::= { topLicenseLoadObject 1 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseUpgradeFailedReason ::= { topLicenseUpgradeRecordEntry 5 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseUpgradeTime ::= { topLicenseUpgradeRecordEntry 4 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topLicenseUpgradeStatus ::= { topLicenseUpgradeRecordEntry 3 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsUpgradeRecordDeviceSN ::= { topLicenseUpgradeRecordEntry 2 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsUpgradeRecordDeviceMAC ::= { topLicenseUpgradeRecordEntry 1 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsLicenseSummaryEntry ::= { topCcmtsLicenseSummaryTable 1 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDeviceLicenseMaxCmNum ::= { topCcmtsDeviceLicenseEntry 12 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDeviceLicenseMaxBcEqamNum ::= { topCcmtsDeviceLicenseEntry 11 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDeviceLicenseMaxOfdmaUsNum ::= { topCcmtsDeviceLicenseEntry 10 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDeviceLicenseMaxOfdmDsNum ::= { topCcmtsDeviceLicenseEntry 9 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDeviceLicenseMaxScqamUsNum ::= { topCcmtsDeviceLicenseEntry 8 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDeviceLicenseMaxNcEqamAndScqamDsNum ::= { topCcmtsDeviceLicenseEntry 7 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDeviceLicenseSignature ::= { topCcmtsDeviceLicenseEntry 6 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDeviceSerialNumber ::= { topCcmtsDeviceLicenseEntry 5 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDeviceLicenseSerialNumber ::= { topCcmtsDeviceLicenseEntry 4 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDeviceLicenseSubject ::= { topCcmtsDeviceLicenseEntry 3 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDeviceLicenseStat ::= { topCcmtsDeviceLicenseEntry 2 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsDevLicenseDeviceMAC ::= { topCcmtsDeviceLicenseEntry 1 }
+Cannot adopt OID in TOPVISION-LICENSE-MIB: topCcmtsManufactureLicenseEntry ::= { topCcmtsManufactureLicenseTable 1 }

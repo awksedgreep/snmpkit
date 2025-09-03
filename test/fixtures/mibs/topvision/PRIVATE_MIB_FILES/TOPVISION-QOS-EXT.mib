@@ -1,0 +1,168 @@
+--*******************************************************************
+--TOPVISION-QOS-EXT-MIB.my: admission control MIB file
+--
+--added at 2015.07.15, huochao
+--
+--Topvision      
+--
+--*******************************************************************   
+
+TOPVISION-QOS-EXT-MIB DEFINITIONS ::= BEGIN 
+
+IMPORTS 
+	MODULE-IDENTITY,
+	OBJECT-TYPE,
+	Integer32,
+	TimeTicks,
+	Counter64
+		FROM SNMPv2-SMI
+	TEXTUAL-CONVENTION,
+	MacAddress,
+	RowStatus,
+	DisplayString,
+	TimeStamp,   
+	VariablePointer
+		FROM SNMPv2-TC   
+    
+    SchedulingType
+        FROM DOCS-QOS3-MIB		
+	InterfaceIndex
+	    FROM IF-MIB 
+	IANAifType
+	    FROM IANAifType-MIB    
+	         
+	OBJECT-GROUP,
+	MODULE-COMPLIANCE   
+		FROM SNMPv2-CONF
+	SnmpAdminString
+		FROM SNMP-FRAMEWORK-MIB  
+		 
+	topCcmtsMibObject
+	    FROM  TOPVISION-CCMTS-MIB
+	sumaRoot,
+	topvisionRoot,
+	topvisionHFCCcmtsTree
+		FROM SUMA-EPONEOC-EPON-MIB;
+
+topCcmtsQosExt       	OBJECT IDENTIFIER ::= { topCcmtsMibObject 23 } 
+		
+topCcmtsQosExtCtrlObjectNotify	    OBJECT IDENTIFIER ::={ topCcmtsQosExt 1 }         
+topCcmtsQosExtCtrlObject	    	OBJECT IDENTIFIER ::={ topCcmtsQosExt 2 }
+
+
+-- CMTS Notifications       
+
+
+--
+--topCcmtsServiceFlowsUsChannelStatsTable
+--
+topCcmtsServiceFlowsUsChannelStatsTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsServiceFlowsUsChannelStatsEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control cmts global configuration table."
+	::={ topCcmtsQosExtCtrlObject 1 }
+
+topCcmtsServiceFlowsUsChannelStatsEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsServiceFlowsUsChannelStatsEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"upstream service flow stats per channel"
+	INDEX { topCcmtsServiceFlowsUsChannelStatsIfindex,
+	        topCcmtsServiceFlowsUsChannelStatsScheType,
+	        topCcmtsServiceFlowsUsChannelStatsSfid
+	        }
+	::= { topCcmtsServiceFlowsUsChannelStatsTable 1 }       
+	
+	
+TopCcmtsServiceFlowsUsChannelStatsEntry ::=SEQUENCE{
+    topCcmtsServiceFlowsUsChannelStatsIfindex                  InterfaceIndex, 
+    topCcmtsServiceFlowsUsChannelStatsScheType     INTEGER,  
+    topCcmtsServiceFlowsUsChannelStatsSfid     INTEGER  
+	}
+
+  
+topCcmtsServiceFlowsUsChannelStatsIfindex  OBJECT-TYPE
+        SYNTAX      InterfaceIndex
+        MAX-ACCESS  not-accessible
+        STATUS      current         
+        DESCRIPTION
+            "CMTS channel ifindex." 
+        ::= { topCcmtsServiceFlowsUsChannelStatsEntry 1 }     
+        
+topCcmtsServiceFlowsUsChannelStatsScheType  OBJECT-TYPE
+        SYNTAX      SchedulingType
+        MAX-ACCESS  read-only
+        STATUS      current         
+        DESCRIPTION
+            "CMTS upstream service flow schedule type." 
+        ::= { topCcmtsServiceFlowsUsChannelStatsEntry 2 }     
+
+topCcmtsServiceFlowsUsChannelStatsSfid  OBJECT-TYPE
+        SYNTAX      INTEGER
+        MAX-ACCESS  read-only
+        STATUS      current         
+        DESCRIPTION
+            "CMTS upstream service flow ID." 
+        ::= { topCcmtsServiceFlowsUsChannelStatsEntry 3 }  
+        
+        
+--
+--topCcmtsDsPriorityMappingTable
+--
+topCcmtsDsPriorityMappingTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsDsPriorityMappingEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"CMTS downstream service flow priority mapping table."
+	::={ topCcmtsQosExtCtrlObject 2 }
+
+topCcmtsDsPriorityMappingEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsDsPriorityMappingEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"CMTS downstream service flow priority mapping table,mapping from docsis priority to queue priority"
+	INDEX { topCcmtsDsPriorityMappingCmcIfindex,
+	        topCcmtsDsPriorityMappingDocsisPriority
+	        }
+	::= { topCcmtsDsPriorityMappingTable 1 }       
+	
+	
+TopCcmtsDsPriorityMappingEntry ::=SEQUENCE{
+    topCcmtsDsPriorityMappingCmcIfindex           INTEGER, 
+    topCcmtsDsPriorityMappingDocsisPriority       INTEGER,  
+    topCcmtsDsPriorityMappingQueuePriority        INTEGER
+	}
+
+  
+topCcmtsDsPriorityMappingCmcIfindex  OBJECT-TYPE
+        SYNTAX      INTEGER
+        MAX-ACCESS  not-accessible
+        STATUS      current         
+        DESCRIPTION
+            "CMTS  ifindex." 
+        ::= { topCcmtsDsPriorityMappingEntry 1 }     
+        
+topCcmtsDsPriorityMappingDocsisPriority  OBJECT-TYPE
+        SYNTAX      INTEGER (0..7)
+        MAX-ACCESS  not-accessible
+        STATUS      current         
+        DESCRIPTION
+            "CMTS downstream docsis priority, 7 prior ." 
+        ::= { topCcmtsDsPriorityMappingEntry 2 }     
+
+topCcmtsDsPriorityMappingQueuePriority  OBJECT-TYPE
+        SYNTAX      INTEGER (0..3)
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "CMTS downstream queue priority." 
+        ::= { topCcmtsDsPriorityMappingEntry 3 }  
+  
+      
+                 	
+END  

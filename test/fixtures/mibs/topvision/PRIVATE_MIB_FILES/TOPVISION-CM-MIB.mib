@@ -1,0 +1,1217 @@
+--*******************************************************************
+--TOPVISION-CM-MIB.my: DOCSIS Extention MIB file
+--
+--added at February 2013, Tang Bo
+--
+--Topvision      
+--
+--
+--*******************************************************************
+
+TOPVISION-CM-MIB DEFINITIONS ::= BEGIN 
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE, 
+    Unsigned32,   
+    Integer32
+				FROM SNMPv2-SMI 
+    DateAndTime,
+    MacAddress,  
+    RowStatus, 
+    DisplayString,
+    TruthValue
+				FROM SNMPv2-TC
+    ifIndex
+				FROM IF-MIB  
+	TenthdBmV,
+	docsIfCmtsCmStatusIndex,
+	docsIfCmtsCmStatusEntry,
+	docsIfUpChannelId
+				FROM DOCS-IF-MIB
+    topCcmtsTemplateIndex
+				FROM TOPVISION-TEMPLATE-MIB
+    topCcmtsCmStatsObject,
+	DocsisVersionCcmtsLocal
+				FROM TOPVISION-CCMTS-MIB;
+		
+
+--------------------------------------------------------------------
+--Reset specific CM.   
+--Clear specific CM flap record
+--Based on CM.
+--------------------------------------------------------------------
+
+
+topCmControlTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmControlEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Control specific CM based on CM"
+	::={ topCcmtsCmStatsObject 5 }
+
+topCmControlEntry OBJECT-TYPE
+	SYNTAX		TopCmControlEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION	
+		"Control specific CM based on CM"
+	INDEX  { docsIfCmtsCmStatusIndex }
+	::={ topCmControlTable 1 }
+	
+TopCmControlEntry ::=SEQUENCE{
+	topCmCtlDropModem			TruthValue,
+	topCmCtlClearFlap			TruthValue,
+	topCmCtlDhcpFileName        DisplayString,  
+    topCmPreStatus       		INTEGER,
+    topCmCtlDhcpV6FileName      DisplayString,
+	topCmOfflineClear 			TruthValue	
+}
+
+topCmCtlDropModem OBJECT-TYPE
+	SYNTAX		TruthValue
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Set true(1) to drop this specific CM.
+		When read ,always return false(2)."
+	::={ topCmControlEntry 1 }
+
+topCmCtlClearFlap OBJECT-TYPE
+	SYNTAX		TruthValue
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Set true(1) to clear this specific CM flap.
+		When read ,always return false(2)."
+	::={ topCmControlEntry 2 }
+	
+topCmCtlDhcpFileName OBJECT-TYPE
+	SYNTAX		DisplayString (SIZE (0..128))
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"Show cable modem DhcpV4 BootFile name."
+	::={ topCmControlEntry 3 }   
+	
+topCmPreStatus OBJECT-TYPE
+	SYNTAX      INTEGER 
+	{
+		other(1),
+		ranging(2),
+		rangingAborted(3),
+		rangingComplete(4),
+		ipComplete(5),
+		registrationComplete(6),
+		accessDenied(7),
+		operational(8),
+		registeredBPIInitializing(9),
+
+        --topvivsioin
+        dhcpV4Discover(10),
+        dhcpV4Offer(11),
+        dhcpV4Request(12),
+        downloadConfigFile(13),
+        forwardingDisabled(21),
+        dhcpV6Solicit(22),
+        dhcpV6Advertise(23),
+        dhcpV6Request(24),
+        dhcpV6Reply(25),
+        partialSvcOnline(26),
+        wideBandOnline(27),
+		eaeKekExpired(28),
+		eaeTekExpired(29),
+		partialSvcOnlineForwardingDisabled(30),
+		wideBandOnlineForwardingDisabled(31),
+		eaeKekRejected(32),
+		eaeTekRejected(33),
+		kekAssigned(34),
+		tekAssigned(35),
+		kekAssignedForwardingDisabled(36),
+		tekAssignedForwardingDisabled(37),
+		wOnlineKekAssigned(38),
+		wOnlineTekAssigned(39),
+		wOnlineKekAssignedForwardingDisabled(40),
+		wOnlineTekAssignedForwardingDisabled(41),
+		pOnlineKekAssigned(42),
+		pOnlineTekAssigned(43),
+		pOnlineKekAssignedForwardingDisabled(44),
+		pOnlineTekAssignedForwardingDisabled(45),
+		kekExpired(46),
+		tekExpired(47),
+		kekExpiredForwardingDisabled(48),
+		tekExpiredForwardingDisabled(49),
+		kekRejected(50),
+		tekRejected(51),
+		kekRejectedForwardingDisabled(52),
+		tekRejectedForwardingDisabled(53)
+	} 
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"Show the previous status of the cable modem."
+	::={ topCmControlEntry 4 }
+             
+topCmCtlDhcpV6FileName OBJECT-TYPE
+	SYNTAX		DisplayString (SIZE (0..128))
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"Show cable modem DhcpV6 BootFile name."
+	::={ topCmControlEntry 5 }
+
+topCmOfflineClear OBJECT-TYPE
+	SYNTAX		TruthValue
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Clear specific offline CM. Always return false(2) when reading. 
+		Set true(1) to clear specifig offline CM."
+	::={ topCmControlEntry 6 }
+------------------------------------------------------
+--topCcmtsCmUsTxPowerTable	
+--added by lvhaiting 2014-06-28
+------------------------------------------------------
+topCcmtsCmUsTxPowerTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsCmUsTxPowerEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"CM us-channel tx power record on CCMTS"
+	::={ topCcmtsCmStatsObject 9 }
+
+	topCcmtsCmUsTxPowerEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsCmUsTxPowerEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION	
+		"CM us-channel tx power record on CCMTS"
+	INDEX  { docsIfCmtsCmStatusIndex }
+	::={ topCcmtsCmUsTxPowerTable 1 }
+	
+TopCcmtsCmUsTxPowerEntry ::=SEQUENCE{
+	topCcmtsCmUsTxPower			Integer32
+}
+
+topCcmtsCmUsTxPower OBJECT-TYPE
+	SYNTAX		Integer32
+	UNITS		"TenthdBmV"
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"CM us-channel tx power record on CCMTS"
+	::={ topCcmtsCmUsTxPowerEntry 1 }   
+	
+	--
+--topCcmtsCmOfflineGlobalObject  cm offline
+--
+topCcmtsCmOfflineGlobalObject	OBJECT IDENTIFIER ::={ topCcmtsCmStatsObject 11 }    
+
+topCcmtsCmOfflineAingTime  OBJECT-TYPE
+        SYNTAX      Integer32     
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "offline cable modem aging time(hour):
+            0-clean offline Cable modem disable
+            10..43200-set the aging time" 
+	    DEFVAL{10080}
+        ::= { topCcmtsCmOfflineGlobalObject 1 }       
+
+topCcmtsCmOfflineAgingMode  OBJECT-TYPE
+       SYNTAX      INTEGER {
+                    polling(1),
+                    timing(2)
+                    }
+      
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION           
+            "offline cable modem clean mode:
+            1-polling: check offline cable modem every 10 minutes
+            2-timing:check offline cable modem only once a day at the specified time" 
+	    DEFVAL{1}
+        ::= { topCcmtsCmOfflineGlobalObject 2 }   
+        
+
+topCcmtsCmOfflineAgingClock  OBJECT-TYPE
+        SYNTAX      INTEGER(0..23)      
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "offline cable modem clean time(0-23 hour):the time for clock-mode to check the offline cable modem" 
+	    DEFVAL{0}
+        ::= { topCcmtsCmOfflineGlobalObject 3 }     
+        
+topCcmtsCmAccessBlackListTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsCmAccessBlackListEntry
+	MAX-ACCESS	not-accessible
+	STATUS		deprecated
+	DESCRIPTION
+		"Cable modem black access list table."
+	::={ topCcmtsCmStatsObject 12 }
+
+topCcmtsCmAccessBlackListEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsCmAccessBlackListEntry
+	MAX-ACCESS	not-accessible
+	STATUS		deprecated
+	DESCRIPTION	
+		"Cable modem black access list table entry, MACs in the range  
+		<'topCcmtsCmAccessBlackListStartMacAddr' -  'topCcmtsCmAccessBlackListEndMacAddr'> will be denied."
+	INDEX  { ifIndex,topCcmtsCmAccessBlackListStartMacAddr}
+	::={ topCcmtsCmAccessBlackListTable 1 }
+	
+TopCcmtsCmAccessBlackListEntry ::=SEQUENCE{
+	topCcmtsCmAccessBlackListStartMacAddr			MacAddress,
+	topCcmtsCmAccessBlackListEndMacAddr		MacAddress, 
+	topCcmtsCmAccessBlackListRowStatus		    RowStatus  
+}
+
+topCcmtsCmAccessBlackListStartMacAddr OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	not-accessible
+	STATUS		deprecated
+	DESCRIPTION
+		"Black access list start MAC Address,start MAC should less than end MAC.
+		MACs range overlap in this table will be denied."
+
+	::={ topCcmtsCmAccessBlackListEntry 1 }
+
+
+topCcmtsCmAccessBlackListEndMacAddr OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	read-create
+	STATUS		deprecated
+	DESCRIPTION
+		"Black access list end MAC Address,start MAC should less than end MAC.
+		MACs range overlap in this table will be denied."
+	::={ topCcmtsCmAccessBlackListEntry 2 }
+
+
+topCcmtsCmAccessBlackListRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		deprecated
+	DESCRIPTION
+		"Table rowstatus"
+	::={ topCcmtsCmAccessBlackListEntry 3 }
+
+
+topCcmtsCmAccessWhiteListTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsCmAccessWhiteListEntry
+	MAX-ACCESS	not-accessible
+	STATUS		deprecated
+	DESCRIPTION
+		"Cable modem white access list table."
+	::={ topCcmtsCmStatsObject 13 }
+
+topCcmtsCmAccessWhiteListEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsCmAccessWhiteListEntry
+	MAX-ACCESS	not-accessible
+	STATUS		deprecated
+	DESCRIPTION	
+		"Cable modem white access list table entry, MACs in the range 
+		<'topCcmtsCmAccessWhiteListStartMacAddr' - 'topCcmtsCmAccessWhiteListEndMacAddr'> will be accepted."
+	INDEX  {ifIndex,topCcmtsCmAccessWhiteListStartMacAddr}
+	::={ topCcmtsCmAccessWhiteListTable 1 }
+	
+TopCcmtsCmAccessWhiteListEntry ::=SEQUENCE{
+	topCcmtsCmAccessWhiteListStartMacAddr			MacAddress,
+	topCcmtsCmAccessWhiteListEndMacAddr		MacAddress, 
+	topCcmtsCmAccessWhiteListRowStatus		    RowStatus  
+}
+
+topCcmtsCmAccessWhiteListStartMacAddr OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	not-accessible
+	STATUS		deprecated
+	DESCRIPTION
+		"White access list start MAC Address,start MAC should less than end MAC.
+		MACs range overlap in this table will be denied."
+	::={ topCcmtsCmAccessWhiteListEntry 1 }
+
+
+topCcmtsCmAccessWhiteListEndMacAddr OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	read-create
+	STATUS		deprecated
+	DESCRIPTION
+		"White access list end MAC Address,start MAC should less than end MAC.
+		MACs range overlap in this table will be denied."
+	::={ topCcmtsCmAccessWhiteListEntry 2 }
+
+
+topCcmtsCmAccessWhiteListRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		deprecated
+	DESCRIPTION
+		"Table rowstatus"
+	::={ topCcmtsCmAccessWhiteListEntry 3 }
+
+topCcmtsCmAccessGlobalObject	OBJECT IDENTIFIER ::={ topCcmtsCmStatsObject 14 }    
+
+topCcmtsCmAccessLstBlackAdminStatus  OBJECT-TYPE
+        SYNTAX      INTEGER {
+                    enable(1),
+                    disable(2)
+                    }
+        MAX-ACCESS  read-write
+        STATUS      deprecated          
+        DESCRIPTION
+            "Cable modem's access black-list administration status" 
+	    DEFVAL	{disable}
+        ::= { topCcmtsCmAccessGlobalObject 1 }   
+        
+topCcmtsCmAccessLstWhiteAdminStatus  OBJECT-TYPE
+        SYNTAX      INTEGER {
+                    enable(1),
+                    disable(2)
+                    }
+        MAX-ACCESS  read-write
+        STATUS      deprecated         
+        DESCRIPTION
+            "Cable modem's access white-list administration status" 
+	    DEFVAL	{disable}
+        ::= { topCcmtsCmAccessGlobalObject 2 }   
+
+------------------------------------------------------
+--topCcmtsCmDsSteerGroup	
+------------------------------------------------------
+topCcmtsCmDsSteerGroup OBJECT IDENTIFIER ::= { topCcmtsCmStatsObject 15 }
+topCcmtsCmDsSteerCmMac OBJECT-TYPE
+    SYNTAX MacAddress
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"The mac address of the cable modem that the CMTS
+		 instructs to move to a new downstream frequency.
+		 reading this object will result in implementation-specific results."
+	::= { topCcmtsCmDsSteerGroup 1 }
+
+topCcmtsCmDsSteerFreq OBJECT-TYPE
+    SYNTAX Integer32 (52000000..1002000000)
+	UNITS "hertz"
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"The new downstream frequency to which the cable modem is
+		 instructed to move.
+		 reading this object will result in implementation-specific results."
+	::= { topCcmtsCmDsSteerGroup 2 }
+		
+topCcmtsCMChangeFrequencyCommit OBJECT-TYPE
+    SYNTAX TruthValue
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"The command to execute the operation changing downstream frequency when set to
+		 true(1).
+		 reading this object will result in implementation-specific results."
+	::= { topCcmtsCmDsSteerGroup 3 }
+		
+   topCcmtsCMChangeFrequencyTimeOut OBJECT-TYPE
+    SYNTAX Integer32 (60..1800)
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"The command to set and get CM change frequency timeout."
+    DEFVAL {720}
+	::= { topCcmtsCmDsSteerGroup 4 }
+
+------------------------------------------------------
+--topCcmtsCmPartialSvcStateTable	
+------------------------------------------------------
+topCcmtsCmPartialSvcStateTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsCmPartialSvcStateEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"This object defines attributes that represent 
+		the CM's partial service state."
+	::={ topCcmtsCmStatsObject 16 }
+
+topCcmtsCmPartialSvcStateEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsCmPartialSvcStateEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION	
+		"The conceptual row of topCcmtsCmPartialSvcStateTable."
+	INDEX  { topCcmtsCmPartialSvcIndex}
+	::={ topCcmtsCmPartialSvcStateTable 1 }
+	
+TopCcmtsCmPartialSvcStateEntry ::=SEQUENCE{
+	topCcmtsCmPartialSvcIndex			Unsigned32,
+	topCcmtsCmPrimarySid				Unsigned32, 
+	topCcmtsCmPartialSvcImpairedUS		BITS,
+	topCcmtsCmPartialSvcImpairedDS		BITS,
+	topCcmtsCmPartialSvcUSBitmap		BITS,
+	topCcmtsCmPartialSvcDSBitmap		BITS	
+}
+
+topCcmtsCmPartialSvcIndex OBJECT-TYPE
+	SYNTAX		Unsigned32 (1..4294967295)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"This attribute uniquely identifies a CM."
+	::={ topCcmtsCmPartialSvcStateEntry 1 }
+
+
+topCcmtsCmPrimarySid OBJECT-TYPE
+	SYNTAX		Unsigned32 (0..16383)
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The primary Service Identifier (SID). 
+		Only active or admitted upstream 
+		service flows will have a Service Id."
+	::={ topCcmtsCmPartialSvcStateEntry 2 }
+
+topCcmtsCmPartialSvcImpairedUS OBJECT-TYPE
+    SYNTAX          BITS {      -- in the indicated section number.
+                        us1(0),us2(1),us3(2),us4(3),us5(4),us6(5),us7(6),us8(7),us9(8),us10(9),us11(10),us12(11),ofdma_us13(12),ofdma_us14(13),
+						us15(14),us16(15),us17(16),us18(17),us19(18),us20(19),us21(20),us22(21),us23(22),us24(23),us25(24),us26(25),ofdma_us27(26),ofdma_us28(27)
+                    }
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"A bit is set to 1 when the Upstream described
+		by the indicated reference section is present
+		impaired."
+	::={ topCcmtsCmPartialSvcStateEntry 3 }
+	
+topCcmtsCmPartialSvcImpairedDS OBJECT-TYPE
+    SYNTAX          BITS {      -- in the indicated section number.
+						ds1(0),ds2(1),ds3(2),ds4(3),ds5(4),ds6(5),ds7(6),ds8(7),ds9(8),ds10(9),
+						ds11(10),ds12(11),ds13(12),ds14(13),ds15(14),ds16(15),ds17(16),ds18(17),ds19(18),ds20(19),
+						ds21(20),ds22(21),ds23(22),ds24(23),ds25(24),ds26(25),ds27(26),ds28(27),ds29(28),ds30(29),
+						ds31(30),ds32(31),ds33(32),ds34(33),ds35(34),ds36(35),ds37(36),ds38(37),ds39(38),ds40(39),
+						ds41(40),ds42(41),ds43(42),ds44(43),ds45(44),ds46(45),ds47(46),ds48(47),ds49(48),ds50(49),
+						ds51(50),ds52(51),ds53(52),ds54(53),ds55(54),ds56(55),ds57(56),ds58(57),ds59(58),ds60(59),
+						ds61(60),ds62(61),ds63(62),ds64(63),ds65(64),ds66(65),ds67(66),ds68(67),ds69(68),ds70(69),
+						ds71(70),ds72(71),ds73(72),ds74(73),ds75(74),ds76(75),ds77(76),ds78(77),ds79(78),ds80(79),
+						ds81(80),ds82(81),ds83(82),ds84(83),ds85(84),ds86(85),ds87(86),ds88(87),ds89(88),ds90(89),
+						ds91(90),ds92(91),ds93(92),ds94(93),ds95(94),ds96(95),ds97(96),ds98(97),ds99(98),ds100(99),
+						ds101(100),ds102(101),ds103(102),ds104(103),ds105(104),ds106(105),ds107(106),ds108(107),ds109(108),ds110(109),
+						ds111(110),ds112(111),ds113(112),ds114(113),ds115(114),ds116(115),ds117(116),ds118(117),ds119(118),ds120(119),
+						ds121(120),ds122(121),ds123(122),ds124(123),ds125(124),ds126(125),ds127(126),ds128(127),ds129(128),ds130(129),
+						ds131(130),ds132(131),ds133(132),ds134(133),ds135(134),ds136(135),ds137(136),ds138(137),ds139(138),ds140(139),
+						ds141(140),ds142(141),ds143(142),ds144(143),ds145(144),ds146(145),ds147(146),ds148(147),ds149(148),ds150(149),
+						ds151(150),ds152(151),ds153(152),ds154(153),ds155(154),ds156(155),ds157(156),ds158(157),ds159(158),ds160(159),
+						ds161(160),ds162(161),ds163(162),ds164(163),ds165(164),ds166(165),ds167(166),ds168(167),ds169(168),ds170(169),
+						ds171(170),ds172(171),ds173(172),ds174(173),ds175(174),ds176(175),ds177(176),ds178(177),ds179(178),ds180(179),
+						ds181(180),ds182(181),ds183(182),ds184(183),ds185(184),ds186(185),ds187(186),ds188(187),ds189(188),ds190(189),
+						ds191(190),ds192(191),
+						ofdm_ds193(192),ofdm_ds194(193),ofdm_ds195(194),ofdm_ds196(195),ofdm_ds197(196),ofdm_ds198(197)
+                    }
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"A bit is set to 1 when the Downstream described
+		by the indicated reference section is present
+		impaired."
+	::={ topCcmtsCmPartialSvcStateEntry 4 }
+	
+topCcmtsCmPartialSvcUSBitmap OBJECT-TYPE
+    SYNTAX          BITS {      -- in the indicated section number.
+                        us1(0),us2(1),us3(2),us4(3),us5(4),us6(5),us7(6),us8(7),us9(8),us10(9),us11(10),us12(11),ofdma_us13(12),ofdma_us14(13),
+						us15(14),us16(15),us17(16),us18(17),us19(18),us20(19),us21(20),us22(21),us23(22),us24(23),us25(24),us26(25),ofdma_us27(26),ofdma_us28(27)
+                    }
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"A bit is set to 1 when the Upstream described
+		by the indicated reference section is present
+		bonded."
+	::={ topCcmtsCmPartialSvcStateEntry 5 }
+	
+topCcmtsCmPartialSvcDSBitmap OBJECT-TYPE
+    SYNTAX          BITS {      -- in the indicated section number.
+						ds1(0),ds2(1),ds3(2),ds4(3),ds5(4),ds6(5),ds7(6),ds8(7),ds9(8),ds10(9),
+						ds11(10),ds12(11),ds13(12),ds14(13),ds15(14),ds16(15),ds17(16),ds18(17),ds19(18),ds20(19),
+						ds21(20),ds22(21),ds23(22),ds24(23),ds25(24),ds26(25),ds27(26),ds28(27),ds29(28),ds30(29),
+						ds31(30),ds32(31),ds33(32),ds34(33),ds35(34),ds36(35),ds37(36),ds38(37),ds39(38),ds40(39),
+						ds41(40),ds42(41),ds43(42),ds44(43),ds45(44),ds46(45),ds47(46),ds48(47),ds49(48),ds50(49),
+						ds51(50),ds52(51),ds53(52),ds54(53),ds55(54),ds56(55),ds57(56),ds58(57),ds59(58),ds60(59),
+						ds61(60),ds62(61),ds63(62),ds64(63),ds65(64),ds66(65),ds67(66),ds68(67),ds69(68),ds70(69),
+						ds71(70),ds72(71),ds73(72),ds74(73),ds75(74),ds76(75),ds77(76),ds78(77),ds79(78),ds80(79),
+						ds81(80),ds82(81),ds83(82),ds84(83),ds85(84),ds86(85),ds87(86),ds88(87),ds89(88),ds90(89),
+						ds91(90),ds92(91),ds93(92),ds94(93),ds95(94),ds96(95),ds97(96),ds98(97),ds99(98),ds100(99),
+						ds101(100),ds102(101),ds103(102),ds104(103),ds105(104),ds106(105),ds107(106),ds108(107),ds109(108),ds110(109),
+						ds111(110),ds112(111),ds113(112),ds114(113),ds115(114),ds116(115),ds117(116),ds118(117),ds119(118),ds120(119),
+						ds121(120),ds122(121),ds123(122),ds124(123),ds125(124),ds126(125),ds127(126),ds128(127),ds129(128),ds130(129),
+						ds131(130),ds132(131),ds133(132),ds134(133),ds135(134),ds136(135),ds137(136),ds138(137),ds139(138),ds140(139),
+						ds141(140),ds142(141),ds143(142),ds144(143),ds145(144),ds146(145),ds147(146),ds148(147),ds149(148),ds150(149),
+						ds151(150),ds152(151),ds153(152),ds154(153),ds155(154),ds156(155),ds157(156),ds158(157),ds159(158),ds160(159),
+						ds161(160),ds162(161),ds163(162),ds164(163),ds165(164),ds166(165),ds167(166),ds168(167),ds169(168),ds170(169),
+						ds171(170),ds172(171),ds173(172),ds174(173),ds175(174),ds176(175),ds177(176),ds178(177),ds179(178),ds180(179),
+						ds181(180),ds182(181),ds183(182),ds184(183),ds185(184),ds186(185),ds187(186),ds188(187),ds189(188),ds190(189),
+						ds191(190),ds192(191),
+						ofdm_ds193(192),ofdm_ds194(193),ofdm_ds195(194),ofdm_ds196(195),ofdm_ds197(196),ofdm_ds198(197)
+                    }
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"A bit is set to 1 when the Downstream described
+		by the indicated reference section is present
+		bonded."
+	::={ topCcmtsCmPartialSvcStateEntry 6 }
+
+
+---------------------------
+--topCcmtsCmStatusExtTable
+---------------------------
+topCcmtsCmStatusExtTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsCmStatusExtEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"This object defines attributes that represent 
+		the CM's state."
+	::={ topCcmtsCmStatsObject 17 }
+
+topCcmtsCmStatusExtEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsCmStatusExtEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION	
+		"The conceptual row of topCcmtsCmStatusExtTable."
+	--INDEX  { docsIfCmtsCmStatusIndex}
+	AUGMENTS    { docsIfCmtsCmStatusEntry }
+	::={ topCcmtsCmStatusExtTable 1 }
+	
+
+
+TopCcmtsCmStatusExtEntry ::=SEQUENCE{
+	topCcmtsCmStatusValue		INTEGER,
+	topCcmtsCmDocsisVersion		DocsisVersionCcmtsLocal
+}
+
+topCcmtsCmStatusValue OBJECT-TYPE  
+    SYNTAX      INTEGER {
+        other(1),
+        ranging(2),
+        rangingAborted(3),
+        rangingComplete(4),
+        ipComplete(5),
+        registrationComplete(6),
+        accessDenied(7),
+        operational(8),
+            -- value 8 should not be used
+        registeredBPIInitializing(9),
+        
+        --topvivsioin
+        dhcpV4Discover(10),
+        dhcpV4Offer(11),
+        dhcpV4Request(12),
+        downloadConfigFile(13),
+        forwardingDisabled(21),
+        dhcpV6Solicit(22),
+        dhcpV6Advertise(23),
+        dhcpV6Request(24),
+        dhcpV6Reply(25),
+        partialSvcOnline(26),
+        wideBandOnline(27),
+		eaeKekExpired(28),
+		eaeTekExpired(29),
+		partialSvcOnlineForwardingDisabled(30),
+		wideBandOnlineForwardingDisabled(31),
+		eaeKekRejected(32),
+		eaeTekRejected(33),
+		kekAssigned(34),
+		tekAssigned(35),
+		kekAssignedForwardingDisabled(36),
+		tekAssignedForwardingDisabled(37),
+		wOnlineKekAssigned(38),
+		wOnlineTekAssigned(39),
+		wOnlineKekAssignedForwardingDisabled(40),
+		wOnlineTekAssignedForwardingDisabled(41),
+		pOnlineKekAssigned(42),
+		pOnlineTekAssigned(43),
+		pOnlineKekAssignedForwardingDisabled(44),
+		pOnlineTekAssignedForwardingDisabled(45),
+		kekExpired(46),
+		tekExpired(47),
+		kekExpiredForwardingDisabled(48),
+		tekExpiredForwardingDisabled(49),
+		kekRejected(50),
+		tekRejected(51),
+		kekRejectedForwardingDisabled(52),
+		tekRejectedForwardingDisabled(53)
+    }
+    MAX-ACCESS  read-only
+    STATUS      current
+	DESCRIPTION
+		"This attribute display CM's status vlaue:
+            other(1)
+                Any state other than below.
+            ranging(2)
+                The CMTS has received an Initial Ranging Request
+                message from the CM, and the ranging process is not
+                yet complete.
+            rangingAborted(3)
+                The CMTS has sent a Ranging Abort message to the CM.
+            rangingComplete(4)
+                The CMTS has sent a Ranging Complete message to the CM.
+            ipComplete(5)
+                The CMTS has received a DHCP reply message and
+                forwarded it to the CM.
+            registrationComplete(6)
+                The CMTS has sent a Registration Response message to
+                the CM.
+            accessDenied(7)
+                The CMTS has sent a Registration Aborted message
+                to the CM.
+            operational(8)
+                Value 8 is considered reserved and should not be defined
+                in future revisions of this MIB module to avoid conflict
+                with documented implementations that support value 8 to
+                indicate operational state after completing the BPI
+                initialization process.
+            registeredBPIInitializing(9)
+                Baseline Privacy (BPI) is enabled and the CMTS is in the
+                process of completing BPI initialization.  This state
+                MAY last for a significant length of time if failures
+                occur during the initialization process.  After
+                completion of BPI initialization, the CMTS will report
+                registrationComplete(6).   
+            dhcpV4Discover(10)
+                init(d)   The CMTS has seen DHCPDISCOVER.
+            dhcpV4Offer(11)
+                init(io)  The CMTS has seen DHCPOFFER.
+            dhcpV4Request(12)
+                init(dr)  The CMTS has seen DHCPREQUEST.
+            downloadConfigFile(13)
+                init(o)  The  CMTS has seen first TFTP packet for TFTP request, for cable modem configuration file.
+            forwardingDisabled(21),
+                CM is not allowed to forward data over the network for attached CPE devices (required).
+            dhcpV6Solicit(22) 
+                CM in DHCPv6 state, solicit.
+            dhcpV6Advertise(23)
+                CM in DHCPv6 state, advertise.
+            dhcpV6Request(24)         
+                CM in DHCPv6 state, request.
+            dhcpV6Reply(25)               
+                CM in DHCPv6 state, reply.
+            partialSvcOnline(26)
+                3.x CM, partial service online
+            wideBandOnline(27)
+                3.x CM, wide band online
+            eaeKekExpired(28)
+                expire(epk)
+            eaeTekExpired(29)
+                expire(ept)
+            partialSvcOnlineForwardingDisabled(30)
+                3.x CM, partial service online(d)
+            wideBandOnlineForwardingDisabled(31)
+                3.x CM, wide band online(d)
+            eaeKekRejected(32)
+                reject(epk)
+            eaeTekRejected(33)
+                reject(ept)
+            kekAssigned(34)
+                online(pk)
+            tekAssigned(35)
+                online(pt)
+            kekAssignedForwardingDisabled(36)
+                online(pkd)
+            tekAssignedForwardingDisabled(37)
+                online(ptd)
+            wOnlineKekAssigned(38)
+                w-online(pk)
+            wOnlineTekAssigned(39)
+                w-online(pt)
+            wOnlineKekAssignedForwardingDisabled(40)
+                w-online(pkd)
+            wOnlineTekAssignedForwardingDisabled(41)
+                w-online(ptd)
+            pOnlineKekAssigned(42)
+                p-online(pk)
+            pOnlineTekAssigned(43)
+                p-online(pt)
+            pOnlineKekAssignedForwardingDisabled(44)
+                p-online(pkd)
+            pOnlineTekAssignedForwardingDisabled(45)
+                p-online(ptd)
+            kekExpired(46)
+                expire(pk)
+            tekExpired(47)
+                expire(pt)
+            kekExpiredForwardingDisabled(48)
+                expire(pkd)
+            tekExpiredForwardingDisabled(49)
+                expire(ptd)
+            kekRejected(50)
+                reject(pk)
+            tekRejected(51)
+                reject(pt)
+            kekRejectedForwardingDisabled(52)
+                reject(pkd)
+            tekRejectedForwardingDisabled(53)
+                reject(ptd)
+
+            The CMTS only needs to report states it is able to
+               detect."
+	::={ topCcmtsCmStatusExtEntry 1 }
+
+topCcmtsCmDocsisVersion OBJECT-TYPE
+	SYNTAX		DocsisVersionCcmtsLocal
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"Docsis Version of CM registration."
+	::={ topCcmtsCmStatusExtEntry 2 }
+	
+topCcmtsCmInfoExtTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsCmInfoExtEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"show cable modem software and hardware version information."
+	::={ topCcmtsCmStatsObject 20}
+	     
+	     
+--docsIf3CmtsCmRegStatusId
+
+topCcmtsCmInfoExtEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsCmInfoExtEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION	
+		" show cable modem software and hardware version information."
+	INDEX  {   docsIfCmtsCmStatusIndex			
+	}
+	::={ topCcmtsCmInfoExtTable 1 }
+       ---ifIndex
+TopCcmtsCmInfoExtEntry ::=SEQUENCE{
+	topCcmtsCmSoftWare			DisplayString,
+	topCcmtsCmHardWare		    DisplayString
+}
+
+topCcmtsCmSoftWare OBJECT-TYPE
+	SYNTAX		DisplayString
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"Software of CM."
+	DEFVAL {""}
+	::={ topCcmtsCmInfoExtEntry 1 }
+
+
+topCcmtsCmHardWare OBJECT-TYPE
+	SYNTAX		DisplayString
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"Hardware of CM."   
+	DEFVAL {""}
+	::={ topCcmtsCmInfoExtEntry 2 }
+	
+topCcmtsCmServiceFlowTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsCmServiceFlowEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"show cable modem system-info."
+	::={ topCcmtsCmStatsObject 18}
+--docsIf3CmtsCmRegStatusId	
+topCcmtsCmServiceFlowEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsCmServiceFlowEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION	
+		" list service-flow info of cable modem."
+	INDEX  {  docsIfCmtsCmStatusIndex, 
+			  topCcmtsCmServiceFlowId  
+			}
+	::={ topCcmtsCmServiceFlowTable 1 }
+
+TopCcmtsCmServiceFlowEntry ::=SEQUENCE{
+	topCcmtsCmServiceFlowId        Integer32,
+	topCcmtsCmServiceFlowType      INTEGER,
+	topCcmtsCmServiceFlowRate      Integer32
+}
+
+topCcmtsCmServiceFlowId OBJECT-TYPE
+	SYNTAX		Integer32
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"service flow Id "        
+	DEFVAL {0}
+	::={ topCcmtsCmServiceFlowEntry 1 }
+	
+topCcmtsCmServiceFlowType OBJECT-TYPE
+	SYNTAX  INTEGER {
+				null(0),        -- ds
+                ds(1),        -- ds
+                us(2)         --us
+            }
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"service flow type"        
+	DEFVAL {0}
+	::={ topCcmtsCmServiceFlowEntry 2 }
+
+topCcmtsCmServiceFlowRate OBJECT-TYPE
+	SYNTAX		Integer32  
+	UNITS       "bps"
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"service flow type rate"        
+	DEFVAL {0}
+	::={ topCcmtsCmServiceFlowEntry 3 }
+	
+topCcmtsCmUSInfoExtTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsCmUSInfoExtEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"list us error ration of cable modem."
+	::={ topCcmtsCmStatsObject 19}
+	
+--docsIf3CmtsCmRegStatusId
+topCcmtsCmUSInfoExtEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsCmUSInfoExtEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION	
+		" show cable modem us error info."
+	INDEX  {   docsIfCmtsCmStatusIndex,
+				docsIfUpChannelId
+			}
+	::={ topCcmtsCmUSInfoExtTable 1 }
+
+TopCcmtsCmUSInfoExtEntry ::=SEQUENCE{
+	topCcmtsCmUSErrorRation        Integer32
+}
+	
+topCcmtsCmUSErrorRation OBJECT-TYPE
+	SYNTAX		Integer32     
+	UNITS       "Pencent(%)"
+	MAX-ACCESS	read-only
+	STATUS		current   
+	DESCRIPTION
+		"upstream error ration "        
+	DEFVAL {0}
+	::={ topCcmtsCmUSInfoExtEntry 1 }
+	
+	
+topCcmtsCmAccessGlobalConfigTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsCmAccessGlobalConfigEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Cable modem's access black-list/white-list administration status"
+	::={ topCcmtsCmStatsObject 24 }
+
+topCcmtsCmAccessGlobalConfigEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsCmAccessGlobalConfigEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION	
+		"Cable modem's black-access list/white-list administration status entry."
+	INDEX  { ifIndex}
+	::={ topCcmtsCmAccessGlobalConfigTable 1 }
+	
+TopCcmtsCmAccessGlobalConfigEntry ::=SEQUENCE{
+	topCcmtsCmAccessListBlackAdminStatus             INTEGER,
+	topCcmtsCmAccessListWhiteAdminStatus             INTEGER
+}
+
+topCcmtsCmAccessListBlackAdminStatus  OBJECT-TYPE
+        SYNTAX      INTEGER {
+                    enable(1),
+                    disable(2)
+                    }
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "Cable modem's access black-list administration status" 
+	    DEFVAL	{disable}
+        ::= { topCcmtsCmAccessGlobalConfigEntry 1 }   
+        
+topCcmtsCmAccessListWhiteAdminStatus  OBJECT-TYPE
+        SYNTAX      INTEGER {
+                    enable(1),
+                    disable(2)
+                    }
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "Cable modem's access white-list administration status" 
+	    DEFVAL	{disable}
+        ::= { topCcmtsCmAccessGlobalConfigEntry 2 }     
+
+		
+topCcmtsTemplateCmAccessListObject	OBJECT IDENTIFIER ::={ topCcmtsCmStatsObject 21 }  
+
+topCcmtsTemplateCmAccessBlackListTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsTemplateCmAccessBlackListEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Cable modem black access list table."
+	::={ topCcmtsTemplateCmAccessListObject 1 }
+
+topCcmtsTemplateCmAccessBlackListEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsTemplateCmAccessBlackListEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION	
+		"Cable modem black access list table entry, MACs in the range  
+		<'topCcmtsTemplateCmAccessBlackListStartMacAddr' -  'topCcmtsTemplateCmAccessBlackListEndMacAddr'> will be denied."
+	INDEX  { topCcmtsTemplateIndex,
+	         topCcmtsTemplateCmAccessBlackListStartMacAddr }
+	::={ topCcmtsTemplateCmAccessBlackListTable 1 }
+	
+TopCcmtsTemplateCmAccessBlackListEntry ::=SEQUENCE{
+	topCcmtsTemplateCmAccessBlackListStartMacAddr			MacAddress,
+	topCcmtsTemplateCmAccessBlackListEndMacAddr		        MacAddress, 
+	topCcmtsTemplateCmAccessBlackListRowStatus		        RowStatus  
+}
+
+topCcmtsTemplateCmAccessBlackListStartMacAddr OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Black access list start MAC Address,start MAC should less than end MAC.
+		MACs range overlap in this table will be denied."
+
+	::={ topCcmtsTemplateCmAccessBlackListEntry 1 }
+
+
+topCcmtsTemplateCmAccessBlackListEndMacAddr OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"Black access list end MAC Address,start MAC should less than end MAC.
+		MACs range overlap in this table will be denied."
+	::={ topCcmtsTemplateCmAccessBlackListEntry 2 }
+
+
+topCcmtsTemplateCmAccessBlackListRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"Table rowstatus"
+	::={ topCcmtsTemplateCmAccessBlackListEntry 3 }
+
+
+topCcmtsTemplateCmAccessWhiteListTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsTemplateCmAccessWhiteListEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Cable modem white access list table."
+	::={ topCcmtsTemplateCmAccessListObject 2}
+
+topCcmtsTemplateCmAccessWhiteListEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsTemplateCmAccessWhiteListEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION	
+		"Cable modem white access list table entry, MACs in the range 
+		<'topCcmtsTemplateCmAccessWhiteListStartMacAddr' - 'topCcmtsTemplateCmAccessWhiteListEndMacAddr'> will be accepted."
+	INDEX  { topCcmtsTemplateIndex,
+	         topCcmtsTemplateCmAccessWhiteListStartMacAddr }
+	::={ topCcmtsTemplateCmAccessWhiteListTable 1 }
+	
+TopCcmtsTemplateCmAccessWhiteListEntry ::=SEQUENCE{
+	topCcmtsTemplateCmAccessWhiteListStartMacAddr			MacAddress,
+	topCcmtsTemplateCmAccessWhiteListEndMacAddr		MacAddress, 
+	topCcmtsTemplateCmAccessWhiteListRowStatus		    RowStatus  
+}
+
+topCcmtsTemplateCmAccessWhiteListStartMacAddr OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"White access list start MAC Address,start MAC should less than end MAC.
+		MACs range overlap in this table will be denied."
+	::={ topCcmtsTemplateCmAccessWhiteListEntry 1 }
+
+
+topCcmtsTemplateCmAccessWhiteListEndMacAddr OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"White access list end MAC Address,start MAC should less than end MAC.
+		MACs range overlap in this table will be denied."
+	::={ topCcmtsTemplateCmAccessWhiteListEntry 2 }
+
+
+topCcmtsTemplateCmAccessWhiteListRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"Table rowstatus"
+	::={ topCcmtsTemplateCmAccessWhiteListEntry 3 }
+
+
+	
+topCcmtsTemplateCmAccessGlobalCfgTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsTemplateCmAccessGlobalCfgEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Cable modem's access black-list/white-list administration status"
+	::={ topCcmtsTemplateCmAccessListObject 3 }
+
+topCcmtsTemplateCmAccessGlobalCfgEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsTemplateCmAccessGlobalCfgEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION	
+		"Cable modem's black-access/white-access list administration status entry."
+	INDEX  { topCcmtsTemplateIndex }
+	::={ topCcmtsTemplateCmAccessGlobalCfgTable 1 }
+	
+TopCcmtsTemplateCmAccessGlobalCfgEntry ::=SEQUENCE{
+	topCcmtsTemplateCmAccessLstBlackAdminStatus             INTEGER,
+	topCcmtsTemplateCmAccessLstWhiteAdminStatus             INTEGER
+}
+
+topCcmtsTemplateCmAccessLstBlackAdminStatus  OBJECT-TYPE
+        SYNTAX      INTEGER {
+                    enable(1),
+                    disable(2)
+                    }
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "Cable modem's access black-list administration status" 
+	    DEFVAL	{disable}
+        ::= { topCcmtsTemplateCmAccessGlobalCfgEntry 1 }   
+        
+topCcmtsTemplateCmAccessLstWhiteAdminStatus  OBJECT-TYPE
+        SYNTAX      INTEGER {
+                    enable(1),
+                    disable(2)
+                    }
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "Cable modem's access white-list administration status" 
+	    DEFVAL	{disable}
+        ::= { topCcmtsTemplateCmAccessGlobalCfgEntry 2 }  
+		
+topCcmtsCmAccessBlackListExtTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsCmAccessBlackListExtEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Cable modem black access list table."
+	::={ topCcmtsCmStatsObject 22 }
+
+topCcmtsCmAccessBlackListExtEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsCmAccessBlackListExtEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION	
+		"Cable modem black access list table entry, MACs in the range  
+		<'topCcmtsCmAccessBlackListExtStartMacAddr' -  'topCcmtsCmAccessBlackListExtEndMacAddr'> will be denied."
+	INDEX  { ifIndex,
+	         topCcmtsCmAccessBlackListExtStartMacAddr }
+	::={ topCcmtsCmAccessBlackListExtTable 1 }
+	
+TopCcmtsCmAccessBlackListExtEntry ::=SEQUENCE{
+	topCcmtsCmAccessBlackListExtStartMacAddr			MacAddress,
+	topCcmtsCmAccessBlackListExtEndMacAddr		        MacAddress, 
+	topCcmtsCmAccessBlackListExtRowStatus		        RowStatus  
+}
+
+topCcmtsCmAccessBlackListExtStartMacAddr OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Black access list start MAC Address,start MAC should less than end MAC.
+		MACs range overlap in this table will be denied."
+
+	::={ topCcmtsCmAccessBlackListExtEntry 1 }
+
+
+topCcmtsCmAccessBlackListExtEndMacAddr OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"Black access list end MAC Address,start MAC should less than end MAC.
+		MACs range overlap in this table will be denied."
+	::={ topCcmtsCmAccessBlackListExtEntry 2 }
+
+
+topCcmtsCmAccessBlackListExtRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"Table rowstatus"
+	::={ topCcmtsCmAccessBlackListExtEntry 3 }
+
+
+topCcmtsCmAccessWhiteListExtTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsCmAccessWhiteListExtEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Cable modem white access list table."
+	::={ topCcmtsCmStatsObject 23}
+
+topCcmtsCmAccessWhiteListExtEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsCmAccessWhiteListExtEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION	
+		"Cable modem white access list table entry, MACs in the range 
+		<'topCcmtsCmAccessWhiteListExtStartMacAddr' - 'topCcmtsCmAccessWhiteListExtEndMacAddr'> will be accepted."
+	INDEX  { ifIndex,
+	         topCcmtsCmAccessWhiteListExtStartMacAddr }
+	::={ topCcmtsCmAccessWhiteListExtTable 1 }
+	
+TopCcmtsCmAccessWhiteListExtEntry ::=SEQUENCE{
+	topCcmtsCmAccessWhiteListExtStartMacAddr			MacAddress,
+	topCcmtsCmAccessWhiteListExtEndMacAddr		MacAddress, 
+	topCcmtsCmAccessWhiteListExtRowStatus		    RowStatus  
+}
+
+topCcmtsCmAccessWhiteListExtStartMacAddr OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"White access list start MAC Address,start MAC should less than end MAC.
+		MACs range overlap in this table will be denied."
+	::={ topCcmtsCmAccessWhiteListExtEntry 1 }
+
+
+topCcmtsCmAccessWhiteListExtEndMacAddr OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"White access list end MAC Address,start MAC should less than end MAC.
+		MACs range overlap in this table will be denied."
+	::={ topCcmtsCmAccessWhiteListExtEntry 2 }
+
+
+topCcmtsCmAccessWhiteListExtRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"Table rowstatus"
+	::={ topCcmtsCmAccessWhiteListExtEntry 3 }
+
+END                                                                                              

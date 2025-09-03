@@ -1,0 +1,1941 @@
+TOPVISION-DHCP-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Integer32,
+	Unsigned32,
+    IpAddress
+        FROM SNMPv2-SMI
+    TruthValue,
+    DisplayString,
+    MacAddress,
+    RowStatus,
+    TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    ifIndex,
+    InterfaceIndex
+        FROM IF-MIB
+	docsIf3CmtsCmRegStatusId 
+             FROM DOCS-IF3-MIB
+	Ipv6Address,
+	Ipv6AddressPrefix
+			FROM IPV6-TC  -- RFC2465
+    topCcmtsMibObject,
+	topCcmtsDhcpObject
+		FROM TOPVISION-CCMTS-MIB
+	docsIfCmtsCmStatusIndex
+		FROM DOCS-IF-MIB;
+	 
+
+
+	 
+	 
+	 
+	 
+----------------------------
+--topDhcpObject   
+--added by guokunkun
+--at 2017-02-13    
+----------------------------
+topDhcpObject	OBJECT IDENTIFIER ::={ topCcmtsMibObject 31 } 
+
+
+--
+-- topDhcpConfigObject
+--
+topDhcpConfigObject OBJECT IDENTIFIER ::= { topDhcpObject 1}
+
+
+
+
+
+-----------------------------------------------------------------------
+--topDhcpModeTable
+-----------------------------------------------------------------------	
+topDhcpModeTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpModeEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes the DHCP relay mode for device."
+        ::= { topDhcpObject 2 }
+
+topDhcpModeEntry OBJECT-TYPE
+		SYNTAX      TopDhcpModeEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes the DHCP relay mode for device."
+		INDEX { ifIndex ,
+				topDhcpDevType }
+        ::= { topDhcpModeTable 1 }
+
+TopDhcpModeEntry ::= SEQUENCE {
+	topDhcpDevType        INTEGER,
+	topDhcpMode            INTEGER,
+	topDhcpv6Mode          INTEGER
+}
+
+
+topDhcpDevType OBJECT-TYPE
+		SYNTAX	INTEGER {		    
+						cm(1),
+						host(2),
+						mta(3),
+						stb(4)
+					}
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+		"Device type."
+    ::= { topDhcpModeEntry 1 } 
+	
+
+topDhcpMode OBJECT-TYPE
+		SYNTAX	INTEGER {
+			snooping (1),
+			l2-relay (2),
+			l3-relay (3)
+		}
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"DHCP mode: 1: snooping; 2: layer 2 relay; 3: layer 3 relay."
+	DEFVAL { snooping }
+    ::= { topDhcpModeEntry 2 } 
+
+topDhcpv6Mode OBJECT-TYPE
+		SYNTAX	INTEGER {
+			snooping (1),
+			l2-relay (2),
+			l3-relay (3),
+			ldra (4)
+		}
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"DHCPv6 mode: 1: snooping; 2: layer 2 relay; 3: layer 3 relay; 4: Lightweight DHCPv6 Relay Agent."
+	DEFVAL { snooping }
+    ::= { topDhcpModeEntry 3 } 
+	
+	
+
+
+-----------------------------------------------------------------------
+--topDhcpExtDevModeTable
+-----------------------------------------------------------------------	
+topDhcpExtDevModeTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpExtDevModeEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes the DHCP mode for extension device."
+        ::= { topDhcpObject 3 }
+
+topDhcpExtDevModeEntry OBJECT-TYPE
+		SYNTAX      TopDhcpExtDevModeEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes the DHCP mode for extension device."
+		INDEX { ifIndex ,
+				topDhcpExtensionalDeviceName }
+        ::= { topDhcpExtDevModeTable 1 }
+
+TopDhcpExtDevModeEntry ::= SEQUENCE {
+	topDhcpExtensionalDevMode    INTEGER
+}
+
+
+topDhcpExtensionalDevMode OBJECT-TYPE
+		SYNTAX	INTEGER {
+			snooping (1),
+			l2-relay (2),
+			l3-relay (3)
+		}
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"Extensional device DHCP mode: 1: snooping; 2: layer 2 relay; 3: layer 3 relay."
+	DEFVAL { snooping }
+    ::= { topDhcpExtDevModeEntry 1 } 
+	
+	
+	
+	
+-----------------------------------------------------------------------
+--topDhcpv6ExtDevModeTable
+-----------------------------------------------------------------------	
+topDhcpv6ExtDevModeTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpv6ExtDevModeEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes the DHCPv6 mode for extension device."
+        ::= { topDhcpObject 4 }
+
+topDhcpv6ExtDevModeEntry OBJECT-TYPE
+		SYNTAX      TopDhcpv6ExtDevModeEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes the DHCPv6 mode for extension device."
+		INDEX { ifIndex ,
+				topDhcpv6ExtensionalDeviceName }
+        ::= { topDhcpv6ExtDevModeTable 1 }
+
+TopDhcpv6ExtDevModeEntry ::= SEQUENCE {
+	topDhcpv6ExtensionalDevMode       INTEGER
+}
+
+
+topDhcpv6ExtensionalDevMode OBJECT-TYPE
+		SYNTAX	INTEGER {
+			snooping (1),
+			l2-relay (2),
+			l3-relay (3),
+			ldra (4)
+		}
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"Extensional device DHCPv6 mode: 1: snooping; 2: layer 2 relay; 3: layer 3 relay; 4: Lightweight DHCPv6 Relay Agent."
+	DEFVAL { snooping }
+    ::= { topDhcpv6ExtDevModeEntry 1 } 
+
+	
+
+-----------------------------------------------------------------------
+-- topDhcpRelayAgentInfoOptTable
+-----------------------------------------------------------------------
+topDhcpRelayAgentInfoOptTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpRelayAgentInfoOptEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes the DHCP option 82 agent information option configuration."
+        ::= { topDhcpObject 5 }
+
+topDhcpRelayAgentInfoOptEntry OBJECT-TYPE
+		SYNTAX      TopDhcpRelayAgentInfoOptEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes the DHCP option 82 agent information option configuration."
+		INDEX { ifIndex }
+        ::= { topDhcpRelayAgentInfoOptTable 1 }
+
+TopDhcpRelayAgentInfoOptEntry ::= SEQUENCE {
+	topDhcpRelayAgentCircuitId   	    OCTET STRING,	
+	topDhcpRelayAgentInfoOptStatus   	RowStatus
+}
+
+topDhcpRelayAgentCircuitId OBJECT-TYPE
+	SYNTAX		OCTET STRING(SIZE (0..64))
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"Support a configurable DHCPv4 option 82.1 and DHCPv6 option 18 identification value,at maximum 64 characters."
+	::={topDhcpRelayAgentInfoOptEntry 1}
+
+
+topDhcpRelayAgentInfoOptStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"Indicates the status of the rows in this table, 
+		and can be used to create a new row or destroy the specific row."
+	::={topDhcpRelayAgentInfoOptEntry 2}
+	
+	
+	
+
+
+-----------------------------------------------------------------------
+--topDhcpBundleTable
+-----------------------------------------------------------------------	
+
+
+topDhcpBundleTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpBundleEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes bundle interface on CMTS."
+        ::= { topDhcpObject 6 }
+
+topDhcpBundleEntry OBJECT-TYPE
+		SYNTAX      TopDhcpBundleEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes bundle interface on CMTS."
+		INDEX { topDhcpBundleGroup,
+				topDhcpBundleId }
+        ::= { topDhcpBundleTable 1 }
+
+TopDhcpBundleEntry ::= SEQUENCE {
+		topDhcpBundleGroup                           INTEGER,
+		topDhcpBundleId                              INTEGER,
+		topDhcpBundlePolicy		                    INTEGER,
+		topDhcpBundleCableSourceVerify				INTEGER,
+		topDhcpBundleIpv6CableSourceVerify           INTEGER,
+		topDhcpBundleDescription                     OCTET STRING,
+		topDhcpBundleStatus		                    RowStatus
+}
+
+
+
+topDhcpBundleGroup OBJECT-TYPE
+        SYNTAX      INTEGER(0..500)
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "DHCP bundle group of device.
+		If the device is remote MAC-PHY device controller, the range of group is 1 ~ 500.
+		If the device is remote MAC-PHY device, there is no group, value is 0."
+        ::= { topDhcpBundleEntry 1 }  
+
+
+topDhcpBundleId OBJECT-TYPE
+        SYNTAX      INTEGER(1..32)
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "The ID of DHCP bundle interface."
+        ::= { topDhcpBundleEntry 2 } 
+		
+topDhcpBundlePolicy OBJECT-TYPE
+        SYNTAX      INTEGER{
+						primary(1),
+						policy(2),
+						strict(3)
+					}
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "The type of the device under this bundle the Giaddr used for.
+	    Primary means all of the devices use the primary IP address for Giaddr. Policy means the CM use the primary 
+	    IP address and other device use the first secondary IP address as it's Giaddr. If set strict(3), 
+		need to set topDhcpGiAddrTable to complet Giaddr."
+		DEFVAL          { 1 }
+        ::= { topDhcpBundleEntry 3 }  
+ 
+topDhcpBundleCableSourceVerify	 OBJECT-TYPE
+        SYNTAX      INTEGER{
+						on(1),
+						off(2),
+						dhcp(3)
+					}
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "DHCP Relay Cable source Verify.
+            on(1): means the device does verify ip and mac for packets,then drop any packets verified failed.
+            off(2): means the device does not verify ip and mac for packets.
+            dhcp(3): means the device does verify ip and mac for packets, but will re-verify the cpe whose packets be verified failed."
+		DEFVAL     { 1 }
+        ::= { topDhcpBundleEntry 4 }  
+
+		
+topDhcpBundleIpv6CableSourceVerify	 OBJECT-TYPE
+        SYNTAX      INTEGER{
+						on(1),
+						off(2),
+						dhcp(3)
+					}
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "DHCP Relay IPv6 Cable source Verify.
+            on(1): means the device does verify IPv6 and mac for packets,then drop any packets verified failed.
+            off(2): means the device does not verify IPv6 and mac for packets.
+            dhcp(3): means the device does verify IPv6 and mac for packets, but will re-verify the cpe whose packets be verified failed"
+		DEFVAL     { 1 }
+        ::= { topDhcpBundleEntry 5 }  
+		
+	
+topDhcpBundleDescription OBJECT-TYPE
+        SYNTAX      OCTET STRING(SIZE(0..255))
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Description of the DHCP bundle."
+        ::= { topDhcpBundleEntry 6 }  
+
+		
+topDhcpBundleStatus  OBJECT-TYPE
+	SYNTAX          RowStatus
+	MAX-ACCESS      read-create
+	STATUS          current
+	DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by 
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active." 
+	::= { topDhcpBundleEntry 7 }
+
+
+
+	
+-----------------------------------------------------------------------
+--topDhcpBundlePrimaryIpAddrTable
+-----------------------------------------------------------------------	
+
+
+topDhcpBundlePrimaryIpAddrTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpBundlePrimaryIpAddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes bundle interface on CMTS."
+        ::= { topDhcpObject 7 }
+
+topDhcpBundlePrimaryIpAddrEntry OBJECT-TYPE
+		SYNTAX      TopDhcpBundlePrimaryIpAddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes the dhcp GiAddress for DHCP Relay
+	    discover packets."
+		INDEX { topDhcpBundleGroup,
+				topDhcpBundleId }
+        ::= { topDhcpBundlePrimaryIpAddrTable 1 }
+
+TopDhcpBundlePrimaryIpAddrEntry ::= SEQUENCE {
+		topDhcpBundlePrimaryIpAddr   		    IpAddress, 
+		topDhcpBundlePrimaryIpMask	            IpAddress,
+		topDhcpBundlePrimaryIpVlan				INTEGER,
+		topDhcpBundlePrimaryIpAddrStatus		    RowStatus
+}
+
+		
+topDhcpBundlePrimaryIpAddr OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Virtual Primary Ip of the DHCP RELAY."
+        ::= { topDhcpBundlePrimaryIpAddrEntry 1 }
+
+topDhcpBundlePrimaryIpMask OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Virtual Primary Ip Mask of the DHCP RELAY."
+        ::= { topDhcpBundlePrimaryIpAddrEntry 2 } 
+        
+topDhcpBundlePrimaryIpVlan OBJECT-TYPE
+        SYNTAX      INTEGER(0..4094)
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Virtual Primary Ip Vlan of the DHCP RELAY."
+        ::= { topDhcpBundlePrimaryIpAddrEntry 3 }
+		
+topDhcpBundlePrimaryIpAddrStatus  OBJECT-TYPE
+	SYNTAX          RowStatus
+	MAX-ACCESS      read-create
+	STATUS          current
+	DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active." 
+	::= { topDhcpBundlePrimaryIpAddrEntry 4 }
+
+
+	
+
+
+-----------------------------------------------------------------------
+--topDhcpHelperTable 
+-----------------------------------------------------------------------			
+topDhcpHelperTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpHelperEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes helper address on CMTS."
+        ::= { topDhcpObject 8 }
+
+topDhcpHelperEntry OBJECT-TYPE
+		SYNTAX      TopDhcpHelperEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes helper address on CMTS."
+		INDEX { topDhcpBundleGroup, 
+				topDhcpBundleId,
+				topDhcpHelperDevType, 
+				topDhcpHelperIndex}
+        ::= { topDhcpHelperTable 1 }
+
+TopDhcpHelperEntry ::=SEQUENCE {
+	topDhcpHelperDevType	INTEGER,
+	topDhcpHelperIndex	INTEGER,
+	topDhcpHelperIpAddr	IpAddress,
+	topDhcpHelperStatus	RowStatus
+}
+
+topDhcpHelperDevType OBJECT-TYPE
+        SYNTAX      INTEGER{		    
+						cm(1),
+						host(2),
+						mta(3),
+						stb(4),
+						all(5)
+					}
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "The device type that the DHCP Server allocate IP Address to."
+        ::= { topDhcpHelperEntry 1 }
+
+topDhcpHelperIndex OBJECT-TYPE
+        SYNTAX      INTEGER(1..5)
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "The index of the DHCP Server."
+        ::= { topDhcpHelperEntry 2 }
+
+topDhcpHelperIpAddr OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "The IP address of the DHCP Server."
+        ::= { topDhcpHelperEntry 3 }
+
+topDhcpHelperStatus  OBJECT-TYPE
+	SYNTAX          RowStatus
+	 MAX-ACCESS      read-create
+	 STATUS          current
+	 DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active." 
+	::= { topDhcpHelperEntry 4 }
+	
+	
+	
+-----------------------------------------------------------------------
+--topDhcpGiAddrTable 
+-----------------------------------------------------------------------	
+topDhcpGiAddrTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpGiAddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes giaddress on CMTS."
+        ::= { topDhcpObject 9 }
+
+topDhcpGiAddrEntry OBJECT-TYPE
+		SYNTAX      TopDhcpGiAddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes giaddress on CMTS."
+		INDEX { topDhcpBundleGroup, 
+				topDhcpBundleId,
+				topDhcpGiAddrDevType}
+        ::= { topDhcpGiAddrTable 1 }
+
+TopDhcpGiAddrEntry ::=SEQUENCE {
+	topDhcpGiAddrDevType	    INTEGER,
+	topDhcpGiAddress			IpAddress,
+	topDhcpGiAddrStatus		RowStatus
+}
+
+topDhcpGiAddrDevType OBJECT-TYPE
+        SYNTAX      INTEGER{		    
+						cm(1),
+						host(2),
+						mta(3),
+						stb(4)
+					}
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "Device type."
+        ::= { topDhcpGiAddrEntry 1 }
+
+topDhcpGiAddress OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "DHCP giAddress."
+        ::= { topDhcpGiAddrEntry 2 }
+
+topDhcpGiAddrStatus OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active."
+        ::= { topDhcpGiAddrEntry 3 }
+		
+		
+
+
+-----------------------------------------------------------------------
+--topDhcpOption60Table 
+-----------------------------------------------------------------------	
+topDhcpOption60Table OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpOption60Entry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes option60 set on CMTS."
+        ::= { topDhcpObject 10 }
+
+topDhcpOption60Entry OBJECT-TYPE
+		SYNTAX      TopDhcpOption60Entry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes option60 set on CMTS."  
+        INDEX { topDhcpBundleGroup,
+				topDhcpBundleId,
+        		topDhcpOption60DeviceType,
+        		topDhcpOption60Index}
+        ::= { topDhcpOption60Table 1 }
+
+TopDhcpOption60Entry ::=SEQUENCE{
+	topDhcpOption60DeviceType	INTEGER,
+	topDhcpOption60Index		INTEGER,
+	topDhcpOption60Str			OCTET STRING,
+	topDhcpOption60Status		RowStatus
+}
+
+topDhcpOption60DeviceType OBJECT-TYPE
+        SYNTAX      INTEGER{		    
+						cm(1),
+						host(2),
+						mta(3),
+						stb(4)
+					}
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "Device type"
+        ::= { topDhcpOption60Entry 1 }
+
+topDhcpOption60Index OBJECT-TYPE
+        SYNTAX      INTEGER (1..4)
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "Option60 Index."
+        ::= { topDhcpOption60Entry 2 }
+
+topDhcpOption60Str OBJECT-TYPE
+        SYNTAX      OCTET STRING(SIZE(1..16))
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Dhcp option60 string."
+        ::= { topDhcpOption60Entry 3 }
+
+topDhcpOption60Status OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active."
+		::= { topDhcpOption60Entry 4 }	
+
+
+		
+-----------------------------------------------------------------------
+--topDhcpVirtualSecondaryIpTable
+-----------------------------------------------------------------------	
+topDhcpVirtualSecondaryIpTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpVirtualSecondaryIpEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes bundle virtual ip of CMTS."
+        ::= { topDhcpObject 11 }
+
+topDhcpVirtualSecondaryIpEntry OBJECT-TYPE 
+		SYNTAX      TopDhcpVirtualSecondaryIpEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes bundle virtual ip of CMTS."
+        INDEX { topDhcpBundleGroup,
+				topDhcpBundleId,
+        		topDhcpVirtualSecondaryIpIndex}
+        ::= { topDhcpVirtualSecondaryIpTable 1 }
+
+TopDhcpVirtualSecondaryIpEntry ::=SEQUENCE{
+	topDhcpVirtualSecondaryIpIndex		INTEGER,
+	topDhcpVirtualSecondaryIpAddr		IpAddress,
+	topDhcpVirtualSecondaryIpMask		IpAddress,
+	topDhcpVirtualSecondaryIpVlan		INTEGER,
+	topDhcpVirtualSecondaryIpStatus		RowStatus
+}
+
+topDhcpVirtualSecondaryIpIndex OBJECT-TYPE
+        SYNTAX      INTEGER (1..20)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "Ip Index."
+        ::= { topDhcpVirtualSecondaryIpEntry 1 }
+
+topDhcpVirtualSecondaryIpAddr OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Virtual sub (secondary) Ip of the DHCP RELAY."
+        ::= { topDhcpVirtualSecondaryIpEntry 2 }
+
+topDhcpVirtualSecondaryIpMask OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Virtual sub (secondary) Ip Mask of the DHCP RELAY."
+        ::= { topDhcpVirtualSecondaryIpEntry 3 }
+        
+topDhcpVirtualSecondaryIpVlan OBJECT-TYPE
+        SYNTAX      INTEGER (0..4094)
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Virtual sub (secondary) Ip Vlan of the DHCP RELAY."
+        ::= { topDhcpVirtualSecondaryIpEntry 4 }
+
+topDhcpVirtualSecondaryIpStatus OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active."
+		::= { topDhcpVirtualSecondaryIpEntry 5 }			
+
+
+
+-----------------------------------------------------------------------
+--topDhcpPacketVlanTable
+-----------------------------------------------------------------------	
+topDhcpPacketVlanTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpPacketVlanEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes dhcp packet vlan adding of different device."
+        ::= { topDhcpObject 12 }
+
+topDhcpPacketVlanEntry OBJECT-TYPE 
+		SYNTAX      TopDhcpPacketVlanEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes dhcp packet vlan adding of different device.
+            The config take effect in snooping mode or l2-relay mode."
+        INDEX { topDhcpBundleGroup,
+				topDhcpBundleId,
+        		topDhcpDeviceType}
+        ::= { topDhcpPacketVlanTable 1 }
+		TopDhcpPacketVlanEntry ::=SEQUENCE{
+		topDhcpDeviceType			INTEGER,
+		topDhcpTagVlan				INTEGER,
+		topDhcpTagPriority			INTEGER,
+		topDhcpPacketVlanStatus	RowStatus
+		}
+
+topDhcpDeviceType OBJECT-TYPE
+        SYNTAX      INTEGER{		    
+						cm(1),
+						host(2),
+						mta(3),
+						stb(4)
+					}
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "Device type"
+        ::= { topDhcpPacketVlanEntry 1 } 
+
+topDhcpTagVlan OBJECT-TYPE
+        SYNTAX      INTEGER (1..4094)
+	    MAX-ACCESS  read-create
+	    STATUS      current
+        DESCRIPTION
+            "tag vlan"
+        ::= { topDhcpPacketVlanEntry 2 }       
+
+topDhcpTagPriority OBJECT-TYPE
+        SYNTAX      INTEGER (0..7)
+	    MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "tag priority"
+        ::= { topDhcpPacketVlanEntry 3 } 
+
+topDhcpPacketVlanStatus OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active."
+		::= { topDhcpPacketVlanEntry 4 }
+
+
+
+
+
+
+-----------------------------------------------------------------------
+--topDhcpExtensionalDeviceTable
+-----------------------------------------------------------------------	
+topDhcpExtensionalDeviceTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpExtensionalDeviceEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "Create or delete extension device name."
+        ::= { topDhcpObject 13 }
+
+		
+topDhcpExtensionalDeviceEntry OBJECT-TYPE
+		SYNTAX      TopDhcpExtensionalDeviceEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+        	"Create or delete extension device name."  
+        INDEX { topDhcpBundleGroup,
+				topDhcpBundleId,
+        		topDhcpExtensionalDeviceIndex}
+        ::= { topDhcpExtensionalDeviceTable 1 }
+
+		TopDhcpExtensionalDeviceEntry ::=SEQUENCE{
+			topDhcpExtensionalDeviceIndex		INTEGER,
+			topDhcpExtensionalDeviceName	    OCTET STRING,
+			topDhcpExtensionalDeviceStatus		RowStatus
+		}
+
+
+
+topDhcpExtensionalDeviceIndex OBJECT-TYPE
+        SYNTAX      INTEGER (1..10)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "Extension device Index."
+        ::= { topDhcpExtensionalDeviceEntry 1 }
+
+topDhcpExtensionalDeviceName OBJECT-TYPE
+        SYNTAX      OCTET STRING(SIZE(1..16))
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Extension device name string."
+        ::= { topDhcpExtensionalDeviceEntry 2 }
+
+topDhcpExtensionalDeviceStatus OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active."
+		::= { topDhcpExtensionalDeviceEntry 3 }	
+	
+
+
+-----------------------------------------------------------------------
+--topDhcpExtDevOption60Table
+-----------------------------------------------------------------------	
+topDhcpExtDevOption60Table OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpExtDevOption60Entry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "creat a dev name and add identifiable option60 strings to a kind of extentional dev.
+            extentional devs have similar funcations and configurations to ordinary devs."
+        ::= { topDhcpObject 14 }
+
+topDhcpExtDevOption60Entry OBJECT-TYPE
+		SYNTAX      TopDhcpExtDevOption60Entry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+        	"creat a dev name and add identifiable option60 strings to a kind of extentional dev.
+        	extentional devs have similar funcations and configurations to ordinary devs."  
+        INDEX { topDhcpBundleGroup,
+				topDhcpBundleId,
+        		topDhcpExtensionalDeviceName,
+        		topDhcpExtDevOptionIndex}
+        ::= { topDhcpExtDevOption60Table 1 }
+		
+		TopDhcpExtDevOption60Entry ::=SEQUENCE{
+			topDhcpExtDevOptionIndex			INTEGER,
+			topDhcpExtensionalDevOptionStr		OCTET STRING,
+			topDhcpExtensionalDevOptionStatus	RowStatus
+		}
+
+
+topDhcpExtDevOptionIndex OBJECT-TYPE
+        SYNTAX      INTEGER (1..4)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "Option60 Index."
+        ::= { topDhcpExtDevOption60Entry 1 }
+
+topDhcpExtensionalDevOptionStr OBJECT-TYPE
+        SYNTAX      OCTET STRING(SIZE(1..16))
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Option60 str."
+        ::= { topDhcpExtDevOption60Entry 2 }
+
+topDhcpExtensionalDevOptionStatus OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active.
+
+		The following objects MUST have valid values before this
+		object can be set to active: topDhcpExtensionalDevOptionStr."
+		::= { topDhcpExtDevOption60Entry 3 }	
+
+	
+	
+
+-----------------------------------------------------------------------
+--topDhcpExtensionalDevGiAddrTable
+-----------------------------------------------------------------------
+topDhcpExtensionalDevGiAddrTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpExtensionalDevGiAddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes extensional dev giaddress on CMTS."
+        ::= { topDhcpObject 15 }
+
+topDhcpExtensionalDevGiAddrEntry OBJECT-TYPE
+		SYNTAX      TopDhcpExtensionalDevGiAddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes extensional dev giaddress on CMTS."
+		INDEX { topDhcpBundleGroup,
+				topDhcpBundleId,
+				topDhcpExtensionalDeviceName}
+        ::= { topDhcpExtensionalDevGiAddrTable 1 }
+
+TopDhcpExtensionalDevGiAddrEntry ::=SEQUENCE {
+	topDhcpExtensionalDevGiAddress			IpAddress,
+	topDhcpExtensionalDevGiAddrStatus		RowStatus
+}
+
+topDhcpExtensionalDevGiAddress OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "GiAddress"
+        ::= { topDhcpExtensionalDevGiAddrEntry 1 }
+
+topDhcpExtensionalDevGiAddrStatus OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active.
+
+		The following objects MUST have valid values before this
+		object can be set to active: topDhcpExtensionalDevGiAddress."
+        ::= { topDhcpExtensionalDevGiAddrEntry 2 }
+
+-----------------------------------------------------------------------
+--topDhcpExtensionalDevHelperTable
+-----------------------------------------------------------------------
+topDhcpExtensionalDevHelperTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpExtensionalDevHelperEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes extensional dev helper address on CMTS.
+            and extensional dev share all type helper address with ordinary dev"
+        ::= { topDhcpObject 16 }
+
+topDhcpExtensionalDevHelperEntry OBJECT-TYPE
+		SYNTAX      TopDhcpExtensionalDevHelperEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes extensional dev helper address on CMTS.
+            and extensional dev share all type helper address with ordinary dev"
+		INDEX { topDhcpBundleGroup,
+				topDhcpBundleId,
+				topDhcpExtensionalDeviceName, 
+				topDhcpExtensionalDevHelperIndex}
+        ::= { topDhcpExtensionalDevHelperTable 1 }
+
+TopDhcpExtensionalDevHelperEntry ::=SEQUENCE {
+		topDhcpExtensionalDevHelperIndex		Integer32,
+		topDhcpExtensionalDevHelperIpAddr	IpAddress,
+		topDhcpExtensionalDevHelperStatus	RowStatus
+		}
+
+topDhcpExtensionalDevHelperIndex OBJECT-TYPE
+        SYNTAX      Integer32 (1..5)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "The index of the DHCP Server."
+        ::= { topDhcpExtensionalDevHelperEntry 1 }
+
+topDhcpExtensionalDevHelperIpAddr OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "The IP address of the DHCP Server."
+        ::= { topDhcpExtensionalDevHelperEntry 2 }
+
+topDhcpExtensionalDevHelperStatus  OBJECT-TYPE
+	 SYNTAX          RowStatus
+	 MAX-ACCESS      read-create
+	 STATUS          current
+	 DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active.
+
+		The following objects MUST have valid values before this
+		object can be set to active: topDhcpExtensionalDevHelperIpAddr." 
+	::= { topDhcpExtensionalDevHelperEntry 3 } 
+	
+------------------------------------------
+--topDhcpExtensionalDevPacketVlanTable
+------------------------------------------
+topDhcpExtensionalDevPacketVlanTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpExtensionalDevPacketVlanEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes extensional dev packet vlan on CMTS."
+        ::= { topDhcpObject 17 }
+
+topDhcpExtensionalDevPacketVlanEntry OBJECT-TYPE
+		SYNTAX      TopDhcpExtensionalDevPacketVlanEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes extensional dev packet vlan on CMTS."
+		INDEX { topDhcpBundleGroup,
+				topDhcpBundleId,
+				topDhcpExtensionalDeviceName}
+        ::= { topDhcpExtensionalDevPacketVlanTable 1 }
+
+TopDhcpExtensionalDevPacketVlanEntry ::=SEQUENCE {
+	topDhcpExtensionalDevTagVlan			INTEGER,
+	topDhcpExtensionalDevTagPriority		INTEGER,
+	topDhcpExtensionalDevPacketVlanStatus	RowStatus
+}
+
+topDhcpExtensionalDevTagVlan OBJECT-TYPE
+        SYNTAX      INTEGER (1..4094)
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Extensional device tag vlan"
+        ::= { topDhcpExtensionalDevPacketVlanEntry 1 }
+
+topDhcpExtensionalDevTagPriority OBJECT-TYPE
+        SYNTAX      INTEGER (0..7)
+	    MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Extensional device tag priority"
+        ::= { topDhcpExtensionalDevPacketVlanEntry 2 } 
+
+topDhcpExtensionalDevPacketVlanStatus OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active."
+		::= { topDhcpExtensionalDevPacketVlanEntry 3 }
+
+	
+	
+	
+-----------------------------------------------------------------------
+--Dhcpv6 table
+-----------------------------------------------------------------------
+	
+	
+-----------------------------------------------------------------------
+--topDhcpBundleIpv6AddrTable
+-----------------------------------------------------------------------	
+
+
+topDhcpBundleIpv6AddrTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpBundleIpv6AddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes IPv6 address in DHCP bundle."
+        ::= { topDhcpObject 18 }
+
+topDhcpBundleIpv6AddrEntry OBJECT-TYPE
+		SYNTAX      TopDhcpBundleIpv6AddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes IPv6 address in DHCP bundle."
+		INDEX { topDhcpBundleGroup,
+				topDhcpBundleId,
+				topDhcpBundleIpv6AddrIndex}
+        ::= { topDhcpBundleIpv6AddrTable 1 }
+
+TopDhcpBundleIpv6AddrEntry ::= SEQUENCE {
+		topDhcpBundleIpv6AddrIndex     	INTEGER,
+		topDhcpBundleIpv6Address        Ipv6Address,
+		topDhcpBundleIpv6PrefixLen      INTEGER,
+		topDhcpBundleIpv6AddrStatus		RowStatus
+}
+
+
+topDhcpBundleIpv6AddrIndex OBJECT-TYPE
+        SYNTAX      INTEGER (1..10)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "The index of the DHCP bundle ipv6 address."
+        ::= { topDhcpBundleIpv6AddrEntry 1 }
+		
+		
+topDhcpBundleIpv6Address OBJECT-TYPE
+        SYNTAX      Ipv6Address
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Primary IPv6 of the DHCP RELAY."
+        ::= { topDhcpBundleIpv6AddrEntry 2 }
+
+topDhcpBundleIpv6PrefixLen OBJECT-TYPE
+        SYNTAX      INTEGER(1..128)
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Primary Ipv6 prefix length of the DHCP RELAY."
+        ::= { topDhcpBundleIpv6AddrEntry 3}
+		
+topDhcpBundleIpv6AddrStatus  OBJECT-TYPE
+	SYNTAX          RowStatus
+	MAX-ACCESS      read-create
+	STATUS          current
+	DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active." 
+	::= { topDhcpBundleIpv6AddrEntry 4 }
+
+
+	
+	
+	
+-----------------------------------------------------------------------
+--topDhcpv6DestAddrTable 
+-----------------------------------------------------------------------			
+topDhcpv6DestAddrTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpv6DestAddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes helper address on CMTS."
+        ::= { topDhcpObject 19 }
+
+topDhcpv6DestAddrEntry OBJECT-TYPE
+		SYNTAX      TopDhcpv6DestAddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes helper address on CMTS."
+		INDEX { topDhcpBundleGroup, 
+				topDhcpBundleId,
+				topDhcpv6DestDevType, 
+				topDhcpv6DestIndex}
+        ::= { topDhcpv6DestAddrTable 1 }
+
+TopDhcpv6DestAddrEntry ::=SEQUENCE {
+	topDhcpv6DestDevType	    INTEGER,
+	topDhcpv6DestIndex	        INTEGER,
+	topDhcpv6DestAddr			Ipv6Address,
+	topDhcpv6DestStatus	    	RowStatus
+}
+
+topDhcpv6DestDevType OBJECT-TYPE
+        SYNTAX      INTEGER{
+						cm(1),
+						host(2),
+						mta(3),
+						stb(4),
+						all(5)
+					}
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "The device type that the DHCPv6 Server allocate IPv6 Address to."
+        ::= { topDhcpv6DestAddrEntry 1 }
+
+topDhcpv6DestIndex OBJECT-TYPE
+        SYNTAX      INTEGER (1..5)
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "The index of the DHCPv6 Server."
+        ::= { topDhcpv6DestAddrEntry 2 }
+
+topDhcpv6DestAddr OBJECT-TYPE
+        SYNTAX      Ipv6Address
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "IPv6 relay destination-address."
+        ::= { topDhcpv6DestAddrEntry 3 }
+
+		
+topDhcpv6DestStatus  OBJECT-TYPE
+	SYNTAX          RowStatus
+	 MAX-ACCESS      read-create
+	 STATUS          current
+	 DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active." 
+	::= { topDhcpv6DestAddrEntry 4 }
+	
+
+
+-----------------------------------------------------------------------
+--topDhcpv6LinkAddrTable 
+-----------------------------------------------------------------------			
+topDhcpv6LinkAddrTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpv6LinkAddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes Dhcp6 relay link address for device on CMTS."
+        ::= { topDhcpObject 20 }
+
+topDhcpv6LinkAddrEntry OBJECT-TYPE
+		SYNTAX      TopDhcpv6LinkAddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes Dhcp6 relay link address for device on CMTS."
+		INDEX { topDhcpBundleGroup, 
+				topDhcpBundleId,
+				topDhcpv6LinkDevType}
+        ::= { topDhcpv6LinkAddrTable 1 }
+
+TopDhcpv6LinkAddrEntry ::=SEQUENCE {
+	topDhcpv6LinkDevType	    INTEGER,
+	topDhcpv6LinkAddr       	Ipv6Address,
+	topDhcpv6LinkStatus	    	RowStatus
+}
+
+topDhcpv6LinkDevType OBJECT-TYPE
+        SYNTAX      INTEGER{
+						cm(1),
+						host(2),
+						mta(3),
+						stb(4)
+					}
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "The device type that the DHCPv6 link Address to."
+        ::= { topDhcpv6LinkAddrEntry 1 }
+
+
+topDhcpv6LinkAddr OBJECT-TYPE
+        SYNTAX      Ipv6Address
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "IPv6 relay link-address."
+        ::= { topDhcpv6LinkAddrEntry 2 }
+		
+topDhcpv6LinkStatus  OBJECT-TYPE
+	SYNTAX          RowStatus
+	 MAX-ACCESS      read-create
+	 STATUS          current
+	 DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active." 
+	::= { topDhcpv6LinkAddrEntry 3 }
+	
+
+
+	
+-----------------------------------------------------------------------
+--topDhcpv6Option16Table
+-----------------------------------------------------------------------	
+topDhcpv6Option16Table  OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpv6Option16Entry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes DHCPv6 option16 set on CMTS."
+        ::= { topDhcpObject 21 }
+
+topDhcpv6Option16Entry OBJECT-TYPE
+		SYNTAX      TopDhcpv6Option16Entry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes DHCPv6 option16 set on CMTS."  
+        INDEX { topDhcpBundleGroup,
+				topDhcpBundleId,
+        		topDhcpv6Option16DeviceType,
+        		topDhcpv6Option16Index}
+        ::= { topDhcpv6Option16Table 1 }
+
+TopDhcpv6Option16Entry ::=SEQUENCE{
+	topDhcpv6Option16DeviceType 	INTEGER,
+	topDhcpv6Option16Index 		INTEGER,
+	topDhcpv6Option16VendorClassData 			OCTET STRING,
+	topDhcpv6Option16Status 		RowStatus
+}
+
+topDhcpv6Option16DeviceType  OBJECT-TYPE
+        SYNTAX      INTEGER{		    
+						cm(1),
+						host(2),
+						mta(3),
+						stb(4)
+					}
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "Device type"
+        ::= { topDhcpv6Option16Entry 1 }
+
+topDhcpv6Option16Index  OBJECT-TYPE
+        SYNTAX      INTEGER (1..4)
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "Dhcpv6 option16 Index."
+        ::= { topDhcpv6Option16Entry 2 }
+
+topDhcpv6Option16VendorClassData  OBJECT-TYPE
+        SYNTAX      OCTET STRING(SIZE(1..16))
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Dhcpv6 option16 vendor class data string."
+        ::= { topDhcpv6Option16Entry 3 }
+
+topDhcpv6Option16Status  OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active."
+		::= { topDhcpv6Option16Entry 4 }	
+
+
+	
+	
+	
+-----------------------------------------------------------------------
+--topDhcpv6TagTable 
+-----------------------------------------------------------------------	
+topDhcpv6TagTable  OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpv6TagEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes DHCPv6 packet vlan adding of different device."
+        ::= { topDhcpObject 22 }
+
+topDhcpv6TagEntry OBJECT-TYPE 
+		SYNTAX      TopDhcpv6TagEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes DHCPv6 packet vlan adding of different device.
+            The config take effect in snooping mode or l2-relay mode."
+        INDEX { topDhcpBundleGroup,
+				topDhcpBundleId,
+        		topDhcpv6TagDevType}
+        ::= { topDhcpv6TagTable 1 }
+
+TopDhcpv6TagEntry ::=SEQUENCE{
+		topDhcpv6TagDevType 			    INTEGER,
+		topDhcpv6TagVlan 				INTEGER,
+		topDhcpv6TagPriority 			INTEGER,
+		topDhcpv6TagStatus 	    RowStatus
+		}
+
+topDhcpv6TagDevType  OBJECT-TYPE
+        SYNTAX      INTEGER{		    
+						cm(1),
+						host(2),
+						mta(3),
+						stb(4)
+					}
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "Device type"
+        ::= { topDhcpv6TagEntry 1 } 
+
+topDhcpv6TagVlan  OBJECT-TYPE
+        SYNTAX      INTEGER (1..4094)
+	    MAX-ACCESS  read-create
+	    STATUS      current
+        DESCRIPTION
+            "DHCPv6 tag vlan"
+        ::= { topDhcpv6TagEntry 2 }       
+
+topDhcpv6TagPriority  OBJECT-TYPE
+        SYNTAX      INTEGER (0..7)
+	    MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "DHCPv6 tag priority"
+        ::= { topDhcpv6TagEntry 3 } 
+
+topDhcpv6TagStatus  OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active."
+		::= { topDhcpv6TagEntry 4 }
+	
+
+	
+		
+		
+	
+-----------------------------------------------------------------------
+--topDhcpv6ExtensionalDeviceTable 
+-----------------------------------------------------------------------	
+topDhcpv6ExtensionalDeviceTable  OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpv6ExtensionalDeviceEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "Create a dev name and add DHCPv6 identifiable option16 strings to a kind of extentional dev.
+            extentional devs have similar funcations and configurations to ordinary devs."
+        ::= { topDhcpObject 23 }
+
+topDhcpv6ExtensionalDeviceEntry OBJECT-TYPE
+		SYNTAX      TopDhcpv6ExtensionalDeviceEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+        	"Create a dev name and add DHCPv6 identifiable option16 strings to a kind of extentional dev.
+        	extentional devs have similar funcations and configurations to ordinary devs."  
+        INDEX { topDhcpBundleGroup,
+				topDhcpBundleId,
+        		topDhcpv6ExtensionalDeviceIndex}
+        ::= { topDhcpv6ExtensionalDeviceTable  1 }
+
+TopDhcpv6ExtensionalDeviceEntry ::=SEQUENCE{
+		topDhcpv6ExtensionalDeviceIndex 		INTEGER,
+		topDhcpv6ExtensionalDeviceName 	        OCTET STRING,
+		topDhcpv6ExtensionalDeviceStatus 		RowStatus
+		}
+
+
+
+topDhcpv6ExtensionalDeviceIndex  OBJECT-TYPE
+        SYNTAX      INTEGER (1..10)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "DHCPv6 extensional device Index."
+        ::= { topDhcpv6ExtensionalDeviceEntry 1 }
+
+topDhcpv6ExtensionalDeviceName  OBJECT-TYPE
+        SYNTAX      OCTET STRING(SIZE(1..16))
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "DHCPv6 extensional device Name."
+        ::= { topDhcpv6ExtensionalDeviceEntry 2 }
+		
+
+topDhcpv6ExtensionalDeviceStatus  OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active."
+		::= { topDhcpv6ExtensionalDeviceEntry 3 }	
+	
+
+
+-----------------------------------------------------------------------
+--topDhcpv6ExtDevOption16Table 
+-----------------------------------------------------------------------	
+topDhcpv6ExtDevOption16Table  OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpv6ExtDevOption16Entry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "Create a dev name and add DHCPv6 identifiable option16 strings to a kind of extentional dev.
+            extentional devs have similar funcations and configurations to ordinary devs."
+        ::= { topDhcpObject 24 }
+
+topDhcpv6ExtDevOption16Entry OBJECT-TYPE
+		SYNTAX      TopDhcpv6ExtDevOption16Entry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+        	"Create a dev name and add DHCPv6 identifiable option16 strings to a kind of extentional dev.
+        	extentional devs have similar funcations and configurations to ordinary devs."  
+        INDEX { topDhcpBundleGroup,
+				topDhcpBundleId,
+        		topDhcpv6ExtensionalDeviceName,
+        		topDhcpv6ExtDevOption16Index}
+        ::= { topDhcpv6ExtDevOption16Table  1 }
+
+TopDhcpv6ExtDevOption16Entry ::=SEQUENCE{
+		topDhcpv6ExtDevOption16Index 		INTEGER,
+		topDhcpv6ExtDevOption16VendorClass 	OCTET STRING,
+		topDhcpv6ExtDevOption16Status 		RowStatus
+		}
+
+
+topDhcpv6ExtDevOption16Index  OBJECT-TYPE
+        SYNTAX      INTEGER (1..4)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "DHCPv6 extensional device option16 Index."
+        ::= { topDhcpv6ExtDevOption16Entry 1 }
+
+topDhcpv6ExtDevOption16VendorClass  OBJECT-TYPE
+        SYNTAX      OCTET STRING(SIZE(1..16))
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "DHCPv6 extensional device option16 vedor class data."
+        ::= { topDhcpv6ExtDevOption16Entry 2 }
+
+topDhcpv6ExtDevOption16Status  OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active."
+		::= { topDhcpv6ExtDevOption16Entry 3 }	
+
+
+	
+
+-----------------------------------------------------------------------
+--topDhcpv6ExtDevDestAddrTable 
+-----------------------------------------------------------------------			
+topDhcpv6ExtDevDestAddrTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpv6ExtDevDestAddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes helper address on CMTS."
+        ::= { topDhcpObject 25 }
+
+topDhcpv6ExtDevDestAddrEntry OBJECT-TYPE
+		SYNTAX      TopDhcpv6ExtDevDestAddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes helper address on CMTS."
+		INDEX { topDhcpBundleGroup, 
+				topDhcpBundleId,
+				topDhcpv6ExtensionalDeviceName, 
+				topDhcpv6ExtDevDestIndex}
+        ::= { topDhcpv6ExtDevDestAddrTable 1 }
+
+TopDhcpv6ExtDevDestAddrEntry ::=SEQUENCE {
+	topDhcpv6ExtDevDestIndex	        INTEGER,
+	topDhcpv6ExtDevDestAddr			Ipv6Address,
+	topDhcpv6ExtDevDestStatus	    	RowStatus
+}
+
+
+topDhcpv6ExtDevDestIndex OBJECT-TYPE
+        SYNTAX      INTEGER (1..5)
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "The index of the DHCPv6 Server."
+        ::= { topDhcpv6ExtDevDestAddrEntry 1 }
+
+topDhcpv6ExtDevDestAddr OBJECT-TYPE
+        SYNTAX      Ipv6Address
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "IPv6 relay destination-address."
+        ::= { topDhcpv6ExtDevDestAddrEntry 2 }
+
+		
+topDhcpv6ExtDevDestStatus  OBJECT-TYPE
+	 SYNTAX          RowStatus
+	 MAX-ACCESS      read-create
+	 STATUS          current
+	 DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active." 
+	::= { topDhcpv6ExtDevDestAddrEntry 3 }
+	
+
+
+-----------------------------------------------------------------------
+--topDhcpv6ExtDevLinkAddrTable 
+-----------------------------------------------------------------------			
+topDhcpv6ExtDevLinkAddrTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpv6ExtDevLinkAddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes Dhcp6 relay link address for extension device on CMTS."
+        ::= { topDhcpObject 26 }
+
+topDhcpv6ExtDevLinkAddrEntry OBJECT-TYPE
+		SYNTAX      TopDhcpv6ExtDevLinkAddrEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes Dhcp6 relay link address for extension device on CMTS."
+		INDEX { topDhcpBundleGroup, 
+				topDhcpBundleId,
+				topDhcpv6ExtensionalDeviceName}
+        ::= { topDhcpv6ExtDevLinkAddrTable 1 }
+
+TopDhcpv6ExtDevLinkAddrEntry ::=SEQUENCE {
+	topDhcpv6ExtDevLinkAddr       		Ipv6Address,
+	topDhcpv6ExtDevLinkStatus	    	RowStatus
+}
+
+
+topDhcpv6ExtDevLinkAddr OBJECT-TYPE
+        SYNTAX      Ipv6Address
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "IPv6 relay link-address for extension device."
+        ::= { topDhcpv6ExtDevLinkAddrEntry 1 }
+		
+topDhcpv6ExtDevLinkStatus  OBJECT-TYPE
+	SYNTAX          RowStatus
+	 MAX-ACCESS      read-create
+	 STATUS          current
+	 DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active." 
+	::= { topDhcpv6ExtDevLinkAddrEntry 2 }
+
+	
+	
+	
+	
+------------------------------------------
+--topDhcpv6ExtDevTagTable 
+------------------------------------------
+topDhcpv6ExtDevTagTable  OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpv6ExtDevTagEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes DHCPv6 extensional dev tag on CMTS."
+        ::= { topDhcpObject 27 }
+
+topDhcpv6ExtDevTagEntry OBJECT-TYPE
+		SYNTAX      TopDhcpv6ExtDevTagEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This Object describes DHCPv6 extensional dev tag on CMTS."
+		INDEX { topDhcpBundleGroup,
+				topDhcpBundleId,
+				topDhcpv6ExtensionalDeviceName }
+        ::= { topDhcpv6ExtDevTagTable  1 }
+
+TopDhcpv6ExtDevTagEntry ::=SEQUENCE {
+	topDhcpv6ExtDevTagVlan 			INTEGER,
+	topDhcpv6ExtDevTagPriority 		INTEGER,
+	topDhcpv6ExtDevTagStatus 	RowStatus
+}
+
+topDhcpv6ExtDevTagVlan  OBJECT-TYPE
+        SYNTAX      INTEGER (1..4094)
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "DHCPv6 extensional device tag vlan"
+        ::= { topDhcpv6ExtDevTagEntry 1 }
+
+topDhcpv6ExtDevTagPriority  OBJECT-TYPE
+        SYNTAX      INTEGER (0..7)
+	    MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "DHCPv6 extensional device tag priority"
+        ::= { topDhcpv6ExtDevTagEntry 2 } 
+
+topDhcpv6ExtDevTagStatus  OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table may be created by the
+		create-and-go  paradigm.  There is no
+		restriction on changing values in a row of this table
+		while the row is active."
+		::= { topDhcpv6ExtDevTagEntry 3 }
+	
+	
+	
+	
+	
+	
+------------------------------------------
+--topDhcpCmtsBindBundleTable 
+------------------------------------------	
+topDhcpCmtsBindBundleTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopDhcpCmtsBindBundleEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes the bundle bind configuration of CMTS."
+        ::= { topDhcpObject 28 }
+
+topDhcpCmtsBindBundleEntry OBJECT-TYPE
+		SYNTAX      TopDhcpCmtsBindBundleEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes the bundle bind configuration of CMTS."
+		INDEX { ifIndex }
+        ::= { topDhcpCmtsBindBundleTable 1 }
+
+TopDhcpCmtsBindBundleEntry ::= SEQUENCE {
+	topDhcpCmtsBindBundleGroup	        INTEGER,
+	topDhcpCmtsBindBundleStatus   		RowStatus
+}
+
+topDhcpCmtsBindBundleGroup OBJECT-TYPE
+	SYNTAX		INTEGER (1..500)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"Bind bundle group to CMTS."
+	::={topDhcpCmtsBindBundleEntry 1}
+
+
+topDhcpCmtsBindBundleStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"Indicates the status of the rows in this table, 
+		and can be used to create a new row or destroy the specific row."
+	::={topDhcpCmtsBindBundleEntry 2}
+
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+
+------------------------------------------------     
+--topCcmtsDevLeaseQueryObjects
+--add by qinwan for ccmts-13447 2017-5-3 19:26:26
+------------------------------------------------
+topCcmtsDevLeaseQueryObjects OBJECT IDENTIFIER ::={ topCcmtsDhcpObject 32 }
+
+topCcmtsDevLeaseQueryThreshold   OBJECT-TYPE
+    SYNTAX INTEGER(0..255)
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"GLOBAL DHCP LeaseQuery RATE."
+	DEFVAL          { 1 }
+    ::= { topCcmtsDevLeaseQueryObjects 1 }
+
+topCcmtsDevBundleLeaseQueryTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopCcmtsDevBundleLeaseQueryEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes bundle interface lease query information on CCMTS."
+        ::= { topCcmtsDevLeaseQueryObjects 2 }
+
+topCcmtsDevBundleLeaseQueryEntry OBJECT-TYPE
+		SYNTAX      TopCcmtsDevBundleLeaseQueryEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "The conceptual row of topCcmtsDevBundleLeaseQueryTable."
+		INDEX {
+				topDhcpBundleGroup,
+				topDhcpBundleId
+			  }
+        ::= { topCcmtsDevBundleLeaseQueryTable 1 }
+
+TopCcmtsDevBundleLeaseQueryEntry ::= SEQUENCE {
+	topCcmtsDevBundleLeaseQueryServer			IpAddress,
+	topCcmtsDevBundleLeaseQueryThreshold		INTEGER,
+	topCcmtsDevBundleLeaseQueryInterval			INTEGER,
+	topCcmtsDevBundleLeaseQueryIPv6Server		Ipv6Address
+}
+
+topCcmtsDevBundleLeaseQueryServer OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "DHCP Server ip for dhcp leasequery. 
+			 If set 0.0.0.0, topCcmtsDhcpHelperIpAddr will be used"
+        ::= { topCcmtsDevBundleLeaseQueryEntry 1 }
+
+topCcmtsDevBundleLeaseQueryThreshold OBJECT-TYPE
+        SYNTAX      INTEGER(0..255)
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Threshold for dhcp leasequery. Threshold packets will be processed in interval seconds.
+            see also: topCcmtsDevBundleLeaseQueryInterval"
+		DEFVAL          { 5 }
+        ::= { topCcmtsDevBundleLeaseQueryEntry 2 }
+
+topCcmtsDevBundleLeaseQueryInterval OBJECT-TYPE
+        SYNTAX      INTEGER(1..10)
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "Interval for dhcp leasequery. Threshold packets will be processed in interval seconds.
+            see also: topCcmtsDevBundleLeaseQueryThreshold"
+		DEFVAL          { 10 }
+        ::= { topCcmtsDevBundleLeaseQueryEntry 3 }
+topCcmtsDevBundleLeaseQueryIPv6Server OBJECT-TYPE
+        SYNTAX      Ipv6Address
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "DHCPv6 Server ip for dhcpv6 leasequery."
+        ::= { topCcmtsDevBundleLeaseQueryEntry 4 }
+
+------------------------------------------------     
+--topCcmtsDevLeaseQueryObjects
+--end
+------------------------------------------------
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+
+
+
+
+	 
+END
+
+
+
+
+

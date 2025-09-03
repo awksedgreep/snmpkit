@@ -1,0 +1,41 @@
+MIB search path: /Users/mcotner/.snmp/mibs:/opt/homebrew/Cellar/net-snmp/5.9.4/share/snmp/mibs:/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES
+Cannot find module (DOCS-IF-MIB): At line 37 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-LOADBALANCING-MIB): At line 39 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-IF3-MIB): At line 43 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-QOS-MIB): At line 53 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Bad operator (_): At line 2601 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-IF-MIB): At line 32 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-TEMPLATE-MIB.mib
+Expected "(" (_): At line 633 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-TEMPLATE-MIB.mib
+Should be ACCESS (hold): At line 633 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-TEMPLATE-MIB.mib
+Bad parse of OBJECT-TYPE: At line 633 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-TEMPLATE-MIB.mib
+Did not find 'topCcmtsMibObject' in module TOPVISION-CCMTS-MIB (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-IP-SUBNET-VLAN-MIB.mib)
+Did not find 'topCcmtsTemplateIndex' in module TOPVISION-TEMPLATE-MIB (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-IP-SUBNET-VLAN-MIB.mib)
+Unlinked OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanCfgObject ::= { topCcmtsMibObject 13 }
+Undefined identifier: topCcmtsMibObject near line 37 of /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-IP-SUBNET-VLAN-MIB.mib
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsTemplateIpSubVlanTagCfgEntry ::= { topCcmtsTemplateIpSubVlanTagCfgTable 1 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanCfgObject ::= { topCcmtsMibObject 13 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanRowStatus ::= { topCcmtsIpSubVlanCfgEntry 6 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanPri ::= { topCcmtsIpSubVlanCfgEntry 5 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanVlanId ::= { topCcmtsIpSubVlanCfgEntry 4 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanIpMaskIndex ::= { topCcmtsIpSubVlanCfgEntry 3 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanIpIndex ::= { topCcmtsIpSubVlanCfgEntry 2 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanIfIndex ::= { topCcmtsIpSubVlanCfgEntry 1 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanTpid ::= { topCcmtsIpSubVlanScalarObject 2 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanCfi ::= { topCcmtsIpSubVlanScalarObject 1 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanTagCfgEntry ::= { topCcmtsIpSubVlanTagCfgTable 1 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsTemplateIpSubVlanTagTpid ::= { topCcmtsTemplateIpSubVlanTagCfgEntry 2 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsTemplateIpSubVlanTagCfi ::= { topCcmtsTemplateIpSubVlanTagCfgEntry 1 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsTemplateIpSubVlanCfgEntry ::= { topCcmtsTemplateIpSubVlanCfgTable 1 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanTagTpid ::= { topCcmtsIpSubVlanTagCfgEntry 2 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanTagCfi ::= { topCcmtsIpSubVlanTagCfgEntry 1 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsTemplateIpSubVlanTagCfgTable ::= { topCcmtsIpSubVlanCfgObject 5 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsTemplateIpSubVlanCfgTable ::= { topCcmtsIpSubVlanCfgObject 4 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanTagCfgTable ::= { topCcmtsIpSubVlanCfgObject 3 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanCfgTable ::= { topCcmtsIpSubVlanCfgObject 2 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanScalarObject ::= { topCcmtsIpSubVlanCfgObject 1 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsIpSubVlanCfgEntry ::= { topCcmtsIpSubVlanCfgTable 1 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsTemplateIpSubVlanRowStatus ::= { topCcmtsTemplateIpSubVlanCfgEntry 5 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsTemplateIpSubVlanPri ::= { topCcmtsTemplateIpSubVlanCfgEntry 4 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsTemplateIpSubVlanVlanId ::= { topCcmtsTemplateIpSubVlanCfgEntry 3 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsTemplateIpSubVlanIpMaskIndex ::= { topCcmtsTemplateIpSubVlanCfgEntry 2 }
+Cannot adopt OID in TOPVISION-IP-SUBNET-VLAN-MIB: topCcmtsTemplateIpSubVlanIpIndex ::= { topCcmtsTemplateIpSubVlanCfgEntry 1 }

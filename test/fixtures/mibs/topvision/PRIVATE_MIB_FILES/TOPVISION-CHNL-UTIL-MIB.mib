@@ -1,0 +1,160 @@
+--*******************************************************************
+--TOPVISION-CHNL-UTIL-MIB.my: DOCSIS Extention MIB file
+--
+--added at Mar. 2014, liubing
+--
+--Topvision      
+--
+--
+--*******************************************************************
+
+TOPVISION-CHNL-UTIL-MIB DEFINITIONS ::= BEGIN 
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Integer32,
+    Unsigned32
+        FROM SNMPv2-SMI 
+    DisplayString
+        FROM SNMPv2-TC
+    ifIndex
+				FROM IF-MIB
+    topCcmtsSystemObject
+				FROM TOPVISION-CCMTS-MIB;
+	
+------------------------------------------------------------------------------
+--  topCcmtsChnlUtilThresholdTable
+--  added at 2014-3-27
+--  author liubing
+------------------------------------------------------------------------------
+    
+topCcmtsChnlUtilThresholdTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsChnlUtilThresholdEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"The threshold for the channel utilization to trigger alarm."
+	::={ topCcmtsSystemObject 23 }
+
+topCcmtsChnlUtilThresholdEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsChnlUtilThresholdEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"The threshold for the channel utilization to trigger alarm."
+	INDEX { ifIndex }
+	::={ topCcmtsChnlUtilThresholdTable 1 }
+
+TopCcmtsChnlUtilThresholdEntry ::=SEQUENCE {
+	topCcmtsUpChnlUtilMinorAlarmThreshold	Unsigned32,
+	topCcmtsUpChnlUtilMinorRecoveryThreshold	Unsigned32,
+	topCcmtsUpChnlUtilMajorAlarmThreshold	Unsigned32,
+	topCcmtsUpChnlUtilMajorRecoveryThreshold	Unsigned32,
+	topCcmtsUpChnlUtilCriticalAlarmThreshold	Unsigned32,
+	topCcmtsUpChnlUtilCriticalRecoveryThreshold	Unsigned32,
+	topCcmtsDownChnlUtilMinorAlarmThreshold	Unsigned32,
+	topCcmtsDownChnlUtilMinorRecoveryThreshold	Unsigned32,
+	topCcmtsDownChnlUtilMajorAlarmThreshold	Unsigned32,
+	topCcmtsDownChnlUtilMajorRecoveryThreshold	Unsigned32,
+	topCcmtsDownChnlUtilCriticalAlarmThreshold	Unsigned32,
+	topCcmtsDownChnlUtilCriticalRcoeveryThreshold	Unsigned32
+}
+
+topCcmtsUpChnlUtilMinorAlarmThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The threshold for the upstream channel utilization to trigger minor alarm. If it don¡¯t send the alarm, this object will return 0."
+	::={ topCcmtsChnlUtilThresholdEntry 1 } 
+	
+topCcmtsUpChnlUtilMinorRecoveryThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The threshold for the upstream channel utilization to trigger minor recovery alarm. If it don¡¯t send the alarm, this object will return 0."
+	::={ topCcmtsChnlUtilThresholdEntry 2 }
+	
+topCcmtsUpChnlUtilMajorAlarmThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The threshold for the upstream channel utilization to trigger major alarm. If it don¡¯t send the alarm, this object will return 0."
+	::={ topCcmtsChnlUtilThresholdEntry 3 } 
+	
+topCcmtsUpChnlUtilMajorRecoveryThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The threshold for the upstream channel utilization to trigger major recovery alarm. If it don¡¯t send the alarm, this object will return 0."
+	::={ topCcmtsChnlUtilThresholdEntry 4 } 
+	
+topCcmtsUpChnlUtilCriticalAlarmThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The threshold for the upstream channel utilization to trigger critical alarm. If it don¡¯t send the alarm, this object will return 0."
+	::={ topCcmtsChnlUtilThresholdEntry 5 } 
+	
+topCcmtsUpChnlUtilCriticalRecoveryThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The threshold for the upstream channel utilization to trigger critical recovery alarm. If it don¡¯t send the alarm, this object will return 0."
+	::={ topCcmtsChnlUtilThresholdEntry 6 } 
+
+topCcmtsDownChnlUtilMinorAlarmThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The threshold for the downstream channel utilization to trigger minor alarm. If it don¡¯t send the alarm, this object will return 0."
+	::={ topCcmtsChnlUtilThresholdEntry 7 } 
+	
+topCcmtsDownChnlUtilMinorRecoveryThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The threshold for the downstream channel utilization to trigger minor recovery alarm. If it don¡¯t send the alarm, this object will return 0."
+	::={ topCcmtsChnlUtilThresholdEntry 8 }
+	
+topCcmtsDownChnlUtilMajorAlarmThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The threshold for the downstream channel utilization to trigger major alarm. If it don¡¯t send the alarm, this object will return 0."
+	::={ topCcmtsChnlUtilThresholdEntry 9 } 
+	
+topCcmtsDownChnlUtilMajorRecoveryThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The threshold for the downstream channel utilization to trigger major recovery alarm. If it don¡¯t send the alarm, this object will return 0."
+	::={ topCcmtsChnlUtilThresholdEntry 10 } 
+	
+topCcmtsDownChnlUtilCriticalAlarmThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The threshold for the downstream channel utilization to trigger critical alarm. If it don¡¯t send the alarm, this object will return 0."
+	::={ topCcmtsChnlUtilThresholdEntry 11 } 
+	
+topCcmtsDownChnlUtilCriticalRcoeveryThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The threshold for the downstream channel utilization to trigger critical recovery alarm. If it don¡¯t send the alarm, this object will return 0."
+	::={ topCcmtsChnlUtilThresholdEntry 12 } 	
+
+END

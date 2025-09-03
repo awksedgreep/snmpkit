@@ -1,0 +1,597 @@
+--*******************************************************************
+--TOPVISION-8800B-ACL-MIB.my: DOCSIS Extention MIB file
+--
+--added at February 2013, Wang Hao
+--
+--Topvision      
+--
+--
+--*******************************************************************
+
+TOPVISION-CCMTS-ACL-MIB DEFINITIONS ::= BEGIN 
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Integer32,
+    IpAddress,
+    Unsigned32
+        FROM SNMPv2-SMI 
+    InetAddressIPv6
+        FROM  INET-ADDRESS-MIB
+    DateAndTime,
+    DisplayString,
+    MacAddress,     
+    RowStatus,
+    TruthValue
+        FROM SNMPv2-TC
+    ifIndex
+				FROM IF-MIB
+    topCcmtsMibObject
+				FROM TOPVISION-CCMTS-MIB;
+	
+------------------------------------------------------------------------------
+--  topCcmtsAclCfgObject
+--  added at 2013-3-30
+--  author wanghao
+------------------------------------------------------------------------------
+    
+topCcmtsAclCfgObject	OBJECT IDENTIFIER ::={ topCcmtsMibObject 14 } 
+
+topCcmtsAclDefActionTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsAclDefActionTableEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"8800B ACL install position default action table"
+	::= { topCcmtsAclCfgObject 1 }
+	
+topCcmtsAclDefActionTableEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsAclDefActionTableEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"8800B ACL install position default action table entry."
+	INDEX { topAclPositionIndex}
+	::= { topCcmtsAclDefActionTable 1 }
+		
+TopCcmtsAclDefActionTableEntry ::=	SEQUENCE { 
+		topAclPositionIndex		    	INTEGER,
+		topPositionDefAction			INTEGER
+	 }                             	
+		 
+topAclPositionIndex OBJECT-TYPE
+	SYNTAX 		INTEGER 
+      				{
+				uplinkIngress(1),
+				uplinkEgress(2),
+				cableEgress(3),
+				cableIngress(4)
+				}
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"ACL install position"
+	::= { topCcmtsAclDefActionTableEntry 1 }   
+	
+topPositionDefAction OBJECT-TYPE
+	SYNTAX 		INTEGER 
+				{
+				deny(0),
+				permit (1)
+				}
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"ACL position default action"
+	::= { topCcmtsAclDefActionTableEntry 2 }   
+	
+
+topCcmtsAclCfgTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsAclCfgTableEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"ACL table"
+	::= { topCcmtsAclCfgObject 2 }
+	
+topCcmtsAclCfgTableEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsAclCfgTableEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"ACL entry."
+	INDEX { topCcmtsAclListIndex}
+	::= { topCcmtsAclCfgTable 1 }
+		
+TopCcmtsAclCfgTableEntry ::=	SEQUENCE { 
+		topCcmtsAclListIndex		    INTEGER,
+		topCcmtsAclDesc					DisplayString ,
+		topCcmtsAclPrio					INTEGER ,  
+		
+		topMatchlSrcMac					MacAddress, 
+		topMatchSrcMacMask				MacAddress,
+		topMatchDstMac					MacAddress,
+		topMatchDstMacMask              MacAddress,
+		topMatchVlanId					INTEGER ,  
+		topMatchVlanCos					INTEGER ,
+		topMatchEtherType				INTEGER ,
+		topMatchDscp					INTEGER,
+		topMatchIpProtocol				INTEGER ,
+		topMatchSrcIp					IpAddress,
+		topMatchSrcIpMask				IpAddress,     
+		topMatchDstIp					IpAddress,
+		topMatchDstIpMask				IpAddress, 
+		topMatchSrcPort					INTEGER ,
+		topMatchDstPort					INTEGER , 
+		
+		topActionMask					BITS,
+		topActionAddVlanId				INTEGER,
+		topActionAddVlanCos				INTEGER ,
+		topActionNewVlanCos				INTEGER,
+		topInstallPosition				BITS,
+		topAclRowStatus					RowStatus,
+		topActionNewVlanTpid			INTEGER,
+		topActionNewVlanCfi				INTEGER,
+		topActionNewVlanId				INTEGER,
+		topActionAddVlanTpid			INTEGER,
+		topActionAddVlanCfi				INTEGER,
+		topActionNewIpTos				INTEGER,
+		topActionNewIpDscp				INTEGER,   
+		
+		topMatchIpv6FlowLable			INTEGER,
+		topMatchSrcIPv6					InetAddressIPv6,
+		topMatchSrcIPv6Pfx				INTEGER,
+		topMatchDstIPv6 				InetAddressIPv6,
+		topMatchDstIPv6Pfx				INTEGER,
+		topMatchIpv6NextHdr             INTEGER,
+		topMatchSrcPortStart            INTEGER,
+		topMatchSrcPortEnd              INTEGER,
+		topMatchDstPortStart            INTEGER,
+		topMatchDstPortEnd              INTEGER,
+		topMatchVlanCosStart            INTEGER,
+		topMatchVlanCosEnd              INTEGER
+	 }                             	
+		 
+topCcmtsAclListIndex OBJECT-TYPE
+	SYNTAX 		INTEGER
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"ACL List Index.rmd support 1-60,rmdc support 1-500*60"
+	::= { topCcmtsAclCfgTableEntry 1 }   
+	
+topCcmtsAclDesc OBJECT-TYPE
+	SYNTAX 		DisplayString (SIZE (0..64)) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"ACL Description, default value is acl-%d"
+	::= { topCcmtsAclCfgTableEntry 2 }
+ 
+topCcmtsAclPrio OBJECT-TYPE
+	SYNTAX 		INTEGER (1..10) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"ACL Priority, default value is 5"
+	::= { topCcmtsAclCfgTableEntry 3 }   
+	
+topMatchlSrcMac OBJECT-TYPE
+	SYNTAX 		MacAddress 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match source MAC address, default value is 00:00:00:00:00:00"
+	::= { topCcmtsAclCfgTableEntry 4 }    
+	
+topMatchSrcMacMask OBJECT-TYPE
+	SYNTAX 		MacAddress 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match source MAC address mask, default value is 00:00:00:00:00:00"
+	::= { topCcmtsAclCfgTableEntry 5 }    
+	
+topMatchDstMac OBJECT-TYPE
+	SYNTAX 		MacAddress 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match destination MAC address, default value is 00:00:00:00:00:00"
+	::= { topCcmtsAclCfgTableEntry 6 }    
+	
+topMatchDstMacMask OBJECT-TYPE
+	SYNTAX 		MacAddress 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match destination MAC address mask, default value is 00:00:00:00:00:00"
+	::= { topCcmtsAclCfgTableEntry 7 } 
+
+topMatchVlanId OBJECT-TYPE
+	SYNTAX 		INTEGER (0..4095) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match the VLAN ID, default value is 4095. If this value set to 0, it
+		will match all the vlan Id"
+	::= { topCcmtsAclCfgTableEntry 8 }     
+
+topMatchVlanCos OBJECT-TYPE
+	SYNTAX 		INTEGER (0..8) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match the VLAN Cos, default value is 8,not support 8820f"
+	::= { topCcmtsAclCfgTableEntry 9 } 
+
+topMatchEtherType OBJECT-TYPE
+	SYNTAX 		INTEGER (0..65535) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match the ether type, default value is 0"
+	::= { topCcmtsAclCfgTableEntry 10 } 	
+ 
+topMatchDscp OBJECT-TYPE
+	SYNTAX 		INTEGER (0..64) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match the DSCP, default value is 64"
+	::= { topCcmtsAclCfgTableEntry 11 } 	
+	
+topMatchIpProtocol OBJECT-TYPE
+	SYNTAX 		INTEGER (0..256) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match the IP protocol, default value is 256"
+	::= { topCcmtsAclCfgTableEntry 12 }   
+	
+topMatchSrcIp OBJECT-TYPE
+	SYNTAX 		IpAddress 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match source IP, default value is 0.0.0.0"
+	::= { topCcmtsAclCfgTableEntry 13 }  
+
+topMatchSrcIpMask OBJECT-TYPE
+	SYNTAX 		IpAddress 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match source IP mask,default value is 0.0.0.0"
+	::= { topCcmtsAclCfgTableEntry 14 }  
+	
+topMatchDstIp OBJECT-TYPE
+	SYNTAX 		IpAddress 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match destination IP,default value is 0.0.0.0"
+	::= { topCcmtsAclCfgTableEntry 15 }  
+
+topMatchDstIpMask OBJECT-TYPE
+	SYNTAX 		IpAddress 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match destination IP mask,default value is 0.0.0.0"
+	::= { topCcmtsAclCfgTableEntry 16 }
+
+topMatchSrcPort OBJECT-TYPE
+	SYNTAX 		INTEGER (0..65536) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match L4 source port,default value is 65536,not support 8820f"
+	::= { topCcmtsAclCfgTableEntry 17 }       
+	
+topMatchDstPort OBJECT-TYPE
+	SYNTAX 		INTEGER (0..65536) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match L4 destination port,default value is 65536,not support 8820f"
+	::= { topCcmtsAclCfgTableEntry 18 }
+	
+topActionMask OBJECT-TYPE
+	SYNTAX 		BITS
+				{
+					deny(0),   
+					permit(1),
+					replaceCos(2),
+					addVlan(3),
+					removeVlan(4),
+					copyToCpu(5),
+					replaceTpid(6),
+					replaceCfi(7),
+					replaceVlanId(8),
+					addVlanTpid(9),
+					addVlanCfi(10),
+					replaceiptos(11),
+					replaceipdscp(12),
+					addVlanCos(13),
+					reserved6(14),
+					reserved7(15)
+				}
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"
+		BIT0: 1-deny enable; 0-deny disable; 
+		BIT1: 1-permit enable; 0-permit disable;
+		BIT2: 1-replace cos; 0-keep the current cos value
+		BIT3: 1-add vlan; 0-keep the current vlan stacking
+		BIT4: 1-remove vlan 0- keep the current vlan stacking
+		BIT5: 1-copy data to cpu,0-default.
+		BIT6: 1-replace tpid; 0-keep the current tpid value
+		BIT7: 1-replace cfi; 0-keep the current cfi value,not support 8820f
+		BIT8: 1-replace vlanid; 0-keep the current vlanid value
+		BIT9: 1-add vlanTpid; 0-keep the current vlan stacking
+ 		BIT10: 1-add vlanCfi; 0-keep the current vlan stacking,not support 8820f
+		BIT11: 1-replace ip tos; 0-keep the current cfi value(if replace ip dscp not set),not support 8820f
+		BIT12: 1-replace ip dscp; 0-keep the current vlanid value(if replace ip tos not set)
+		BIT13: 1-add vlanCos; 0-keep the current vlan stacking	
+		other bits currently reserved.
+		"
+	::= { topCcmtsAclCfgTableEntry 19 }  
+
+topActionAddVlanId OBJECT-TYPE
+	SYNTAX 		INTEGER (0..4094) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"VLAN ID to be added"
+	::= { topCcmtsAclCfgTableEntry 20 }
+
+topActionAddVlanCos OBJECT-TYPE
+	SYNTAX 		INTEGER (0..7) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"VLAN cos to be added"
+	::= { topCcmtsAclCfgTableEntry 21 } 
+	
+topActionNewVlanCos OBJECT-TYPE
+	SYNTAX 		INTEGER (0..7) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"VLAN cos to be replaced"
+	::= { topCcmtsAclCfgTableEntry 22 }  
+	
+topInstallPosition OBJECT-TYPE
+	SYNTAX 		BITS
+				{
+				uplinkIngress(0),
+				uplinkEgress(1),
+				cableEgress(2),
+				cableIngress (3)
+				}
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"bit set to 1 represent install, set to 0 represent uninstall,not support 8820f"
+	::= { topCcmtsAclCfgTableEntry 23 }
+
+ topAclRowStatus OBJECT-TYPE
+	SYNTAX 		RowStatus 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Add/Del/Set"
+	::= { topCcmtsAclCfgTableEntry 24 } 
+
+topActionNewVlanTpid OBJECT-TYPE
+	SYNTAX 		INTEGER (0..65534) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"VLAN tpid to be replaced"
+	::= { topCcmtsAclCfgTableEntry 25 }  
+topActionNewVlanCfi OBJECT-TYPE
+	SYNTAX 		INTEGER (0..1) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"VLAN cfi to be replaced,not support 8820f"
+	::= { topCcmtsAclCfgTableEntry 26 }  
+topActionNewVlanId OBJECT-TYPE
+	SYNTAX 		INTEGER (1..4094) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"VLAN Id to be replaced"
+	::= { topCcmtsAclCfgTableEntry 27 }  
+topActionAddVlanTpid OBJECT-TYPE
+	SYNTAX 		INTEGER (0..65534) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"VLAN tpid to be added"
+	::= { topCcmtsAclCfgTableEntry 28 }  
+topActionAddVlanCfi OBJECT-TYPE
+	SYNTAX 		INTEGER (0..1) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"VLAN cfi to be added,not support 8820f"
+	::= { topCcmtsAclCfgTableEntry 29 }  
+topActionNewIpTos OBJECT-TYPE
+	SYNTAX 		INTEGER (0..255) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Ip Header tos to be modified to,not support 8820f"
+	::= { topCcmtsAclCfgTableEntry 30 }  
+topActionNewIpDscp OBJECT-TYPE
+	SYNTAX 		INTEGER (0..63) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Ip Header dscp to be modified to"
+	::= { topCcmtsAclCfgTableEntry 31 }   
+	
+	
+topMatchIpv6FlowLable OBJECT-TYPE
+	SYNTAX 		INTEGER (0..1048576) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Flow Label field in the IPv6 header.If the referenced parameter is not present in a acl, 
+ 	     this attribute reports the value of 1048576."
+	::= { topCcmtsAclCfgTableEntry 32 }  
+	
+
+topMatchSrcIPv6 OBJECT-TYPE
+	SYNTAX 		InetAddressIPv6
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match source IPV6, default value is 00:00:00:00:00:00:00:00"
+	::= { topCcmtsAclCfgTableEntry 33 }  
+	
+topMatchSrcIPv6Pfx OBJECT-TYPE
+	SYNTAX 		INTEGER (0..128) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match source IPV6 Perfix,default value is 0"
+	::= { topCcmtsAclCfgTableEntry 34 }   
+	
+topMatchDstIPv6 OBJECT-TYPE
+	SYNTAX 		InetAddressIPv6
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match destination IPV6, default value is 00:00:00:00:00:00:00:00"
+	::= { topCcmtsAclCfgTableEntry 35 }  
+
+topMatchDstIPv6Pfx OBJECT-TYPE
+	SYNTAX 		   INTEGER (0..128) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match destination IPV6 Perfix,default value is 0."
+	::= { topCcmtsAclCfgTableEntry 36 }  
+	
+topMatchIpv6NextHdr OBJECT-TYPE
+	SYNTAX 		   INTEGER (0..256) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match ipv6 next header,default value is 256"
+	::= { topCcmtsAclCfgTableEntry 38 }
+	
+topMatchSrcPortStart OBJECT-TYPE
+	SYNTAX 		   INTEGER (0..65536) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match source port range start,default value is 65536."
+	::= { topCcmtsAclCfgTableEntry 39 }  
+	
+topMatchSrcPortEnd OBJECT-TYPE
+	SYNTAX 		   INTEGER (0..65536) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match source port range end,default value is 65536."
+	::= { topCcmtsAclCfgTableEntry 40 }  
+	
+topMatchDstPortStart OBJECT-TYPE
+	SYNTAX 		   INTEGER (0..65536) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match destination port range start,default value is 65536."
+	::= { topCcmtsAclCfgTableEntry 41 }  
+	
+topMatchDstPortEnd OBJECT-TYPE
+	SYNTAX 		   INTEGER (0..65536) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match destination port range end,default value is 65536."
+	::= { topCcmtsAclCfgTableEntry 42 }  
+	
+topMatchVlanCosStart OBJECT-TYPE
+	SYNTAX 		   INTEGER (0..8) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match vlan cos range start,default value is 8."
+	::= { topCcmtsAclCfgTableEntry 43 }  
+	
+topMatchVlanCosEnd OBJECT-TYPE
+	SYNTAX 		   INTEGER (0..8) 
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Match vlan cos range end,default value is 8."
+	::= { topCcmtsAclCfgTableEntry 44}  
+	
+topCcmtsAclInstallTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsAclInstallTableEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Acl install position table."
+	::= { topCcmtsAclCfgObject 3 }
+	
+topCcmtsAclInstallTableEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsAclInstallTableEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Acl install position ,topCcmtsAclListIndex is acl index,ifIndex is cmts index,topCcmtsAclInstallPortId is pord id."
+	INDEX { topCcmtsAclListIndex,ifIndex,topCcmtsAclInstallPortId}
+	::= { topCcmtsAclInstallTable 1 }
+		
+TopCcmtsAclInstallTableEntry ::=	SEQUENCE { 
+		topCcmtsAclInstallPortId		    INTEGER,
+		topCcmtsAclInstallRowStatus			RowStatus,
+		topActionPacketCounter              INTEGER
+	 }                             	
+		 
+topCcmtsAclInstallPortId OBJECT-TYPE
+	SYNTAX 		INTEGER 
+      				{
+				uplinkIngress(1),
+				uplinkEgress(2),
+				cableEgress(3),
+				cableIngress(4)
+				}
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Acl install position.uplinkIngress(1),uplinkEgress(2),cableEgress(3),cableIngress(4)."
+	::= { topCcmtsAclInstallTableEntry 1 }   
+	
+topCcmtsAclInstallRowStatus OBJECT-TYPE
+	SYNTAX 		INTEGER 
+				{
+				active(1),
+				notInservice(2),
+				notReady(3),
+				createAndGo(4),
+				createAndWait(5),
+				destroy(6)
+				}
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Acl install or acl uninstall.active(1),notInservice(2),notReady(3),createAndGo(4),createAndWait(5),destroy(6)."
+	::= { topCcmtsAclInstallTableEntry 2 }  
+topActionPacketCounter OBJECT-TYPE
+	SYNTAX 		   INTEGER (0..65535) 
+	MAX-ACCESS 	read-only
+	STATUS 		current
+	DESCRIPTION
+		"Show acl rule match statistics, "
+	::= { topCcmtsAclInstallTableEntry 3 }  
+END

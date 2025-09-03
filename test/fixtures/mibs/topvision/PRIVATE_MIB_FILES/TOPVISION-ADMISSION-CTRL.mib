@@ -1,0 +1,847 @@
+--*******************************************************************
+--TOP-ADMISSION-CTRL-MIB.my: admission control MIB file
+--
+--added at 2015.07.15, huochao
+--
+--Topvision      
+--
+--*******************************************************************   
+
+TOPVISION-ADMISSION-CTRL-MIB DEFINITIONS ::= BEGIN 
+
+IMPORTS 
+	MODULE-IDENTITY,
+	OBJECT-TYPE,
+	Integer32,
+	TimeTicks,
+	Counter64
+		FROM SNMPv2-SMI
+	TEXTUAL-CONVENTION,
+	MacAddress,
+	RowStatus,
+	DisplayString,
+	TimeStamp,   
+	VariablePointer
+		FROM SNMPv2-TC   
+    
+    SchedulingType
+        FROM DOCS-QOS3-MIB		
+	InterfaceIndex
+	    FROM IF-MIB 
+	IANAifType
+	    FROM IANAifType-MIB    
+	         
+	OBJECT-GROUP,
+	MODULE-COMPLIANCE   
+		FROM SNMPv2-CONF
+	SnmpAdminString
+		FROM SNMP-FRAMEWORK-MIB  
+		 
+	topCcmtsMibObject
+	    FROM  TOPVISION-CCMTS-MIB
+	sumaRoot,
+	topvisionRoot,
+	topvisionHFCCcmtsTree
+		FROM SUMA-EPONEOC-EPON-MIB
+	
+	
+	topCcmtsTemplateIndex,
+	topCcmtsTemplateUpChannelId,
+	topCcmtsTemplateDownChannelId
+		FROM TOPVISION-TEMPLATE-MIB;
+
+topCcmtAdmissionCtrl       	OBJECT IDENTIFIER ::={ topCcmtsMibObject 22 } 
+		
+topCcmtsAdmissionCtrlNotify	OBJECT IDENTIFIER ::={ topCcmtAdmissionCtrl 1 }
+topCcmtsAdmissionCtrlObject  	OBJECT IDENTIFIER ::={ topCcmtAdmissionCtrl 2 } 
+
+
+-- CMTS Notifications       
+
+
+--
+--topCcmtsAdmissionCtrlCmtsCfgTable
+--
+topCcmtsAdmissionCtrlCmtsCfgTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsAdmissionCtrlCmtsCfgEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control cmts global configuration table."
+	::={ topCcmtsAdmissionCtrlObject 1 }
+
+topCcmtsAdmissionCtrlCmtsCfgEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsAdmissionCtrlCmtsCfgEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control cmts global configuration table entry"
+	INDEX { topCcmtsAdmissionCtrlCmtsCfgIfindex}
+	::= { topCcmtsAdmissionCtrlCmtsCfgTable 1 }       
+	
+	
+TopCcmtsAdmissionCtrlCmtsCfgEntry ::=SEQUENCE{
+    topCcmtsAdmissionCtrlCmtsCfgIfindex                 InterfaceIndex, 
+    topCcmtsAdmissionCtrlCmtsCfgEventCmRegistration     INTEGER,  
+    topCcmtsAdmissionCtrlCmtsCfgEventDynamicService     INTEGER,   
+    topCcmtsAdmissionCtrlCmtsCfgEventHistorySize        INTEGER,      
+    topCcmtsAdmissionCtrlCmtsCfgEventHistoryLastIndex   INTEGER 
+	}
+
+  
+topCcmtsAdmissionCtrlCmtsCfgIfindex  OBJECT-TYPE
+        SYNTAX      InterfaceIndex
+        MAX-ACCESS  not-accessible
+        STATUS      current         
+        DESCRIPTION
+            "CMTS ifindex." 
+        ::= { topCcmtsAdmissionCtrlCmtsCfgEntry 1 }     
+        
+topCcmtsAdmissionCtrlCmtsCfgEventCmRegistration  OBJECT-TYPE
+        SYNTAX      INTEGER {
+                    enable(1),
+                    disable(2)
+                    }
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "Admission control event type: cm registration, if it's configured 'enable(1)', admission control
+             check this event type." 
+	    DEFVAL	{disable}
+        ::= { topCcmtsAdmissionCtrlCmtsCfgEntry 2 }       
+
+
+topCcmtsAdmissionCtrlCmtsCfgEventDynamicService  OBJECT-TYPE
+        SYNTAX      INTEGER {
+                    enable(1),
+                    disable(2)
+                    }
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "Admission control event type: dynamic dsx, if it's configured 'enable(1)', admission control
+             check this event type." 
+	    DEFVAL	{disable}
+        ::= { topCcmtsAdmissionCtrlCmtsCfgEntry 3 }      
+
+topCcmtsAdmissionCtrlCmtsCfgEventHistorySize  OBJECT-TYPE
+        SYNTAX      INTEGER(0..1024)
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "The maximum entry size of admission control rejected event historys.
+            if it's configured 0, no history will be recorded." 
+	    DEFVAL	{64}
+        ::= { topCcmtsAdmissionCtrlCmtsCfgEntry 4 }     
+            
+topCcmtsAdmissionCtrlCmtsCfgEventHistoryLastIndex  OBJECT-TYPE
+        SYNTAX      INTEGER(0..1024)
+        MAX-ACCESS  read-only
+        STATUS      current         
+        DESCRIPTION
+            "The last index of admission control rejected event historys.
+            if it's 0, no recorded history." 
+	    DEFVAL	{0}
+        ::= { topCcmtsAdmissionCtrlCmtsCfgEntry 5 }   
+             
+--
+--topCcmtsAdmissionCtrlUsCfgTable
+--
+topCcmtsAdmissionCtrlUsCfgTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsAdmissionCtrlUsCfgEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control upstream configuration table."
+	::={ topCcmtsAdmissionCtrlObject 2 }
+
+topCcmtsAdmissionCtrlUsCfgEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsAdmissionCtrlUsCfgEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control upstream configuration table entry,
+		 the parameters will apply with each upstream channel."
+	INDEX { topCcmtsAdmissionCtrlUsCfgIfindex,
+	        topCcmtsAdmissionCtrlUsCfgSchedType }
+	::= { topCcmtsAdmissionCtrlUsCfgTable 1 }       
+	
+	
+TopCcmtsAdmissionCtrlUsCfgEntry ::=SEQUENCE{
+    topCcmtsAdmissionCtrlUsCfgIfindex                    InterfaceIndex, 
+    topCcmtsAdmissionCtrlUsCfgSchedType                  SchedulingType,  
+    topCcmtsAdmissionCtrlUsCfgExclusivePercent           Unsigned32,   
+    topCcmtsAdmissionCtrlUsCfgNonExclusivePercent        Unsigned32,      
+    topCcmtsAdmissionCtrlUsCfgMinorThreshold             Unsigned32,   
+    topCcmtsAdmissionCtrlUsCfgMajorThreshold             Unsigned32  
+	}
+
+topCcmtsAdmissionCtrlUsCfgIfindex OBJECT-TYPE
+	SYNTAX		InterfaceIndex
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"CMTS Mac domain ifindex."   
+	::={ topCcmtsAdmissionCtrlUsCfgEntry 1 }    
+	
+topCcmtsAdmissionCtrlUsCfgSchedType OBJECT-TYPE
+	SYNTAX		SchedulingType
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Upstream service flow scheduling type."   
+	::={ topCcmtsAdmissionCtrlUsCfgEntry 2 }       
+	
+topCcmtsAdmissionCtrlUsCfgExclusivePercent OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource exclusive percent threshold,
+		 0 indicated exclusive bandwidth threshold is ignored when admission control checking."    
+    DEFVAL	{0}
+	::={ topCcmtsAdmissionCtrlUsCfgEntry 3 }  	
+
+topCcmtsAdmissionCtrlUsCfgNonExclusivePercent OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource non-exclusive percent threshold,
+		 0 indicated non-exclusive bandwidth threshold is ignored when admissiong control checking."    
+    DEFVAL	{0}
+	::={ topCcmtsAdmissionCtrlUsCfgEntry 4 }  	
+
+topCcmtsAdmissionCtrlUsCfgMinorThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource usage alarm minor threshold,units: percent. 	
+         minor threshold should be smaller than 'topCcmtsAdmissionCtrlUsCfgMajorThreshold'."    
+    DEFVAL	{0}
+	::={ topCcmtsAdmissionCtrlUsCfgEntry 5 }  	
+
+topCcmtsAdmissionCtrlUsCfgMajorThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource usage alarm major threshold,units: percent.
+		 major threshold should be bigger than 'topCcmtsAdmissionCtrlUsCfgMinorThreshold'."    
+    DEFVAL	{0}
+	::={ topCcmtsAdmissionCtrlUsCfgEntry 6 }  	
+
+
+--
+--topCcmtsAdmissionCtrlDsCfgTable
+--
+topCcmtsAdmissionCtrlDsCfgTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsAdmissionCtrlDsCfgEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control downstream configuration table."
+	::={ topCcmtsAdmissionCtrlObject 3 }
+
+topCcmtsAdmissionCtrlDsCfgEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsAdmissionCtrlDsCfgEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control downstream configuration table entry,
+		 the parameters will apply with each downstream channel."
+	INDEX { topCcmtsAdmissionCtrlDsCfgIfindex,
+	        topCcmtsAdmissionCtrlDsCfgTrafficType }
+	::= { topCcmtsAdmissionCtrlDsCfgTable 1 }       
+	
+	
+TopCcmtsAdmissionCtrlDsCfgEntry ::=SEQUENCE{
+    topCcmtsAdmissionCtrlDsCfgIfindex                    InterfaceIndex, 
+    topCcmtsAdmissionCtrlDsCfgTrafficType                  INTEGER,  
+    topCcmtsAdmissionCtrlDsCfgExclusivePercent           Unsigned32,   
+    topCcmtsAdmissionCtrlDsCfgNonExclusivePercent        Unsigned32,      
+    topCcmtsAdmissionCtrlDsCfgMinorThreshold             Unsigned32,   
+    topCcmtsAdmissionCtrlDsCfgMajorThreshold             Unsigned32  
+	}
+
+topCcmtsAdmissionCtrlDsCfgIfindex OBJECT-TYPE
+	SYNTAX		InterfaceIndex
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"CMTS Mac domain ifindex."   
+	::={ topCcmtsAdmissionCtrlDsCfgEntry 1 }    
+	
+topCcmtsAdmissionCtrlDsCfgTrafficType OBJECT-TYPE
+	SYNTAX		INTEGER{
+	                   voice(100),
+	                   data(101)
+	                   }
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Downstream traffic type."   
+	::={ topCcmtsAdmissionCtrlDsCfgEntry 2 }       
+	
+topCcmtsAdmissionCtrlDsCfgExclusivePercent OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource exclusive percent threshold,
+		 0 indicated exclusive bandwidth threshold is ignored when admissiong control checking."    
+    DEFVAL	{0}
+	::={ topCcmtsAdmissionCtrlDsCfgEntry 3 }  	
+
+topCcmtsAdmissionCtrlDsCfgNonExclusivePercent OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource non-exclusive percent threshold,
+		 0 indicated non-exclusive bandwidth threshold is ignored when admissiong control checking."    
+    DEFVAL	{0}
+	::={ topCcmtsAdmissionCtrlDsCfgEntry 4 }  	
+
+topCcmtsAdmissionCtrlDsCfgMinorThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource usage alarm minor threshold,units: percent. 	
+         minor threshold should be smaller than 'topCcmtsAdmissionCtrlDsCfgMajorThreshold'."    
+    DEFVAL	{0}
+	::={ topCcmtsAdmissionCtrlDsCfgEntry 5 }  	
+
+topCcmtsAdmissionCtrlDsCfgMajorThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource usage alarm major threshold,units: percent. 	
+         major threshold should be bigger than 'topCcmtsAdmissionCtrlDsCfgMinorThreshold'."    
+    DEFVAL	{0}
+	::={ topCcmtsAdmissionCtrlDsCfgEntry 6 }  	
+	
+
+--
+--topCcmtsAdmissionCtrlUsStatTable
+--
+topCcmtsAdmissionCtrlUsStatTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsAdmissionCtrlUsStatEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control upstream channel statistics table."
+	::={ topCcmtsAdmissionCtrlObject 4 }
+
+topCcmtsAdmissionCtrlUsStatEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsAdmissionCtrlUsStatEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control upstream channel statistics table entry,"
+	INDEX { topCcmtsAdmissionCtrlUsStatIfindex,
+	        topCcmtsAdmissionCtrlUsStatSchedType }
+	::= { topCcmtsAdmissionCtrlUsStatTable 1 }       
+	
+	
+TopCcmtsAdmissionCtrlUsStatEntry ::=SEQUENCE{
+    topCcmtsAdmissionCtrlUsStatIfindex                    InterfaceIndex, 
+    topCcmtsAdmissionCtrlUsStatSchedType                  INTEGER,  
+    topCcmtsAdmissionCtrlUsStatActiveExclusivePercent           Unsigned32,   
+    topCcmtsAdmissionCtrlUsStatActiveNonExclusivePercent        Unsigned32
+	}
+
+topCcmtsAdmissionCtrlUsStatIfindex OBJECT-TYPE
+	SYNTAX		InterfaceIndex
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"CMTS upstream channel ifindex."   
+	::={ topCcmtsAdmissionCtrlUsStatEntry 1 }    
+
+
+topCcmtsAdmissionCtrlUsStatSchedType OBJECT-TYPE
+	SYNTAX		SchedulingType
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Upstream service flow scheduling type."   
+	::={ topCcmtsAdmissionCtrlUsStatEntry 2 }    
+
+topCcmtsAdmissionCtrlUsStatActiveExclusivePercent OBJECT-TYPE
+	SYNTAX		Unsigned32(0..10000)
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"Active used exclusive bandwidth percent."   
+	::={ topCcmtsAdmissionCtrlUsStatEntry 3 } 
+
+topCcmtsAdmissionCtrlUsStatActiveNonExclusivePercent OBJECT-TYPE
+	SYNTAX		Unsigned32(0..10000)
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"Active used non-exclusive bandwidth percent."   
+	::={ topCcmtsAdmissionCtrlUsStatEntry 4 } 
+
+
+--
+--topCcmtsAdmissionCtrlDsStatTable
+--
+topCcmtsAdmissionCtrlDsStatTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsAdmissionCtrlDsStatEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control downstream channel statistics table."
+	::={ topCcmtsAdmissionCtrlObject 5 }
+
+topCcmtsAdmissionCtrlDsStatEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsAdmissionCtrlDsStatEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control downstream channel statistics table entry,"
+	INDEX { topCcmtsAdmissionCtrlDsStatIfindex,
+	        topCcmtsAdmissionCtrlDsStatTrafficType }
+	::= { topCcmtsAdmissionCtrlDsStatTable 1 }       
+	
+	
+TopCcmtsAdmissionCtrlDsStatEntry ::=SEQUENCE{
+    topCcmtsAdmissionCtrlDsStatIfindex                    InterfaceIndex, 
+    topCcmtsAdmissionCtrlDsStatTrafficType                INTEGER,  
+    topCcmtsAdmissionCtrlDsStatActiveExclusivePercent           Unsigned32,   
+    topCcmtsAdmissionCtrlDsStatActiveNonExclusivePercent        Unsigned32
+	}
+
+topCcmtsAdmissionCtrlDsStatIfindex OBJECT-TYPE
+	SYNTAX		InterfaceIndex
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"CMTS downstream channel ifindex."   
+	::={ topCcmtsAdmissionCtrlDsStatEntry 1 }    
+
+
+topCcmtsAdmissionCtrlDsStatTrafficType OBJECT-TYPE
+	SYNTAX		INTEGER{
+	                   voice(100),
+	                   data(101)
+	                   }
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Downstream service flow scheduling type."   
+	::={ topCcmtsAdmissionCtrlDsStatEntry 2 }    
+
+topCcmtsAdmissionCtrlDsStatActiveExclusivePercent OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Active used exclusive bandwidth percent."   
+	::={ topCcmtsAdmissionCtrlDsStatEntry 3 } 
+
+topCcmtsAdmissionCtrlDsStatActiveNonExclusivePercent OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Active used non-exclusive bandwidth percent."   
+	::={ topCcmtsAdmissionCtrlDsStatEntry 4 }  
+	
+	
+--
+--topCcmtsAdmissionCtrlEventHistoryTable
+--
+	 
+topCcmtsAdmissionCtrlEventHistoryTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsAdmissionCtrlEventHistoryEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control rejected event history table."
+	::={ topCcmtsAdmissionCtrlObject 6 }
+
+topCcmtsAdmissionCtrlEventHistoryEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsAdmissionCtrlEventHistoryEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control rejected event history table entry."
+	INDEX {topCcmtsAdmissionCtrlEventHistoryCmtsIfindex,
+	      topCcmtsAdmissionCtrlEventHistoryIndex}  
+	::= { topCcmtsAdmissionCtrlEventHistoryTable 1 }       
+	
+	
+TopCcmtsAdmissionCtrlEventHistoryEntry ::=SEQUENCE{    
+    topCcmtsAdmissionCtrlEventHistoryCmtsIfindex                        INTEGER,   
+    topCcmtsAdmissionCtrlEventHistoryIndex                        INTEGER, 
+    topCcmtsAdmissionCtrlEventHistoryTimeStamp                    TimeTicks,  
+    topCcmtsAdmissionCtrlEventHistoryCmMac                        MacAddress,
+    topCcmtsAdmissionCtrlEventHistoryEventTypeChecked           INTEGER, 
+    topCcmtsAdmissionCtrlEventHistoryDirection         IANAifType,
+    topCcmtsAdmissionCtrlEventHistoryChannelId         INTEGER,
+    topCcmtsAdmissionCtrlEventHistoryType              INTEGER,
+    topCcmtsAdmissionCtrlEventHistoryExclusive  INTEGER,           
+    topCcmtsAdmissionCtrlEventHistoryNonExclusive  INTEGER,      
+    topCcmtsAdmissionCtrlEventHistoryActualExclusive   INTEGER,  
+    topCcmtsAdmissionCtrlEventHistoryActualNonExclusive    INTEGER,
+    topCcmtsAdmissionCtrlEventHistoryRFNonExclusive       INTEGER
+}
+
+topCcmtsAdmissionCtrlEventHistoryCmtsIfindex OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Rejected event history cmts ifindex."   
+	::={ topCcmtsAdmissionCtrlEventHistoryEntry 1 }   
+	 
+topCcmtsAdmissionCtrlEventHistoryIndex OBJECT-TYPE
+	SYNTAX		INTEGER(1..1024)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Rejected event history index."   
+	::={ topCcmtsAdmissionCtrlEventHistoryEntry 2 }    
+
+topCcmtsAdmissionCtrlEventHistoryCmMac OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"Rejected event cable modem mac."   
+	::={ topCcmtsAdmissionCtrlEventHistoryEntry 3 }   
+	
+topCcmtsAdmissionCtrlEventHistoryTimeStamp OBJECT-TYPE
+	SYNTAX		TimeTicks
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The sys-uptime of rejected event."   
+	::={ topCcmtsAdmissionCtrlEventHistoryEntry 4 }    
+
+topCcmtsAdmissionCtrlEventHistoryEventTypeChecked OBJECT-TYPE
+	SYNTAX		INTEGER{
+	                 cmRegistration(1),
+	                 dynamicService(2)
+	                 }
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"Event type checked."   
+	::={ topCcmtsAdmissionCtrlEventHistoryEntry 5 }    
+
+
+topCcmtsAdmissionCtrlEventHistoryDirection OBJECT-TYPE
+	SYNTAX		IANAifType
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The channel type of rejected event occured."   
+	::={ topCcmtsAdmissionCtrlEventHistoryEntry 6 }   
+	
+
+topCcmtsAdmissionCtrlEventHistoryChannelId OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The channel ID of rejected event occured."   
+	::={ topCcmtsAdmissionCtrlEventHistoryEntry 7 }        
+	
+topCcmtsAdmissionCtrlEventHistoryType OBJECT-TYPE
+	SYNTAX		INTEGER { 
+                         undefined (1), 
+                         usBestEffort (2), 
+                         usNonRealTimePollingService(3), 
+                         usRealTimePollingService(4), 
+                         usUnsolictedGrantServiceWithAD(5), 
+                         usUnsolictedGrantService(6),
+                         dsVoice(100),  
+                         dsData(101)
+                         } 
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The flow type of rejected event."   
+	::={ topCcmtsAdmissionCtrlEventHistoryEntry 8 }   
+
+topCcmtsAdmissionCtrlEventHistoryExclusive OBJECT-TYPE
+	SYNTAX		INTEGER(0..100)	
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The exclusive percent."   
+	::={ topCcmtsAdmissionCtrlEventHistoryEntry 9 } 
+	
+topCcmtsAdmissionCtrlEventHistoryNonExclusive OBJECT-TYPE
+	SYNTAX		INTEGER(0..100)	
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The non-exclusive percent."   
+	::={ topCcmtsAdmissionCtrlEventHistoryEntry 10 }   
+	
+topCcmtsAdmissionCtrlEventHistoryActualExclusive OBJECT-TYPE
+	SYNTAX		INTEGER(0..10000)	
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The active used exclusive percent."   
+	::={ topCcmtsAdmissionCtrlEventHistoryEntry 11 } 
+ 	
+topCcmtsAdmissionCtrlEventHistoryActualNonExclusive OBJECT-TYPE
+	SYNTAX		INTEGER(0..10000)	
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The active used non-exclusive percent."   
+	::={ topCcmtsAdmissionCtrlEventHistoryEntry 12 }    
+	
+topCcmtsAdmissionCtrlEventHistoryRFNonExclusive OBJECT-TYPE
+	SYNTAX		INTEGER(0..10000)
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The active used RFI non-exclusive percent."   
+	::={ topCcmtsAdmissionCtrlEventHistoryEntry 13 }    
+	
+------------------------------------------------------------------------------
+--  topCcmtsTemplateAdmissionCtrlCmtsCfgTable
+--  added at 2017-01-24
+--  author liubin
+------------------------------------------------------------------------------
+topCcmtsTemplateAdmissionCtrlCmtsCfgTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsTemplateAdmissionCtrlCmtsCfgEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control cmts global configuration table."
+	::={ topCcmtsAdmissionCtrlObject 7 }
+
+topCcmtsTemplateAdmissionCtrlCmtsCfgEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsTemplateAdmissionCtrlCmtsCfgEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control cmts global configuration table entry"
+	INDEX { topCcmtsTemplateIndex }
+	::= { topCcmtsTemplateAdmissionCtrlCmtsCfgTable 1 }       
+		
+TopCcmtsTemplateAdmissionCtrlCmtsCfgEntry ::=SEQUENCE{
+    topCcmtsTemplateAdmissionCtrlCmtsCfgEventCmRegistration     INTEGER,  
+    topCcmtsTemplateAdmissionCtrlCmtsCfgEventDynamicService     INTEGER,   
+    topCcmtsTemplateAdmissionCtrlCmtsCfgEventHistorySize        INTEGER     
+	}  
+        
+topCcmtsTemplateAdmissionCtrlCmtsCfgEventCmRegistration  OBJECT-TYPE
+        SYNTAX      INTEGER {
+                    enable(1),
+                    disable(2)
+                    }
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "Admission control event type: cm registration, if it's configured 'enable(1)', admission control
+             check this event type." 
+	    DEFVAL	{disable}
+        ::= { topCcmtsTemplateAdmissionCtrlCmtsCfgEntry 1 }       
+
+
+topCcmtsTemplateAdmissionCtrlCmtsCfgEventDynamicService  OBJECT-TYPE
+        SYNTAX      INTEGER {
+                    enable(1),
+                    disable(2)
+                    }
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "Admission control event type: dynamic dsx, if it's configured 'enable(1)', admission control
+             check this event type." 
+	    DEFVAL	{disable}
+        ::= { topCcmtsTemplateAdmissionCtrlCmtsCfgEntry 2 }      
+
+topCcmtsTemplateAdmissionCtrlCmtsCfgEventHistorySize  OBJECT-TYPE
+        SYNTAX      INTEGER(0..1024)
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "The maximum entry size of admission control rejected event historys.
+            if it's configured 0, no history will be recorded." 
+	    DEFVAL	{64}
+        ::= { topCcmtsTemplateAdmissionCtrlCmtsCfgEntry 3 }
+             
+------------------------------------------------------------------------------
+--  topCcmtsTemplateAdmissionCtrlUsCfgTable
+--  added at 2017-01-24
+--  author liubin
+------------------------------------------------------------------------------
+topCcmtsTemplateAdmissionCtrlUsCfgTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsTemplateAdmissionCtrlUsCfgEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control upstream configuration table."
+	::={ topCcmtsAdmissionCtrlObject 8 }
+
+topCcmtsTemplateAdmissionCtrlUsCfgEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsTemplateAdmissionCtrlUsCfgEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control upstream configuration table entry,
+		 the parameters will apply with each upstream channel."
+	INDEX { topCcmtsTemplateIndex,
+			topCcmtsTemplateUpChannelId,
+	        topCcmtsTemplateAdmissionCtrlUsCfgSchedType }
+	::= { topCcmtsTemplateAdmissionCtrlUsCfgTable 1 }       
+	
+	
+TopCcmtsTemplateAdmissionCtrlUsCfgEntry ::=SEQUENCE{ 
+    topCcmtsTemplateAdmissionCtrlUsCfgSchedType                  SchedulingType,  
+    topCcmtsTemplateAdmissionCtrlUsCfgExclusivePercent           Unsigned32,   
+    topCcmtsTemplateAdmissionCtrlUsCfgNonExclusivePercent        Unsigned32,      
+    topCcmtsTemplateAdmissionCtrlUsCfgMinorThreshold             Unsigned32,   
+    topCcmtsTemplateAdmissionCtrlUsCfgMajorThreshold             Unsigned32  
+	}
+	
+topCcmtsTemplateAdmissionCtrlUsCfgSchedType OBJECT-TYPE
+	SYNTAX		SchedulingType
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Upstream service flow scheduling type."   
+	::={ topCcmtsTemplateAdmissionCtrlUsCfgEntry 1 }       
+	
+topCcmtsTemplateAdmissionCtrlUsCfgExclusivePercent OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource exclusive percent threshold,
+		 0 indicated exclusive bandwidth threshold is ignored when admission control checking."    
+    DEFVAL	{0}
+	::={ topCcmtsTemplateAdmissionCtrlUsCfgEntry 2 }  	
+
+topCcmtsTemplateAdmissionCtrlUsCfgNonExclusivePercent OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource non-exclusive percent threshold,
+		 0 indicated non-exclusive bandwidth threshold is ignored when admissiong control checking."    
+    DEFVAL	{0}
+	::={ topCcmtsTemplateAdmissionCtrlUsCfgEntry 3 }
+
+topCcmtsTemplateAdmissionCtrlUsCfgMinorThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource usage alarm minor threshold,units: percent. 	
+         minor threshold should be smaller than 'topCcmtsTemplateAdmissionCtrlUsCfgMajorThreshold'."    
+    DEFVAL	{0}
+	::={ topCcmtsTemplateAdmissionCtrlUsCfgEntry 4 }  	
+
+topCcmtsTemplateAdmissionCtrlUsCfgMajorThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource usage alarm major threshold,units: percent.
+		 major threshold should be bigger than 'topCcmtsTemplateAdmissionCtrlUsCfgMinorThreshold'."    
+    DEFVAL	{0}
+	::={ topCcmtsTemplateAdmissionCtrlUsCfgEntry 5 }  	
+
+------------------------------------------------------------------------------
+--  topCcmtsTemplateAdmissionCtrlDsCfgTable
+--  added at 2017-01-24
+--  author liubin
+------------------------------------------------------------------------------
+topCcmtsTemplateAdmissionCtrlDsCfgTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsTemplateAdmissionCtrlDsCfgEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control downstream configuration table."
+	::={ topCcmtsAdmissionCtrlObject 9 }
+
+topCcmtsTemplateAdmissionCtrlDsCfgEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsTemplateAdmissionCtrlDsCfgEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Admission control downstream configuration table entry,
+		 the parameters will apply with each downstream channel."
+	INDEX { topCcmtsTemplateIndex,
+			topCcmtsTemplateDownChannelId ,
+	        topCcmtsTemplateAdmissionCtrlDsCfgTrafficType }
+	::= { topCcmtsTemplateAdmissionCtrlDsCfgTable 1 }       
+	
+	
+TopCcmtsTemplateAdmissionCtrlDsCfgEntry ::=SEQUENCE{
+    topCcmtsTemplateAdmissionCtrlDsCfgTrafficType                  INTEGER,  
+    topCcmtsTemplateAdmissionCtrlDsCfgExclusivePercent           Unsigned32,   
+    topCcmtsTemplateAdmissionCtrlDsCfgNonExclusivePercent        Unsigned32,      
+    topCcmtsTemplateAdmissionCtrlDsCfgMinorThreshold             Unsigned32,   
+    topCcmtsTemplateAdmissionCtrlDsCfgMajorThreshold             Unsigned32  
+	}  
+	
+topCcmtsTemplateAdmissionCtrlDsCfgTrafficType OBJECT-TYPE
+	SYNTAX		INTEGER{
+	                   voice(100),
+	                   data(101)
+	                   }
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Downstream traffic type."   
+	::={ topCcmtsTemplateAdmissionCtrlDsCfgEntry 1 }       
+	
+topCcmtsTemplateAdmissionCtrlDsCfgExclusivePercent OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource exclusive percent threshold,
+		 0 indicated exclusive bandwidth threshold is ignored when admissiong control checking."    
+    DEFVAL	{0}
+	::={ topCcmtsTemplateAdmissionCtrlDsCfgEntry 2 }  	
+
+topCcmtsTemplateAdmissionCtrlDsCfgNonExclusivePercent OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource non-exclusive percent threshold,
+		 0 indicated non-exclusive bandwidth threshold is ignored when admissiong control checking."    
+    DEFVAL	{0}
+	::={ topCcmtsTemplateAdmissionCtrlDsCfgEntry 3 }  	
+
+topCcmtsTemplateAdmissionCtrlDsCfgMinorThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource usage alarm minor threshold,units: percent. 	
+         minor threshold should be smaller than 'topCcmtsTemplateAdmissionCtrlDsCfgMajorThreshold'."    
+    DEFVAL	{0}
+	::={ topCcmtsTemplateAdmissionCtrlDsCfgEntry 4 }  	
+
+topCcmtsTemplateAdmissionCtrlDsCfgMajorThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32(0..100)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Channel bandwidth resource usage alarm major threshold,units: percent. 	
+         major threshold should be bigger than 'topCcmtsTemplateAdmissionCtrlDsCfgMinorThreshold'."    
+    DEFVAL	{0}
+	::={ topCcmtsTemplateAdmissionCtrlDsCfgEntry 5 }  	
+		
+	
+END

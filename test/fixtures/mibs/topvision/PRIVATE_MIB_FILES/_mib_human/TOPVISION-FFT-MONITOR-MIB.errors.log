@@ -1,0 +1,13 @@
+MIB search path: /Users/mcotner/.snmp/mibs:/opt/homebrew/Cellar/net-snmp/5.9.4/share/snmp/mibs:/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES
+Cannot find module (DOCS-IF-MIB): At line 32 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-TEMPLATE-MIB.mib
+Cannot find module (DOCS-IF-MIB): At line 37 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-LOADBALANCING-MIB): At line 39 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-IF3-MIB): At line 43 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-QOS-MIB): At line 53 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Bad operator (_): At line 2601 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Expected "(" (_): At line 633 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-TEMPLATE-MIB.mib
+Should be ACCESS (hold): At line 633 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-TEMPLATE-MIB.mib
+Bad parse of OBJECT-TYPE: At line 633 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-TEMPLATE-MIB.mib
+Expected "(" (_): At line 145 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-FFT-MONITOR-MIB.mib
+Should be ACCESS (time): At line 145 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-FFT-MONITOR-MIB.mib
+Bad parse of OBJECT-TYPE: At line 145 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-FFT-MONITOR-MIB.mib

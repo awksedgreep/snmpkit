@@ -1,0 +1,74 @@
+MIB search path: /Users/mcotner/.snmp/mibs:/opt/homebrew/Cellar/net-snmp/5.9.4/share/snmp/mibs:/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES
+Cannot find module (DOCS-IF3-MIB): At line 20 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-DOCS-EXT-MIB.mib
+Cannot find module (DOCS-IF-MIB): At line 37 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-LOADBALANCING-MIB): At line 39 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-IF3-MIB): At line 43 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-QOS-MIB): At line 53 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Bad operator (_): At line 2601 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Did not find 'docsIf3CmtsCmRegStatusId' in module #-1 (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-DOCS-EXT-MIB.mib)
+Did not find 'topCcmtsMibObject' in module TOPVISION-CCMTS-MIB (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-DOCS-EXT-MIB.mib)
+Unlinked OID in TOPVISION-DOCS-EXT-MIB: topDocsExtMIB ::= { topCcmtsMibObject 10 }
+Undefined identifier: topCcmtsMibObject near line 31 of /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-DOCS-EXT-MIB.mib
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topIpv6CmCpeIndexEntry ::= { topIpv6CmCpeIndexTable 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeIpIndexEntry ::= { topCpeIpIndexTable 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeIpIndexVlanTable ::= { topDocsExtMIB 10 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCcmtsAutoDelOfflineCmCpeObject ::= { topDocsExtMIB 9 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topIpv6PrefixCmCpeIndexTable ::= { topDocsExtMIB 8 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topIpv6CmCpeIndexTable ::= { topDocsExtMIB 7 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeIpv6IndexTable ::= { topDocsExtMIB 6 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeIpIndexTable ::= { topDocsExtMIB 5 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeIndexTable ::= { topDocsExtMIB 4 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCcmtsSharedSecretTable ::= { topDocsExtMIB 3 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCcmtsCpeSummaryTable ::= { topDocsExtMIB 2 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeTable ::= { topDocsExtMIB 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeDualMode ::= { topCmCpeEntry 10 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeIpv6Type ::= { topCmCpeEntry 9 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeIpv6Address ::= { topCmCpeEntry 8 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeStatus ::= { topCmCpeEntry 7 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeToCmMacAddr ::= { topCmCpeEntry 6 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeCmStatusIndex ::= { topCmCpeEntry 5 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeCcmtsIfIndex ::= { topCmCpeEntry 4 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeIpAddress ::= { topCmCpeEntry 3 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeType ::= { topCmCpeEntry 2 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeMacAddress ::= { topCmCpeEntry 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topIpv6PrefixCmCpeIndexEntry ::= { topIpv6PrefixCmCpeIndexTable 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topDocsExtMIB ::= { topCcmtsMibObject 10 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCcmtsSharedSecretCipherStr ::= { topCcmtsSharedSecretEntry 4 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCcmtsSharedSecretAuthStr ::= { topCcmtsSharedSecretEntry 3 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCcmtsSharedSecretEncrypted ::= { topCcmtsSharedSecretEntry 2 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCcmtsSharedSecretEnabled ::= { topCcmtsSharedSecretEntry 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeIpAddr ::= { topCmCpeIndexEntry 5 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeTypeStr ::= { topCmCpeIndexEntry 4 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeMacAddr ::= { topCmCpeIndexEntry 3 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeIpIndex ::= { topCmCpeIndexEntry 2 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmIndex ::= { topCmCpeIndexEntry 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topIpv6CmCpeIpAddr ::= { topIpv6CmCpeIndexEntry 4 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topIpv6CmCpeTypeStr ::= { topIpv6CmCpeIndexEntry 3 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topIpv6CmCpeMacAddr ::= { topIpv6CmCpeIndexEntry 2 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topIpv6CmCpeIpIndex ::= { topIpv6CmCpeIndexEntry 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeCmMacAddress ::= { topCpeIpIndexEntry 3 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeMacAddress ::= { topCpeIpIndexEntry 2 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeIpAddress ::= { topCpeIpIndexEntry 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeIpv6IndexEntry ::= { topCpeIpv6IndexTable 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeIpIndexVlanEntry ::= { topCpeIpIndexVlanTable 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeIpv6AddrCmMacAddress ::= { topIpv6PrefixCmCpeIndexEntry 4 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeIpv6AddrMacAddress ::= { topIpv6PrefixCmCpeIndexEntry 3 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeIpv6AddrPrefixLen ::= { topIpv6PrefixCmCpeIndexEntry 2 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeIpv6AddrPrefix ::= { topIpv6PrefixCmCpeIndexEntry 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCcmtsCpeSummaryEntry ::= { topCcmtsCpeSummaryTable 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCcmtsAutoDelOfflineCmCpeSwitch ::= { topCcmtsAutoDelOfflineCmCpeObject 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeIpv6CmMacAddress ::= { topCpeIpv6IndexEntry 3 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeIpv6MacAddress ::= { topCpeIpv6IndexEntry 2 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeIpv6Address ::= { topCpeIpv6IndexEntry 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeVrfCmMacAddress ::= { topCpeIpIndexVlanEntry 4 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeVrfMacAddress ::= { topCpeIpIndexVlanEntry 3 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeVrfIpVlan ::= { topCpeIpIndexVlanEntry 2 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCpeVrfIpAddress ::= { topCpeIpIndexVlanEntry 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeEntry ::= { topCmCpeTable 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCcmtsIapdNum ::= { topCcmtsCpeSummaryEntry 5 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCcmtsExtenDevNum ::= { topCcmtsCpeSummaryEntry 4 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCcmtsStbNum ::= { topCcmtsCpeSummaryEntry 3 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCcmtsMtaNum ::= { topCcmtsCpeSummaryEntry 2 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCcmtsHostNum ::= { topCcmtsCpeSummaryEntry 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCcmtsSharedSecretEntry ::= { topCcmtsSharedSecretTable 1 }
+Cannot adopt OID in TOPVISION-DOCS-EXT-MIB: topCmCpeIndexEntry ::= { topCmCpeIndexTable 1 }

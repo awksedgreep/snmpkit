@@ -1,0 +1,146 @@
+TOPVISION-CABLE-SPECTRUM-MIB  DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE, 
+    Unsigned32
+        FROM SNMPv2-SMI 
+    DateAndTime,
+    MacAddress
+        FROM SNMPv2-TC
+    topCcmtsMibObject
+		FROM TOPVISION-CCMTS-MIB;
+topCableSpectrumMib MODULE-IDENTITY
+    LAST-UPDATED    "201211130000Z"
+    ORGANIZATION    "Topvision, Inc."
+    CONTACT-INFO
+            "Topvision 
+            Postal: Topvision 
+            Yingchuang Building,
+	    Xierqi,Haidian,Beijing
+            China."
+    DESCRIPTION
+        "This is the MIB module for the Cable Spectrum Management
+        objects for CCMTS. "
+    REVISION        "201211130000Z"
+    DESCRIPTION
+        "Add new object topCmCpeTable."
+    ::= { topCcmtsMibObject 11 }
+
+topCmFlapTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF TopCmFlapEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This Object describes the cm flaps."
+    ::= { topCableSpectrumMib 1 }
+
+topCmFlapEntry OBJECT-TYPE
+    SYNTAX          TopCmFlapEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry in this table exists for each Cable Modem
+        inspected by Flap Detectors."
+    INDEX           { topCmFlapMacAddr } 
+    ::= { topCmFlapTable 1 }
+
+TopCmFlapEntry ::= SEQUENCE {
+        topCmFlapMacAddr            MacAddress,
+        topCmFlapLastFlapTime       DateAndTime,
+        topCmFlapInsertionFailNum   Unsigned32,
+        topCmFlapHitNum             Unsigned32,
+        topCmFlapMissNum            Unsigned32,
+        topCmFlapCrcErrorNum        Unsigned32,
+        topCmFlapPowerAdjLowerNum   Unsigned32,
+        topCmFlapPowerAdjHigherNum  Unsigned32,
+        topCmFlapTotalNum           Unsigned32
+        }
+
+topCmFlapMacAddr OBJECT-TYPE
+    SYNTAX          MacAddress
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "MAC address of the Cable Modem's Cable interface which
+        identifies a flapping Cable Modem." 
+    ::= { topCmFlapEntry 1 }
+
+topCmFlapLastFlapTime OBJECT-TYPE
+    SYNTAX          DateAndTime
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The flap time is set whenever the Cable Modem triggers a
+        flap detector." 
+    ::= { topCmFlapEntry 2 }
+
+topCmFlapInsertionFailNum OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "" 
+    ::= { topCmFlapEntry 3 }
+
+topCmFlapHitNum OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "" 
+    ::= { topCmFlapEntry 4 }
+
+topCmFlapMissNum OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "" 
+    ::= { topCmFlapEntry 5 }
+
+topCmFlapCrcErrorNum OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "" 
+    ::= { topCmFlapEntry 6 }
+
+topCmFlapPowerAdjLowerNum OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "" 
+    ::= { topCmFlapEntry 7 }    
+    
+    
+topCmFlapPowerAdjHigherNum OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "" 
+    ::= { topCmFlapEntry 8 }
+
+
+topCmFlapTotalNum OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "" 
+    ::= { topCmFlapEntry 9 }   
+    
+ topCmFlapInterval OBJECT-TYPE
+        SYNTAX      Unsigned32 (60..86400)
+        UNITS       "seconds"
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "The time interval in seconds over which the Cable Modem Flap
+              is calculated."
+        ::= { topCableSpectrumMib 2 }
+
+ END

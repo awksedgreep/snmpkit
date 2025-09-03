@@ -1,0 +1,834 @@
+TOPVISION-DOCS-EXT-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Integer32,
+	Unsigned32,
+    IpAddress
+        FROM SNMPv2-SMI
+    TruthValue,
+    DisplayString,
+    MacAddress,
+    RowStatus,
+    TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    ifIndex,
+    InterfaceIndex
+        FROM IF-MIB
+	docsIf3CmtsCmRegStatusId 
+             FROM DOCS-IF3-MIB
+	Ipv6Address,
+	Ipv6AddressPrefix
+			FROM IPV6-TC  -- RFC2465
+    InetAddress,
+    InetAddressType
+        FROM INET-ADDRESS-MIB
+    topCcmtsMibObject
+	FROM TOPVISION-CCMTS-MIB;
+	 
+			 
+topDocsExtMIB MODULE-IDENTITY
+    LAST-UPDATED    "201211130000Z"
+    ORGANIZATION    "Topvision, Inc."
+    CONTACT-INFO
+            "Topvision 
+            Postal: Topvision 
+            Yingchuang Building,
+	    Xierqi,Haidian,Beijing
+            China."
+    DESCRIPTION
+        "This is the MIB module for the Topvision specific extension
+        objects of Data Over Cable Service, Radio Frequency 
+        interface. "
+    REVISION        "201211130000Z"
+    DESCRIPTION
+        "Add new object topCmCpeTable."
+    ::= { topCcmtsMibObject 10 }
+
+--   
+-- Cable modem (CM) or Customer Premises Equipments (CPE) Table
+--   
+-- For the information of CM or CPE maintained in CMTS.
+
+topCmCpeTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF TopCmCpeEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table contains information about 
+        Customer Premises Equipments (CPE)."
+    ::= { topDocsExtMIB 1 }
+
+topCmCpeEntry OBJECT-TYPE
+    SYNTAX          TopCmCpeEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The list contains information for a
+        Customer Premises Equipment (CPE). An entry exist for 
+        each cable modem supported by CMTS and each Customer
+        Premises Equipment connected to a cable modem supported by
+        CMTS."
+    INDEX           { topCmCpeMacAddress } 
+    ::= { topCmCpeTable 1 }
+
+TopCmCpeEntry ::= SEQUENCE {
+        topCmCpeMacAddress    MacAddress,
+        topCmCpeType          INTEGER,
+        topCmCpeIpAddress     IpAddress,
+        topCmCpeCcmtsIfIndex  InterfaceIndex,
+        topCmCpeCmStatusIndex Integer32,
+        topCmCpeToCmMacAddr	  MacAddress,
+        topCmCpeStatus		  RowStatus,
+		topCmCpeIpv6Address   Ipv6Address,
+		topCmCpeIpv6Type      INTEGER,
+		topCmCpeDualMode      INTEGER
+}
+
+topCmCpeMacAddress OBJECT-TYPE
+    SYNTAX          MacAddress
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The Mac address to identify a Customer
+        Premises Equipment." 
+    ::= { topCmCpeEntry 1 }
+
+topCmCpeType OBJECT-TYPE
+    SYNTAX          INTEGER  {
+						unknown(0),
+                        host(1),
+						mta(2),
+						stb(3),
+						extension(4)
+                    }
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Indicate this entry is for  Customer Premises
+        Equipment.  The enumerations are: 
+		unknown(0):
+        HOST(1): 
+	 	MTA(2):
+	 	STB(3):
+		extension(4):" 
+    ::= { topCmCpeEntry 2 }
+
+topCmCpeIpAddress OBJECT-TYPE
+    SYNTAX          IpAddress
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Ip address of the Customer Premises
+        Equipment." 
+    ::= { topCmCpeEntry 3 }
+	
+topCmCpeCcmtsIfIndex OBJECT-TYPE
+    SYNTAX          InterfaceIndex
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The CMTS cable MAC interface index (ifType of
+        docsCableMaclayer(127)) that Customer
+        Premises Equipment connects to.  
+
+        Use cdxCmCpeIfIndex and cdxCmCpeCmtsServiceId to identify
+        an  entry in docsIfCmtsServiceTable." 
+    ::= { topCmCpeEntry 4 }
+
+topCmCpeCmStatusIndex OBJECT-TYPE
+    SYNTAX          Integer32 (1..2147483647)
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Pointer to an entry in docsIfCmtsCmStatusTable identifying
+        status of the CM (which the CPE connects to.)" 
+    ::= { topCmCpeEntry 5 }       
+
+topCmCpeToCmMacAddr OBJECT-TYPE
+    SYNTAX          MacAddress
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The Mac address of the Cm Mac address that this Cpe connects to." 
+    ::= { topCmCpeEntry 6 } 
+
+topCmCpeStatus OBJECT-TYPE
+    SYNTAX          RowStatus
+    MAX-ACCESS      read-create
+    STATUS          current
+    DESCRIPTION
+		"Controls and reflects the status of rows in this
+		table.  Rows in this table can not be created by manual,
+		 just be created by CCMTS itself. either the create-and-go 
+		 or create-and-wait is supported. And rows can be destoryed
+		  while the row is active."  
+    ::= { topCmCpeEntry 7 } 
+	
+topCmCpeIpv6Address OBJECT-TYPE
+    SYNTAX          Ipv6Address
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Ipv6 address of the Customer Premises
+        Equipment." 
+    ::= { topCmCpeEntry 8 }
+	
+topCmCpeIpv6Type OBJECT-TYPE
+    SYNTAX          INTEGER  {
+						unknown(0),
+                        host(1),
+						mta(2),
+						stb(3),
+						extension(4),
+						erouter(5)
+                    }
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Indicate this entry is for  Customer Premises
+        Equipment of Ipv6 address.  The enumerations are: 
+		unknown(0):
+        HOST(1): 
+	 	MTA(2):
+	 	STB(3): 
+		extension(4):
+		erouter(5)" 
+    ::= { topCmCpeEntry 9 }
+	
+topCmCpeDualMode OBJECT-TYPE
+    SYNTAX          INTEGER  {
+                        ipv4(1),
+						ipv6(2),
+						dual-stack(3)
+                    }
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Indicate which IP protocol address that Customer Premises
+        Equipment request.  The enumerations are: 
+        ipv4(1),
+		ipv6(2),
+		dual-stack(3) " 
+    ::= { topCmCpeEntry 10 }
+    
+ --
+ --topCcmtsCpeSummaryTable
+ --  
+ topCcmtsCpeSummaryTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsCpeSummaryEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"This table count the number of different types of cpe per Ccmts."
+	::={ topDocsExtMIB 2 }
+
+topCcmtsCpeSummaryEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsCpeSummaryEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"The entry of topCcmtsCpeSummaryTable."
+	INDEX { ifIndex }
+	::={ topCcmtsCpeSummaryTable 1 }
+
+TopCcmtsCpeSummaryEntry ::=SEQUENCE {
+	topCcmtsHostNum	       Unsigned32,
+	topCcmtsMtaNum	  	   Unsigned32,
+	topCcmtsStbNum	       Unsigned32,
+	topCcmtsExtenDevNum    Unsigned32,
+	topCcmtsIapdNum        Unsigned32
+}
+
+topCcmtsHostNum OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The number of host of CCMTS."
+	::={ topCcmtsCpeSummaryEntry 1 }
+
+topCcmtsMtaNum OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The number of mta of CCMTS."
+	::={ topCcmtsCpeSummaryEntry 2 }
+
+topCcmtsStbNum OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The number of stb of CCTMS."
+	::={ topCcmtsCpeSummaryEntry 3 }
+
+topCcmtsExtenDevNum OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The number of extension device of CCMTS"
+	::={ topCcmtsCpeSummaryEntry 4 }
+	
+topCcmtsIapdNum  OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The number of iapd of CCMTS"
+	::={ topCcmtsCpeSummaryEntry 5 }
+
+
+ --
+ --topCcmtsSharedSecretTable
+ --  
+topCcmtsSharedSecretTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsSharedSecretEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"This table is used to config the CCMTS MIC shared-secret."
+	::={ topDocsExtMIB 3 }
+
+topCcmtsSharedSecretEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsSharedSecretEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"The entry of topCcmtsSharedSecretTable."
+	INDEX { ifIndex }
+	::={ topCcmtsSharedSecretTable 1 }
+
+TopCcmtsSharedSecretEntry ::=SEQUENCE {
+	topCcmtsSharedSecretEnabled			INTEGER,
+	topCcmtsSharedSecretEncrypted		INTEGER,
+	topCcmtsSharedSecretAuthStr			DisplayString,
+	topCcmtsSharedSecretCipherStr       DisplayString
+}
+
+topCcmtsSharedSecretEnabled OBJECT-TYPE
+	SYNTAX		           INTEGER  {
+							  enable(1),
+							  disable(2)
+						   }
+	MAX-ACCESS	           read-write
+	STATUS		           current
+	DESCRIPTION
+		"Enable or disable the CCMTS MIC.
+		 If enable be set, must set topCcmtsSharedSecretEncrypted .
+		 If disable is set, other is not necessary."
+	DEFVAL                 {2}
+	::={ topCcmtsSharedSecretEntry 1 }
+
+topCcmtsSharedSecretEncrypted OBJECT-TYPE
+	SYNTAX                 INTEGER {
+			                  unencrypted(0),
+		                      encrypted(7)
+		                   }
+	MAX-ACCESS             read-write
+	STATUS                 current	
+	DESCRIPTION
+		"This option identify the topCcmtsSharedSecretAuthStr is encrypted or not . 
+		
+		If unencrypted is set, the topCcmtsSharedSecretAuthStr must be followed.
+		
+		If encrypted is set, the topCcmtsSharedSecretCipherStr must be followed. "    
+	DEFVAL                 { 0 }
+	::={ topCcmtsSharedSecretEntry 2 } 
+	
+
+topCcmtsSharedSecretAuthStr OBJECT-TYPE
+	SYNTAX		           DisplayString (SIZE (0..16))
+	MAX-ACCESS             read-write
+	STATUS                 current
+	DESCRIPTION
+		"The MIC authentication string.  
+		 
+		 It is the plaintext same as the MIC shared-secret in the CM configuration file,
+		 and the length is 1 to 16. If the CCMTS MIC is disabled, length 0 is returned.
+		 
+		 If the value of topCcmtsSharedSecretEncrypted is 7,this element value is invisible
+		 with string ******** when read.
+		 
+		 This OID must be followed when topCcmtsSharedSecretEncrypted is 0. The value changes
+		 will cause topCcmtsSharedSecretCipherStr are modified. "
+	::={ topCcmtsSharedSecretEntry 3 }
+
+
+topCcmtsSharedSecretCipherStr OBJECT-TYPE
+	SYNTAX		           DisplayString (SIZE (32))
+	MAX-ACCESS             read-write
+	STATUS                 current
+	DESCRIPTION
+		"The cipher is encrypted by topCcmtsSharedSecretAuthStr in hexadecimal. 
+		
+		The length must be 32 when set.
+				
+		This OID must be followed when topCcmtsSharedSecretEncrypted is 0. The value changes
+		will cause topCcmtsSharedSecretAuthStr are modified. "	 
+
+	::={ topCcmtsSharedSecretEntry 4 }
+
+--   
+-- Cable modem (CM) or Customer Premises Equipments (CPE) Table
+--   
+-- For the information of CM or CPE maintained in CMTS.
+
+topCmCpeIndexTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF TopCmCpeIndexEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table contains information about 
+        Customer Premises Equipments (CPE)."
+    ::= { topDocsExtMIB 4 }
+
+topCmCpeIndexEntry OBJECT-TYPE
+    SYNTAX          TopCmCpeIndexEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The list contains information for a
+        Customer Premises Equipment (CPE). An entry exist for 
+        each cable modem supported by CMTS and each Customer
+        Premises Equipment connected to a cable modem supported by
+        CMTS."
+        INDEX   { topCmIndex,
+                  topCmCpeIpIndex }
+        ::= {topCmCpeIndexTable 1 }
+
+TopCmCpeIndexEntry ::= SEQUENCE {
+        topCmIndex 				Integer32,
+        topCmCpeIpIndex    		Integer32,
+        topCmCpeMacAddr		    MacAddress,
+        topCmCpeTypeStr      	OCTET STRING,
+        topCmCpeIpAddr		    IpAddress
+}
+
+topCmIndex OBJECT-TYPE
+     	SYNTAX      Integer32(1..2147483647)
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+				"The index of CM."
+      ::= { topCmCpeIndexEntry 1 }
+    
+topCmCpeIpIndex OBJECT-TYPE
+      SYNTAX      Integer32(1..1024)
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+				"The index of this CPE IP address relative to the indexed CM.
+      An entry is created through the included CPE IP addresses
+      in the provisioning object."
+      ::= { topCmCpeIndexEntry 2 }
+
+topCmCpeMacAddr				OBJECT-TYPE
+    	SYNTAX          MacAddress
+    	MAX-ACCESS      read-only
+    	STATUS          current
+    	DESCRIPTION
+      	"The Mac address to identify a Customer
+      Premises Equipment." 
+    	::= { topCmCpeIndexEntry 3 }
+    
+topCmCpeTypeStr OBJECT-TYPE
+      SYNTAX      OCTET STRING(SIZE(0..100))
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+        "Type of the Customer Premises
+      Equipment."
+      ::= { topCmCpeIndexEntry 4 }
+
+topCmCpeIpAddr			OBJECT-TYPE
+		SYNTAX          IpAddress
+    	MAX-ACCESS      read-only
+    	STATUS          current
+    	DESCRIPTION
+        "Ip address of the Customer Premises
+      Equipment." 
+    	::= { topCmCpeIndexEntry 5 }
+		
+
+--
+-- { added by guokunkun;2015-5-26
+--
+--
+-- topCpeIpIndexTable
+--   
+-- For the information of CPE MAC,query by CPE IP address.
+
+topCpeIpIndexTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF TopCpeIpIndexEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table contains information about 
+        Customer Premises Equipments (CPE)."
+    ::= { topDocsExtMIB 5 }
+
+topCpeIpIndexEntry OBJECT-TYPE
+    SYNTAX          TopCpeIpIndexEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The list contains information for a
+        Customer Premises Equipment (CPE). An entry exist for 
+        each cable modem supported by CMTS and each Customer
+        Premises Equipment connected to a cable modem supported by
+        CMTS."
+        INDEX   { topCpeIpAddress }
+        ::= {topCpeIpIndexTable 1 }
+
+TopCpeIpIndexEntry ::= SEQUENCE {
+        topCpeIpAddress 			IpAddress,
+        topCpeMacAddress    		MacAddress,
+        topCpeCmMacAddress		    MacAddress
+}
+
+topCpeIpAddress OBJECT-TYPE
+      SYNTAX      IpAddress
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+				"The Cpe ip address to identify a Customer
+        Premises Equipment."
+      ::= { topCpeIpIndexEntry 1 }
+    
+topCpeMacAddress  OBJECT-TYPE
+      SYNTAX      MacAddress
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+				"The CPE MAC address."
+      ::= { topCpeIpIndexEntry 2 }
+
+topCpeCmMacAddress	OBJECT-TYPE
+    	SYNTAX          MacAddress
+    	MAX-ACCESS      read-only
+    	STATUS          current
+    	DESCRIPTION
+      	"The Cable Modem MAC address." 
+    	::= { topCpeIpIndexEntry 3 }
+
+		
+		
+--
+-- topCpeIpv6IndexTable
+--   
+-- For the information of CPE MAC,query by CPE IPv6 address.
+
+topCpeIpv6IndexTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF TopCpeIpv6IndexEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table contains information about 
+        Customer Premises Equipments (CPE)."
+    ::= { topDocsExtMIB 6 }
+
+topCpeIpv6IndexEntry OBJECT-TYPE
+    SYNTAX          TopCpeIpv6IndexEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The list contains information for a
+        Customer Premises Equipment (CPE). An entry exist for 
+        each cable modem supported by CMTS and each Customer
+        Premises Equipment connected to a cable modem supported by
+        CMTS."
+        INDEX   { topCpeIpv6Address }
+        ::= {topCpeIpv6IndexTable 1 }
+
+TopCpeIpv6IndexEntry ::= SEQUENCE {
+        topCpeIpv6Address 			Ipv6Address,
+        topCpeIpv6MacAddress    	MacAddress,
+        topCpeIpv6CmMacAddress		MacAddress
+}
+
+topCpeIpv6Address OBJECT-TYPE
+      SYNTAX      Ipv6Address
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+				"The Cpe ipv6 address to identify a Customer
+        Premises Equipment."
+      ::= { topCpeIpv6IndexEntry 1 }
+    
+topCpeIpv6MacAddress  OBJECT-TYPE
+      SYNTAX      MacAddress
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+				"The CPE MAC address."
+      ::= { topCpeIpv6IndexEntry 2 }
+
+topCpeIpv6CmMacAddress	OBJECT-TYPE
+    	SYNTAX          MacAddress
+    	MAX-ACCESS      read-only
+    	STATUS          current
+    	DESCRIPTION
+      	"The Cable Modem MAC address." 
+    	::= { topCpeIpv6IndexEntry 3 }
+	
+		
+		
+--   
+-- Cable modem (CM) or Customer Premises Equipments (CPE) Table
+--   
+-- For the information of CM or CPE maintained in CMTS.
+
+topIpv6CmCpeIndexTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF TopIpv6CmCpeIndexEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table contains information about 
+        Customer Premises Equipments (CPE)."
+    ::= { topDocsExtMIB 7 }
+
+topIpv6CmCpeIndexEntry OBJECT-TYPE
+    SYNTAX          TopIpv6CmCpeIndexEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The list contains information for a
+        Customer Premises Equipment (CPE). An entry exist for 
+        each cable modem supported by CMTS and each Customer
+        Premises Equipment connected to a cable modem supported by
+        CMTS."
+        INDEX   { docsIf3CmtsCmRegStatusId,
+                  topIpv6CmCpeIpIndex }
+        ::= {topIpv6CmCpeIndexTable 1 }
+
+TopIpv6CmCpeIndexEntry ::= SEQUENCE {
+        topIpv6CmCpeIpIndex    		Integer32,
+        topIpv6CmCpeMacAddr		    MacAddress,
+        topIpv6CmCpeTypeStr      	OCTET STRING,
+		topIpv6CmCpeIpAddr          Ipv6Address
+}
+    
+topIpv6CmCpeIpIndex OBJECT-TYPE
+      SYNTAX      Integer32(1..1024)
+      MAX-ACCESS  not-accessible
+      STATUS      current
+      DESCRIPTION
+				"The index of this CPE IP address relative to the indexed CM.
+      An entry is created through the included CPE IP addresses
+      in the provisioning object."
+      ::= { topIpv6CmCpeIndexEntry 1 }
+
+topIpv6CmCpeMacAddr				OBJECT-TYPE
+    	SYNTAX          MacAddress
+    	MAX-ACCESS      read-only
+    	STATUS          current
+    	DESCRIPTION
+      	"The Mac address to identify a Customer
+      Premises Equipment." 
+    	::= { topIpv6CmCpeIndexEntry 2 }
+    
+topIpv6CmCpeTypeStr OBJECT-TYPE
+      SYNTAX      OCTET STRING(SIZE(0..100))
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+        "Type of the Customer Premises
+      Equipment."
+      ::= { topIpv6CmCpeIndexEntry 3 }
+		
+topIpv6CmCpeIpAddr			OBJECT-TYPE
+		SYNTAX          Ipv6Address
+    	MAX-ACCESS      read-only
+    	STATUS          current
+    	DESCRIPTION
+        "Ipv6 address of the Customer Premises
+      Equipment." 
+    	::= { topIpv6CmCpeIndexEntry 4 }
+		
+	
+
+--
+-- topIpv6PrefixCmCpeIndexTable
+--   
+-- For the information of CPE MAC,query by CPE IPv6 prefix and prefix length.
+
+topIpv6PrefixCmCpeIndexTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF TopIpv6PrefixCmCpeIndexEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table contains information about 
+        Customer Premises Equipments (CPE)."
+    ::= { topDocsExtMIB 8 }
+
+topIpv6PrefixCmCpeIndexEntry OBJECT-TYPE
+    SYNTAX          TopIpv6PrefixCmCpeIndexEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The list contains information for a
+        Customer Premises Equipment (CPE). An entry exist for 
+        each cable modem supported by CMTS and each Customer
+        Premises Equipment connected to a cable modem supported by
+        CMTS."
+        INDEX   { docsIf3CmtsCmRegStatusId,
+				topCpeIpv6AddrPrefix,	
+				topCpeIpv6AddrPrefixLen
+				}
+        ::= {topIpv6PrefixCmCpeIndexTable 1 }
+
+TopIpv6PrefixCmCpeIndexEntry ::= SEQUENCE {
+        topCpeIpv6AddrPrefix 		Ipv6AddressPrefix,
+		topCpeIpv6AddrPrefixLen     INTEGER,
+        topCpeIpv6AddrMacAddress    	MacAddress,
+        topCpeIpv6AddrCmMacAddress		MacAddress
+}
+	  
+topCpeIpv6AddrPrefix          OBJECT-TYPE
+		SYNTAX          Ipv6AddressPrefix
+    	MAX-ACCESS      read-only
+    	STATUS          current
+    	DESCRIPTION
+        "The prefix associated with the Customer Premises
+      Equipment address ." 
+    	::= { topIpv6PrefixCmCpeIndexEntry 1 }
+		
+topCpeIpv6AddrPrefixLen          OBJECT-TYPE
+		SYNTAX          INTEGER(0..128)
+    	MAX-ACCESS      read-only
+    	STATUS          current
+    	DESCRIPTION
+        "The length of the prefix (in bits)." 
+    	::= { topIpv6PrefixCmCpeIndexEntry 2 }
+    
+topCpeIpv6AddrMacAddress  OBJECT-TYPE
+      SYNTAX      MacAddress
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+				"The CPE MAC address."
+      ::= { topIpv6PrefixCmCpeIndexEntry 3 }
+
+topCpeIpv6AddrCmMacAddress	OBJECT-TYPE
+    	SYNTAX          MacAddress
+    	MAX-ACCESS      read-only
+    	STATUS          current
+    	DESCRIPTION
+      	"The Cable Modem MAC address." 
+    	::= { topIpv6PrefixCmCpeIndexEntry 4 }
+		
+		
+--
+-- added end }
+--    
+ 
+ 
+----------------------------------------------     
+--topCcmtsAutoDelOfflineCmCpeObject
+--added by shachunyang at 2017/8/27
+----------------------------------------------
+topCcmtsAutoDelOfflineCmCpeObject OBJECT IDENTIFIER ::={ topDocsExtMIB 9 } 
+    
+topCcmtsAutoDelOfflineCmCpeSwitch OBJECT-TYPE
+    SYNTAX          INTEGER  { 
+            disable(0),
+            enable(1)
+            }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object defines whether or not to delete the CPE data 
+        if the CM which the CPE belong to is offline." 
+    DEFVAL      {0}
+    ::= { topCcmtsAutoDelOfflineCmCpeObject 1 }  
+
+--
+-- added end }
+--  
+
+
+--
+-- { added by shachunyang;2015-5-26
+--
+--
+-- topCpeIpIndexVlanTable
+--   
+-- For the information of CPE MAC,query by CPE IP address and vlanId.
+
+topCpeIpIndexVlanTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF TopCpeIpIndexVlanEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table contains information about 
+        Customer Premises Equipments (CPE)."
+    ::= { topDocsExtMIB 10 }
+
+topCpeIpIndexVlanEntry OBJECT-TYPE
+    SYNTAX          TopCpeIpIndexVlanEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The list contains information for a
+        Customer Premises Equipment (CPE). An entry exist for 
+        each cable modem supported by CMTS and each Customer
+        Premises Equipment connected to a cable modem supported by
+        CMTS."
+        INDEX	{ topCpeVrfIpAddress,
+                  topCpeVrfIpVlan }
+        ::= {topCpeIpIndexVlanTable 1 }
+
+TopCpeIpIndexVlanEntry ::= SEQUENCE {
+        topCpeVrfIpAddress			IpAddress,
+        topCpeVrfIpVlan				INTEGER,
+        topCpeVrfMacAddress			MacAddress,
+        topCpeVrfCmMacAddress		MacAddress
+}
+
+topCpeVrfIpAddress OBJECT-TYPE
+      SYNTAX      IpAddress
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+				"The Cpe ip address to identify a Customer
+        Premises Equipment."
+      ::= { topCpeIpIndexVlanEntry 1 }  
+      
+topCpeVrfIpVlan	OBJECT-TYPE
+		SYNTAX          INTEGER(0..4094)
+    	MAX-ACCESS      read-only
+    	STATUS          current
+    	DESCRIPTION
+        "The CPE MAC Vlan ID." 
+    	::= { topCpeIpIndexVlanEntry 2 }
+
+    
+topCpeVrfMacAddress  OBJECT-TYPE
+      SYNTAX      MacAddress
+      MAX-ACCESS  read-only
+      STATUS      current
+      DESCRIPTION
+				"The CPE MAC address."
+      ::= { topCpeIpIndexVlanEntry 3 }
+
+topCpeVrfCmMacAddress	OBJECT-TYPE
+    	SYNTAX          MacAddress
+    	MAX-ACCESS      read-only
+    	STATUS          current
+    	DESCRIPTION
+      	"The Cable Modem MAC address." 
+    	::= { topCpeIpIndexVlanEntry 4 }
+
+
+ --
+-- added end }
+--  
+
+ 
+
+END   
+

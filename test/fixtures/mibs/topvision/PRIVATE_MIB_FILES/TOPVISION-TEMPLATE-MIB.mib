@@ -1,0 +1,1536 @@
+--*******************************************************************
+--TOPVISION-TEMPLATE-MIB.my: DOCSIS Extention MIB file
+--
+--added at JULY 2013, QIUXUEZHONG
+--
+--Topvision      
+--
+--
+--*******************************************************************
+
+TOPVISION-TEMPLATE-MIB DEFINITIONS ::= BEGIN 
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Integer32, 
+    Unsigned32
+        FROM SNMPv2-SMI 
+    DateAndTime,
+    MacAddress, 
+    RowStatus,
+    TruthValue,
+    DisplayString
+        FROM SNMPv2-TC
+    ifIndex
+				FROM IF-MIB    
+    TenthdB,
+    TenthdBmV,
+    DocsisUpstreamType,
+    DocsEqualizerData,
+    DocsisQosVersion
+             FROM DOCS-IF-MIB        -- RFC 4546
+
+    topCcmtsMibObject
+				FROM TOPVISION-CCMTS-MIB;
+		
+------------------------------------------------------------------------------
+--  topCcmtsTemplateObject
+--  added at 2013-7-18
+--  author qiuxuezhong
+------------------------------------------------------------------------------
+
+topCcmtsTemplateObject	OBJECT IDENTIFIER ::={ topCcmtsMibObject 19 } 
+
+-------------------	   topCcmtsTemplateCfgTable--------------------------------
+topCcmtsTemplateCfgTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsTemplateCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Template config table"
+	::= { topCcmtsTemplateObject 1 }
+	
+topCcmtsTemplateCfgEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsTemplateCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Template config entry."
+	INDEX { topCcmtsTemplateIndex}
+	::= { topCcmtsTemplateCfgTable 1 }
+		
+TopCcmtsTemplateCfgEntry ::=	SEQUENCE { 
+		topCcmtsTemplateIndex		 	        INTEGER,
+		topCcmtsTemplateStatus		        	RowStatus,
+		topCcmtsTemplateDeviceType		 	    DisplayString,
+		topCcmtsTemplateDescription		        DisplayString
+	 }
+
+topCcmtsTemplateIndex OBJECT-TYPE
+	SYNTAX 		INTEGER 
+	MAX-ACCESS 	read-only
+	STATUS 		current
+	DESCRIPTION
+		"Template  index, write a new index to create a new template" 
+	::= { topCcmtsTemplateCfgEntry 1 }   
+	
+topCcmtsTemplateStatus OBJECT-TYPE
+	SYNTAX 		RowStatus 
+	MAX-ACCESS 	read-write
+	STATUS 		current
+	DESCRIPTION
+		"Template status"
+	::= { topCcmtsTemplateCfgEntry 2 }
+	
+topCcmtsTemplateDeviceType OBJECT-TYPE
+	SYNTAX 		DisplayString 
+	MAX-ACCESS 	read-write
+	STATUS 		current
+	DESCRIPTION
+		"Template device type info"
+	::= { topCcmtsTemplateCfgEntry 3 }
+	
+topCcmtsTemplateDescription OBJECT-TYPE
+	SYNTAX 		DisplayString (SIZE (1..32)) 
+	MAX-ACCESS 	read-write
+	STATUS 		current
+	DESCRIPTION
+		"Template description"
+	::= { topCcmtsTemplateCfgEntry 4 }
+
+
+-------------------	   topCcmtsTemplateCfgTable--------------------------------
+
+-------------------	   topCcmtsTemplateUpChannelCfgTable--------------------------------
+
+topCcmtsTemplateUpChannelCfgTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsTemplateUpChannelCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Template up channel config table"
+	::= { topCcmtsTemplateObject 2 }
+	
+topCcmtsTemplateUpChannelCfgEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsTemplateUpChannelCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Template  up channel entry."
+	INDEX { topCcmtsTemplateIndex,
+			topCcmtsTemplateUpChannelId}
+	::= { topCcmtsTemplateUpChannelCfgTable 1}
+		
+TopCcmtsTemplateUpChannelCfgEntry ::=	SEQUENCE { 
+		topCcmtsTemplateUpChannelId			INTEGER,          
+		topCcmtsTemplateUpChannelExtType     INTEGER,        
+		topCcmtsTemplateUpChannelWidth        Integer32, 
+		topCcmtsTemplateUpChannelModulationProfile       Unsigned32,
+		topCcmtsTemplateUpChannelRangingBackoffStart       Integer32, 
+		topCcmtsTemplateUpChannelRangingBackoffEnd         Integer32,
+		topCcmtsTemplateUpChannelTxBackoffStart     Integer32,    
+		topCcmtsTemplateUpChannelTxBackoffEnd       Integer32,      
+		topCcmtsTemplateUpChannelPower              TenthdBmV,   
+		topCcmtsTemplateUpChannelType                DocsisUpstreamType,    
+		topCcmtsTemplateUpChannelFrequency           Integer32,
+		topCcmtsTemplateUpChannelAdminStatus   INTEGER,
+		topCcmtsTemplateUsChannelPreEqEnable   TruthValue  
+    } 
+	
+topCcmtsTemplateUpChannelId OBJECT-TYPE
+	SYNTAX 		INTEGER 
+	MAX-ACCESS 	read-only
+	STATUS 		current
+	DESCRIPTION
+		"Template   upstream channel  ID"
+	::= { topCcmtsTemplateUpChannelCfgEntry 1 }   
+
+topCcmtsTemplateUpChannelAdminStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+                up(1),       -- ready to pass packets
+                down(2),
+                testing(3)   -- in some test mode
+            }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "The desired state of the interface.  The testing(3) state
+            indicates that no operational packets can be passed.  When a
+            managed system initializes, all interfaces start with
+            ifAdminStatus in the down(2) state.  As a result of either
+            explicit management action or per configuration information
+            retained by the managed system, ifAdminStatus is then
+            changed to either the up(1) or testing(3) states (or remains
+            in the down(2) state)."
+    ::= { topCcmtsTemplateUpChannelCfgEntry 2}        
+       
+topCcmtsTemplateUpChannelExtType OBJECT-TYPE  
+    SYNTAX      INTEGER {
+		v2(2) ,
+		v3(3) ,  
+		other(4)
+		}
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The UpStreamChannel Type ,including V2(2),V3(3),other(4)."
+	::={ topCcmtsTemplateUpChannelCfgEntry 3}    
+	
+topCcmtsTemplateUpChannelWidth OBJECT-TYPE
+        SYNTAX      Integer32 (0..64000000)
+        UNITS       "hertz"
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "The bandwidth of this upstream interface.  This object
+             returns 0 if the interface width is undefined or unknown.
+             Minimum permitted interface width is currently 200,000 Hz.
+             See the associated conformance object for write conditions
+             and limitations."
+        REFERENCE
+            "Data-Over-Cable Service Interface Specifications: Radio
+             Frequency Interface Specification SP-RFIv2.0-I10-051209,
+             Table 6-5."
+        ::= { topCcmtsTemplateUpChannelCfgEntry 4 }
+
+topCcmtsTemplateUpChannelModulationProfile OBJECT-TYPE
+        SYNTAX      Unsigned32
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "An entry identical to the docsIfModIndex in the
+             docsIfCmtsModulationTable that describes this channel.
+             This channel is further instantiated there by a grouping
+             of interval usage codes (IUCs) that, together, fully
+             describe the channel modulation.  This object returns 0 if
+             the docsIfCmtsModulationTable entry does not exist or is
+             empty.  See the associated conformance object for write
+             conditions and limitations.
+             Setting this object returns an 'inconsistentValue'
+             error if the following conditions are not satisfied:
+             1. All the IUC entries in the selected modulation profile
+             MUST have the same value of docsIfCmtsModChannelType.
+             2. All of the Modulation parameters in the selected
+             modulation profile MUST be consistent with the other
+             parameters in this docsIfUpstreamChannelEntry."
+        REFERENCE
+            "Data-Over-Cable Service Interface Specifications: Radio
+             Frequency Interface Specification SP-RFIv2.0-I10-051209,
+             Table 8-19."
+        ::= { topCcmtsTemplateUpChannelCfgEntry 5 }      
+ topCcmtsTemplateUpChannelRangingBackoffStart OBJECT-TYPE
+        SYNTAX      Integer32 (0..16)
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "The initial random backoff window to use when retrying
+             Ranging Requests.  Expressed as a power of 2.  A value of
+             16 at the CMTS indicates that a proprietary adaptive retry
+             mechanism is to be used.  See the associated conformance
+             object for write conditions and limitations."
+        REFERENCE
+            "Data-Over-Cable Service Interface Specifications: Radio
+             Frequency Interface Specification SP-RFIv2.0-I10-051209,
+             Sections 8.3.4, and 9.4."
+        ::= { topCcmtsTemplateUpChannelCfgEntry 6 }
+
+topCcmtsTemplateUpChannelRangingBackoffEnd OBJECT-TYPE
+        SYNTAX      Integer32 (0..16)
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "The final random backoff window to use when retrying
+             Ranging Requests.  Expressed as a power of 2.  A value of
+             16 at the CMTS indicates that a proprietary adaptive retry
+             mechanism is to be used.  See the associated conformance
+             object for write conditions and limitations."
+        REFERENCE
+            "Data-Over-Cable Service Interface Specifications: Radio
+             Frequency Interface Specification SP-RFIv2.0-I10-051209,
+             Section 8.3.4, and 9.4."
+        ::= { topCcmtsTemplateUpChannelCfgEntry 7 }
+       
+        
+  
+topCcmtsTemplateUpChannelTxBackoffStart OBJECT-TYPE
+        SYNTAX      Integer32 (0..16)
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "The initial random backoff window to use when retrying
+             transmissions.  Expressed as a power of 2.  A value of 16
+             at the CMTS indicates that a proprietary adaptive retry
+             mechanism is to be used.  See the associated conformance
+             object for write conditions and limitations."
+        REFERENCE
+            "Data-Over-Cable Service Interface Specifications: Radio
+             Frequency Interface Specification SP-RFIv2.0-I10-051209,
+             Section 8.3.4, and 9.4."
+        ::= { topCcmtsTemplateUpChannelCfgEntry 8 }
+
+topCcmtsTemplateUpChannelTxBackoffEnd OBJECT-TYPE
+        SYNTAX      Integer32 (0..16)
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "The final random backoff window to use when retrying
+             transmissions.  Expressed as a power of 2.  A value of 16
+             at the CMTS indicates that a proprietary adaptive retry
+             mechanism is to be used.  See the associated conformance
+             object for write conditions and limitations."
+        REFERENCE
+            "Data-Over-Cable Service Interface Specifications: Radio
+             Frequency Interface Specification SP-RFIv2.0-I10-051209,
+             Section 8.3.4, and 9.4."
+        ::= { topCcmtsTemplateUpChannelCfgEntry 9 }         
+
+topCcmtsTemplateUpChannelPower OBJECT-TYPE
+     SYNTAX      TenthdBmV
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        "topCcmtsTemplateUpChannelPower is the power of the
+        expected commanded received signal in the channel,
+        referenced to the CMTS input."
+     ::= { topCcmtsTemplateUpChannelCfgEntry 10 }
+   
+topCcmtsTemplateUpChannelType OBJECT-TYPE
+        SYNTAX      DocsisUpstreamType
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "Reflects the Upstream channel type.
+             This object returns the value of docsIfCmtsModChannelType
+             for the modulation profile selected in
+             docsIfUpChannelModulationProfile for this row."
+        REFERENCE
+            "Data-Over-Cable Service Interface Specifications: Radio
+             Frequency Interface Specification SP-RFIv2.0-I10-051209,
+             Section 6.2.1."
+	::= { topCcmtsTemplateUpChannelCfgEntry 11 }   
+	
+topCcmtsTemplateUpChannelFrequency OBJECT-TYPE
+        SYNTAX      Integer32 (0..1000000000)
+        UNITS       "hertz"
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "The center of the frequency band associated with this
+             upstream interface.  This object returns 0 if the frequency
+             is undefined or unknown.  Minimum permitted upstream
+             frequency is 5,000,000 Hz for current technology.  See
+             the associated conformance object for write conditions
+             and limitations."
+        REFERENCE
+            "Data-Over-Cable Service Interface Specifications: Radio
+             Frequency Interface Specification SP-RFIv2.0-I10-051209,
+             Table 4-2."
+        ::= { topCcmtsTemplateUpChannelCfgEntry 12 }
+
+		topCcmtsTemplateUsChannelPreEqEnable OBJECT-TYPE
+        SYNTAX      TruthValue
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "At the CMTS, this object is used to enable or disable
+             pre-equalization on the upstream channel represented by
+             this table instance."
+        DEFVAL {true}
+        ::= { topCcmtsTemplateUpChannelCfgEntry 13 }
+		
+-------------------	   topCcmtsTemplateUpChannelCfgTable--------------------------------
+-------------------	   topCcmtsTemplateDownChannelCfgTable--------------------------------
+topCcmtsTemplateDownChannelCfgTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsTemplateDownChannelCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Template down channel config table"
+	::= { topCcmtsTemplateObject 3 }
+	
+topCcmtsTemplateDownChannelCfgEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsTemplateDownChannelCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Template  data entry."
+	INDEX { topCcmtsTemplateIndex,
+			topCcmtsTemplateDownChannelId}
+	::= { topCcmtsTemplateDownChannelCfgTable 1}
+		
+TopCcmtsTemplateDownChannelCfgEntry ::=	SEQUENCE {    
+		topCcmtsTemplateDownChannelId			Integer32, 
+		topCcmtsTemplateDownChannelAdminStatus   INTEGER,		
+		topCcmtsTemplateDownChannelFrequency        Integer32,
+        topCcmtsTemplateDownChannelWidth            Integer32,
+        topCcmtsTemplateDownChannelModulation       INTEGER,
+        topCcmtsTemplateDownChannelInterleave       INTEGER,
+        topCcmtsTemplateDownChannelPower            TenthdBmV,
+        topCcmtsTemplateDownChannelAnnex            INTEGER,  
+		topCcmtsTemplateDownChannelIsPriCapableDs   TruthValue
+    }
+	
+ topCcmtsTemplateDownChannelId OBJECT-TYPE
+     SYNTAX      Integer32 (0..255)
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "The Cable Modem Termination System identification of the
+          downstream channel within this particular MAC interface.
+          if the interface is down, the object returns the most
+          current value.  If the downstream channel ID is unknown,
+          this object returns a value of 0."
+     ::= { topCcmtsTemplateDownChannelCfgEntry 1 }
+  
+	
+topCcmtsTemplateDownChannelAdminStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+                up(1),       -- ready to pass packets
+                down(2),
+                testing(3)   -- in some test mode
+            }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+            "The desired state of the interface.  The testing(3) state
+            indicates that no operational packets can be passed.  When a
+            managed system initializes, all interfaces start with
+            ifAdminStatus in the down(2) state.  As a result of either
+            explicit management action or per configuration information
+            retained by the managed system, ifAdminStatus is then
+            changed to either the up(1) or testing(3) states (or remains
+            in the down(2) state)."
+    ::= { topCcmtsTemplateDownChannelCfgEntry 2}        
+
+
+   topCcmtsTemplateDownChannelFrequency OBJECT-TYPE
+        SYNTAX      Integer32 (0..1000000000)
+        UNITS       "hertz"
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "The center of the downstream frequency associated with
+             this channel.  This object will return the current tuner
+             frequency.  If a CMTS provides IF output, this object
+             will return 0, unless this CMTS is in control of the
+             final downstream frequency.  See the associated
+             compliance object for a description of valid frequencies
+             that may be written to this object."
+
+        REFERENCE
+            "Data-Over-Cable Service Interface Specifications: Radio
+             Frequency Interface Specification SP-RFIv2.0-I10-051209,
+             Section 6.3.3."
+        ::= { topCcmtsTemplateDownChannelCfgEntry 3 }
+
+   topCcmtsTemplateDownChannelWidth OBJECT-TYPE
+        SYNTAX      Integer32 (0..16000000)
+        UNITS       "hertz"
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "The bandwidth of this downstream channel.  Most
+             implementations are expected to support a channel width
+             of 6 MHz (North America) and/or 8 MHz (Europe).  See the
+             associated compliance object for a description of the
+             valid channel widths for this object."
+        REFERENCE
+            "Data-Over-Cable Service Interface Specifications: Radio
+             Frequency Interface Specification SP-RFIv2.0-I10-051209,
+             Table 6-17."
+        ::= { topCcmtsTemplateDownChannelCfgEntry 4 }
+
+   topCcmtsTemplateDownChannelModulation OBJECT-TYPE
+        SYNTAX      INTEGER {
+            unknown(1),
+            other(2),
+            qam64(3),
+            qam256(4)
+        }
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "The modulation type associated with this downstream
+             channel.  If the interface is down, this object either
+             returns the configured value (CMTS), the most current
+             value (CM), or the value of unknown(1).  See the
+             associated conformance object for write conditions and
+             limitations.  See the reference for specifics on the
+             modulation profiles implied by qam64 and qam256."
+        REFERENCE
+            "Data-Over-Cable Service Interface Specifications: Radio
+             Frequency Interface Specification SP-RFIv2.0-I10-051209,
+             Table 6-17."
+        ::= { topCcmtsTemplateDownChannelCfgEntry 5 }
+
+   topCcmtsTemplateDownChannelInterleave OBJECT-TYPE
+        SYNTAX      INTEGER {
+            unknown(1),
+            other(2),
+            taps8Increment16(3),
+            taps16Increment8(4),
+            taps32Increment4(5),
+            taps64Increment2(6),
+            taps128Increment1(7),
+            taps12increment17(8)
+        }
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "The Forward Error Correction (FEC) interleaving used
+             for this downstream channel.
+             Values are defined as follows:
+             taps8Increment16(3):   protection 5.9/4.1 usec,
+                                    latency .22/.15 msec
+             taps16Increment8(4):   protection 12/8.2 usec,
+                                    latency .48/.33 msec
+             taps32Increment4(5):   protection 24/16 usec,
+                                    latency .98/.68 msec
+             taps64Increment2(6):   protection 47/33 usec,
+                                    latency 2/1.4 msec
+             taps128Increment1(7):  protection 95/66 usec,
+                                    latency 4/2.8 msec
+             taps12increment17(8):  protection 18/14 usec,
+                                    latency 0.43/0.32 msec
+
+            The value 'taps12increment17' is supported by EuroDOCSIS
+            cable systems only, and the others by DOCSIS cable systems.
+
+             If the interface is down, this object either returns
+             the configured value (CMTS), the most current value (CM),
+             or the value of unknown(1).
+             The value of other(2) is returned if the interleave
+             is known but not defined in the above list.
+             See the associated conformance object for write
+             conditions and limitations.  See the reference for the FEC
+             configuration described by the setting of this object."
+        REFERENCE
+            "Data-Over-Cable Service Interface Specifications: Radio
+             Frequency Interface Specification SP-RFIv2.0-I10-051209,
+             Table 6-15."
+        ::= { topCcmtsTemplateDownChannelCfgEntry 6 }
+
+   topCcmtsTemplateDownChannelPower OBJECT-TYPE
+        SYNTAX      TenthdBmV
+        UNITS       "dBmV"
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "At the CMTS, the operational transmit power.  At the CM,
+             the received power level.
+             If the interface is down, this object either returns
+             the configured value (CMTS), the most current value (CM)
+             or the value of 0.  See the associated conformance object
+             for write conditions and limitations.  See the reference
+             for recommended and required power levels."
+        REFERENCE
+            "Data-Over-Cable Service Interface Specifications: Radio
+             Frequency Interface Specification SP-RFIv2.0-I10-051209,
+             Tables 6-16, 6-17."
+        ::= { topCcmtsTemplateDownChannelCfgEntry 7 }
+
+   topCcmtsTemplateDownChannelAnnex OBJECT-TYPE
+        SYNTAX      INTEGER {
+            unknown(1),
+            other(2),
+            annexA(3),
+            annexB(4),
+            annexC(5)
+        }
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "The value of this object indicates the conformance of
+             the implementation to important regional cable standards.
+             annexA : Annex A from ITU-T J.83 is used.
+                      (equivalent to EN 300 429)
+             annexB : Annex B from ITU-T J.83 is used.
+             annexC : Annex C from ITU-T J.83 is used."
+        REFERENCE
+            "Data-Over-Cable Service Interface Specifications: Radio
+             Frequency Interface Specification SP-RFIv2.0-I10-051209,
+             Sections 6.3.1, and H.3.1."
+        ::= { topCcmtsTemplateDownChannelCfgEntry 8 }
+		
+	topCcmtsTemplateDownChannelIsPriCapableDs OBJECT-TYPE
+     SYNTAX      TruthValue
+     MAX-ACCESS  read-create
+     STATUS      current
+     DESCRIPTION
+        "If set to 'true', this attribute configures the downstream
+        channel as Primary-Capable. If set to 'false', this attribute 
+		configures the downstream channel as Non-Primary-Capable."
+     ::= { topCcmtsTemplateDownChannelCfgEntry 9 }
+ 
+-------------------	   topCcmtsTemplateDownChannelCfgTable--------------------------------
+-------------------	 topCcmtsTemplateFftMonitorCfgTable  --------------------------------
+
+topCcmtsTemplateFftMonitorCfgTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsTemplateFftMonitorCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Template fft config table"
+	::= { topCcmtsTemplateObject 4 }
+	
+topCcmtsTemplateFftMonitorCfgEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsTemplateFftMonitorCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Template  fft config entry."
+	INDEX { topCcmtsTemplateIndex}
+	::= { topCcmtsTemplateFftMonitorCfgTable 1}
+		
+
+TopCcmtsTemplateFftMonitorCfgEntry ::=	SEQUENCE {     
+  		topCcmtsTemplateFftMonitorTimeInterval			INTEGER,
+		topCcmtsTemplateFftMonitorFreqInterval	    	INTEGER,
+		topCcmtsTemplateFftMonitorPollingStatus			INTEGER,
+		topCcmtsTemplateCompressedFftDataExpiredTime    INTEGER,
+		topCcmtsTemplateFftMonitorDataMode			INTEGER
+	 }  
+
+topCcmtsTemplateFftMonitorTimeInterval OBJECT-TYPE
+	SYNTAX 		INTEGER 
+	MAX-ACCESS 	read-write
+	STATUS 		current
+	DESCRIPTION
+		"Config the CCMTS fft data polling
+		time interval"
+	::= { topCcmtsTemplateFftMonitorCfgEntry 1 }   
+
+topCcmtsTemplateFftMonitorFreqInterval OBJECT-TYPE
+	SYNTAX 		INTEGER 
+	MAX-ACCESS 	read-write
+	STATUS 		current
+	DESCRIPTION
+		"Config the CCMTS fft data polling
+		freq interval, that affect the data
+		number of fft."
+	::= { topCcmtsTemplateFftMonitorCfgEntry 2 }   
+		
+topCcmtsTemplateFftMonitorPollingStatus OBJECT-TYPE
+	SYNTAX 		INTEGER (0..1)  
+	MAX-ACCESS 	read-write
+	STATUS 		current
+	DESCRIPTION
+		"CMC fft data polling status.Disabled-0, enable-1."
+	::= { topCcmtsTemplateFftMonitorCfgEntry 3 }   
+
+topCcmtsTemplateCompressedFftDataExpiredTime OBJECT-TYPE
+	SYNTAX 		INTEGER (5..86400)  
+	MAX-ACCESS 	read-write
+	STATUS 		current
+	DESCRIPTION
+		"Buffered compressed fft data expired time in second.
+		Default value is 5s"
+	::= { topCcmtsTemplateFftMonitorCfgEntry 4 }
+topCcmtsTemplateFftMonitorDataMode OBJECT-TYPE
+	SYNTAX 		INTEGER {
+						 average(1),
+						 peak_hold(2),
+						 real_time(3)
+						 }  
+	MAX-ACCESS 	read-write
+	STATUS 		current
+	DESCRIPTION
+		"Represent FFT data as average(1) value or peak_hold(2) value
+		or real_time(3) value. Default value is real_time(3) value"
+	DEFVAL				{ real_time }
+	::= { topCcmtsTemplateFftMonitorCfgEntry 5 } 
+ 
+-------------------	 topCcmtsTemplateFftMonitorCfgTable  --------------------------------
+-------------------	 topCcmtsTemplateSpectrumGroupChnlTable  --------------------------------
+ topCcmtsTemplateSpectrumGroupChnlTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsTemplateSpectrumGroupChnlEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Template Spectrum Group config table"
+	::= { topCcmtsTemplateObject 5 }
+	
+topCcmtsTemplateSpectrumGroupChnlEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsTemplateSpectrumGroupChnlEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Template  Spectrum Group entry."
+	INDEX { topCcmtsTemplateIndex,
+			topCcmtsTemplateSpectrumGroupUpChannelChnlId}
+	::= { topCcmtsTemplateSpectrumGroupChnlTable 1}
+		
+TopCcmtsTemplateSpectrumGroupChnlEntry ::=	SEQUENCE { 
+		topCcmtsTemplateSpectrumGroupUpChannelChnlId					INTEGER,    		
+		topCcmtsTemplateSpectrumGPChnlGroupId       INTEGER, 
+		topCcmtsTemplateSpectrumGPChnlSecondaryProf INTEGER,
+		topCcmtsTemplateSpectrumGPChnlTertiaryProf  INTEGER       
+        }
+	
+topCcmtsTemplateSpectrumGroupUpChannelChnlId OBJECT-TYPE
+	SYNTAX 		INTEGER 
+	MAX-ACCESS 	read-only
+	STATUS 		current
+	DESCRIPTION
+		"Template   upstream channel  ID"
+	::= { topCcmtsTemplateSpectrumGroupChnlEntry 1 }   
+
+topCcmtsTemplateSpectrumGPChnlGroupId OBJECT-TYPE
+	SYNTAX		INTEGER(1..32)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"the spectrum group ID applied on this channel."
+	DEFVAL{1}
+	::={ topCcmtsTemplateSpectrumGroupChnlEntry 2 }  
+		 
+topCcmtsTemplateSpectrumGPChnlSecondaryProf OBJECT-TYPE
+	SYNTAX		INTEGER         
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"channel's secondary modulation profile,when modulation hop is
+		promissed,modulation will hop between primary modulaition and secondary,or tertiary.  
+		65536 indicate no profile configed"  
+	DEFVAL{65536}
+	::={ topCcmtsTemplateSpectrumGroupChnlEntry 3 }    
+	
+topCcmtsTemplateSpectrumGPChnlTertiaryProf OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"channel's tertiary modulation profile,when modulation hop is
+		promissed,modulation will hop between primary modulaition and secondary,or tertiary.
+		65536 indicate no profile configend"
+	DEFVAL{65536}
+	::={ topCcmtsTemplateSpectrumGroupChnlEntry 4 }             
+-------------------	 topCcmtsTemplateSpectrumGroupChnlTable  --------------------------------   
+-------------------	 topCcmtsTemplateLoadBalCfgTable  --------------------------------
+topCcmtsTemplateLoadBalCfgTable OBJECT-TYPE
+    SYNTAX SEQUENCE OF TopCcmtsTemplateLoadBalCfgEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+		" "
+    ::= { topCcmtsTemplateObject 6 } 
+topCcmtsTemplateLoadBalCfgEntry OBJECT-TYPE
+    SYNTAX TopCcmtsTemplateLoadBalCfgEntry
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+		" "
+	INDEX { topCcmtsTemplateIndex }
+    ::= { topCcmtsTemplateLoadBalCfgTable 1 }
+
+TopCcmtsTemplateLoadBalCfgEntry     ::= SEQUENCE {
+	 topCcmtsTemplateLoadBalConfigEnable INTEGER,
+	 topCcmtsTemplateLoadBalConfigInterval Unsigned32,
+	 topCcmtsTemplateLoadBalConfigMaxMoves Unsigned32,
+	 topCcmtsTemplateLoadBalConfigMethod INTEGER,
+	 topCcmtsTemplateLoadBalConfigNumPeriod INTEGER,
+	 topCcmtsTemplateLoadBalConfigPeriod Unsigned32,
+	 topCcmtsTemplateLoadBalConfigTriggerThresh Unsigned32,
+	 topCcmtsTemplateLoadBalConfigDiffThresh Unsigned32,
+	 topCcmtsTemplateLoadBalConfigRangingOverrideEnable INTEGER,
+     topCcmtsTemplateLoadBalConfigDccInitAtdma INTEGER,
+	 topCcmtsTemplateLoadBalConfigDccInitScdma INTEGER,
+	 topCcmtsTemplateLoadBalConfigDbcInitAtdma INTEGER,
+	 topCcmtsTemplateLoadBalConfigDbcInitScdma INTEGER
+	}
+
+topCcmtsTemplateLoadBalConfigEnable OBJECT-TYPE
+    SYNTAX INTEGER {
+    	enable(1),
+    	disable(2)
+    }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"enable(1):the load-balance operation is on at this CCMTS
+		 disable(2):the load-balance operation is off at this CCMTS" 
+	DEFVAL          { enable }
+    ::= { topCcmtsTemplateLoadBalCfgEntry 1 } 
+    
+topCcmtsTemplateLoadBalConfigInterval OBJECT-TYPE
+    SYNTAX Unsigned32 (0..3600)
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"Minimum number of seconds that must elapse before moving the same modem 
+		to a different channel.The rang is [0~3600]."
+	DEFVAL          { 240 }
+    ::= { topCcmtsTemplateLoadBalCfgEntry 2 } 
+    
+topCcmtsTemplateLoadBalConfigMaxMoves OBJECT-TYPE
+    SYNTAX Unsigned32 (0..1000)
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"Maximum number of modems allowed to be moved per load balancer period.
+		 The rang is [0~1000]" 
+	DEFVAL          { 16 }
+    ::= { topCcmtsTemplateLoadBalCfgEntry 3 }
+    
+topCcmtsTemplateLoadBalConfigMethod OBJECT-TYPE
+    SYNTAX INTEGER {
+    	utilization(1),
+    	modem(2)
+    }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"The method of load-balance.utilization(1) is based on run-time statistics,
+		 modem(2) is based on minimum reserved rate."  
+	DEFVAL          { utilization }
+    ::= { topCcmtsTemplateLoadBalCfgEntry 4 }
+
+topCcmtsTemplateLoadBalConfigNumPeriod OBJECT-TYPE
+    SYNTAX INTEGER {
+    	one(1),
+    	two(2),
+    	four(4)
+    }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"Number of periods for calculating the weighted average load. Each period 
+		 gets twice the weight of the previous period. Valid values are 1, 2, or 4. 
+		 Applies to Balancing Method utilization(1) only.When Balancing Method is 
+		 modem(2),the value of this object is same as Balancing Method utilization(1)" 
+	DEFVAL          { four }
+    ::= { topCcmtsTemplateLoadBalCfgEntry 5 }
+    
+topCcmtsTemplateLoadBalConfigPeriod OBJECT-TYPE
+    SYNTAX Unsigned32 (30..3600)
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"Time in seconds between load balancing checks. The rang is [30~3600]." 
+	DEFVAL          { 60 }
+    ::= { topCcmtsTemplateLoadBalCfgEntry 6 }
+    
+topCcmtsTemplateLoadBalConfigTriggerThresh OBJECT-TYPE
+    SYNTAX Unsigned32 (0..100)
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"A channel is considered overloaded when the load is at least this percent
+		 of capacity. Below this, no attempt is made to balance its load. Applies to
+		 Balancing Method utilization(1) only.The rang is [0~100].When Balancing Method 
+		 is modem(2),the value of this object is same as Balancing Method utilization(1)" 
+	DEFVAL          { 60 }
+    ::= { topCcmtsTemplateLoadBalCfgEntry 7 }
+    
+topCcmtsTemplateLoadBalConfigDiffThresh OBJECT-TYPE
+    SYNTAX Unsigned32 (0..100)
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"For channels at or above the overload threshold, only consider less loaded 
+		 alternate channels where the load difference is at least this percent. Applies 
+		 to Balancing Method utilization(1) only.The rang is [0~100].When Balancing Method 
+		 is modem(2),the value of this object is same as Balancing Method utilization(1)"
+	DEFVAL          { 10 }
+    ::= { topCcmtsTemplateLoadBalCfgEntry 8 }
+    
+topCcmtsTemplateLoadBalConfigRangingOverrideEnable OBJECT-TYPE
+    SYNTAX INTEGER {
+    	enable(1),
+    	disable(2)
+    }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"1=enable, 2=Disable. When enabled, a modem can be directed to 
+		 a different channel via RNG-RSP prior to registration" 
+	DEFVAL         { enable }
+    ::= { topCcmtsTemplateLoadBalCfgEntry 9 }
+    
+topCcmtsTemplateLoadBalConfigDccInitAtdma OBJECT-TYPE
+    SYNTAX INTEGER {
+       broadcastInitRanging (1),
+       unicastInitRanging (2),
+       initRanging (3),
+       direct (4)
+    }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		" broadcastInitRanging(1): Perform Broadcast initialranging on new 
+		  channel before normal operation.
+		  unicastInitRanging(2)  : Perform unicast ranging on new channel 
+		  before normal operation.
+		  initRanging(3)         : Perform either broadcast or unicast ranging 
+		  on new channel before normal operation.
+		  direct(4) 		: Use the new channel(s) directly without 
+		  re-initializing or ranging." 
+	DEFVAL          { broadcastInitRanging }
+    ::= { topCcmtsTemplateLoadBalCfgEntry 10 }
+    
+topCcmtsTemplateLoadBalConfigDccInitScdma OBJECT-TYPE
+    SYNTAX INTEGER {
+       broadcastInitRanging (1),
+       unicastInitRanging (2),
+       initRanging (3)
+    }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		" broadcastInitRanging(1): Perform Broadcast initialranging on new 
+		  channel before normal operation.
+		  unicastInitRanging(2)  : Perform unicast ranging on new channel 
+		  before normal operation.
+		  initRanging(3)         : Perform either broadcast or unicast ranging 
+		  on new channel before normal operation."
+	DEFVAL          { broadcastInitRanging }
+    ::= { topCcmtsTemplateLoadBalCfgEntry 11 }
+    
+topCcmtsTemplateLoadBalConfigDbcInitAtdma OBJECT-TYPE
+    SYNTAX INTEGER {
+       broadcastInitRanging (1),
+       unicastInitRanging (2),
+       initRanging (3),
+       direct (4)
+    }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		" broadcastInitRanging(1): Perform Broadcast initialranging on new 
+		  channel before normal operation.
+		  unicastInitRanging(2)  : Perform unicast ranging on new channel 
+		  before normal operation.
+		  initRanging(3)         : Perform either broadcast or unicast ranging 
+		  on new channel before normal operation.
+		  direct(4) 		: Use the new channel(s) directly without 
+		  re-initializing or ranging." 
+	DEFVAL          { broadcastInitRanging }
+    ::= { topCcmtsTemplateLoadBalCfgEntry 12 }
+    
+topCcmtsTemplateLoadBalConfigDbcInitScdma OBJECT-TYPE
+    SYNTAX INTEGER {
+       broadcastInitRanging (1),
+       unicastInitRanging (2),
+       initRanging (3)
+    }
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		" broadcastInitRanging(1): Perform Broadcast initialranging on new 
+		  channel before normal operation.
+		  unicastInitRanging(2)  : Perform unicast ranging on new channel 
+		  before normal operation.
+		  initRanging(3)         : Perform either broadcast or unicast ranging 
+		  on new channel before normal operation."
+	DEFVAL          { broadcastInitRanging }
+    ::= { topCcmtsTemplateLoadBalCfgEntry 13 }
+-------------------	 topCcmtsTemplateLoadBalCfgTable  --------------------------------
+-------------------	 topCcmtsTemplateUpChnlSigQTraceTable  --------------------------------
+ topCcmtsTemplateUpChnlSigQTraceTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsTemplateUpChnlSigQTraceEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"up channel signal quality trace config"
+	::={ topCcmtsTemplateObject 7 }
+
+topCcmtsTemplateUpChnlSigQTraceEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsTemplateUpChnlSigQTraceEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"up channel signal quality trace config"
+	INDEX { topCcmtsTemplateIndex }
+	::={ topCcmtsTemplateUpChnlSigQTraceTable 1 }
+
+TopCcmtsTemplateUpChnlSigQTraceEntry ::=SEQUENCE {
+	topCcmtsTemplateUpChnlSigQHistoryRecEnable                    INTEGER,
+	topCcmtsTemplateUpChnlSigQSignalNoiseThreshold                TenthdB,
+	topCcmtsTemplateUpChnlSigQSignalNoiseRecoveryThreshold        TenthdB,
+	topCcmtsTemplateUpChnlSigQCorrectedsThreshold                 Unsigned32,
+	topCcmtsTemplateUpChnlSigQCorrectedsRecoveryThreshold         Unsigned32,
+	topCcmtsTemplateUpChnlSigQUncorrectablesThreshold             Unsigned32,
+	topCcmtsTemplateUpChnlSigQUncorrectablesRecoveryThreshold     Unsigned32
+}
+
+topCcmtsTemplateUpChnlSigQHistoryRecEnable OBJECT-TYPE
+	SYNTAX		INTEGER{
+		enable(1) ,
+		disable(2) 
+		}
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Enable/Disable the Func,which allow to Record Signal Quality History."
+	::={ topCcmtsTemplateUpChnlSigQTraceEntry 1 }
+       
+
+topCcmtsTemplateUpChnlSigQSignalNoiseThreshold OBJECT-TYPE
+	SYNTAX		TenthdB
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The Threshold to inform that SignalNoise is badly low "
+	::={ topCcmtsTemplateUpChnlSigQTraceEntry 2 }
+
+topCcmtsTemplateUpChnlSigQSignalNoiseRecoveryThreshold OBJECT-TYPE
+	SYNTAX		TenthdB
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The Threshold to inform that SignalNoise Recoverid"
+	::={ topCcmtsTemplateUpChnlSigQTraceEntry 3 }
+
+topCcmtsTemplateUpChnlSigQCorrectedsThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The Threshold to inform that Correcteds is badly high"
+	::={ topCcmtsTemplateUpChnlSigQTraceEntry 4 }
+
+topCcmtsTemplateUpChnlSigQCorrectedsRecoveryThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The Threshold to inform that Correcteds Recoverid" 
+	::={ topCcmtsTemplateUpChnlSigQTraceEntry 5 }
+
+topCcmtsTemplateUpChnlSigQUncorrectablesThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The Threshold to inform that Uncorrectables is badly high"
+	::={ topCcmtsTemplateUpChnlSigQTraceEntry 6 }
+
+topCcmtsTemplateUpChnlSigQUncorrectablesRecoveryThreshold OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The Threshold to inform that Uncorrectables Recoverid"
+	::={ topCcmtsTemplateUpChnlSigQTraceEntry 7} 
+-------------------	 topCcmtsTemplateUpChnlSigQTraceTable  --------------------------------    
+-------------------	 topCcmtsTemplateSharedSecretTable  --------------------------------    
+topCcmtsTemplateSharedSecretTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsTemplateSharedSecretEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"This table is used to config the CCMTS MIC shared-secret."
+	::={ topCcmtsTemplateObject 8 }
+
+topCcmtsTemplateSharedSecretEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsTemplateSharedSecretEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"The entry of topCcmtsTemplateSharedSecretTable."
+	INDEX { topCcmtsTemplateIndex }
+	::={ topCcmtsTemplateSharedSecretTable 1 }
+
+TopCcmtsTemplateSharedSecretEntry ::=SEQUENCE {    
+	topCcmtsTemplateSharedSecretEnabled			INTEGER,
+	topCcmtsTemplateSharedSecretEncrypted		INTEGER,
+	topCcmtsTemplateSharedSecretAuthStr			DisplayString,
+	topCcmtsTemplateSharedSecretCipherStr       DisplayString
+}       
+
+topCcmtsTemplateSharedSecretEnabled OBJECT-TYPE
+	SYNTAX		           INTEGER  {
+							  enable(1),
+							  disable(2)
+						   }
+	MAX-ACCESS	           read-write
+	STATUS		           current
+	DESCRIPTION
+		"Enable or disable the CCMTS MIC.
+		 If enable be set, must set topCcmtsTemplateSharedSecretEncrypted and 
+		 topCcmtsTemplateSharedSecretAuthStr.
+		 If disable is set, other is not necessary."
+	DEFVAL                 {2}
+	::={ topCcmtsTemplateSharedSecretEntry 1 }
+
+topCcmtsTemplateSharedSecretEncrypted OBJECT-TYPE
+	SYNTAX                 INTEGER {
+			                  unencrypted(0),
+		                      encrypted(7)
+		                   }
+	MAX-ACCESS             read-write
+	STATUS                 current	
+	DESCRIPTION
+		"This option identify the topCcmtsTemplateSharedSecretAuthStr is encrypted or not . 
+		
+		If unencrypted is set, the topCcmtsTemplateSharedSecretAuthStr must be followed.
+		
+		If encrypted is set, the topCcmtsTemplateSharedSecretCipherStr must be followed. "    
+	DEFVAL                 { 0 }
+	::={ topCcmtsTemplateSharedSecretEntry 2 } 
+	
+
+topCcmtsTemplateSharedSecretAuthStr OBJECT-TYPE
+	SYNTAX		           DisplayString (SIZE (0..16))
+	MAX-ACCESS             read-write
+	STATUS                 current
+	DESCRIPTION
+		"The MIC authentication string.  
+		 
+		 It is the plaintext same as the MIC shared-secret in the CM configuration file,
+		 and the length is 1 to 16. If the CCMTS MIC is disabled, length 0 is returned.
+		 
+		 If the value of topCcmtsTemplateSharedSecretEncrypted is 7,this element value is invisible
+		 when read.
+		 
+		 This OID must be followed when topCcmtsTemplateSharedSecretEncrypted is 0. The value changes
+		 will cause topCcmtsTemplateSharedSecretCipherStr are modified. "
+	::={ topCcmtsTemplateSharedSecretEntry 3 }
+
+
+topCcmtsTemplateSharedSecretCipherStr OBJECT-TYPE
+	SYNTAX		           DisplayString (SIZE (32))
+	MAX-ACCESS             read-write
+	STATUS                 current
+	DESCRIPTION
+		"The cipher is encrypted by topCcmtsTemplateSharedSecretAuthStr in hexadecimal. 
+		
+		The length must be 32 when set.
+				
+		This OID must be followed when topCcmtsTemplateSharedSecretEncrypted is 0. The value changes
+		will cause topCcmtsTemplateSharedSecretAuthStr are modified. "	 
+
+	::={ topCcmtsTemplateSharedSecretEntry 4 }          
+-------------------	 topCcmtsTemplateSharedSecretTable  --------------------------------         
+
+-------------------	 topCcmtsTemplatetopCcmtsTemplateDocsIf3MdCfgTable  --------------------------------
+ topCcmtsTemplateDocsIf3MdCfgTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF TopCcmtsTemplateDocsIf3MdCfgEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+        "This object contains MAC domain level control and
+        configuration attributes."
+     ::= { topCcmtsTemplateObject 9}
+
+topCcmtsTemplateDocsIf3MdCfgEntry OBJECT-TYPE
+     SYNTAX      TopCcmtsTemplateDocsIf3MdCfgEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+         "The conceptual row of topCcmtsTemplateDocsIf3MdCfgTable.
+         The CMTS persists all instances of MdCfg across
+         reinitializations.
+         The ifIndex key corresponds to the MAC Domain interface."
+     INDEX {
+             topCcmtsTemplateIndex
+           }
+     ::= { topCcmtsTemplateDocsIf3MdCfgTable 1 }
+
+TopCcmtsTemplateDocsIf3MdCfgEntry ::= SEQUENCE {     
+     topCcmtsTemplateDocsIf3MdCfgMddInterval      Unsigned32,
+     topCcmtsTemplateDocsIf3MdCfgMcastDsidFwdEnabled   TruthValue
+     }  
+     
+topCcmtsTemplateDocsIf3MdCfgMddInterval OBJECT-TYPE
+     SYNTAX      Unsigned32 (1..2000)
+     UNITS       "milliseconds"
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        "This attribute configures the interval for the insertion
+        of MDD messages in each downstream channel of
+        a MAC Domain."
+     REFERENCE
+         "DOCSIS 3.0 MAC and Upper Layer Protocols Interface
+         Specification CM-SP-MULPIv3.0-I08-080522, Parameters
+         and Constants Annex."
+     DEFVAL { 2000 }
+     ::= { topCcmtsTemplateDocsIf3MdCfgEntry 1 }         
+     
+     topCcmtsTemplateDocsIf3MdCfgMcastDsidFwdEnabled OBJECT-TYPE
+     SYNTAX      TruthValue
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        "If set to 'true', this attribute enables the CMTS to
+        use IP Multicast DSID Forwarding (MDF) for the MAC domain."
+     REFERENCE
+         "DOCSIS 3.0 MAC and Upper Layer Protocols Interface
+         Specification CM-SP-MULPIv3.0-I08-080522, Multicast
+         DSID-based Forwarding (MDF) Modes section in the
+         Compatibility with Previous Versions of DOCSIS Annex."
+     DEFVAL { true }
+     ::= { topCcmtsTemplateDocsIf3MdCfgEntry 2 }
+
+-------------------	 topCcmtsTemplatetopCcmtsTemplateDocsIf3MdCfgTable  --------------------------------     
+
+-------------------	 topCcmtsTemplateCcmtsCfgTable  --------------------------------
+ topCcmtsTemplateCcmtsCfgTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF TopCcmtsTemplateCcmtsCfgEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+        "This object contains ccmts level 
+        configuration attributes."
+     ::= { topCcmtsTemplateObject 10}
+
+topCcmtsTemplateCcmtsCfgEntry OBJECT-TYPE
+     SYNTAX      TopCcmtsTemplateCcmtsCfgEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+         "This entry contains ccmts level 
+        configuration attributes."
+     INDEX {
+             topCcmtsTemplateIndex
+           }
+     ::= { topCcmtsTemplateCcmtsCfgTable 1 }
+
+TopCcmtsTemplateCcmtsCfgEntry ::= SEQUENCE {     
+     topCcmtsTemplateCcmtsCfgModemMaxCnt      INTEGER,
+     topCcmtsTemplatePiggyback                INTEGER
+     }  
+     
+topCcmtsTemplateCcmtsCfgModemMaxCnt OBJECT-TYPE
+     SYNTAX      INTEGER
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        "This attribute configures the max count of modems being online."
+      ::= { topCcmtsTemplateCcmtsCfgEntry 1 }         
+     
+topCcmtsTemplatePiggyback  OBJECT-TYPE
+	SYNTAX		INTEGER {
+						true(1),
+						false(2)
+						}
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION	
+		"Piggyback switch for each C-CMTS. Set true(1) to enable piggyback,false(2) to disable"   
+	::={ topCcmtsTemplateCcmtsCfgEntry 2 }
+
+-------------------	 topCcmtsTemplateCcmtsCfgTable  -------------------------------- 
+
+-------------------	 topCcmtsTemplateDevRateLimitTable  --------------------------------
+topCcmtsTemplateDevRateLimitTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsTemplateDevRateLimitEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		""
+	::={ topCcmtsTemplateObject 12 }
+
+topCcmtsTemplateDevRateLimitEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsTemplateDevRateLimitEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		""
+	INDEX { topCcmtsTemplateIndex }
+	::= { topCcmtsTemplateDevRateLimitTable 1 }
+TopCcmtsTemplateDevRateLimitEntry ::=SEQUENCE{   
+         topCcmtsTemplateDevRateLimitCpuPortIngressArp			INTEGER,
+         topCcmtsTemplateDevRateLimitCpuPortIngressUni			INTEGER,
+         topCcmtsTemplateDevRateLimitCpuPortIngressUdp			INTEGER,
+         topCcmtsTemplateDevRateLimitCpuPortIngressDhcp			INTEGER,
+         topCcmtsTemplateDevRateLimitUplinkIngressIcmp			INTEGER,
+         topCcmtsTemplateDevRateLimitUplinkIngressIgmp			INTEGER,
+         topCcmtsTemplateDevRateLimitUplinkIngressBroadcast		INTEGER, 
+         topCcmtsTemplateDevRateLimitUplinkIngressMulticast		INTEGER,
+         topCcmtsTemplateDevRateLimitCableIngressBroadcast		INTEGER,
+         topCcmtsTemplateDevRateLimitCableIngressMulticast		INTEGER,
+         topCcmtsTemplateDevRateLimitCableIngressArp			INTEGER,  
+         topCcmtsTemplateDevRateLimitCableIngressDhcp    		INTEGER,
+		 topCcmtsTemplateDevRateLimitCpuPortIngressDhcpv6		INTEGER,
+		 topCcmtsTemplateDevRateLimitUplinkIngressIcmpv6		INTEGER,
+		 topCcmtsTemplateDevRateLimitUplinkIngressMld			INTEGER,
+		 topCcmtsTemplateDevRateLimitCableIngressIgmpMld		INTEGER,
+		 topCcmtsTemplateDevRateLimitCableIngressIcmpv6			INTEGER,  
+         topCcmtsTemplateDevRateLimitCableIngressDhcpv6    		INTEGER,
+		 topCcmtsTemplateDevRateLimitCableIngressIgmp			INTEGER,
+		 topCcmtsTemplateDevRateLimitCableIngressMld			INTEGER
+	}
+    
+topCcmtsTemplateDevRateLimitCpuPortIngressArp OBJECT-TYPE
+    SYNTAX INTEGER
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"cpu port arp rate-limit(pps) with configurable value varies depending on device type."
+    ::= { topCcmtsTemplateDevRateLimitEntry 1 }
+                               
+topCcmtsTemplateDevRateLimitCpuPortIngressUni OBJECT-TYPE
+    SYNTAX INTEGER
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"cpu port Unicast rate-limit(pps) with configurable value varies depending on device type."
+    ::= { topCcmtsTemplateDevRateLimitEntry 2 }  
+    
+topCcmtsTemplateDevRateLimitCpuPortIngressUdp OBJECT-TYPE
+    SYNTAX INTEGER
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"cpu port Udp(exclude port=161) rate-limit(pps) with configurable value varies depending on device type."
+    ::= { topCcmtsTemplateDevRateLimitEntry 3 }
+                               
+topCcmtsTemplateDevRateLimitCpuPortIngressDhcp OBJECT-TYPE
+    SYNTAX INTEGER
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"cpu port dhcp rate-limit(pps) with configurable value varies depending on device type."
+    ::= { topCcmtsTemplateDevRateLimitEntry 4 }
+
+topCcmtsTemplateDevRateLimitUplinkIngressIcmp OBJECT-TYPE
+    SYNTAX INTEGER
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"uplink ingress icmp rate-limit(pps) with configurable value varies depending on device type."
+    ::= { topCcmtsTemplateDevRateLimitEntry 5 }
+
+topCcmtsTemplateDevRateLimitUplinkIngressIgmp OBJECT-TYPE
+    SYNTAX INTEGER
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"uplink ingress igmp rate-limit(pps) with configurable value varies depending on device type."
+    ::= { topCcmtsTemplateDevRateLimitEntry 6 }        
+
+topCcmtsTemplateDevRateLimitUplinkIngressBroadcast OBJECT-TYPE
+    SYNTAX INTEGER
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"uplink ingress broadcast rate-limit(pps) with configurable value varies depending on device type."
+    ::= { topCcmtsTemplateDevRateLimitEntry 7 }
+
+topCcmtsTemplateDevRateLimitUplinkIngressMulticast OBJECT-TYPE
+    SYNTAX INTEGER
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"uplink ingress multicast rate-limit(pps) with configurable value varies depending on device type."
+    ::= { topCcmtsTemplateDevRateLimitEntry 8 } 
+
+topCcmtsTemplateDevRateLimitCableIngressBroadcast OBJECT-TYPE
+    SYNTAX INTEGER
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"cable ingress broadcast rate-limit(pps) with configurable value varies depending on device type."
+    ::= { topCcmtsTemplateDevRateLimitEntry 9 }
+
+topCcmtsTemplateDevRateLimitCableIngressMulticast OBJECT-TYPE
+    SYNTAX INTEGER
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"cable ingress multicast rate-limit(pps) with configurable value varies depending on device type."
+    ::= { topCcmtsTemplateDevRateLimitEntry 10 }
+    
+topCcmtsTemplateDevRateLimitCableIngressArp OBJECT-TYPE
+	SYNTAX INTEGER 
+	MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "cm based cable ingress arp rate-limit(pps) with configurable value varies depending on device type."   
+    ::= { topCcmtsTemplateDevRateLimitEntry 11 }
+ 
+topCcmtsTemplateDevRateLimitCableIngressDhcp OBJECT-TYPE
+	SYNTAX INTEGER 
+	MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "cm based cable ingress dhcp rate-limit(pps) with configurable value varies depending on device type."   
+    ::= { topCcmtsTemplateDevRateLimitEntry 12 }
+	
+topCcmtsTemplateDevRateLimitCpuPortIngressDhcpv6 OBJECT-TYPE
+    SYNTAX INTEGER
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"cpu port dhcpv6 rate-limit(pps) with configurable value varies depending on device type."
+    ::= { topCcmtsTemplateDevRateLimitEntry 13 }
+	
+topCcmtsTemplateDevRateLimitUplinkIngressIcmpv6 OBJECT-TYPE
+    SYNTAX INTEGER
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"uplink ingress icmpv6 rate-limit(pps) with configurable value varies depending on device type."
+    ::= { topCcmtsTemplateDevRateLimitEntry 14 }
+
+topCcmtsTemplateDevRateLimitUplinkIngressMld OBJECT-TYPE
+    SYNTAX INTEGER
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"uplink ingress mld rate-limit(pps) with configurable value varies depending on device type."
+    ::= { topCcmtsTemplateDevRateLimitEntry 15 }
+	
+topCcmtsTemplateDevRateLimitCableIngressIgmpMld OBJECT-TYPE
+    SYNTAX INTEGER
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+		"cable ingress igmp and mld rate-limit(pps) with configurable value varies depending on device type."
+    ::= { topCcmtsTemplateDevRateLimitEntry 16 }
+	
+topCcmtsTemplateDevRateLimitCableIngressIcmpv6 OBJECT-TYPE
+	SYNTAX INTEGER 
+	MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "cm based cable ingress ICMPv6 rate-limit(pps) with configurable value varies depending on device type."   
+    ::= { topCcmtsTemplateDevRateLimitEntry 17 }
+ 
+topCcmtsTemplateDevRateLimitCableIngressDhcpv6 OBJECT-TYPE
+	SYNTAX INTEGER 
+	MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "cm based cable ingress DHCPv6 rate-limit(pps) with configurable value varies depending on device type."   
+    ::= { topCcmtsTemplateDevRateLimitEntry 18 }
+    
+topCcmtsTemplateDevRateLimitCableIngressIgmp OBJECT-TYPE
+	SYNTAX INTEGER 
+	MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "cm based cable ingress IGMP rate-limit(pps) with configurable value varies depending on device type."   
+    ::= { topCcmtsTemplateDevRateLimitEntry 19 }
+
+topCcmtsTemplateDevRateLimitCableIngressMld OBJECT-TYPE
+	SYNTAX INTEGER 
+	MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "cm based cable ingress MLD rate-limit(pps) with configurable value varies depending on device type."   
+    ::= { topCcmtsTemplateDevRateLimitEntry 20 }
+
+-------------------	 topCcmtsTemplateDevRateLimitTable  -------------------------------- 
+
+-------------------	 topCcmtsTemplateCmRemoteQueryCfgTable start  --------------------------------
+topCcmtsTemplateCmRemoteQueryCfgTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsTemplateCmRemoteQueryCfgEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"Configure cable modem remote-query."
+	::={ topCcmtsTemplateObject 11}
+
+topCcmtsTemplateCmRemoteQueryCfgEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsTemplateCmRemoteQueryCfgEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION	
+		"The conceptual row of topCcmtsTemplateCmRemoteQueryCfgTable."
+	INDEX  { topCcmtsTemplateIndex }
+	::={ topCcmtsTemplateCmRemoteQueryCfgTable 1 }
+
+TopCcmtsTemplateCmRemoteQueryCfgEntry ::=SEQUENCE{
+	topCcmtsTemplateCmRemoteQueryStatus					INTEGER,
+	topCcmtsTemplateCmRemoteQueryCommunity				DisplayString,
+	topCcmtsTemplateCmRemoteQueryInterval				INTEGER,
+	topCcmtsTemplateCmRemoteQuerySrcIP					IpAddress  
+}
+
+topCcmtsTemplateCmRemoteQueryStatus OBJECT-TYPE
+	SYNTAX		INTEGER{   
+					enable(1),
+					disable(2)
+				}
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"enable(1):the remotequery effect is on
+		 disable(2):the remotequery effect is off"
+	::={ topCcmtsTemplateCmRemoteQueryCfgEntry 1 }
+	
+topCcmtsTemplateCmRemoteQueryCommunity OBJECT-TYPE
+	SYNTAX		DisplayString
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"This string is the commnunity-string what
+		be used for snmp request connect"
+	::={ topCcmtsTemplateCmRemoteQueryCfgEntry 2 }
+	
+topCcmtsTemplateCmRemoteQueryInterval OBJECT-TYPE
+	SYNTAX      INTEGER(5..86400)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The interval after one whole polling end
+		 and before another polling process start"
+	::={ topCcmtsTemplateCmRemoteQueryCfgEntry 3 }
+	
+topCcmtsTemplateCmRemoteQuerySrcIP OBJECT-TYPE
+	SYNTAX		IpAddress
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"The IP address used for snmp connecting.
+		The IP must be one of the vaild IPs which Device own 
+		Returns 0.0.0.0 if no IP is assigned.
+		Write 0.0.0.0 to clear the ip assigned"
+	::={ topCcmtsTemplateCmRemoteQueryCfgEntry 4 }	
+
+-------------------	 topCcmtsTemplateCmRemoteQueryCfgTable end  --------------------------------
+
+
+-------------------	 topCcmtsTemplateDrfChannelBlockTable  start--------------------------------
+ topCcmtsTemplateDrfChannelBlockTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF TopCcmtsTemplateDrfChannelBlockEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+        "Template drf channel block table"
+     ::= { topCcmtsTemplateObject 13}
+
+topCcmtsTemplateDrfChannelBlockEntry OBJECT-TYPE
+     SYNTAX      TopCcmtsTemplateDrfChannelBlockEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+         "Template drf channel block entry."
+     INDEX {
+             topCcmtsTemplateIndex
+           }
+     ::= { topCcmtsTemplateDrfChannelBlockTable 1 }
+
+TopCcmtsTemplateDrfChannelBlockEntry ::= SEQUENCE {     
+     topCcmtsTemplateDrfChannelBlockCfgNumberChannels      Unsigned32
+     }  
+     
+topCcmtsTemplateDrfChannelBlockCfgNumberChannels OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        "The Template Number of QAM Channels N' to configure for the QAM block. 
+     This number corresponds to the number of channels that are configured to 
+	 be currently transmitted by the block.The maximum number of channels per 
+	 block follows the consideration of maximum number of digital channels in 
+	 a headend described in the DRFI specification. As a rule N' is valid if 
+	 it is less than or equal to N. 
+        In addition N minimal requirements consist of even numbers and 1 (one 
+	QAM channel per Block Channel). Odd number of QAM channels per Block Channel
+	are optional for implementation.
+		A Set to an invalid value or not supported value returns
+    Error 'wrongValue'."
+	
+      ::= { topCcmtsTemplateDrfChannelBlockEntry 1 }         
+     
+-------------------	 topCcmtsTemplateDrfChannelBlockTable  end--------------------------------  
+
+END
+	
+	 
+

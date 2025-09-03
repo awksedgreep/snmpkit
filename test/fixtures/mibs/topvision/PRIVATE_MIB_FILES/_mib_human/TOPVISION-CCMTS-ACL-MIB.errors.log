@@ -1,0 +1,64 @@
+MIB search path: /Users/mcotner/.snmp/mibs:/opt/homebrew/Cellar/net-snmp/5.9.4/share/snmp/mibs:/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES
+Cannot find module (DOCS-IF-MIB): At line 37 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-LOADBALANCING-MIB): At line 39 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-IF3-MIB): At line 43 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-QOS-MIB): At line 53 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Bad operator (_): At line 2601 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Did not find 'topCcmtsMibObject' in module TOPVISION-CCMTS-MIB (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-8800B-ACL-MIB.mib)
+Unlinked OID in TOPVISION-CCMTS-ACL-MIB: topCcmtsAclCfgObject ::= { topCcmtsMibObject 14 }
+Undefined identifier: topCcmtsMibObject near line 39 of /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-8800B-ACL-MIB.mib
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topPositionDefAction ::= { topCcmtsAclDefActionTableEntry 2 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topAclPositionIndex ::= { topCcmtsAclDefActionTableEntry 1 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchVlanCosEnd ::= { topCcmtsAclCfgTableEntry 44 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchVlanCosStart ::= { topCcmtsAclCfgTableEntry 43 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchDstPortEnd ::= { topCcmtsAclCfgTableEntry 42 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchDstPortStart ::= { topCcmtsAclCfgTableEntry 41 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchSrcPortEnd ::= { topCcmtsAclCfgTableEntry 40 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchSrcPortStart ::= { topCcmtsAclCfgTableEntry 39 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchIpv6NextHdr ::= { topCcmtsAclCfgTableEntry 38 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchDstIPv6Pfx ::= { topCcmtsAclCfgTableEntry 36 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchDstIPv6 ::= { topCcmtsAclCfgTableEntry 35 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchSrcIPv6Pfx ::= { topCcmtsAclCfgTableEntry 34 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchSrcIPv6 ::= { topCcmtsAclCfgTableEntry 33 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchIpv6FlowLable ::= { topCcmtsAclCfgTableEntry 32 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topActionNewIpDscp ::= { topCcmtsAclCfgTableEntry 31 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topActionNewIpTos ::= { topCcmtsAclCfgTableEntry 30 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topActionAddVlanCfi ::= { topCcmtsAclCfgTableEntry 29 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topActionAddVlanTpid ::= { topCcmtsAclCfgTableEntry 28 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topActionNewVlanId ::= { topCcmtsAclCfgTableEntry 27 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topActionNewVlanCfi ::= { topCcmtsAclCfgTableEntry 26 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topActionNewVlanTpid ::= { topCcmtsAclCfgTableEntry 25 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topAclRowStatus ::= { topCcmtsAclCfgTableEntry 24 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topInstallPosition ::= { topCcmtsAclCfgTableEntry 23 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topActionNewVlanCos ::= { topCcmtsAclCfgTableEntry 22 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topActionAddVlanCos ::= { topCcmtsAclCfgTableEntry 21 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topActionAddVlanId ::= { topCcmtsAclCfgTableEntry 20 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topActionMask ::= { topCcmtsAclCfgTableEntry 19 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchDstPort ::= { topCcmtsAclCfgTableEntry 18 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchSrcPort ::= { topCcmtsAclCfgTableEntry 17 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchDstIpMask ::= { topCcmtsAclCfgTableEntry 16 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchDstIp ::= { topCcmtsAclCfgTableEntry 15 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchSrcIpMask ::= { topCcmtsAclCfgTableEntry 14 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchSrcIp ::= { topCcmtsAclCfgTableEntry 13 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchIpProtocol ::= { topCcmtsAclCfgTableEntry 12 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchDscp ::= { topCcmtsAclCfgTableEntry 11 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchEtherType ::= { topCcmtsAclCfgTableEntry 10 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchVlanCos ::= { topCcmtsAclCfgTableEntry 9 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchVlanId ::= { topCcmtsAclCfgTableEntry 8 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchDstMacMask ::= { topCcmtsAclCfgTableEntry 7 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchDstMac ::= { topCcmtsAclCfgTableEntry 6 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchSrcMacMask ::= { topCcmtsAclCfgTableEntry 5 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topMatchlSrcMac ::= { topCcmtsAclCfgTableEntry 4 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topCcmtsAclPrio ::= { topCcmtsAclCfgTableEntry 3 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topCcmtsAclDesc ::= { topCcmtsAclCfgTableEntry 2 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topCcmtsAclListIndex ::= { topCcmtsAclCfgTableEntry 1 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topCcmtsAclCfgObject ::= { topCcmtsMibObject 14 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topCcmtsAclInstallTableEntry ::= { topCcmtsAclInstallTable 1 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topCcmtsAclInstallTable ::= { topCcmtsAclCfgObject 3 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topCcmtsAclCfgTable ::= { topCcmtsAclCfgObject 2 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topCcmtsAclDefActionTable ::= { topCcmtsAclCfgObject 1 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topActionPacketCounter ::= { topCcmtsAclInstallTableEntry 3 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topCcmtsAclInstallRowStatus ::= { topCcmtsAclInstallTableEntry 2 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topCcmtsAclInstallPortId ::= { topCcmtsAclInstallTableEntry 1 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topCcmtsAclDefActionTableEntry ::= { topCcmtsAclDefActionTable 1 }
+Cannot adopt OID in TOPVISION-CCMTS-ACL-MIB: topCcmtsAclCfgTableEntry ::= { topCcmtsAclCfgTable 1 }

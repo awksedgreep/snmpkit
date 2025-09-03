@@ -1,0 +1,1215 @@
+
+--*******************************************************************
+--TOP-OPTICAL-RECEIVER-MIB.my: optical receiver MIB file
+--
+--added at 2013.10.30, yaojianzhong
+--
+--Topvision      
+--
+--*******************************************************************   
+
+TOPVISION-OPTICAL-RECEIVER-MIB DEFINITIONS ::= BEGIN 
+
+IMPORTS 
+	MODULE-IDENTITY,
+	OBJECT-TYPE,
+	Integer32,
+	TimeTicks,
+	Counter64
+		FROM SNMPv2-SMI
+	TEXTUAL-CONVENTION,
+	MacAddress,
+	RowStatus,
+	DisplayString,
+	TruthValue,
+	TimeStamp
+		FROM SNMPv2-TC
+	OBJECT-GROUP,
+	MODULE-COMPLIANCE
+		FROM SNMPv2-CONF
+	SnmpAdminString
+		FROM SNMP-FRAMEWORK-MIB   
+	topCcmtsMibObject
+	    FROM  TOPVISION-CCMTS-MIB
+	sumaRoot,
+	topvisionRoot,
+	topvisionHFCCcmtsTree
+		FROM SUMA-EPONEOC-EPON-MIB
+ 	InetAddress
+        FROM INET-ADDRESS-MIB;
+
+topCcmtsDorIdent  OBJECT IDENTIFIER ::= { topCcmtsMibObject 21}
+
+--     DESCRIPTION
+--     	"DownStream Optical Receiver(DOR) Releated MIB Nodes"    
+
+--*********************************************************************************************
+--					DOR MIB
+--*********************************************************************************************
+
+topCcmtsOpRxInputTable  OBJECT-TYPE
+	SYNTAX SEQUENCE OF TopCcmtsOpRxInputEntry
+	ACCESS  not-accessible
+	STATUS 	mandatory
+	DESCRIPTION 
+	"Optical input information table"
+     ::= { topCcmtsDorIdent 3 }
+
+topCcmtsOpRxInputEntry  OBJECT-TYPE
+	SYNTAX 	TopCcmtsOpRxInputEntry
+	ACCESS  not-accessible
+	STATUS 	mandatory
+	DESCRIPTION 
+	"Optical input information entry"
+	INDEX { topCcmtsDorInputIndex }
+	::= { topCcmtsOpRxInputTable 1 }
+
+TopCcmtsOpRxInputEntry ::= SEQUENCE {
+	topCcmtsDorInputIndex
+		INTEGER,
+	topCcmtsDorInputPower
+		INTEGER
+}
+
+topCcmtsDorInputIndex  OBJECT-TYPE
+	SYNTAX 	INTEGER
+	ACCESS  read-only
+	STATUS 	mandatory
+	DESCRIPTION 
+		"Index of optical input information entry"
+	::= { topCcmtsOpRxInputEntry 1 }
+
+
+topCcmtsDorInputPower  OBJECT-TYPE
+	SYNTAX 	INTEGER
+	UNITS	"Tenth-dBm"
+	ACCESS  read-only
+	STATUS 	mandatory
+	DESCRIPTION 
+	"Optical input power of DOR. The value of -999 indicates that the optical power is less than -15dBm."
+	::= { topCcmtsOpRxInputEntry 2 }
+
+
+topCcmtsOpRxOutputTable  OBJECT-TYPE
+	SYNTAX SEQUENCE OF TopCcmtsOpRxOutputEntry
+	ACCESS  not-accessible
+	STATUS 	mandatory
+	DESCRIPTION 
+		"RF output information table"
+     ::= { topCcmtsDorIdent 5 }
+
+topCcmtsOpRxOutputEntry  OBJECT-TYPE
+	SYNTAX 	TopCcmtsOpRxOutputEntry
+	ACCESS  not-accessible
+	STATUS 	mandatory
+	DESCRIPTION 	
+		"RF output information entry"
+	INDEX { topCcmtsDorOutputIndex}
+	::= { topCcmtsOpRxOutputTable 1 }
+
+TopCcmtsOpRxOutputEntry ::= SEQUENCE {
+	topCcmtsDorOutputIndex
+		INTEGER,		
+	topCcmtsDorOutputControl
+		INTEGER,		
+	topCcmtsDorOutputGainType
+		INTEGER,
+	topCcmtsDorOutputLevel
+		INTEGER,		
+	topCcmtsDorConfigurationAGCOrigin
+		INTEGER,
+	topCcmtsDorConfigurationOutputRFlevelatt
+		INTEGER,
+	topCcmtsDorConfigurationAGCRg
+	    INTEGER
+}
+
+topCcmtsDorOutputIndex  OBJECT-TYPE
+	SYNTAX 	INTEGER
+	ACCESS  not-accessible
+	STATUS 	mandatory
+	DESCRIPTION   
+		"Index of DOR output information entry"
+	::= { topCcmtsOpRxOutputEntry 1 }
+	
+topCcmtsDorOutputControl  OBJECT-TYPE
+	SYNTAX 	INTEGER {force-a(1), force-b(2), af(3), bf(4), off(5)}
+	ACCESS  read-write
+	STATUS 	mandatory
+	DESCRIPTION 
+		"Switch of DOR output"
+	::= { topCcmtsOpRxOutputEntry 2 }
+	
+topCcmtsDorOutputGainType  OBJECT-TYPE
+	SYNTAX 	INTEGER {
+        constantLevel(1),
+        constantGain(2)
+    }
+	ACCESS  read-only
+	STATUS 	deprecated
+	DESCRIPTION 
+		"Gaintype of output,
+		 1 for constant output level;
+		 2 for constant output gain.
+		 Usually, most DORs adopt constant output gain"
+	::= { topCcmtsOpRxOutputEntry 3 }
+
+topCcmtsDorOutputLevel OBJECT-TYPE
+	SYNTAX 	INTEGER
+	UNITS	"dBuV"
+	ACCESS  read-only
+	STATUS 	mandatory
+	DESCRIPTION   
+		"Output RF level"
+	::= { topCcmtsOpRxOutputEntry 4 }
+	
+topCcmtsDorConfigurationAGCOrigin OBJECT-TYPE
+	SYNTAX 	INTEGER
+	UNITS	"dBm"
+	ACCESS  read-write
+	STATUS 	deprecated
+	DESCRIPTION 
+		"Origin power of auto gain control(AGC) in DOR.
+		 Only valid while topCcmtsDorOutputGainType=1(constant output level)"
+	::= { topCcmtsOpRxOutputEntry 5 }
+
+topCcmtsDorConfigurationOutputRFlevelatt  OBJECT-TYPE
+	SYNTAX 	INTEGER
+	UNITS	"dB"
+	ACCESS  read-write
+	STATUS 	optional   
+	DESCRIPTION 
+		"RF output attenuation of DOR. FFB support."
+	::= { topCcmtsOpRxOutputEntry 6 }
+ 
+topCcmtsDorConfigurationAGCRg  OBJECT-TYPE
+	SYNTAX 	INTEGER
+	UNITS	"dBm"
+	ACCESS  read-only
+	STATUS 	optional   
+	DESCRIPTION 
+		"Power range of auto gain control(AGC) in DOR. 
+		 0 - not support, 1 - [-7, +2]."
+	::= { topCcmtsOpRxOutputEntry 7 }
+
+
+topCcmtsDorDCPowerTable OBJECT-TYPE
+     SYNTAX SEQUENCE OF TopCcmtsDorDCPowerEntry
+     ACCESS not-accessible
+     STATUS mandatory
+     DESCRIPTION
+		"DC power information table"
+     ::= { topCcmtsDorIdent 8 }
+
+topCcmtsDorDCPowerEntry OBJECT-TYPE
+     	SYNTAX TopCcmtsDorDCPowerEntry
+     	ACCESS not-accessible
+     	STATUS mandatory
+     	DESCRIPTION
+		"DC power information entry"
+     	INDEX { topCcmtsDorDCPowerIndex }
+     	::= { topCcmtsDorDCPowerTable 1 }
+
+TopCcmtsDorDCPowerEntry ::=SEQUENCE
+     {
+          topCcmtsDorDCPowerIndex
+               INTEGER,              
+          topCcmtsDorDCPowerVoltage
+               INTEGER
+     }
+
+topCcmtsDorDCPowerIndex OBJECT-TYPE
+     SYNTAX INTEGER
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+         "Index of DC power information entry"
+     ::= { topCcmtsDorDCPowerEntry 1 }
+
+topCcmtsDorDCPowerVoltage OBJECT-TYPE
+     SYNTAX INTEGER ( -32768..32767 )
+     UNITS	"Tenth-V"
+     ACCESS read-only
+     STATUS mandatory                        
+     DESCRIPTION
+	"DC supply voltage(12V/24V)"
+     ::= { topCcmtsDorDCPowerEntry 2 }
+
+topCcmtsDorABSwitchTable  OBJECT-TYPE
+	SYNTAX SEQUENCE OF TopCcmtsDorABSwitchEntry
+	ACCESS  not-accessible
+	STATUS 	mandatory
+	DESCRIPTION 
+		"DOR A-B switch information table"
+     ::= { topCcmtsDorIdent 10 }
+
+topCcmtsDorABSwitchEntry  OBJECT-TYPE
+	SYNTAX 	TopCcmtsDorABSwitchEntry
+	ACCESS  not-accessible
+	STATUS 	mandatory
+	DESCRIPTION 
+		"DOR A-B switch information entry"
+	INDEX { topCcmtsDorABSwitchIndex }
+	::= { topCcmtsDorABSwitchTable 1 }
+
+TopCcmtsDorABSwitchEntry ::= SEQUENCE {
+	topCcmtsDorABSwitchIndex
+		INTEGER, 		
+	topCcmtsDorABSwitchState
+		INTEGER,
+	topCcmtsDorABSwitchControl
+		INTEGER,
+	topCcmtsDorConfigurationABSwitchThres
+		INTEGER
+}
+
+topCcmtsDorABSwitchIndex  OBJECT-TYPE
+	SYNTAX 	INTEGER
+	ACCESS  read-only
+	STATUS 	mandatory
+	DESCRIPTION 
+		"Index of A-B switch information entry"
+	::= { topCcmtsDorABSwitchEntry 1 }
+	
+topCcmtsDorABSwitchState  OBJECT-TYPE
+	SYNTAX 	INTEGER  { pathA(1), pathB(2) }
+	ACCESS  read-only
+	STATUS 	mandatory
+	DESCRIPTION 
+		"State of A-B switch"
+	::= { topCcmtsDorABSwitchEntry 2 }
+
+topCcmtsDorABSwitchControl   OBJECT-TYPE
+	SYNTAX 	INTEGER { forcePathA(1), forcePathB(2), preferPathA(3), preferPathB(4), userPathAB(5) }
+	ACCESS  read-only
+	STATUS 	deprecated
+	DESCRIPTION   
+		"A-B switch of DOR
+		forcePathA  - force A-B switch to path-A, auto switch will be forbidden;
+		forcePathB  - force A-B switch to path-B, auto switch will be forbidden;
+		preferPathA - auto switch permitted, path-A prefered;
+		preferPathB - auto switch permitted, path-A prefered;
+		userPathAB  - auto switch permitted, no priority adopted;"                                                       
+	::= { topCcmtsDorABSwitchEntry 3 }
+
+topCcmtsDorConfigurationABSwitchThres  OBJECT-TYPE
+	SYNTAX 	INTEGER
+	UNITS	"dBm"
+	ACCESS  read-only
+	STATUS 	deprecated                                             
+	DESCRIPTION 
+		"Threshold of A-B switch action"
+	::= { topCcmtsDorABSwitchEntry 4 }
+
+topCcmtsDorRFPortTable  OBJECT-TYPE
+        SYNTAX SEQUENCE OF TopCcmtsDorRFPortEntry
+        ACCESS not-accessible
+        STATUS mandatory
+        DESCRIPTION
+            "RF output level information table"
+     ::= { topCcmtsDorIdent 11 }
+
+topCcmtsDorRFPortEntry  OBJECT-TYPE
+	SYNTAX 	TopCcmtsDorRFPortEntry
+	ACCESS  not-accessible
+	STATUS 	mandatory
+	DESCRIPTION 
+	"RF output level information entry"
+	INDEX { topCcmtsDorRFPortIndex }
+	::= { topCcmtsDorRFPortTable 1 }
+
+TopCcmtsDorRFPortEntry ::= SEQUENCE {
+	topCcmtsDorRFPortIndex
+		INTEGER,
+	topCcmtsDorRFPortOutputRFLevel
+		INTEGER
+}
+	
+topCcmtsDorRFPortIndex OBJECT-TYPE
+     SYNTAX INTEGER
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+         "Index of RF output level information entry"
+     ::= { topCcmtsDorRFPortEntry 1 }
+     	
+topCcmtsDorRFPortOutputRFLevel OBJECT-TYPE
+        SYNTAX INTEGER ( 0..127 )
+        UNITS  "dBuV"
+        ACCESS read-only
+        STATUS optional 
+        DESCRIPTION
+ 		"RF output level"
+     ::= { topCcmtsDorRFPortEntry 2 }	 
+
+topCcmtsDorLinePowerTable  OBJECT-TYPE
+	SYNTAX SEQUENCE OF TopCcmtsDorLinePowerEntry
+	ACCESS  not-accessible
+	STATUS 	mandatory
+	DESCRIPTION 
+		"AC power information table"
+     ::= { topCcmtsDorIdent 13 }
+
+topCcmtsDorLinePowerEntry  OBJECT-TYPE
+	SYNTAX 	TopCcmtsDorLinePowerEntry
+	ACCESS  not-accessible
+	STATUS 	mandatory
+	DESCRIPTION 
+	"AC power information entry"
+	INDEX { topCcmtsDorLinePowerIndex }
+	::= { topCcmtsDorLinePowerTable 1 }
+
+TopCcmtsDorLinePowerEntry ::= SEQUENCE {
+	topCcmtsDorLinePowerIndex
+		INTEGER,
+	topCcmtsDorLinePowerVoltage1
+		INTEGER
+}
+	
+topCcmtsDorLinePowerIndex OBJECT-TYPE
+     SYNTAX INTEGER
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+         "Index of AC power information entry"
+     ::= { topCcmtsDorLinePowerEntry 1 }
+     	
+topCcmtsDorLinePowerVoltage1 OBJECT-TYPE
+     SYNTAX INTEGER ( 0..65535 )
+     UNITS	"Tenth-V"
+     ACCESS read-only
+     STATUS optional
+     DESCRIPTION
+ 	 "AC supply voltage"
+     ::= { topCcmtsDorLinePowerEntry 2 }	
+
+topCcmtsDorChannelNumTable  OBJECT-TYPE
+				SYNTAX SEQUENCE OF TopCcmtsDorChannelNumEntry
+				ACCESS  not-accessible
+				STATUS 	deprecated
+        DESCRIPTION
+            "system optical node channel table"
+     ::= { topCcmtsDorIdent 20 }
+
+topCcmtsDorChannelNumEntry  OBJECT-TYPE
+	SYNTAX 	TopCcmtsDorChannelNumEntry
+	ACCESS  not-accessible
+	STATUS 	deprecated
+	DESCRIPTION 
+	"system optical node channel table entry"
+	INDEX { topCcmtsDorChannelNumIndex }
+	::= { topCcmtsDorChannelNumTable 1 }
+
+TopCcmtsDorChannelNumEntry ::= SEQUENCE {
+	topCcmtsDorChannelNumIndex
+		INTEGER,
+	topCcmtsDorChannelNum
+		INTEGER
+}
+	
+topCcmtsDorChannelNumIndex OBJECT-TYPE
+     SYNTAX INTEGER
+     ACCESS not-accessible
+     STATUS deprecated
+     DESCRIPTION
+         "Index of system optical node channel table entry"
+     ::= { topCcmtsDorChannelNumEntry 1 }
+     	
+topCcmtsDorChannelNum OBJECT-TYPE
+     SYNTAX INTEGER (0..200)
+     ACCESS read-only
+     STATUS deprecated
+     DESCRIPTION
+ 	"system channel number"
+     ::= { topCcmtsDorChannelNumEntry 2 }	     
+ 
+topCcmtsDorFwdAttTable  OBJECT-TYPE
+		SYNTAX SEQUENCE OF TopCcmtsDorFwdAttEntry
+		ACCESS  not-accessible
+		STATUS 	mandatory
+        DESCRIPTION
+            "system optical node FWD_RF_ATT table"
+     ::= { topCcmtsDorIdent 21 }
+
+topCcmtsDorFwdAttEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsDorFwdAttEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"This object describe FWD_RF_ATT info of system optical node."      
+	INDEX  { topCcmtsDorFwdRfAttIndex }
+	::={ topCcmtsDorFwdAttTable 1 }
+	
+TopCcmtsDorFwdAttEntry ::= SEQUENCE {
+	topCcmtsDorFwdRfAttIndex
+		INTEGER,
+	topCcmtsDorFwdRfAtt
+		INTEGER
+}
+	
+topCcmtsDorFwdRfAttIndex OBJECT-TYPE
+     SYNTAX INTEGER
+     ACCESS not-accessible
+     STATUS mandatory
+     DESCRIPTION
+         "Index of system optical node FWD_RF_ATT table entry."
+     ::= { topCcmtsDorFwdAttEntry 1 }
+     	
+topCcmtsDorFwdRfAtt OBJECT-TYPE
+     SYNTAX INTEGER 
+     UNITS	"dB"
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+ 	"system optical node FWD_RF_ATT value, CFD support RF 1-2 value range [0-30]; FFA/FFB support RF 1-4, value range [0-20]."
+     ::= { topCcmtsDorFwdAttEntry 2 }
+ 
+topCcmtsDorFwdEqTable  OBJECT-TYPE
+		SYNTAX SEQUENCE OF TopCcmtsDorFwdEqEntry
+				ACCESS  not-accessible
+				STATUS 	mandatory
+        DESCRIPTION
+            "system optical node FWD_RF_EQ table"
+     ::= { topCcmtsDorIdent 22 }
+
+topCcmtsDorFwdEqEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsDorFwdEqEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"This object describe FWD_RF_EQ info of system optical node."      
+	INDEX  { topCcmtsDorFwdRfEqIndex }
+	::={ topCcmtsDorFwdEqTable 1 }
+	
+	
+TopCcmtsDorFwdEqEntry ::= SEQUENCE {
+	topCcmtsDorFwdRfEqIndex
+		INTEGER,
+	topCcmtsDorFwdRfEq
+		INTEGER
+}
+	
+topCcmtsDorFwdRfEqIndex OBJECT-TYPE
+     SYNTAX INTEGER
+     ACCESS not-accessible
+     STATUS mandatory
+     DESCRIPTION
+         "Index of system optical node FWD_RF_EQ."
+     ::= { topCcmtsDorFwdEqEntry 1 }
+     	
+topCcmtsDorFwdRfEq OBJECT-TYPE
+     SYNTAX INTEGER (0..20)
+     UNITS	"dB"
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+ 	"system optical node FWD_RF_EQ value, CFD/FFA/FFB support."
+     ::= { topCcmtsDorFwdEqEntry 2 }
+     
+topCcmtsDorRevAttTable  OBJECT-TYPE
+		SYNTAX SEQUENCE OF TopCcmtsDorRevAttEntry
+				ACCESS  not-accessible
+				STATUS 	mandatory
+        DESCRIPTION
+            "system optical node RTN_RF_ATT table"
+     ::= { topCcmtsDorIdent 23 }
+ 
+topCcmtsDorRevAttEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsDorRevAttEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"This object describe RTN_RF_ATT info of system optical node."      
+	INDEX  { topCcmtsDorRtnRfAttIndex }
+	::={ topCcmtsDorRevAttTable 1 }
+	
+TopCcmtsDorRevAttEntry ::= SEQUENCE {
+	topCcmtsDorRtnRfAttIndex
+		INTEGER,
+	topCcmtsDorRtnRfAtt
+		INTEGER
+}
+	
+topCcmtsDorRtnRfAttIndex OBJECT-TYPE
+     SYNTAX INTEGER
+     ACCESS not-accessible
+     STATUS mandatory
+     DESCRIPTION
+         "Index of system optical node RTN_RF_ATT table entry."
+     ::= { topCcmtsDorRevAttEntry 1 }
+     	
+topCcmtsDorRtnRfAtt OBJECT-TYPE
+     SYNTAX INTEGER
+     UNITS	"dB"
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+ 	"system optical node RTN_RF_ATT value. CFD/FFA/FFB support,
+ 	 value in [0-30] is normal value, FFA/FFB support value 40, means switch off RTN RF."
+     ::= { topCcmtsDorRevAttEntry 2 }
+     
+topCcmtsDorDevParamsTable  OBJECT-TYPE
+		SYNTAX SEQUENCE OF TopCcmtsDorDevParamsEntry
+				ACCESS  not-accessible
+				STATUS 	mandatory
+        DESCRIPTION
+            "system optical node device params table"
+     ::= { topCcmtsDorIdent 24 }   
+     
+topCcmtsDorDevParamsEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsDorDevParamsEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"This object describe device params info of system optical node."      
+	INDEX  { topCcmtsDorDevIndex }
+	::={ topCcmtsDorDevParamsTable 1 }
+	
+	
+TopCcmtsDorDevParamsEntry ::= SEQUENCE {
+	topCcmtsDorDevIndex			INTEGER,    
+	topCcmtsDorPlatSN		    DisplayString,
+	topCcmtsDorFRXNum           INTEGER,
+	topCcmtsDorOptNodeTemp		INTEGER,
+	topCcmtsDorRestorFactory	INTEGER,
+	topCcmtsDorFWDEQ0			INTEGER,
+	topCcmtsDorFWDATT0			INTEGER,
+	topCcmtsDorREVEQ			INTEGER,
+	topCcmtsDorRTXState			INTEGER,
+	topCcmtsDorRTXLaserPower	INTEGER,
+	topCcmtsDorREVATTUS			INTEGER,
+	topCcmtsDorREVATTRTX		INTEGER,
+	topCcmtsDorRTXLaserCurrent	INTEGER,
+	topCcmtsDorCATVInLevel		INTEGER,
+	topCcmtsDorInputSelect		INTEGER,
+	topCcmtsDorFTXOptPower		INTEGER,
+	topCcmtsDorFTXLaserCurrent	INTEGER,
+	topCcmtsDorDsTotalAtt       INTEGER,
+	topCcmtsDorUsMode           INTEGER,
+	topCcmtsDorOptSwThreshold   INTEGER,
+	topCcmtsDorRevEqB           INTEGER,
+	topCcmtsDorRevAttUsB        INTEGER,
+	topCcmtsDorFtxOptPowB       INTEGER,
+	topCcmtsDorCurFrxState      INTEGER,
+	topCcmtsdorDpx1             INTEGER,
+	topCcmtsdorDpx2             INTEGER,
+	topCcmtsdorDpx3             INTEGER,
+	topCcmtsdorDpx4             INTEGER
+}
+ 
+topCcmtsDorDevIndex OBJECT-TYPE
+     SYNTAX INTEGER
+     ACCESS not-accessible
+     STATUS mandatory
+     DESCRIPTION
+    "Index of system optical node device params table entry"
+     ::= { topCcmtsDorDevParamsEntry 1 }
+     
+topCcmtsDorPlatSN OBJECT-TYPE 
+	SYNTAX		DisplayString (SIZE (0..19))
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The platform serial number of system optical node. CFC/CFD/EF/FFA/FFB/EP06/EP09 support."
+	::={ topCcmtsDorDevParamsEntry 2}
+	
+	
+topCcmtsDorFRXNum OBJECT-TYPE
+     SYNTAX INTEGER (1..2)
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+ 	"The forward optical-receiver number of system optical node."
+     ::= { topCcmtsDorDevParamsEntry 3 }
+   
+topCcmtsDorOptNodeTemp OBJECT-TYPE
+     SYNTAX INTEGER  
+     UNITS	"0.1degC"
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+ 	"The temperature of system optical node. CFC/CFD/EF/FFA/FFB/EP06/EP09 support."
+     ::= { topCcmtsDorDevParamsEntry 4 }
+
+topCcmtsDorRestorFactory OBJECT-TYPE
+     SYNTAX INTEGER  
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+ 	"restore system optical node to factory configuration. CFC/CFD/FFA/FFB support.
+ 	 when set, value 1 will act the restore operation, other value is invalid. when get, it will always return 0."
+     ::= { topCcmtsDorDevParamsEntry 5 }
+     
+topCcmtsDorFWDEQ0 OBJECT-TYPE
+     SYNTAX INTEGER (0..20)
+     UNITS	"dB" 
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+ 	"the FWD_Tot_EQ of system optical node. FFA/FFB support."
+     ::= { topCcmtsDorDevParamsEntry 6 }
+
+topCcmtsDorFWDATT0 OBJECT-TYPE
+     SYNTAX INTEGER (0..10)
+     UNITS	"dB" 
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+ 	"the FWD_MIX_Tot_ATT of system optical node. FFA/FFB support."
+     ::= { topCcmtsDorDevParamsEntry 7 }   
+     
+topCcmtsDorREVEQ OBJECT-TYPE
+     SYNTAX INTEGER (0..20)
+     UNITS	"dB" 
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+ 	"the RTN_MIX_Tot_EQ of system optical node. FFA/FFB support."
+     ::= { topCcmtsDorDevParamsEntry 8 }
+     
+topCcmtsDorRTXState OBJECT-TYPE
+     SYNTAX INTEGER {off (1), on (2)}
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+ 	"Switch off RTX_LASER_SW of system optical node. FFA/FFB support.
+ 	 1:OFF 2:ON."
+     ::= { topCcmtsDorDevParamsEntry 9 } 
+     
+topCcmtsDorRTXLaserPower OBJECT-TYPE
+     SYNTAX INTEGER (0..30)
+     UNITS	"Tenth-dBm"
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+ 	"The RTX_LASER_POW of system optical node. FFA/FFB support."
+ 	 ::= { topCcmtsDorDevParamsEntry 10 }
+
+topCcmtsDorREVATTUS OBJECT-TYPE
+     SYNTAX INTEGER (0..30)
+     UNITS	"dB"
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+ 	"The RTN_RF5_ATT of system optical node. FFA/FFB support."
+ 	 ::= { topCcmtsDorDevParamsEntry 11 }   
+ 	 
+topCcmtsDorREVATTRTX OBJECT-TYPE
+     SYNTAX INTEGER (0..30)
+     UNITS	"dB"
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+ 	"The RTN_RF6_ATT of system optical node. FFA/FFB support."
+ 	 ::= { topCcmtsDorDevParamsEntry 12 }
+ 	 
+topCcmtsDorRTXLaserCurrent OBJECT-TYPE
+     SYNTAX INTEGER (0..500)
+     UNITS	"mA"
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+ 	"The RTX_LASER_BIAS of system optical node. FFA/FFB support."
+ 	 ::= { topCcmtsDorDevParamsEntry 13 } 	 
+ 
+topCcmtsDorCATVInLevel OBJECT-TYPE
+     SYNTAX INTEGER
+     UNITS	"dBuV"
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+ 	"The TV_IN_POW of system optical node. CFC/CFD support."
+ 	 ::= { topCcmtsDorDevParamsEntry 14 }
+ 	 
+topCcmtsDorInputSelect OBJECT-TYPE
+     SYNTAX INTEGER  {tv-in (0), frx-in (1)}
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+ 	"The CATV_INPUT_SEL of system optical node. CFC/CFD support."
+ 	 ::= { topCcmtsDorDevParamsEntry 15 }
+ 	 
+topCcmtsDorFTXOptPower OBJECT-TYPE
+     SYNTAX INTEGER (-100..100)
+     UNITS	"Tenth-dBm"
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+ 	"The FTX_OPT_POW of system optical node. EP06/EP09 support."
+ 	 ::= { topCcmtsDorDevParamsEntry 16 }
+ 	 
+topCcmtsDorFTXLaserCurrent OBJECT-TYPE
+     SYNTAX INTEGER (0..500)
+     UNITS	"mA"
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+ 	"The FTX_LASER_CUR of system optical node. EP06/EP09 support."
+ 	 ::= { topCcmtsDorDevParamsEntry 17 }
+	 
+topCcmtsDorDsTotalAtt OBJECT-TYPE
+     SYNTAX INTEGER (0..20)
+     UNITS	"dB"
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+ 	"The DS_Tot_ATT of system optical node. FFA/FFB support."
+ 	 ::= { topCcmtsDorDevParamsEntry 18 }
+
+topCcmtsDorUsMode OBJECT-TYPE	 
+	 SYNTAX		INTEGER {mode1(1), mode2(2)}
+	 MAX-ACCESS	read-write
+	 STATUS		current
+	 DESCRIPTION
+	"The US_Mode of system optical node.FFB support."
+	 ::={ topCcmtsDorDevParamsEntry 19 }
+	
+topCcmtsDorOptSwThreshold OBJECT-TYPE
+     SYNTAX INTEGER (-10..-4)
+     UNITS	"dB"
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+ 	"The Opt_threshold of system optical node.FFB support."
+ 	 ::= { topCcmtsDorDevParamsEntry 20 }
+	 
+	 
+topCcmtsDorRevEqB OBJECT-TYPE
+     SYNTAX INTEGER (0..20)
+     UNITS	"dB"
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+ 	"The RTN_MIX_Tot_EQ_B  of system optical node.FFB support."
+ 	 ::= { topCcmtsDorDevParamsEntry 22 }
+	 
+topCcmtsDorRevAttUsB OBJECT-TYPE
+     SYNTAX INTEGER (0..30)
+     UNITS	"dB"
+     ACCESS read-write
+     STATUS mandatory
+     DESCRIPTION
+ 	"The RTN_US_B_ATT  of system optical node.FFB support."
+ 	 ::= { topCcmtsDorDevParamsEntry 23 }
+	
+topCcmtsDorFtxOptPowB OBJECT-TYPE
+     SYNTAX INTEGER (-150..20 | -999)
+     UNITS	"Tenth-dBm"
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+ 	"The FRX_OPT_B_POW  of system optical node.FFB support. The value of -999 indicates that the optical power is less than -15dBm."
+ 	 ::= { topCcmtsDorDevParamsEntry 24 }
+	 
+topCcmtsDorCurFrxState OBJECT-TYPE
+	 SYNTAX		INTEGER {a (1), b(2), off(3)}
+	 MAX-ACCESS	read-only
+	 STATUS		current
+	 DESCRIPTION
+	"The CUR_FRX_STATE  of system optical node.FFB support."
+	 ::= { topCcmtsDorDevParamsEntry 25 }
+	
+topCcmtsdorDpx1 OBJECT-TYPE
+     SYNTAX INTEGER (1..4)
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+ 	"The DPX1  of system optical node.FFB support."
+ 	 ::= { topCcmtsDorDevParamsEntry 26 }
+	 
+topCcmtsdorDpx2 OBJECT-TYPE
+     SYNTAX INTEGER (1..4)
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+ 	"The DPX2  of system optical node.FFB support."
+ 	 ::= { topCcmtsDorDevParamsEntry 27 }
+	 
+topCcmtsdorDpx3 OBJECT-TYPE
+     SYNTAX INTEGER (1..4)
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+ 	"The DPX3  of system optical node.FFB support."
+ 	 ::= { topCcmtsDorDevParamsEntry 28 }
+	 
+topCcmtsdorDpx4 OBJECT-TYPE
+     SYNTAX INTEGER (1..4)
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+ 	"The DPX4  of system optical node.FFB support."
+ 	 ::= { topCcmtsDorDevParamsEntry 29 }
+ 	 
+topCcmtsDorRRXOptPowTable  OBJECT-TYPE
+		SYNTAX SEQUENCE OF TopCcmtsDorRRXOptPowEntry
+		ACCESS  not-accessible
+		STATUS 	mandatory
+        DESCRIPTION
+       "system optical node RRX_OPT_POW table."
+     ::= { topCcmtsDorIdent 25 }
+
+topCcmtsDorRRXOptPowEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsDorRRXOptPowEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"This object describe RRX_OPT_POW info of system optical node."      
+	INDEX  { topCcmtsDorRRXOptPowIndex }
+	::={ topCcmtsDorRRXOptPowTable 1 }
+
+TopCcmtsDorRRXOptPowEntry ::= SEQUENCE {
+	topCcmtsDorRRXOptPowIndex
+		INTEGER,
+	topCcmtsDorRRXOptPow
+		INTEGER
+}
+	
+topCcmtsDorRRXOptPowIndex OBJECT-TYPE
+     SYNTAX INTEGER
+     ACCESS not-accessible
+     STATUS mandatory
+     DESCRIPTION
+         "Index of system optical node RRX_OPT_POW table entry."
+     ::= { topCcmtsDorRRXOptPowEntry 1 }
+     	
+topCcmtsDorRRXOptPow OBJECT-TYPE
+     SYNTAX INTEGER (-180..30)
+     UNITS	"Tenth-dBm"
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+ 	"The RRX_OPT_POW of system optical node. EP06/EP09 support."
+     ::= { topCcmtsDorRRXOptPowEntry 2 }
+
+topCcmtsDorFwUpgTable  OBJECT-TYPE
+		SYNTAX SEQUENCE OF TopCcmtsDorFwUpgEntry
+				ACCESS  not-accessible
+				STATUS 	mandatory
+        DESCRIPTION
+            "system optical node device firmware upgrade info table."
+     ::= { topCcmtsDorIdent 26 }
+
+topCcmtsDorFwUpgEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsDorFwUpgEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"This object describe device params info of system optical node."      
+	INDEX  { topCcmtsDorFwUpgDevIndex }
+	::={ topCcmtsDorFwUpgTable 1 }
+
+TopCcmtsDorFwUpgEntry ::= SEQUENCE {
+	topCcmtsDorFwUpgDevIndex    INTEGER,    
+	topCcmtsDorFwUpgAction		INTEGER,
+	topCcmtsDorFwUpgServerAddr  InetAddress,
+	topCcmtsDorFwUpgFileName	DisplayString,
+	topCcmtsDorFwUpgProto		INTEGER,
+	topCcmtsDorFwUpgUserName	DisplayString,
+	topCcmtsDorFwUpgPasswd		DisplayString,
+	topCcmtsDorFwUpgStatus		INTEGER		
+} 
+	    
+topCcmtsDorFwUpgDevIndex OBJECT-TYPE
+	SYNTAX INTEGER
+    ACCESS not-accessible
+    STATUS mandatory
+	DESCRIPTION
+		"Index of system optical node."
+	::={topCcmtsDorFwUpgEntry 1}
+
+topCcmtsDorFwUpgAction OBJECT-TYPE
+	SYNTAX INTEGER
+    ACCESS read-write
+    STATUS mandatory
+	DESCRIPTION
+		"FFA/FFB support. value 1 will act firmware upgrade operation, default is 0 means no operation, other value is invalid.
+		 if upgrade successfully, the dor will reboot automatically, need wait for 10 seconds to retrieve new valid data."
+	::={topCcmtsDorFwUpgEntry 2}  
+	
+topCcmtsDorFwUpgServerAddr OBJECT-TYPE
+	SYNTAX InetAddress
+    ACCESS read-write
+    STATUS mandatory
+	DESCRIPTION
+		"tftp or ftp server address of firmware file to download from."
+	::={topCcmtsDorFwUpgEntry 3}
+	
+topCcmtsDorFwUpgFileName OBJECT-TYPE
+	SYNTAX DisplayString (SIZE (0..50))
+    ACCESS read-write
+    STATUS mandatory
+	DESCRIPTION
+		"filename of the firmware file to upgrade, should be less than 50 chars."
+	::={topCcmtsDorFwUpgEntry 4}		
+ 
+topCcmtsDorFwUpgProto OBJECT-TYPE
+	SYNTAX INTEGER
+	ACCESS read-write
+    STATUS mandatory
+	DESCRIPTION
+		"1 - ftp, 2 - tftp, other value is invalid."
+	::={topCcmtsDorFwUpgEntry 5}
+	
+topCcmtsDorFwUpgUserName OBJECT-TYPE
+	SYNTAX DisplayString (SIZE (0..50))
+    ACCESS read-write
+    STATUS mandatory
+	DESCRIPTION
+		"username of ftp user to download firmware by ftp, should be less than 50 chars."
+	::={topCcmtsDorFwUpgEntry 6}
+		 
+topCcmtsDorFwUpgPasswd OBJECT-TYPE
+	SYNTAX DisplayString (SIZE (0..50))
+    ACCESS read-write
+    STATUS mandatory
+	DESCRIPTION
+		"password of ftp user to download firmware by ftp, should be less than 50 chars."
+	::={topCcmtsDorFwUpgEntry 7} 
+	
+topCcmtsDorFwUpgStatus OBJECT-TYPE
+	SYNTAX INTEGER
+	ACCESS read-only
+    STATUS mandatory
+	DESCRIPTION
+		"return dor firmware upgrade status."
+	::={topCcmtsDorFwUpgEntry 8}
+  	  	  	 	                            
+-- lvhaiting added for optical-receiver type     2014-5-26
+
+topCcmtsDorDevTypeTable  OBJECT-TYPE
+				SYNTAX SEQUENCE OF TopCcmtsDorDevTypeEntry
+				ACCESS  not-accessible
+				STATUS 	mandatory
+        DESCRIPTION
+            "Optical receiver device type table"
+     ::= { topCcmtsDorIdent 1 }
+
+topCcmtsDorDevTypeEntry  OBJECT-TYPE
+	SYNTAX 	TopCcmtsDorDevTypeEntry
+	ACCESS  not-accessible
+	STATUS 	mandatory
+	DESCRIPTION 
+		"Optical receiver device type entry"
+	INDEX { topCcmtsDorDevTypeIndex }
+	::= { topCcmtsDorDevTypeTable 1 }
+
+TopCcmtsDorDevTypeEntry ::= SEQUENCE {
+	topCcmtsDorDevTypeIndex
+		INTEGER,
+	topCcmtsDorDevType
+		INTEGER
+}
+	
+topCcmtsDorDevTypeIndex OBJECT-TYPE
+     SYNTAX INTEGER
+     ACCESS read-only
+     STATUS mandatory
+     DESCRIPTION
+           "Index of optical receiver device type entry"
+     ::= { topCcmtsDorDevTypeEntry 1 }
+     	
+topCcmtsDorDevType OBJECT-TYPE
+     SYNTAX INTEGER {reserved1(0), TYPE-A(1), TYPE-B(2),TYPE-A1(3),TYPE-B1(4),TYPE-C(5)}
+     ACCESS read-only
+     STATUS deprecated
+     DESCRIPTION
+        "optical receiver device type 
+        0 reserved 
+        1 presents the DOR TYPE-A0 
+        2 presents the DOR TYPE-B0 
+        3 presents the DOR TYPE-A1 
+        4 presents the DOR TYPE-B1
+		5 presents the DOR TYPE-C "
+     ::= { topCcmtsDorDevTypeEntry 2 }
+     
+
+topCcmtsDorInputPowerEventTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsDorInputPowerEventEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "CATV input optical power event table"
+    ::={ topCcmtsDorIdent 27 }
+
+topCcmtsDorInputPowerEventEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsDorInputPowerEventEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "topCcmtsDorInputPowerEventTable table"
+    INDEX  { topCcmtsDorInputPowerEventCmcIfindex }
+    ::= { topCcmtsDorInputPowerEventTable 1 }
+
+TopCcmtsDorInputPowerEventEntry ::= SEQUENCE {
+             topCcmtsDorInputPowerEventCmcIfindex            INTEGER,
+             topCcmtsDorInputPowerEventLowAlarmThresh            INTEGER,
+             topCcmtsDorInputPowerEventLowRecovThresh            INTEGER,
+             topCcmtsDorInputPowerEventHighAlarmThresh            INTEGER,
+             topCcmtsDorInputPowerEventHighRecovThresh            INTEGER
+           }
+
+topCcmtsDorInputPowerEventCmcIfindex OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "RMD ifindex"
+    ::={ topCcmtsDorInputPowerEventEntry 1 }
+
+topCcmtsDorInputPowerEventLowAlarmThresh OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "CATV input optical power too low alarm threshold(0.1 dBm)"
+    ::={ topCcmtsDorInputPowerEventEntry 2 }
+
+topCcmtsDorInputPowerEventLowRecovThresh OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "CATV input optical power low status recover threshold(0.1 dBm)"
+    ::={ topCcmtsDorInputPowerEventEntry 3 }
+
+topCcmtsDorInputPowerEventHighAlarmThresh OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "CATV input optical power too high alarm threshold(0.1 dBm)"
+    ::={ topCcmtsDorInputPowerEventEntry 4 }
+
+topCcmtsDorInputPowerEventHighRecovThresh OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "CATV input optical power high status recover threshold(0.1 dBm)"
+    ::={ topCcmtsDorInputPowerEventEntry 5 }
+
+    
+topCcmtsTempDorInputPowerEventTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsTempDorInputPowerEventEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "CATV input optical power event template table"
+    ::={ topCcmtsDorIdent 28 }
+
+topCcmtsTempDorInputPowerEventEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsTempDorInputPowerEventEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "topCcmtsTempDorInputPowerEventTable table entry"
+    INDEX  { topCcmtsTempDorInputPowerEventTemplateId }
+    ::= { topCcmtsTempDorInputPowerEventTable 1 }
+
+TopCcmtsTempDorInputPowerEventEntry ::= SEQUENCE {
+             topCcmtsTempDorInputPowerEventTemplateId            INTEGER,
+             topCcmtsTempDorInputPowerEventLowAlarmThresh            INTEGER,
+             topCcmtsTempDorInputPowerEventLowRecovThresh            INTEGER,
+             topCcmtsTempDorInputPowerEventHighAlarmThresh            INTEGER,
+             topCcmtsTempDorInputPowerEventHighRecovThresh            INTEGER
+           }
+
+topCcmtsTempDorInputPowerEventTemplateId OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "template ID"
+    ::={ topCcmtsTempDorInputPowerEventEntry 1 }
+
+topCcmtsTempDorInputPowerEventLowAlarmThresh OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "CATV input optical power too low alarm threshold(0.1 dBm)"
+    ::={ topCcmtsTempDorInputPowerEventEntry 2 }
+
+topCcmtsTempDorInputPowerEventLowRecovThresh OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "CATV input optical power low status recover threshold(0.1 dBm)"
+    ::={ topCcmtsTempDorInputPowerEventEntry 3 }
+
+topCcmtsTempDorInputPowerEventHighAlarmThresh OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "CATV input optical power too high alarm threshold(0.1 dBm)"
+    ::={ topCcmtsTempDorInputPowerEventEntry 4 }
+
+topCcmtsTempDorInputPowerEventHighRecovThresh OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "CATV input optical power high status recover threshold(0.1 dBm)"
+    ::={ topCcmtsTempDorInputPowerEventEntry 5 }
+
+    
+topCcmtsOpTxOutputTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsOpTxOutputEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "CATV Optical output status table"
+    ::={ topCcmtsDorIdent 29 }
+
+topCcmtsOpTxOutputEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsOpTxOutputEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "topCcmtsOpTxOutputTable table entry"
+    INDEX  { topCcmtsDorTxOutputIndex }
+    ::= { topCcmtsOpTxOutputTable 1 }
+
+TopCcmtsOpTxOutputEntry ::= SEQUENCE {
+             topCcmtsDorTxOutputIndex            INTEGER,
+             topCcmtsDorOutputPower            INTEGER,
+             topCcmtsDorOutputWaveLen          INTEGER,
+             topCcmtsDorOutputLdCurrent        INTEGER
+           }
+
+topCcmtsDorTxOutputIndex OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "table index"
+    ::={ topCcmtsOpTxOutputEntry 1 }
+
+topCcmtsDorOutputPower OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "Optical output power-level(unit 0.1 dBm)"
+    ::={ topCcmtsOpTxOutputEntry 2 }
+
+topCcmtsDorOutputWaveLen OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "Optical output wave length,with 0: 1310nm 1 : 1550nm"
+    ::={ topCcmtsOpTxOutputEntry 3 }
+
+topCcmtsDorOutputLdCurrent OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "Optical output LD current(unit mA)"
+    ::={ topCcmtsOpTxOutputEntry 4 }
+
+END

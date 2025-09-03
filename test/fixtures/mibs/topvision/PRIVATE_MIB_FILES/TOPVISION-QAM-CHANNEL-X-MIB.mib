@@ -1,0 +1,1650 @@
+
+--*******************************************************************
+--TOPVISION-QAM-CHANNEL-X-MIB: QAM Channel Extention MIB file
+--
+--added at 2014.12.3, lvhaiting
+--CCMTS-17526 修改qam name的范围  修改OldPid 和 newPid范围支持全PID范围，不再限制不允许配置0   
+--CCMTS-17590 修改topCcmtsEqamStreamInfoStatus 的类型定义
+--Topvision      
+--
+--*******************************************************************   
+
+TOPVISION-QAM-CHANNEL-X-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS    
+        MODULE-IDENTITY,
+    	OBJECT-TYPE,
+    	Integer32, 
+    	Unsigned32
+        	FROM SNMPv2-SMI 
+        qamChannelEntry
+            FROM SCTE-HMS-QAM-MIB
+		RowStatus, 
+		MacAddress,
+		DisplayString,
+        TruthValue
+            FROM SNMPv2-TC
+		ifIndex
+			FROM IF-MIB
+		InetAddress,
+		InetAddressType
+			FROM INET-ADDRESS-MIB
+		QAMChannelModulationFormat, 
+		QAMChannelInterleaveMode
+			FROM SCTE-HMS-HEADENDIDENT-TC-MIB			
+        topCcmtsMibObject
+        	FROM  TOPVISION-CCMTS-MIB;                  
+
+topCcmtsQamObject  OBJECT IDENTIFIER ::= { topCcmtsMibObject 24}
+
+-- DescrIPtion
+-- Extension to the qam-channel table 
+
+qamChannelXTable	OBJECT-TYPE
+	SYNTAX			SEQUENCE OF QamChannelXEntry
+	MAX-ACCESS		not-accessible
+	STATUS			current
+	DESCRIPTION
+		"This table describes the configuration and attributes of each
+		QAM channel of the QAM designated by ifIndex.This table contains
+        additional objects for the QAM channel table."
+    ::= {topCcmtsQamObject 1}
+    
+qamChannelXEntry	OBJECT-TYPE
+	SYNTAX			QamChannelXEntry
+	MAX-ACCESS		not-accessible
+	STATUS			current
+	DESCRIPTION   
+		"There is an entry containing additional infomation about QAM channel." 
+	AUGMENTS		{ qamChannelEntry }
+	::= { qamChannelXTable 1 }
+	
+QamChannelXEntry ::= SEQUENCE {   
+		qamChannelId			Unsigned32,
+		qamChannelSymbolRate	Unsigned32		
+}   
+	
+qamChannelId OBJECT-TYPE  
+	SYNTAX		Unsigned32
+	MAX-ACCESS  read-only
+	STATUS		current
+	DESCRIPTION
+		"The channel ID of EQAM channel"  
+	::= { qamChannelXEntry 1}
+	
+qamChannelSymbolRate OBJECT-TYPE
+	SYNTAX		Unsigned32
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"The symbol rate of EQAM channel.
+		 Unit: sym/s"
+	::= { qamChannelXEntry 2}    
+
+topCcmtsEqamTemplateGlobalTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsEqamTemplateGlobalEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "This table describes EQAM template system configuration,
+		including EQAM template creation and destroy action."
+    ::={ topCcmtsQamObject 2 }
+
+topCcmtsEqamTemplateGlobalEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsEqamTemplateGlobalEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry of topCcmtsEqamTemplateGlobalTable with EQAM template ID as index."
+    INDEX  { topCcmtsEqamTemplateId }
+    ::= { topCcmtsEqamTemplateGlobalTable 1 }
+
+TopCcmtsEqamTemplateGlobalEntry ::= SEQUENCE {
+             topCcmtsEqamTemplateId            INTEGER,
+             topCcmtsEqamTemplateGlobalJitterTolerance            INTEGER,
+             topCcmtsEqamTemplateGlobalIgmpVersion            INTEGER,
+             topCcmtsEqamTemplateGlobalVlanCheck            INTEGER,
+             topCcmtsEqamTemplateGlobalRowStatus            RowStatus,
+             topCcmtsEqamTemplateGlobalDevType     BITS
+           }
+
+topCcmtsEqamTemplateId OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "EQAM template ID."
+    ::={ topCcmtsEqamTemplateGlobalEntry 1 }
+
+topCcmtsEqamTemplateGlobalJitterTolerance OBJECT-TYPE
+    SYNTAX        INTEGER(1..1000) 
+    UNITS         "millisecond"
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "TS streams network jitter time configuration in EQAM template."
+    DEFVAL {500}
+       ::= { topCcmtsEqamTemplateGlobalEntry 2 }
+
+topCcmtsEqamTemplateGlobalIgmpVersion OBJECT-TYPE
+    SYNTAX      INTEGER {
+					igmpv2(2),    
+					igmpv3(3)
+				}
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The value of this object is the version of the IGMP. 
+		The value '2' represents IGMP v2, The value '3' represents 
+		IGMP v3."
+
+	DEFVAL {igmpv2}
+    ::={ topCcmtsEqamTemplateGlobalEntry 3 }
+
+topCcmtsEqamTemplateGlobalVlanCheck OBJECT-TYPE
+    SYNTAX      INTEGER{
+					enable(1),    
+					disable(2)
+				}
+    MAX-ACCESS    read-create
+    STATUS        current 
+    DESCRIPTION
+        "Indicates whether EQAM check TS data VLAN
+		mismatching TS data will be discarded ."
+	DEFVAL {disable}
+    ::={ topCcmtsEqamTemplateGlobalEntry 4 }
+
+topCcmtsEqamTemplateGlobalRowStatus OBJECT-TYPE
+    SYNTAX        RowStatus
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "table row status."
+    ::={ topCcmtsEqamTemplateGlobalEntry 5 }
+    
+topCcmtsEqamTemplateGlobalDevType OBJECT-TYPE
+    SYNTAX  BITS { 
+               cc8800a(1),
+               cc8800b(2),
+               cc8800c_a(3),
+               cc8800d(4),
+               cc8800c_b(5),
+               cc8800s(6),
+               cc8800c_10g(7),
+               cc8800e(8),    
+               cc8800c_e(9),
+               cc8800d_e(10),
+               cc8800d_p2(11),
+	           cc8800d_u2(12),
+	           cc8800f_p1(13),
+               cc8800f_p2(14),
+	           cc8800f_u1(15),
+	           cc8800f_u2(16),
+	           cc8800e_p2(17),
+	           cc8800c_p2(18)
+             }
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "RMD device type bits list."
+    ::={ topCcmtsEqamTemplateGlobalEntry 6 }
+
+topCcmtsEqamTemplateChnlTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsEqamTemplateChnlEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM template channel configuration table."
+    ::={ topCcmtsQamObject 3 }
+
+topCcmtsEqamTemplateChnlEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsEqamTemplateChnlEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry of topCcmtsEqamTemplateChnlTable table,
+		with index EQAM template ID 'topCcmtsEqamTemplateId' and ,
+		EQAM downstream channel ID 'topCcmtsEqamTemplateChnlChnlId'."
+    INDEX  { topCcmtsEqamTemplateId,
+           topCcmtsEqamTemplateChnlChnlId           }
+    ::= { topCcmtsEqamTemplateChnlTable 1 }
+
+TopCcmtsEqamTemplateChnlEntry ::= SEQUENCE {
+             topCcmtsEqamTemplateChnlChnlId            INTEGER,
+             topCcmtsEqamTemplateChnlTsIDOffset            INTEGER, 
+             topCcmtsEqamTemplateChnlQamGroupName          DisplayString,
+             topCcmtsEqamTemplateChnlQamManager            INTEGER,
+             topCcmtsEqamTemplateChnlOriginalNetworkId            INTEGER,
+             topCcmtsEqamTemplateChnlPatInterval            INTEGER,
+             topCcmtsEqamTemplateChnlPmtInterval            INTEGER,
+             topCcmtsEqamTemplateChnlSdvSwitch            INTEGER,
+             topCcmtsEqamTemplateChnlSdvPortStart            INTEGER
+           }
+
+topCcmtsEqamTemplateChnlChnlId OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM downstream channel ID."
+    ::={ topCcmtsEqamTemplateChnlEntry 1 }
+
+topCcmtsEqamTemplateChnlTsIDOffset OBJECT-TYPE
+    SYNTAX        INTEGER (0..65535)
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "Transport stream ID offset,the final TSID of EQAM channel = TSID_base + TSID_offset, default value is current channel ID"
+    ::={ topCcmtsEqamTemplateChnlEntry 2 }   
+    
+topCcmtsEqamTemplateChnlQamGroupName   OBJECT-TYPE
+    SYNTAX        DisplayString (SIZE (1..63)) 
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "QAM group name, default value is qam_group_%d(%d is channel id)"
+    ::={ topCcmtsEqamTemplateChnlEntry 3 }
+
+topCcmtsEqamTemplateChnlQamManager OBJECT-TYPE
+    SYNTAX      INTEGER{
+					vod(1),    
+					svod(2),
+					broadcast(4)
+				}
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "QAM manager configuration."
+    ::={ topCcmtsEqamTemplateChnlEntry 4 }
+
+topCcmtsEqamTemplateChnlOriginalNetworkId OBJECT-TYPE
+    SYNTAX        INTEGER (0..65535)
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "Original network ID, default value is current channel ID"
+    ::={ topCcmtsEqamTemplateChnlEntry 5 }
+
+topCcmtsEqamTemplateChnlPatInterval OBJECT-TYPE
+    SYNTAX        INTEGER (0 | 100..1000)   
+    UNITS         "millisecond"
+    MAX-ACCESS    read-write  
+    STATUS        current
+    DESCRIPTION
+        "PAT packet sending period, value 0 means do not sending PAT."  
+    DEFVAL {100}  
+    	    ::={ topCcmtsEqamTemplateChnlEntry 6 }
+
+topCcmtsEqamTemplateChnlPmtInterval OBJECT-TYPE
+    SYNTAX   	  INTEGER (0 | 100..1000)  
+    UNITS         "millisecond"
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "PMT packet sending period,value 0 means do not sending PMT."  
+    DEFVAL {100} 
+    ::={ topCcmtsEqamTemplateChnlEntry 7 }
+
+topCcmtsEqamTemplateChnlSdvSwitch OBJECT-TYPE
+    SYNTAX      INTEGER{
+					enable(1),    
+					disable(2)
+				}
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "SDV switch."  
+    DEFVAL {disable} 
+    ::={ topCcmtsEqamTemplateChnlEntry 8 }
+
+topCcmtsEqamTemplateChnlSdvPortStart OBJECT-TYPE
+    SYNTAX        INTEGER (1..65535)
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "SDV port start value." 
+    DEFVAL {1} 
+    ::={ topCcmtsEqamTemplateChnlEntry 9 }
+
+topCcmtsEqamTemplateStreamMapTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsEqamTemplateStreamMapEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM template TS stream mappingping table."
+    ::={ topCcmtsQamObject 4 }
+
+topCcmtsEqamTemplateStreamMapEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsEqamTemplateStreamMapEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry of topCcmtsEqamTemplateStreamMapTable."
+    INDEX  { topCcmtsEqamTemplateId,
+           topCcmtsEqamTemplateChnlChnlId,
+           topCcmtsEqamTemplateStreamMapId           }
+    ::= { topCcmtsEqamTemplateStreamMapTable 1 }
+
+TopCcmtsEqamTemplateStreamMapEntry ::= SEQUENCE {
+             topCcmtsEqamTemplateStreamMapId            		INTEGER,
+             topCcmtsEqamTemplateStreamMapIpType            	InetAddressType,
+             topCcmtsEqamTemplateStreamMapDstIp            		InetAddress,
+             topCcmtsEqamTemplateStreamMapUdpDstPort            INTEGER,
+             topCcmtsEqamTemplateStreamMapSrcIp            		InetAddress,
+             topCcmtsEqamTemplateStreamMapStreamType            INTEGER,
+             topCcmtsEqamTemplateStreamMapInputProgramId    	INTEGER,
+             topCcmtsEqamTemplateStreamMapOutputProgramId    	INTEGER,
+             topCcmtsEqamTemplateStreamMapPmv            		INTEGER,
+             topCcmtsEqamTemplateStreamMapAdminStatus             INTEGER,
+             topCcmtsEqamTemplateStreamMapRowStatus            	RowStatus
+           }
+
+topCcmtsEqamTemplateStreamMapId OBJECT-TYPE
+    SYNTAX        INTEGER(1..32)
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "EQAM TS stream mapping ID."
+    ::={ topCcmtsEqamTemplateStreamMapEntry 1 }
+
+topCcmtsEqamTemplateStreamMapIpType OBJECT-TYPE
+    SYNTAX        InetAddressType
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "EQAM TS stream mapping source or destination IP address type."
+    DEFVAL {ipv4} 
+    ::={ topCcmtsEqamTemplateStreamMapEntry 2 }
+
+topCcmtsEqamTemplateStreamMapDstIp OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "TS stream destination IP address,0 indicates TS destination IP is EQAM service IP as matching."   
+    DEFVAL {0} 
+    ::={ topCcmtsEqamTemplateStreamMapEntry 3 }
+
+topCcmtsEqamTemplateStreamMapUdpDstPort OBJECT-TYPE
+    SYNTAX        INTEGER (0..65535)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "TS stream UDP destination port,default value is TS mapping ID." 
+    ::={ topCcmtsEqamTemplateStreamMapEntry 4 }
+
+topCcmtsEqamTemplateStreamMapSrcIp OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "TS stream source IP address,0 indicates TS sourse IP is ignored as matching."   
+    DEFVAL {0} 
+    ::={ topCcmtsEqamTemplateStreamMapEntry 5 }
+
+topCcmtsEqamTemplateStreamMapStreamType OBJECT-TYPE
+    SYNTAX        INTEGER{
+					mpts(1),    
+					data(2),
+					spts(3),
+					datar(4)
+				}
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "TS stream type"   
+    DEFVAL {data}
+    ::={ topCcmtsEqamTemplateStreamMapEntry 6 }
+
+topCcmtsEqamTemplateStreamMapInputProgramId OBJECT-TYPE
+    SYNTAX        INTEGER (0..65535)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "Input program number,0 indicates match the first program."   
+    DEFVAL {0} 
+    ::={ topCcmtsEqamTemplateStreamMapEntry 7 }
+
+topCcmtsEqamTemplateStreamMapOutputProgramId OBJECT-TYPE
+    SYNTAX        INTEGER (0..65535)
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "Output program number,default value is TS mapping ID."  
+    ::={ topCcmtsEqamTemplateStreamMapEntry 8 }
+
+topCcmtsEqamTemplateStreamMapPmv OBJECT-TYPE
+    SYNTAX        INTEGER (1..510)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "PMV is related to video and audio PID of program stream,default value is TS mapping ID." 
+    ::={ topCcmtsEqamTemplateStreamMapEntry 9 }
+
+topCcmtsEqamTemplateStreamMapAdminStatus   OBJECT-TYPE
+    SYNTAX        INTEGER
+                  {
+                     enable(1),
+                     disable(2)
+                  }
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "TS admin status."     
+    DEFVAL{enable}
+    ::={ topCcmtsEqamTemplateStreamMapEntry 10 }   
+    
+topCcmtsEqamTemplateStreamMapRowStatus OBJECT-TYPE
+    SYNTAX        RowStatus
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "Table row status."
+    ::={ topCcmtsEqamTemplateStreamMapEntry 11 }
+
+topCcmtsEqamStreamInfoTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsEqamStreamInfoEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream information table."
+    ::={ topCcmtsQamObject 5 }
+
+topCcmtsEqamStreamInfoEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsEqamStreamInfoEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry of topCcmtsEqamStreamInfoTable, index 'ifIndex' is CMTS ifIndex."
+    INDEX  { ifIndex,
+           topCcmtsEqamStreamInfoMappingId           }
+    ::= { topCcmtsEqamStreamInfoTable 1 }
+
+TopCcmtsEqamStreamInfoEntry ::= SEQUENCE {
+             topCcmtsEqamStreamInfoMappingId            INTEGER,
+             topCcmtsEqamStreamInfoIpType            InetAddressType,
+             topCcmtsEqamStreamInfoSrcIp            InetAddress,
+             topCcmtsEqamStreamInfoDstIp            InetAddress,
+             topCcmtsEqamStreamInfoDstPort            INTEGER,
+             topCcmtsEqamStreamInfoVideoType            INTEGER,
+             topCcmtsEqamStreamInfoInputPmtPID            INTEGER,
+             topCcmtsEqamStreamInfoOutputPmtPID            INTEGER,
+             topCcmtsEqamStreamInfoInputRate            INTEGER,
+             topCcmtsEqamStreamInfoOutputRate            INTEGER,
+             topCcmtsEqamStreamInfoOutputProgramId            INTEGER,
+             topCcmtsEqamStreamInfoStatus            BITS,
+             topCcmtsEqamStreamInfoOperStatus            		INTEGER,    
+             topCcmtsEqamStreamInfoSrcUdpPort            		INTEGER,       
+             topCcmtsEqamStreamInfoInputProgramId                INTEGER,   
+             topCcmtsEqamStreamInfoInputVideoPid            		INTEGER,    
+             topCcmtsEqamStreamInfoInputAudioPid            		INTEGER,    
+             topCcmtsEqamStreamInfoInputPcrPid            		INTEGER,      
+             topCcmtsEqamStreamInfoOutputVideoPid            	INTEGER,   
+             topCcmtsEqamStreamInfoOutputAudioPid            	INTEGER,   
+             topCcmtsEqamStreamInfoOutputPcrPid            		INTEGER, 
+             topCcmtsEqamStreamInfoInputEcmPid   		INTEGER, 
+             topCcmtsEqamStreamInfoNumElems      		INTEGER, 
+             topCcmtsEqamStreamInfoNumEcms       		INTEGER, 
+             topCcmtsEqamStreamInfoPmtVersion    		INTEGER, 
+             topCcmtsEqamStreamInfoOutputEcmPid   		INTEGER
+           }
+
+topCcmtsEqamStreamInfoMappingId OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "EQAM TS stream mapping ID."
+    ::={ topCcmtsEqamStreamInfoEntry 1 }
+
+topCcmtsEqamStreamInfoIpType OBJECT-TYPE
+    SYNTAX        InetAddressType
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "EQAM TS stream mapping source or destination IP address type."
+    ::={ topCcmtsEqamStreamInfoEntry 2 }
+
+topCcmtsEqamStreamInfoSrcIp OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "Source IP address."
+    ::={ topCcmtsEqamStreamInfoEntry 3 }
+
+topCcmtsEqamStreamInfoDstIp OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "Destination IP address."
+    ::={ topCcmtsEqamStreamInfoEntry 4 }
+
+topCcmtsEqamStreamInfoDstPort OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "Destination UDP port."
+    ::={ topCcmtsEqamStreamInfoEntry 5 }
+
+topCcmtsEqamStreamInfoVideoType OBJECT-TYPE
+    SYNTAX        INTEGER{
+	                      kUnkown(0),
+	                      kMPEG1_VIDEO(1),
+                          kMPEG2_VIDEO(2),
+                          kMPEG1_AUDIO(3),
+                          kMPEG2_AUDIO(4),
+                          kAAC1_AUDIO(6),
+                          kAAC_AUDIO(15),
+                          kMPEG4_VIDEO(16),
+                          kH264_VIDEO(27),
+						  kH265_VIDEO(36),
+                          kAVS_VIDEO(66),
+                          kAAC2_AUDIO(129)
+	                     }
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "Video format type."
+    ::={ topCcmtsEqamStreamInfoEntry 6 }
+
+topCcmtsEqamStreamInfoInputPmtPID OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "Input program map table PID,default value 8191 indicates unknown information."
+    ::={ topCcmtsEqamStreamInfoEntry 7 }
+
+topCcmtsEqamStreamInfoOutputPmtPID OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "Output program map table PID,default value 8191 indicates empty TS or unknown information."
+    ::={ topCcmtsEqamStreamInfoEntry 8 }
+
+topCcmtsEqamStreamInfoInputRate OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "Input TS bits rate."
+    ::={ topCcmtsEqamStreamInfoEntry 9 }
+
+topCcmtsEqamStreamInfoOutputRate OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "Output  TS bits rate."
+    ::={ topCcmtsEqamStreamInfoEntry 10 }
+
+topCcmtsEqamStreamInfoOutputProgramId OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "Output program ID."
+    ::={ topCcmtsEqamStreamInfoEntry 11 }
+
+topCcmtsEqamStreamInfoStatus OBJECT-TYPE
+	SYNTAX		BITS {
+	                ts_comming(0),
+	                ts_analysing(1),
+	                ts_analyse_success(2)
+	                }
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream  status."
+    ::={ topCcmtsEqamStreamInfoEntry 12 }
+
+ topCcmtsEqamStreamInfoOperStatus     OBJECT-TYPE
+    SYNTAX        INTEGER
+	              {
+                    enable(1),
+                    disable(2)
+	              }
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream operation status."
+	::={ topCcmtsEqamStreamInfoEntry 13 }
+	
+ topCcmtsEqamStreamInfoSrcUdpPort     OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream source UDP port."
+	::={ topCcmtsEqamStreamInfoEntry 14 }
+	
+ topCcmtsEqamStreamInfoInputProgramId OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream input program ID."
+	::={ topCcmtsEqamStreamInfoEntry 15 }
+	
+ topCcmtsEqamStreamInfoInputVideoPid  OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream input video PID,default value 8191 indicates unknown information."
+	::={ topCcmtsEqamStreamInfoEntry 16 }
+	
+ topCcmtsEqamStreamInfoInputAudioPid  OBJECT-TYPE  
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream input audio PID, high 16 bits is the first audio PID, low 16 bits is the second audio PID
+		,default value '0x1FFF | (0x1FFF << 16)' indicates unknown information."
+	::={ topCcmtsEqamStreamInfoEntry 17 } 
+	
+ topCcmtsEqamStreamInfoInputPcrPid    OBJECT-TYPE 
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream input PCR PID,default value 8191 indicates unknown information."
+	::={ topCcmtsEqamStreamInfoEntry 18 }  
+	
+ topCcmtsEqamStreamInfoOutputVideoPid OBJECT-TYPE 
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream output video PID,default value 8191 indicates unknown information."
+	::={ topCcmtsEqamStreamInfoEntry 19 }
+	
+ topCcmtsEqamStreamInfoOutputAudioPid OBJECT-TYPE   
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream output audio PID, high 16 bits is the first audio PID, low 16 bits is the second audio PID
+		,default value '0x1FFF | (0x1FFF << 16)' indicates unknown information."
+	::={ topCcmtsEqamStreamInfoEntry 20 } 
+	
+ topCcmtsEqamStreamInfoOutputPcrPid   OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream output PCR PID,default value 8191 indicates unknown information."
+	::={ topCcmtsEqamStreamInfoEntry 21 } 
+	
+ topCcmtsEqamStreamInfoInputEcmPid   OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream input ECM input PID
+		,default value '0x1FFF | (0x1FFF << 16)' indicates unknown information."
+	::={ topCcmtsEqamStreamInfoEntry 22 } 
+
+   
+  topCcmtsEqamStreamInfoNumElems   OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream element number."
+	::={ topCcmtsEqamStreamInfoEntry 23} 
+	
+  topCcmtsEqamStreamInfoNumEcms   OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream ECM number."
+	::={ topCcmtsEqamStreamInfoEntry 24} 
+	
+ topCcmtsEqamStreamInfoPmtVersion   OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream PMT version."
+	::={ topCcmtsEqamStreamInfoEntry 25} 
+	
+ topCcmtsEqamStreamInfoOutputEcmPid   OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM TS stream output ECM input PID
+		,default value '0x1FFF | (0x1FFF << 16)' indicates unknown information."
+	::={ topCcmtsEqamStreamInfoEntry 26 } 
+ 
+topCcmtsEqamTemplateBindTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsEqamTemplateBindEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM template binding table."
+    ::={ topCcmtsQamObject 6 }
+
+topCcmtsEqamTemplateBindEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsEqamTemplateBindEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry of topCcmtsEqamTemplateBindTable,index 'ifIndex' is CMTS ifIndex."
+    INDEX  { ifIndex }
+    ::= { topCcmtsEqamTemplateBindTable 1 }
+
+TopCcmtsEqamTemplateBindEntry ::= SEQUENCE {
+             topCcmtsEqamTemplateBindStaticTemplateId            INTEGER,
+             topCcmtsEqamTemplateBindStaticServiceIpType        InetAddressType,
+             topCcmtsEqamTemplateBindStaticServiceIp            InetAddress,
+			 topCcmtsEqamTemplateBindStaticServiceIpMask        InetAddress,
+             topCcmtsEqamTemplateBindStaticTsIDBase            INTEGER,
+             topCcmtsEqamTemplateBindStaticServiceVlan            INTEGER,
+             topCcmtsEqamTemplateBindAutoGroupId            INTEGER,
+             topCcmtsEqamTemplateBindAutoTimeTicks            INTEGER,
+             topCcmtsEqamTemplateBindAutoStatus            INTEGER,
+			 topCcmtsEqamTemplateBindAutoResIndex            INTEGER,
+			 topCcmtsEqamTemplateBindAutoUndo            INTEGER,
+             topCcmtsEqamTemplateBindAutoTemplateId            INTEGER
+           }
+
+topCcmtsEqamTemplateBindStaticTemplateId OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "EQAM template ID,0 indicate no-binding status."
+    ::={ topCcmtsEqamTemplateBindEntry 1 }
+
+topCcmtsEqamTemplateBindStaticServiceIpType OBJECT-TYPE
+    SYNTAX        InetAddressType
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "EQAM service IP address type."
+    ::={ topCcmtsEqamTemplateBindEntry 2 }
+
+topCcmtsEqamTemplateBindStaticServiceIp OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "EQAM service IP address."
+    ::={ topCcmtsEqamTemplateBindEntry 3 }
+	
+topCcmtsEqamTemplateBindStaticServiceIpMask OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "EQAM service IP address mask."
+    ::={ topCcmtsEqamTemplateBindEntry 4 }
+	
+topCcmtsEqamTemplateBindStaticTsIDBase OBJECT-TYPE
+    SYNTAX        INTEGER (0..65535)
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "Transport Stream ID base,the final TSID = TSID_BASE + offset(EQAM template channel TSID_offset)."
+    ::={ topCcmtsEqamTemplateBindEntry 5 }
+
+topCcmtsEqamTemplateBindStaticServiceVlan OBJECT-TYPE
+    SYNTAX        INTEGER (0..4094)
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "EQAM service VLAN ID."
+    ::={ topCcmtsEqamTemplateBindEntry 6 }
+
+topCcmtsEqamTemplateBindAutoGroupId OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "EQAM template automatic bind group ID."
+    ::={ topCcmtsEqamTemplateBindEntry 7 }
+
+topCcmtsEqamTemplateBindAutoTimeTicks OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "EQAM automatic bind time ticks."
+    ::={ topCcmtsEqamTemplateBindEntry 8 }
+
+topCcmtsEqamTemplateBindAutoStatus OBJECT-TYPE
+    SYNTAX        INTEGER
+	              {
+				     static(0),
+					 dynamic(1)
+				  }
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM template binding status,static(0) means manual configuration,
+		dynamic(1) means automatic binding by EQAM auto-bind group."
+    ::={ topCcmtsEqamTemplateBindEntry 9 }
+	
+topCcmtsEqamTemplateBindAutoResIndex OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "0 means invalid EQAM automatic bind resource index,for example,resource index N means:
+		 EQAM service IP = topCcmtsEqamAutoBindGroupServiceIp + N - 1
+		 EQAM TSID base = topCcmtsEqamAutoBindGroupTsIDBaseStart + (N-1)*topCcmtsEqamAutoBindGroupTsIDBaseStep."
+    ::={ topCcmtsEqamTemplateBindEntry 10 }
+	
+topCcmtsEqamTemplateBindAutoUndo OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "1 trigger to EQAM automatic bind
+         2 trigger to clear EQAM automatic bind currently."
+    ::={ topCcmtsEqamTemplateBindEntry 11 }
+    
+topCcmtsEqamTemplateBindAutoTemplateId OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "EQAM template automatic bind template ID."
+    ::={ topCcmtsEqamTemplateBindEntry 12 }
+    
+topCcmtsEqamAutoBindGroupTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsEqamAutoBindGroupEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding group table."
+    ::={ topCcmtsQamObject 7 }
+
+topCcmtsEqamAutoBindGroupEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsEqamAutoBindGroupEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry of topCcmtsEqamAutoBindGroupTable table."
+    INDEX  { topCcmtsEqamAutoBindGroupId }
+    ::= { topCcmtsEqamAutoBindGroupTable 1 }
+
+TopCcmtsEqamAutoBindGroupEntry ::= SEQUENCE {
+             topCcmtsEqamAutoBindGroupId            INTEGER,
+             topCcmtsEqamAutoBindGroupTemplateId            INTEGER,
+             topCcmtsEqamAutoBindGroupServiceIpType            InetAddressType,
+             topCcmtsEqamAutoBindGroupServiceIp            InetAddress,
+             topCcmtsEqamAutoBindGroupServiceIpMask            InetAddress,
+             topCcmtsEqamAutoBindGroupServiceIpVlan            INTEGER,
+             topCcmtsEqamAutoBindGroupTsIDBaseStart            INTEGER,
+             topCcmtsEqamAutoBindGroupTsIDBaseStep            INTEGER,
+             topCcmtsEqamAutoBindGroupTsIDBaseEnd            INTEGER,
+             topCcmtsEqamAutoBindGroupRowStatus            RowStatus,
+             topCcmtsEqamAutoBindGroupClearPoolHis            INTEGER
+
+           }
+
+topCcmtsEqamAutoBindGroupId OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding group ID."
+    ::={ topCcmtsEqamAutoBindGroupEntry 1 }
+
+topCcmtsEqamAutoBindGroupTemplateId OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-create
+    STATUS        deprecated
+    DESCRIPTION
+        "EQAM template ID."
+    ::={ topCcmtsEqamAutoBindGroupEntry 2 }
+
+topCcmtsEqamAutoBindGroupServiceIpType OBJECT-TYPE
+    SYNTAX        InetAddressType
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "EQAM service IP address type"
+    ::={ topCcmtsEqamAutoBindGroupEntry 3 }
+
+topCcmtsEqamAutoBindGroupServiceIp OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM service IP address pool: IP address."
+    ::={ topCcmtsEqamAutoBindGroupEntry 4 }
+
+topCcmtsEqamAutoBindGroupServiceIpMask OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM service IP address pool: IP address mask."
+    ::={ topCcmtsEqamAutoBindGroupEntry 5 }
+
+topCcmtsEqamAutoBindGroupServiceIpVlan OBJECT-TYPE
+    SYNTAX        INTEGER (0..4094)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding group service VLAN ID."
+    ::={ topCcmtsEqamAutoBindGroupEntry 6 }
+
+topCcmtsEqamAutoBindGroupTsIDBaseStart OBJECT-TYPE
+    SYNTAX        INTEGER (0..65535)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The start value of the EQAM automatic binding group Transport Stream base ID."
+    ::={ topCcmtsEqamAutoBindGroupEntry 7 }
+
+topCcmtsEqamAutoBindGroupTsIDBaseStep OBJECT-TYPE
+    SYNTAX        INTEGER (0..65535)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The step value of the EQAM automatic binding group Transport Stream base ID."
+    ::={ topCcmtsEqamAutoBindGroupEntry 8 }
+
+topCcmtsEqamAutoBindGroupTsIDBaseEnd OBJECT-TYPE
+    SYNTAX        INTEGER (0..65535)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The end value of the EQAM automatic binding group Transport Stream base ID."
+    ::={ topCcmtsEqamAutoBindGroupEntry 9 }
+
+topCcmtsEqamAutoBindGroupRowStatus OBJECT-TYPE
+    SYNTAX        RowStatus
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM stream information table row status."
+    ::={ topCcmtsEqamAutoBindGroupEntry 10 }
+
+topCcmtsEqamAutoBindGroupClearPoolHis OBJECT-TYPE
+    SYNTAX        TruthValue
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "Clear EQAM automatic bind history. Set true to clear."
+    ::={ topCcmtsEqamAutoBindGroupEntry 11 }
+	
+	
+topCcmtsEqamAutoBindDevTypePolicyTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsEqamAutoBindDevTypePolicyEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding device type policy table."
+    ::={ topCcmtsQamObject 9 }
+
+topCcmtsEqamAutoBindDevTypePolicyEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsEqamAutoBindDevTypePolicyEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry of topCcmtsEqamAutoBindDevTypePolicyTable table."
+    INDEX  { topCcmtsEqamAutoBindDevTypeId }
+    ::= { topCcmtsEqamAutoBindDevTypePolicyTable 1 }
+
+TopCcmtsEqamAutoBindDevTypePolicyEntry ::= SEQUENCE {
+             topCcmtsEqamAutoBindDevTypeId            INTEGER,
+             topCcmtsEqamAutoBindDevTypePolicyGroupId    INTEGER,
+             topCcmtsEqamAutoBindDevTypePolicyTemplateId INTEGER
+           }
+
+topCcmtsEqamAutoBindDevTypeId OBJECT-TYPE
+    SYNTAX        INTEGER {
+                            unknown(0),
+                            cc8800-a(1),
+                            cc8800-b(2),
+                            cc8800-c-a(3),
+                            cc8800-d(4),
+                            cc8800-c-b(5),
+                            cc8800-s(6),
+                            cc8800-c-10g(7),
+                            cc8800-e(8),    
+                            cc8800-c-e(9),
+                            cc8800-d-e(10),
+                            cc8800-d-p2(11),
+                            cc8800-d-u2(12),
+                            cc8800-f-p1(13),
+                            cc8800-f-p2(14),
+                            cc8800-f-u1(15),
+                            cc8800-f-u2(16),
+                            cc8800-e-p2(17),
+                            cc8800-c-p2(18)
+                          }
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding device type."
+    ::={ topCcmtsEqamAutoBindDevTypePolicyEntry 1 }
+
+topCcmtsEqamAutoBindDevTypePolicyGroupId OBJECT-TYPE
+    SYNTAX        INTEGER (0..64)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding group ID."
+    ::={ topCcmtsEqamAutoBindDevTypePolicyEntry 2 }
+    
+topCcmtsEqamAutoBindDevTypePolicyTemplateId OBJECT-TYPE
+    SYNTAX        INTEGER (0..64)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding template ID."
+    ::={ topCcmtsEqamAutoBindDevTypePolicyEntry 3 }
+    
+topCcmtsEqamAutoBindGroupPoolHistoryTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsEqamAutoBindGroupPoolHistoryEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding group pool history table."
+    ::={ topCcmtsQamObject 10 }
+
+topCcmtsEqamAutoBindGroupPoolHistoryEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsEqamAutoBindGroupPoolHistoryEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry of topCcmtsEqamAutoBindGroupPoolHistoryTable table."
+    INDEX  { topCcmtsEqamAutoBindGroupId,
+           topCcmtsEqamAutoBindGroupPoolIndex           }
+    ::= { topCcmtsEqamAutoBindGroupPoolHistoryTable 1 }
+
+TopCcmtsEqamAutoBindGroupPoolHistoryEntry ::= SEQUENCE {
+             topCcmtsEqamAutoBindGroupPoolIndex            INTEGER,
+             topCcmtsEqamAutoBindGroupPoolCmtsIfIndex            INTEGER,
+             topCcmtsEqamAutoBindGroupPoolStatus            INTEGER,
+             topCcmtsEqamAutoBindGroupPoolTimeTicks            INTEGER
+           }
+
+topCcmtsEqamAutoBindGroupPoolIndex OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding group pool index."
+    ::={ topCcmtsEqamAutoBindGroupPoolHistoryEntry 1 }
+
+topCcmtsEqamAutoBindGroupPoolCmtsIfIndex OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "A unique value, greater than zero, for each CMTS interface."
+    ::={ topCcmtsEqamAutoBindGroupPoolHistoryEntry 2 }
+
+topCcmtsEqamAutoBindGroupPoolStatus OBJECT-TYPE
+    SYNTAX        INTEGER
+	                    {
+	                      using(1),
+	                      not-using(2)
+	                    }
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding group pool status."
+    ::={ topCcmtsEqamAutoBindGroupPoolHistoryEntry 3 }
+
+topCcmtsEqamAutoBindGroupPoolTimeTicks OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding group allocating time ticks."
+    ::={ topCcmtsEqamAutoBindGroupPoolHistoryEntry 4 }    
+    
+
+topCcmtsEqamTemplateTsStaticPidMapTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsEqamTemplateTsStaticPidMapEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM template TS PID static MAP table."
+    ::={ topCcmtsQamObject 11 }
+
+topCcmtsEqamTemplateTsStaticPidMapEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsEqamTemplateTsStaticPidMapEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry of topCcmtsEqamTemplateTsStaticPidMapTable table."
+    INDEX  { topCcmtsEqamTemplateId,
+           topCcmtsEqamTemplateChnlChnlId,
+           topCcmtsEqamTemplateStreamMapId,
+           topCcmtsEqamTemplateTsStaticPidMapTableOldPid
+           }
+    ::= { topCcmtsEqamTemplateTsStaticPidMapTable 1 }
+
+TopCcmtsEqamTemplateTsStaticPidMapEntry ::= SEQUENCE {
+             topCcmtsEqamTemplateTsStaticPidMapTableOldPid            INTEGER,
+             topCcmtsEqamTemplateTsStaticPidMapTableNewPid            INTEGER,
+             topCcmtsEqamTemplateTsStaticPidMapTableRowStatus         RowStatus
+             }    
+             
+topCcmtsEqamTemplateTsStaticPidMapTableOldPid OBJECT-TYPE
+    SYNTAX        INTEGER(1..8192)
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "TS original PID value + 1."
+    ::={ topCcmtsEqamTemplateTsStaticPidMapEntry 1 }  
+         
+topCcmtsEqamTemplateTsStaticPidMapTableNewPid OBJECT-TYPE
+    SYNTAX        INTEGER(0..8191)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "TS mapped PID."
+    ::={ topCcmtsEqamTemplateTsStaticPidMapEntry 2 }    
+     
+topCcmtsEqamTemplateTsStaticPidMapTableRowStatus OBJECT-TYPE
+    SYNTAX        RowStatus
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "Table row status."
+    ::={ topCcmtsEqamTemplateTsStaticPidMapEntry 3 }  
+
+
+topCcmtsEqamGlobalObject	OBJECT IDENTIFIER ::={ topCcmtsQamObject 12 }    
+
+topCcmtsEqamAutoBindSystemPolicyGroupId  OBJECT-TYPE
+        SYNTAX      INTEGER(0..64) 
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "EQAM group ID" 
+	    DEFVAL	{0}
+        ::= { topCcmtsEqamGlobalObject 1 }  
+        
+topCcmtsEqamAutoBindSystemPolicyTemplateId  OBJECT-TYPE
+        SYNTAX      INTEGER(0..64) 
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "EQAM template ID" 
+	    DEFVAL	{0}
+        ::= { topCcmtsEqamGlobalObject 2 } 
+               
+
+topCcmtsEqamAutoBindMacPolicyTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsEqamAutoBindMacPolicyEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding MAC policy table."
+    ::={ topCcmtsQamObject 13 }
+
+topCcmtsEqamAutoBindMacPolicyEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsEqamAutoBindMacPolicyEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry of topCcmtsEqamAutoBindMacPolicyTable table."
+    INDEX  { topCcmtsEqamAutoBindMacPolicyStartMac }
+    ::= { topCcmtsEqamAutoBindMacPolicyTable 1 }
+
+TopCcmtsEqamAutoBindMacPolicyEntry ::= SEQUENCE {
+             topCcmtsEqamAutoBindMacPolicyStartMac    MacAddress,     
+             topCcmtsEqamAutoBindMacPolicyEndMac      MacAddress,    
+             topCcmtsEqamAutoBindMacPolicyGroupId    INTEGER,       
+             topCcmtsEqamAutoBindMacPolicyRowStatus  INTEGER,      
+             topCcmtsEqamAutoBindMacPolicyTemplateId INTEGER   
+           }
+
+topCcmtsEqamAutoBindMacPolicyStartMac OBJECT-TYPE
+    SYNTAX        MacAddress
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding starting MAC."
+    ::={ topCcmtsEqamAutoBindMacPolicyEntry 1 }
+    
+topCcmtsEqamAutoBindMacPolicyEndMac OBJECT-TYPE
+    SYNTAX        MacAddress
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding ending MAC."
+    ::={ topCcmtsEqamAutoBindMacPolicyEntry 2 }
+    
+topCcmtsEqamAutoBindMacPolicyGroupId OBJECT-TYPE
+    SYNTAX        INTEGER (0..64)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding group ID."
+    ::={ topCcmtsEqamAutoBindMacPolicyEntry 3 }
+    
+topCcmtsEqamAutoBindMacPolicyRowStatus OBJECT-TYPE
+    SYNTAX        RowStatus
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "Row Status."
+    ::={ topCcmtsEqamAutoBindMacPolicyEntry 4 }
+    
+topCcmtsEqamAutoBindMacPolicyTemplateId OBJECT-TYPE
+    SYNTAX        INTEGER  (0..64)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding template ID."
+    ::={ topCcmtsEqamAutoBindMacPolicyEntry 5 }
+               
+
+topCcmtsEqamAutoBindMgmtIpPolicyTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsEqamAutoBindMgmtIpPolicyEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding management IP policy table."
+    ::={ topCcmtsQamObject 14 }
+
+topCcmtsEqamAutoBindMgmtIpPolicyEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsEqamAutoBindMgmtIpPolicyEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry of topCcmtsEqamAutoBindMgmtIpPolicyTable table."
+    INDEX  { topCcmtsEqamAutoBindMgmtIpPolicyIPType,
+             topCcmtsEqamAutoBindMgmtIpPolicyIp,
+             topCcmtsEqamAutoBindMgmtIpPolicyIPMask    }
+    ::= { topCcmtsEqamAutoBindMgmtIpPolicyTable 1 }
+
+TopCcmtsEqamAutoBindMgmtIpPolicyEntry ::= SEQUENCE {
+             topCcmtsEqamAutoBindMgmtIpPolicyIPType      InetAddressType,
+             topCcmtsEqamAutoBindMgmtIpPolicyIp          InetAddress,     
+             topCcmtsEqamAutoBindMgmtIpPolicyIPMask      InetAddress,    
+             topCcmtsEqamAutoBindMgmtIpPolicyGroupId    INTEGER,            
+             topCcmtsEqamAutoBindMgmtIpPolicyTemplateId INTEGER,
+             topCcmtsEqamAutoBindMgmtIpPolicyRowStatus  INTEGER           
+           }
+
+topCcmtsEqamAutoBindMgmtIpPolicyIPType OBJECT-TYPE
+    SYNTAX        InetAddressType
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "IP type."
+    ::={ topCcmtsEqamAutoBindMgmtIpPolicyEntry 1 }
+    
+topCcmtsEqamAutoBindMgmtIpPolicyIp OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding management IP."
+    ::={ topCcmtsEqamAutoBindMgmtIpPolicyEntry 2 }
+    
+topCcmtsEqamAutoBindMgmtIpPolicyIPMask OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding management IP mask."
+    ::={ topCcmtsEqamAutoBindMgmtIpPolicyEntry 3 }
+    
+topCcmtsEqamAutoBindMgmtIpPolicyGroupId OBJECT-TYPE
+    SYNTAX        INTEGER (0..64)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding group ID."
+    ::={ topCcmtsEqamAutoBindMgmtIpPolicyEntry 4 }
+    
+topCcmtsEqamAutoBindMgmtIpPolicyTemplateId OBJECT-TYPE
+    SYNTAX        INTEGER  (0..64)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding template ID."
+    ::={ topCcmtsEqamAutoBindMgmtIpPolicyEntry 5 }
+    
+topCcmtsEqamAutoBindMgmtIpPolicyRowStatus OBJECT-TYPE
+    SYNTAX        RowStatus
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "Row Status."
+    ::={ topCcmtsEqamAutoBindMgmtIpPolicyEntry 6 }
+               
+               
+
+topCcmtsEqamAutoBindMgmtIpDevPolicyTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsEqamAutoBindMgmtIpDevPolicyEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding management IP & device type policy table."
+    ::={ topCcmtsQamObject 15 }
+
+topCcmtsEqamAutoBindMgmtIpDevPolicyEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsEqamAutoBindMgmtIpDevPolicyEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry of topCcmtsEqamAutoBindMgmtIpDevPolicyTable table."
+    INDEX  { topCcmtsEqamAutoBindMgmtIpDevPolicyIPType,
+             topCcmtsEqamAutoBindMgmtIpDevPolicyIP,
+             topCcmtsEqamAutoBindMgmtIpDevPolicyIPMask,
+             topCcmtsEqamAutoBindMgmtIpDevPolicyDevId   
+           }
+    ::= { topCcmtsEqamAutoBindMgmtIpDevPolicyTable 1 }
+
+TopCcmtsEqamAutoBindMgmtIpDevPolicyEntry ::= SEQUENCE {
+             topCcmtsEqamAutoBindMgmtIpDevPolicyIPType      InetAddressType,
+             topCcmtsEqamAutoBindMgmtIpDevPolicyIP          InetAddress,     
+             topCcmtsEqamAutoBindMgmtIpDevPolicyIPMask      InetAddress,
+             topCcmtsEqamAutoBindMgmtIpDevPolicyDevId       INTEGER,            
+             topCcmtsEqamAutoBindMgmtIpDevPolicyGroupId    INTEGER,            
+             topCcmtsEqamAutoBindMgmtIpDevPolicyTemplateId INTEGER,
+             topCcmtsEqamAutoBindMgmtIpDevPolicyRowStatus  INTEGER           
+           }
+topCcmtsEqamAutoBindMgmtIpDevPolicyIPType OBJECT-TYPE
+    SYNTAX        InetAddressType
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "IP type."
+    ::={ topCcmtsEqamAutoBindMgmtIpDevPolicyEntry 1 }
+    
+topCcmtsEqamAutoBindMgmtIpDevPolicyIP OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding management IP."
+    ::={ topCcmtsEqamAutoBindMgmtIpDevPolicyEntry 2 }
+    
+topCcmtsEqamAutoBindMgmtIpDevPolicyIPMask OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding management IP mask."
+    ::={ topCcmtsEqamAutoBindMgmtIpDevPolicyEntry 3 }
+    
+topCcmtsEqamAutoBindMgmtIpDevPolicyDevId OBJECT-TYPE
+    SYNTAX        INTEGER {
+                            unknown(0),
+                            cc8800-a(1),
+                            cc8800-b(2),
+                            cc8800-c-a(3),
+                            cc8800-d(4),
+                            cc8800-c-b(5),
+                            cc8800-s(6),
+                            cc8800-c-10g(7),
+                            cc8800-e(8),    
+                            cc8800-c-e(9),
+                            cc8800-d-e(10),
+                            cc8800-d-p2(11),
+                            cc8800-d-u2(12),
+                            cc8800-f-p1(13),
+                            cc8800-f-p2(14),
+                            cc8800-f-u1(15),
+                            cc8800-f-u2(16),
+                            cc8800-e-p2(17),
+                            cc8800-c-p2(18)
+                          }
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding device type ID."
+    ::={ topCcmtsEqamAutoBindMgmtIpDevPolicyEntry 4 }
+    
+topCcmtsEqamAutoBindMgmtIpDevPolicyGroupId OBJECT-TYPE
+    SYNTAX        INTEGER (0..64)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding group ID."
+    ::={ topCcmtsEqamAutoBindMgmtIpDevPolicyEntry 5 }
+    
+topCcmtsEqamAutoBindMgmtIpDevPolicyTemplateId OBJECT-TYPE
+    SYNTAX        INTEGER  (0..64)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding template ID."
+    ::={ topCcmtsEqamAutoBindMgmtIpDevPolicyEntry 6 }
+    
+topCcmtsEqamAutoBindMgmtIpDevPolicyRowStatus OBJECT-TYPE
+    SYNTAX        RowStatus
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "Row Status."
+    ::={ topCcmtsEqamAutoBindMgmtIpDevPolicyEntry 7 }
+    
+
+topCcmtsEqamAutoBindDomainPolicyTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsEqamAutoBindDomainPolicyEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding domain name policy table."
+    ::={ topCcmtsQamObject 16 }
+
+topCcmtsEqamAutoBindDomainPolicyEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsEqamAutoBindDomainPolicyEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry of topCcmtsEqamAutoBindDomainPolicyTable table."
+    INDEX  { topCcmtsEqamAutoBindDomainPolicyName 
+           }
+    ::= { topCcmtsEqamAutoBindDomainPolicyTable 1 }
+
+TopCcmtsEqamAutoBindDomainPolicyEntry ::= SEQUENCE {
+             topCcmtsEqamAutoBindDomainPolicyName          DisplayString,              
+             topCcmtsEqamAutoBindDomainPolicyGroupId    INTEGER,            
+             topCcmtsEqamAutoBindDomainPolicyTemplateId INTEGER,
+             topCcmtsEqamAutoBindDomainPolicyRowStatus  INTEGER           
+           }
+
+topCcmtsEqamAutoBindDomainPolicyName OBJECT-TYPE
+    SYNTAX        DisplayString
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding domain name."
+    ::={ topCcmtsEqamAutoBindDomainPolicyEntry 1 }
+    
+    
+topCcmtsEqamAutoBindDomainPolicyGroupId OBJECT-TYPE
+    SYNTAX        INTEGER (0..64)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding group ID."
+    ::={ topCcmtsEqamAutoBindDomainPolicyEntry 2 }
+    
+topCcmtsEqamAutoBindDomainPolicyTemplateId OBJECT-TYPE
+    SYNTAX        INTEGER (0..64)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding template ID."
+    ::={ topCcmtsEqamAutoBindDomainPolicyEntry 3 }
+    
+topCcmtsEqamAutoBindDomainPolicyRowStatus OBJECT-TYPE
+    SYNTAX        RowStatus
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "Row Status."
+    ::={ topCcmtsEqamAutoBindDomainPolicyEntry 4 }
+
+    
+topCcmtsEqamAutoBindGroupIpMappingTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsEqamAutoBindGroupIpMappingEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding management IP policy table."
+    ::={ topCcmtsQamObject 17 }
+
+topCcmtsEqamAutoBindGroupIpMappingEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsEqamAutoBindGroupIpMappingEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry of topCcmtsEqamAutoBindGroupIpMappingTable table."
+    INDEX  { topCcmtsEqamAutoBindGroupIpMappingGroupId,
+             topCcmtsEqamAutoBindGroupIpMappingMgmtIpType,
+             topCcmtsEqamAutoBindGroupIpMappingMgmtIp,
+             topCcmtsEqamAutoBindGroupIpMappingMgmtIpMask    }
+    ::= { topCcmtsEqamAutoBindGroupIpMappingTable 1 }
+
+TopCcmtsEqamAutoBindGroupIpMappingEntry ::= SEQUENCE {
+             topCcmtsEqamAutoBindGroupIpMappingGroupId   INTEGER,
+             topCcmtsEqamAutoBindGroupIpMappingMgmtIpType      InetAddressType,
+             topCcmtsEqamAutoBindGroupIpMappingMgmtIp          InetAddress,     
+             topCcmtsEqamAutoBindGroupIpMappingMgmtIpMask      InetAddress,   
+             topCcmtsEqamAutoBindGroupIpMappingEqamIp          InetAddress,     
+             topCcmtsEqamAutoBindGroupIpMappingEqamIpMask      InetAddress,              
+             topCcmtsEqamAutoBindGroupIpMappingRowStatus  INTEGER           
+           }
+           
+topCcmtsEqamAutoBindGroupIpMappingGroupId OBJECT-TYPE
+    SYNTAX        INTEGER(1..64)
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding group ID."
+    ::={ topCcmtsEqamAutoBindGroupIpMappingEntry 1 }
+    
+topCcmtsEqamAutoBindGroupIpMappingMgmtIpType OBJECT-TYPE
+    SYNTAX        InetAddressType
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "IP type."
+    ::={ topCcmtsEqamAutoBindGroupIpMappingEntry 2 }
+    
+topCcmtsEqamAutoBindGroupIpMappingMgmtIp OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding management IP."
+    ::={ topCcmtsEqamAutoBindGroupIpMappingEntry 3 }
+    
+topCcmtsEqamAutoBindGroupIpMappingMgmtIpMask OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding management IP mask."
+    ::={ topCcmtsEqamAutoBindGroupIpMappingEntry 4 }
+    
+topCcmtsEqamAutoBindGroupIpMappingEqamIp OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding EQAM IP."
+    ::={ topCcmtsEqamAutoBindGroupIpMappingEntry 5 }
+    
+topCcmtsEqamAutoBindGroupIpMappingEqamIpMask OBJECT-TYPE
+    SYNTAX        InetAddress
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding EQAM IP mask."
+    ::={ topCcmtsEqamAutoBindGroupIpMappingEntry 6 }
+    
+topCcmtsEqamAutoBindGroupIpMappingRowStatus OBJECT-TYPE
+    SYNTAX        RowStatus
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "Row Status."
+    ::={ topCcmtsEqamAutoBindGroupIpMappingEntry 7 }
+
+
+topCcmtsEqamAutoBindDomainDevPolicyTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsEqamAutoBindDomainDevPolicyEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding domain name policy table."
+    ::={ topCcmtsQamObject 18 }
+
+topCcmtsEqamAutoBindDomainDevPolicyEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsEqamAutoBindDomainDevPolicyEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "An entry of topCcmtsEqamAutoBindDomainDevPolicyTable table."
+    INDEX  { 
+               topCcmtsEqamAutoBindDomainDevPolicyDevId,
+               topCcmtsEqamAutoBindDomainDevPolicyName 
+           }
+    ::= { topCcmtsEqamAutoBindDomainDevPolicyTable 1 }
+
+TopCcmtsEqamAutoBindDomainDevPolicyEntry ::= SEQUENCE {
+             topCcmtsEqamAutoBindDomainDevPolicyDevId      INTEGER,   
+             topCcmtsEqamAutoBindDomainDevPolicyName       DisplayString,              
+             topCcmtsEqamAutoBindDomainDevPolicyGroupId    INTEGER,            
+             topCcmtsEqamAutoBindDomainDevPolicyTemplateId INTEGER,
+             topCcmtsEqamAutoBindDomainDevPolicyRowStatus  INTEGER           
+           }
+           
+topCcmtsEqamAutoBindDomainDevPolicyDevId OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding device Id."
+    ::={ topCcmtsEqamAutoBindDomainDevPolicyEntry 1 }
+    
+topCcmtsEqamAutoBindDomainDevPolicyName OBJECT-TYPE
+    SYNTAX        DisplayString
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding domain name."
+    ::={ topCcmtsEqamAutoBindDomainDevPolicyEntry 2 }
+    
+    
+topCcmtsEqamAutoBindDomainDevPolicyGroupId OBJECT-TYPE
+    SYNTAX        INTEGER (0..64)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding group ID."
+    ::={ topCcmtsEqamAutoBindDomainDevPolicyEntry 3 }
+    
+topCcmtsEqamAutoBindDomainDevPolicyTemplateId OBJECT-TYPE
+    SYNTAX        INTEGER (0..64)
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "The EQAM automatic binding template ID."
+    ::={ topCcmtsEqamAutoBindDomainDevPolicyEntry 4 }
+    
+topCcmtsEqamAutoBindDomainDevPolicyRowStatus OBJECT-TYPE
+    SYNTAX        RowStatus
+    MAX-ACCESS    read-create
+    STATUS        current
+    DESCRIPTION
+        "Row Status."
+    ::={ topCcmtsEqamAutoBindDomainDevPolicyEntry 5 }
+END

@@ -1,0 +1,90 @@
+MIB search path: /Users/mcotner/.snmp/mibs:/opt/homebrew/Cellar/net-snmp/5.9.4/share/snmp/mibs:/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES
+Cannot find module (DOCS-QOS3-MIB): At line 28 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-ADMISSION-CTRL.mib
+Cannot find module (DOCS-IF-MIB): At line 37 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-LOADBALANCING-MIB): At line 39 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-IF3-MIB): At line 43 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-QOS-MIB): At line 53 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Bad operator (_): At line 2601 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-IF-MIB): At line 32 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-TEMPLATE-MIB.mib
+Expected "(" (_): At line 633 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-TEMPLATE-MIB.mib
+Should be ACCESS (hold): At line 633 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-TEMPLATE-MIB.mib
+Bad parse of OBJECT-TYPE: At line 633 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-TEMPLATE-MIB.mib
+Did not find 'SchedulingType' in module #-1 (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-ADMISSION-CTRL.mib)
+Did not find 'topCcmtsMibObject' in module TOPVISION-CCMTS-MIB (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-ADMISSION-CTRL.mib)
+Did not find 'topCcmtsTemplateIndex' in module TOPVISION-TEMPLATE-MIB (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-ADMISSION-CTRL.mib)
+Did not find 'topCcmtsTemplateUpChannelId' in module TOPVISION-TEMPLATE-MIB (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-ADMISSION-CTRL.mib)
+Did not find 'topCcmtsTemplateDownChannelId' in module TOPVISION-TEMPLATE-MIB (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-ADMISSION-CTRL.mib)
+Unlinked OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtAdmissionCtrl ::= { topCcmtsMibObject 22 }
+Undefined identifier: topCcmtsMibObject near line 53 of /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-ADMISSION-CTRL.mib
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlCmtsCfgEventHistoryLastIndex ::= { topCcmtsAdmissionCtrlCmtsCfgEntry 5 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlCmtsCfgEventHistorySize ::= { topCcmtsAdmissionCtrlCmtsCfgEntry 4 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlCmtsCfgEventDynamicService ::= { topCcmtsAdmissionCtrlCmtsCfgEntry 3 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlCmtsCfgEventCmRegistration ::= { topCcmtsAdmissionCtrlCmtsCfgEntry 2 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlCmtsCfgIfindex ::= { topCcmtsAdmissionCtrlCmtsCfgEntry 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlDsStatEntry ::= { topCcmtsAdmissionCtrlDsStatTable 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlUsCfgEntry ::= { topCcmtsAdmissionCtrlUsCfgTable 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlUsCfgMajorThreshold ::= { topCcmtsTemplateAdmissionCtrlUsCfgEntry 5 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlUsCfgMinorThreshold ::= { topCcmtsTemplateAdmissionCtrlUsCfgEntry 4 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlUsCfgNonExclusivePercent ::= { topCcmtsTemplateAdmissionCtrlUsCfgEntry 3 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlUsCfgExclusivePercent ::= { topCcmtsTemplateAdmissionCtrlUsCfgEntry 2 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlUsCfgSchedType ::= { topCcmtsTemplateAdmissionCtrlUsCfgEntry 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlUsStatEntry ::= { topCcmtsAdmissionCtrlUsStatTable 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtAdmissionCtrl ::= { topCcmtsMibObject 22 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlDsCfgMajorThreshold ::= { topCcmtsAdmissionCtrlDsCfgEntry 6 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlDsCfgMinorThreshold ::= { topCcmtsAdmissionCtrlDsCfgEntry 5 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlDsCfgNonExclusivePercent ::= { topCcmtsAdmissionCtrlDsCfgEntry 4 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlDsCfgExclusivePercent ::= { topCcmtsAdmissionCtrlDsCfgEntry 3 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlDsCfgTrafficType ::= { topCcmtsAdmissionCtrlDsCfgEntry 2 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlDsCfgIfindex ::= { topCcmtsAdmissionCtrlDsCfgEntry 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlEventHistoryEntry ::= { topCcmtsAdmissionCtrlEventHistoryTable 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlDsStatActiveNonExclusivePercent ::= { topCcmtsAdmissionCtrlDsStatEntry 4 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlDsStatActiveExclusivePercent ::= { topCcmtsAdmissionCtrlDsStatEntry 3 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlDsStatTrafficType ::= { topCcmtsAdmissionCtrlDsStatEntry 2 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlDsStatIfindex ::= { topCcmtsAdmissionCtrlDsStatEntry 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlUsCfgMajorThreshold ::= { topCcmtsAdmissionCtrlUsCfgEntry 6 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlUsCfgMinorThreshold ::= { topCcmtsAdmissionCtrlUsCfgEntry 5 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlUsCfgNonExclusivePercent ::= { topCcmtsAdmissionCtrlUsCfgEntry 4 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlUsCfgExclusivePercent ::= { topCcmtsAdmissionCtrlUsCfgEntry 3 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlUsCfgSchedType ::= { topCcmtsAdmissionCtrlUsCfgEntry 2 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlUsCfgIfindex ::= { topCcmtsAdmissionCtrlUsCfgEntry 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlCmtsCfgEntry ::= { topCcmtsTemplateAdmissionCtrlCmtsCfgTable 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlUsStatActiveNonExclusivePercent ::= { topCcmtsAdmissionCtrlUsStatEntry 4 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlUsStatActiveExclusivePercent ::= { topCcmtsAdmissionCtrlUsStatEntry 3 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlUsStatSchedType ::= { topCcmtsAdmissionCtrlUsStatEntry 2 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlUsStatIfindex ::= { topCcmtsAdmissionCtrlUsStatEntry 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlEventHistoryRFNonExclusive ::= { topCcmtsAdmissionCtrlEventHistoryEntry 13 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlEventHistoryActualNonExclusive ::= { topCcmtsAdmissionCtrlEventHistoryEntry 12 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlEventHistoryActualExclusive ::= { topCcmtsAdmissionCtrlEventHistoryEntry 11 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlEventHistoryNonExclusive ::= { topCcmtsAdmissionCtrlEventHistoryEntry 10 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlEventHistoryExclusive ::= { topCcmtsAdmissionCtrlEventHistoryEntry 9 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlEventHistoryType ::= { topCcmtsAdmissionCtrlEventHistoryEntry 8 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlEventHistoryChannelId ::= { topCcmtsAdmissionCtrlEventHistoryEntry 7 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlEventHistoryDirection ::= { topCcmtsAdmissionCtrlEventHistoryEntry 6 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlEventHistoryEventTypeChecked ::= { topCcmtsAdmissionCtrlEventHistoryEntry 5 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlEventHistoryTimeStamp ::= { topCcmtsAdmissionCtrlEventHistoryEntry 4 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlEventHistoryCmMac ::= { topCcmtsAdmissionCtrlEventHistoryEntry 3 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlEventHistoryIndex ::= { topCcmtsAdmissionCtrlEventHistoryEntry 2 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlEventHistoryCmtsIfindex ::= { topCcmtsAdmissionCtrlEventHistoryEntry 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlDsCfgEntry ::= { topCcmtsTemplateAdmissionCtrlDsCfgTable 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlCmtsCfgEntry ::= { topCcmtsAdmissionCtrlCmtsCfgTable 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlCmtsCfgEventHistorySize ::= { topCcmtsTemplateAdmissionCtrlCmtsCfgEntry 3 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlCmtsCfgEventDynamicService ::= { topCcmtsTemplateAdmissionCtrlCmtsCfgEntry 2 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlCmtsCfgEventCmRegistration ::= { topCcmtsTemplateAdmissionCtrlCmtsCfgEntry 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlDsCfgTable ::= { topCcmtsAdmissionCtrlObject 9 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlUsCfgTable ::= { topCcmtsAdmissionCtrlObject 8 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlCmtsCfgTable ::= { topCcmtsAdmissionCtrlObject 7 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlEventHistoryTable ::= { topCcmtsAdmissionCtrlObject 6 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlDsStatTable ::= { topCcmtsAdmissionCtrlObject 5 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlUsStatTable ::= { topCcmtsAdmissionCtrlObject 4 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlDsCfgTable ::= { topCcmtsAdmissionCtrlObject 3 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlUsCfgTable ::= { topCcmtsAdmissionCtrlObject 2 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlCmtsCfgTable ::= { topCcmtsAdmissionCtrlObject 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlUsCfgEntry ::= { topCcmtsTemplateAdmissionCtrlUsCfgTable 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlObject ::= { topCcmtAdmissionCtrl 2 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlNotify ::= { topCcmtAdmissionCtrl 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsAdmissionCtrlDsCfgEntry ::= { topCcmtsAdmissionCtrlDsCfgTable 1 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlDsCfgMajorThreshold ::= { topCcmtsTemplateAdmissionCtrlDsCfgEntry 5 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlDsCfgMinorThreshold ::= { topCcmtsTemplateAdmissionCtrlDsCfgEntry 4 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlDsCfgNonExclusivePercent ::= { topCcmtsTemplateAdmissionCtrlDsCfgEntry 3 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlDsCfgExclusivePercent ::= { topCcmtsTemplateAdmissionCtrlDsCfgEntry 2 }
+Cannot adopt OID in TOPVISION-ADMISSION-CTRL-MIB: topCcmtsTemplateAdmissionCtrlDsCfgTrafficType ::= { topCcmtsTemplateAdmissionCtrlDsCfgEntry 1 }

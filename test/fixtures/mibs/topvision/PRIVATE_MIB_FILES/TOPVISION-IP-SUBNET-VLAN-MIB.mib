@@ -1,0 +1,308 @@
+--*******************************************************************
+--TOPVISION-CM-MIB.my: DOCSIS Extention MIB file
+--
+--added at February 2013, Wang Hao
+--
+--Topvision      
+--
+--
+--*******************************************************************
+
+TOPVISION-IP-SUBNET-VLAN-MIB DEFINITIONS ::= BEGIN 
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Integer32, 
+    Unsigned32
+        FROM SNMPv2-SMI 
+    DateAndTime,
+    MacAddress, 
+    RowStatus,
+    TruthValue
+        FROM SNMPv2-TC
+    ifIndex
+				FROM IF-MIB
+    topCcmtsMibObject
+				FROM TOPVISION-CCMTS-MIB
+	topCcmtsTemplateIndex
+				FROM TOPVISION-TEMPLATE-MIB;
+		
+------------------------------------------------------------------------------
+--  topCcmtsIpSubVlanCfgObject
+--  added at 2013-2-28
+--  author wanghao
+------------------------------------------------------------------------------
+    
+topCcmtsIpSubVlanCfgObject	OBJECT IDENTIFIER ::={ topCcmtsMibObject 13 } 
+topCcmtsIpSubVlanScalarObject	OBJECT IDENTIFIER ::={topCcmtsIpSubVlanCfgObject 1 }
+ 
+topCcmtsIpSubVlanCfi OBJECT-TYPE
+    SYNTAX 		INTEGER (0..1)
+    MAX-ACCESS 	read-write
+    STATUS 		current
+    DESCRIPTION
+      	"This field was formerly designated Canonical Format Indicator (CFI) with 
+      	a value of 0 indicating a MAC address in canonical format. It is always 
+      	set to zero for Ethernet. CFI was used for compatibility between Ethernet 
+      	and Token Ring networks. If a frame received at an Ethernet port had a CFI 
+      	set to 1, then that frame would not be bridged to an untagged port."
+    DEFVAL{0}
+    ::= { topCcmtsIpSubVlanScalarObject 1 }
+    
+topCcmtsIpSubVlanTpid OBJECT-TYPE
+	SYNTAX		Integer32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Config the tpid value that ip subnet vlan currently uses."   
+	DEFVAL{33024}
+	::={ topCcmtsIpSubVlanScalarObject 2 }  
+
+topCcmtsIpSubVlanCfgTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsIpSubVlanCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Ip subnet vlan table"
+	::= { topCcmtsIpSubVlanCfgObject 2 }
+	
+topCcmtsIpSubVlanCfgEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsIpSubVlanCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Ip subnet vlan entry."
+	INDEX { topCcmtsIpSubVlanIfIndex, topCcmtsIpSubVlanIpIndex,
+			topCcmtsIpSubVlanIpMaskIndex}
+	::= { topCcmtsIpSubVlanCfgTable 1 }
+		
+TopCcmtsIpSubVlanCfgEntry ::=	SEQUENCE { 
+		topCcmtsIpSubVlanIfIndex		Integer32,
+		topCcmtsIpSubVlanIpIndex		IpAddress,
+		topCcmtsIpSubVlanIpMaskIndex	IpAddress,
+		topCcmtsIpSubVlanVlanId			INTEGER, 
+		topCcmtsIpSubVlanPri			INTEGER,
+		topCcmtsIpSubVlanRowStatus		RowStatus
+	 }
+		 
+topCcmtsIpSubVlanIfIndex OBJECT-TYPE
+	SYNTAX 		Integer32 
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Index of cmts, same with ifIndex"
+	::= { topCcmtsIpSubVlanCfgEntry 1 }
+	
+topCcmtsIpSubVlanIpIndex OBJECT-TYPE
+	SYNTAX 		IpAddress
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Specify the ip address of ip subnet vlan."
+	::= { topCcmtsIpSubVlanCfgEntry 2 }
+	
+topCcmtsIpSubVlanIpMaskIndex OBJECT-TYPE
+	SYNTAX 		IpAddress
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Specify the net mask of ip subnet vlan."
+	::= { topCcmtsIpSubVlanCfgEntry 3 }
+	
+topCcmtsIpSubVlanVlanId OBJECT-TYPE
+	SYNTAX 		INTEGER (1..4094)
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Specify the vlan Id of ip subnet vlan."
+	::= { topCcmtsIpSubVlanCfgEntry 4 }  
+
+topCcmtsIpSubVlanPri OBJECT-TYPE
+	SYNTAX 		INTEGER (0..7)
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Specify the priority of ip subnet vlan."  
+	DEFVAL{0}	
+	::= { topCcmtsIpSubVlanCfgEntry 5 }
+
+topCcmtsIpSubVlanRowStatus OBJECT-TYPE
+	SYNTAX 		RowStatus
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Create/delete/set."
+	::= { topCcmtsIpSubVlanCfgEntry 6 } 
+
+------------------------------------------------------------------------------
+--  topCcmtsIpSubVlanTagCfgTable
+--  added at 2017-01-11
+--  author liubin
+------------------------------------------------------------------------------
+topCcmtsIpSubVlanTagCfgTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsIpSubVlanTagCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Ip subnet vlan cfi and tpid table"
+	::= { topCcmtsIpSubVlanCfgObject 3 }
+	
+topCcmtsIpSubVlanTagCfgEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsIpSubVlanTagCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Ip subnet vlan cfi and tpid entry."
+	INDEX { ifIndex }
+	::= { topCcmtsIpSubVlanTagCfgTable 1 }
+
+TopCcmtsIpSubVlanTagCfgEntry ::=	SEQUENCE { 
+		topCcmtsIpSubVlanTagCfi			INTEGER,
+		topCcmtsIpSubVlanTagTpid		Integer32
+	 }
+
+topCcmtsIpSubVlanTagCfi OBJECT-TYPE
+    SYNTAX 		INTEGER (0..1)
+    MAX-ACCESS 	read-write
+    STATUS 		current
+    DESCRIPTION
+      	"This field was formerly designated Canonical Format Indicator (CFI) with 
+      	a value of 0 indicating a MAC address in canonical format. It is always 
+      	set to zero for Ethernet. CFI was used for compatibility between Ethernet 
+      	and Token Ring networks. If a frame received at an Ethernet port had a CFI 
+      	set to 1, then that frame would not be bridged to an untagged port."
+    DEFVAL{0}
+    ::= { topCcmtsIpSubVlanTagCfgEntry 1 }
+    
+topCcmtsIpSubVlanTagTpid OBJECT-TYPE
+	SYNTAX		Integer32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Config the tpid value that ip subnet vlan currently uses."   
+	DEFVAL{33024}
+	::={ topCcmtsIpSubVlanTagCfgEntry 2 }	
+
+------------------------------------------------------------------------------
+--  topCcmtsTemplateIpSubVlanCfgTable
+--  added at 2017-01-11
+--  author liubin
+------------------------------------------------------------------------------
+topCcmtsTemplateIpSubVlanCfgTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsTemplateIpSubVlanCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Ip subnet vlan table"
+	::= { topCcmtsIpSubVlanCfgObject 4 }
+	
+topCcmtsTemplateIpSubVlanCfgEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsTemplateIpSubVlanCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Template ip subnet vlan entry."
+	INDEX { topCcmtsTemplateIndex, topCcmtsTemplateIpSubVlanIpIndex,
+			topCcmtsTemplateIpSubVlanIpMaskIndex}
+	::= { topCcmtsTemplateIpSubVlanCfgTable 1 }
+		
+TopCcmtsTemplateIpSubVlanCfgEntry ::=	SEQUENCE { 
+		topCcmtsTemplateIpSubVlanIpIndex		IpAddress,
+		topCcmtsTemplateIpSubVlanIpMaskIndex	IpAddress,
+		topCcmtsTemplateIpSubVlanVlanId			INTEGER, 
+		topCcmtsTemplateIpSubVlanPri			INTEGER,
+		topCcmtsTemplateIpSubVlanRowStatus		RowStatus
+	 }
+	
+topCcmtsTemplateIpSubVlanIpIndex OBJECT-TYPE
+	SYNTAX 		IpAddress
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Specify the ip address of ip subnet vlan."
+	::= { topCcmtsTemplateIpSubVlanCfgEntry 1 }
+	
+topCcmtsTemplateIpSubVlanIpMaskIndex OBJECT-TYPE
+	SYNTAX 		IpAddress
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Specify the net mask of ip subnet vlan."
+	::= { topCcmtsTemplateIpSubVlanCfgEntry 2 }
+	
+topCcmtsTemplateIpSubVlanVlanId OBJECT-TYPE
+	SYNTAX 		INTEGER (1..4094)
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Specify the vlan Id of ip subnet vlan."
+	::= { topCcmtsTemplateIpSubVlanCfgEntry 3 }  
+
+topCcmtsTemplateIpSubVlanPri OBJECT-TYPE
+	SYNTAX 		INTEGER (0..7)
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Specify the priority of ip subnet vlan."  
+	DEFVAL{0}	
+	::= { topCcmtsTemplateIpSubVlanCfgEntry 4 }
+
+topCcmtsTemplateIpSubVlanRowStatus OBJECT-TYPE
+	SYNTAX 		RowStatus
+	MAX-ACCESS 	read-create
+	STATUS 		current
+	DESCRIPTION
+		"Create/delete/set."
+	::= { topCcmtsTemplateIpSubVlanCfgEntry 5 } 	
+	
+------------------------------------------------------------------------------
+--  topCcmtsTemplateIpSubVlanTagCfgTable
+--  added at 2017-01-11
+--  author liubin
+------------------------------------------------------------------------------
+topCcmtsTemplateIpSubVlanTagCfgTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsTemplateIpSubVlanTagCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Template ip subnet vlan cfi and tpid table"
+	::= { topCcmtsIpSubVlanCfgObject 5 }
+	
+topCcmtsTemplateIpSubVlanTagCfgEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsTemplateIpSubVlanTagCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Template ip subnet vlan cfi and tpid entry."
+	INDEX { topCcmtsTemplateIndex }
+	::= { topCcmtsTemplateIpSubVlanTagCfgTable 1 }
+
+TopCcmtsTemplateIpSubVlanTagCfgEntry ::=	SEQUENCE { 
+		topCcmtsTemplateIpSubVlanTagCfi				INTEGER,
+		topCcmtsTemplateIpSubVlanTagTpid			Integer32
+	 }
+
+topCcmtsTemplateIpSubVlanTagCfi OBJECT-TYPE
+    SYNTAX 		INTEGER (0..1)
+    MAX-ACCESS 	read-write
+    STATUS 		current
+    DESCRIPTION
+      	"This field was formerly designated Canonical Format Indicator (CFI) with 
+      	a value of 0 indicating a MAC address in canonical format. It is always 
+      	set to zero for Ethernet. CFI was used for compatibility between Ethernet 
+      	and Token Ring networks. If a frame received at an Ethernet port had a CFI 
+      	set to 1, then that frame would not be bridged to an untagged port."
+    DEFVAL{0}
+    ::= { topCcmtsTemplateIpSubVlanTagCfgEntry 1 }
+    
+topCcmtsTemplateIpSubVlanTagTpid OBJECT-TYPE
+	SYNTAX		Integer32
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"Config the tpid value that ip subnet vlan currently uses."   
+	DEFVAL{33024}
+	::={ topCcmtsTemplateIpSubVlanTagCfgEntry 2 }		
+	
+END

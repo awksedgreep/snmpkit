@@ -1,0 +1,1185 @@
+--*******************************************************************
+--TOP-SPECTRUM-GROUP-MIB.my: spectrum group MIB file
+--
+--added at 2012.09.15, huochao
+--
+--Topvision      
+--
+--*******************************************************************   
+
+TOPVISION-SPECTRUM-GROUP-MIB DEFINITIONS ::= BEGIN 
+
+IMPORTS 
+	MODULE-IDENTITY,
+	OBJECT-TYPE,
+	Integer32,
+	TimeTicks,
+	Counter64
+		FROM SNMPv2-SMI
+	TEXTUAL-CONVENTION,
+	MacAddress,
+	RowStatus,
+	DisplayString,
+	TruthValue,
+	TimeStamp
+		FROM SNMPv2-TC
+	OBJECT-GROUP,
+	MODULE-COMPLIANCE
+		FROM SNMPv2-CONF
+	SnmpAdminString
+		FROM SNMP-FRAMEWORK-MIB   
+	topCcmtsMibObject
+	    FROM  TOPVISION-CCMTS-MIB
+	sumaRoot,
+	topvisionRoot,
+	topvisionHFCCcmtsTree
+		FROM SUMA-EPONEOC-EPON-MIB;
+
+topCcmtSpectrumGp       	OBJECT IDENTIFIER ::={ topCcmtsMibObject 17 } 
+		
+topCcmtsSpectrumGpNotify	OBJECT IDENTIFIER ::={ topCcmtSpectrumGp 1 }
+topCcmtsSpectrumGpObject  	OBJECT IDENTIFIER ::={ topCcmtSpectrumGp 2 } 
+
+
+-- CMTS Notifications       
+
+--
+--topCcmtsSpectrumGpConfig
+--
+topCcmtsSpectrumGpGlobal	OBJECT IDENTIFIER ::={ topCcmtsSpectrumGpObject 1 }    
+
+topCcmtsSpectrumGroupGlobalAdminStatus  OBJECT-TYPE
+        SYNTAX      INTEGER {
+                    enable(1),
+                    disable(2)
+                    }
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "spectrum group global switch status" 
+	    DEFVAL	{disable}
+        ::= { topCcmtsSpectrumGpGlobal 1 }       
+        
+topCcmtsSpectrumGroupSnrQueryPeriod  OBJECT-TYPE
+        SYNTAX      INTEGER(5..360) 
+        MAX-ACCESS  read-write
+        STATUS      deprecated         
+        DESCRIPTION
+            "spectrum group snr query period" 
+	    DEFVAL{180}
+        ::= { topCcmtsSpectrumGpGlobal 2 }     
+        
+topCcmtsSpectrumGroupHopHisMaxCount  OBJECT-TYPE
+        SYNTAX      INTEGER(1..64)
+        MAX-ACCESS  read-write
+        STATUS      current         
+        DESCRIPTION
+            "spectrum group maxinum hop history record." 
+	    DEFVAL{16}
+        ::= { topCcmtsSpectrumGpGlobal 3 }
+
+--
+--topCcmtsSpectrumGroupTable
+--
+
+topCcmtsSpectrumGroupTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsSpectrumgroupntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"spectrum group config table,you can create a spectrum group,and config it, or delete it."
+	::={ topCcmtsSpectrumGpObject 2 }
+
+topCcmtsSpectrumgroupntry OBJECT-TYPE
+	SYNTAX		TopCcmtsSpectrumgroupntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"spectrum group config table entry."
+	INDEX { topCcmtsSpectrumGroupId }
+	::= { topCcmtsSpectrumGroupTable 1 }       
+	
+	
+TopCcmtsSpectrumgroupntry ::=SEQUENCE{
+	topCcmtsSpectrumGroupId		        INTEGER,
+	topCcmtsSpectrumGroupHopPeriod	    INTEGER,
+	topCcmtsSpectrumGroupSnrThres1		INTEGER,
+	topCcmtsSpectrumGroupSnrThres2		INTEGER,
+	topCcmtsSpectrumGroupFecThresCorrect1			INTEGER,
+	topCcmtsSpectrumGroupFecThresCorrect2		    INTEGER,
+	topCcmtsSpectrumGroupFecThresUnCorrect1		INTEGER,
+	topCcmtsSpectrumGroupFecThresUnCorrect2		INTEGER,
+	topCcmtsSpectrumGroupPlrThreshold	INTEGER,
+	topCcmtsSpectrumGroupAdminStatus	INTEGER,                                   
+	topCcmtsSpectrumGroupHopMethod		INTEGER,     	
+	topCcmtsSpectrumGroupFreqNum		INTEGER,
+	topCcmtsSpectrumGroupUsedNum		INTEGER, 
+    topCcmtsSpectrumGroupClearApply        INTEGER,
+    topCcmtsSpectrumGroupPriority1st       INTEGER,
+    topCcmtsSpectrumGroupPriority2st       INTEGER,
+    topCcmtsSpectrumGroupPriority3st       INTEGER,
+    topCcmtsSpectrumGroupPolicy            INTEGER,
+    topCcmtsSpectrumGroupMaxHopLimit	   INTEGER,
+    topCcmtsSpectrumGroupRowStatus		   RowStatus
+	}
+
+topCcmtsSpectrumGroupId OBJECT-TYPE
+	SYNTAX		INTEGER(1..32)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"spectrum group id"   
+	::={ topCcmtsSpectrumgroupntry 1 }      
+	
+topCcmtsSpectrumGroupHopPeriod OBJECT-TYPE
+	SYNTAX		INTEGER(25..604800)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"spectrum group hop period,the minimum time between two hops."  
+	DEFVAL{600}  
+	::={ topCcmtsSpectrumgroupntry 2 }
+
+topCcmtsSpectrumGroupSnrThres1 OBJECT-TYPE
+	SYNTAX		INTEGER(10..1000)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"channel snr threshold one,used by frequency,width hop,
+		modulation hop from primary to secondary or 
+		recovery to primary modulation will use it." 
+	DEFVAL{200}
+	::={ topCcmtsSpectrumgroupntry 3 }
+
+topCcmtsSpectrumGroupSnrThres2 OBJECT-TYPE
+	SYNTAX		INTEGER(10..1000)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"channel snr threshold two,used by modulation hop from secondary to tertiary 
+		or recovery to secondary modulation."   
+	DEFVAL{150}
+	::={ topCcmtsSpectrumgroupntry 4 }   
+	
+topCcmtsSpectrumGroupFecThresCorrect1 OBJECT-TYPE
+	SYNTAX		INTEGER(0..100)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"channel correctable fec error percent threshold one,
+		used by frequency,width hop,modulation hop from primary to secondary 
+		or recovery to primary modulation will use it." 
+	DEFVAL{0}
+	::={ topCcmtsSpectrumgroupntry 5 }
+
+topCcmtsSpectrumGroupFecThresCorrect2 OBJECT-TYPE
+	SYNTAX		INTEGER(0..100)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"channel correctable fec error percent threshold two,
+         modulation hop from secondary to tertiary 
+         or recovery to secondary modulation will use it."   
+    DEFVAL{0}
+	::={ topCcmtsSpectrumgroupntry 6 }   
+
+ topCcmtsSpectrumGroupFecThresUnCorrect1 OBJECT-TYPE
+	SYNTAX		INTEGER(0..100)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"channel uncorrectable fec error percent threshold one,
+		used by frequency,width hop,modulation hop from primary to secondary 
+		or recovery to primary modulation will use it."   
+	DEFVAL{0}
+	::={ topCcmtsSpectrumgroupntry 7 }
+
+topCcmtsSpectrumGroupFecThresUnCorrect2 OBJECT-TYPE
+	SYNTAX		INTEGER(0..100)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"channel uncorrectable fec error percent threshold two,
+         modulation hop from secondary to tertiary 
+         or recovery to secondary modulation will use it."  
+    DEFVAL{0}
+	::={ topCcmtsSpectrumgroupntry 8 }       
+	
+topCcmtsSpectrumGroupPlrThreshold OBJECT-TYPE
+	SYNTAX		INTEGER(1..100)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"channel station maintenance message loss rate percent threshold,
+         when spectrum group method is plr, will use it."   
+    DEFVAL{20}
+	::={ topCcmtsSpectrumgroupntry 9 }   
+	 	
+topCcmtsSpectrumGroupAdminStatus OBJECT-TYPE
+	SYNTAX		INTEGER{		    
+		           enable(1),
+		           disable(2)
+		           }
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"spectrum group administration status."  
+	DEFVAL{enable}
+	::={ topCcmtsSpectrumgroupntry 10 }   	
+
+topCcmtsSpectrumGroupHopMethod OBJECT-TYPE
+	SYNTAX		INTEGER{		    
+		           snr(1),
+		           plr(2)
+		           }
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"spectrum group hop method."  
+	DEFVAL{snr}
+	::={ topCcmtsSpectrumgroupntry 11 }  
+	
+topCcmtsSpectrumGroupFreqNum OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"spectrum group 's member frequency number."
+	::={ topCcmtsSpectrumgroupntry 12 }   	  
+
+topCcmtsSpectrumGroupUsedNum OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"spectrum group 's apply counter."
+	::={ topCcmtsSpectrumgroupntry 13 }        
+
+
+topCcmtsSpectrumGroupClearApply OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"clear spectrum group 's apply. true(1) for clear action."
+	::={ topCcmtsSpectrumgroupntry 14 }  
+
+topCcmtsSpectrumGroupPriority1st OBJECT-TYPE
+	SYNTAX		INTEGER
+	            {
+	              width(2),
+	              modulation(3)
+	            }
+	MAX-ACCESS	read-create
+	STATUS		deprecated
+	DESCRIPTION
+		"channel spectrum hop priority first slection."   
+	DEFVAL{modulation}
+	::={ topCcmtsSpectrumgroupntry 15 }   
+
+topCcmtsSpectrumGroupPriority2st OBJECT-TYPE
+	SYNTAX		INTEGER
+	            {
+	              frequency(1),
+	              width(2),
+	              modulation(3)
+	            }
+	MAX-ACCESS	read-create
+	STATUS		deprecated
+	DESCRIPTION
+		"channel spectrum hop priority second slection."     
+	DEFVAL{width}
+	::={ topCcmtsSpectrumgroupntry 16 }   
+	
+topCcmtsSpectrumGroupPriority3st OBJECT-TYPE
+	SYNTAX		INTEGER
+	            {
+	              frequency(1),
+	              modulation(3)
+	            }
+	MAX-ACCESS	read-create
+	STATUS		deprecated
+	DESCRIPTION
+		"channel spectrum hop priority third slection."     
+	DEFVAL{frequency}
+	::={ topCcmtsSpectrumgroupntry 17 }   
+
+topCcmtsSpectrumGroupPolicy OBJECT-TYPE
+	SYNTAX		INTEGER
+	            {
+					freqOnly(8),
+					widthOnly(16),
+					modulationOnly(32),  
+					FreqWidthOnly(24),
+					FreqModulationOnly(40),
+					WidthModulationOnly(48),
+					FreqWidthModulation(56)
+	             }    
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"channel spectrum hop policy .Use Bitmap to config the policy.
+		 Frequency enable:set the BIT(3) 1,
+		 Frequency disable:set the BIT(3) 0,
+		 Width enable:set the BIT(4) 1,
+		 Width disable:set the BIT(4) 0,
+		 Modulation enable:set the BIT(5) 1,
+		 Modulation disable:set the BIT(5) 0.
+		 "    
+	DEFVAL{modulationOnly}
+	::={ topCcmtsSpectrumgroupntry 18}   
+
+topCcmtsSpectrumGroupMaxHopLimit OBJECT-TYPE
+	SYNTAX		INTEGER(1..65535|-1)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"the maximum hops number allowed based channel,-1 indicate unlimited."
+	DEFVAL{-1}
+	::={ topCcmtsSpectrumgroupntry 19 }  
+		   
+topCcmtsSpectrumGroupRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"spectrum group 's row status."
+	::={ topCcmtsSpectrumgroupntry 20 } 
+	
+-- 
+--topCcmtsSpectrumGroupFreqTable
+--
+topCcmtsSpectrumGroupFreqTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsSpectrumGroupFreqEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"spectrum group member frequency table,you can add or delete a member frequency."
+	::={ topCcmtsSpectrumGpObject 3 }
+
+topCcmtsSpectrumGroupFreqEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsSpectrumGroupFreqEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"spectrum group member frequency table entry."
+	INDEX { topCcmtsSpectrumGPFreqGroupId
+	       ,topCcmtsSpectrumGPFreqIndex }
+	::= { topCcmtsSpectrumGroupFreqTable 1 }   	
+
+TopCcmtsSpectrumGroupFreqEntry ::=SEQUENCE{
+	topCcmtsSpectrumGPFreqGroupId		        INTEGER,
+	topCcmtsSpectrumGPFreqIndex	    INTEGER,
+	topCcmtsSpectrumGPFreqFrequency		INTEGER,
+	topCcmtsSpectrumGPFreqMaxWidth		INTEGER,
+	topCcmtsSpectrumGPFreqPower			INTEGER,
+	topCcmtsSpectrumGPFreqRowStatus		    RowStatus
+	}
+
+
+topCcmtsSpectrumGPFreqGroupId OBJECT-TYPE
+	SYNTAX		INTEGER(1..32)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"spectrum group ID."
+	::={ topCcmtsSpectrumGroupFreqEntry 1 }     
+	
+topCcmtsSpectrumGPFreqIndex OBJECT-TYPE
+	SYNTAX		INTEGER(1..16)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"spectrum group member frequency index."
+	::={ topCcmtsSpectrumGroupFreqEntry 2 }       
+	
+topCcmtsSpectrumGPFreqFrequency OBJECT-TYPE
+	SYNTAX		INTEGER(5000000..85000000)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"spectrum group member center frequency."
+	::={ topCcmtsSpectrumGroupFreqEntry 3 }     
+	
+topCcmtsSpectrumGPFreqMaxWidth OBJECT-TYPE
+	SYNTAX		INTEGER
+	            {
+	               w64M(6400000),  
+	               w32M(3200000),    
+	               w16M(1600000)
+                }
+    MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"spectrum group member frequency maximum avilable width."
+	::={ topCcmtsSpectrumGroupFreqEntry 4 }
+	
+topCcmtsSpectrumGPFreqPower OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"spectrum group member frequency 's input power-level,
+		 If this parameter is not present,this attribute reports the value of 4095,indicating not config power-level."
+	::={ topCcmtsSpectrumGroupFreqEntry 5 }     
+	
+topCcmtsSpectrumGPFreqRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"spectrum group 's member frequency row status."
+	::={ topCcmtsSpectrumGroupFreqEntry 6 } 
+
+topCcmtsSpectrumGroupApplyTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsSpectrumGroupApplyEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"spectrum group apply info table,record the applied cmc and channel list."
+	::={ topCcmtsSpectrumGpObject 4 }
+
+
+topCcmtsSpectrumGroupApplyEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsSpectrumGroupApplyEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"spectrum group apply info table entry."
+	INDEX { topCcmtsSpectrumGPApplyGroupId
+	       ,topCcmtsSpectrumGPApplyCmcMac }
+	::= { topCcmtsSpectrumGroupApplyTable 1 }  
+
+TopCcmtsSpectrumGroupApplyEntry ::=SEQUENCE{
+	topCcmtsSpectrumGPApplyGroupId		INTEGER,
+	topCcmtsSpectrumGPApplyCmcMac	    MacAddress,
+	topCcmtsSpectrumGPApplyChnlList		BITS
+	}
+
+topCcmtsSpectrumGPApplyGroupId OBJECT-TYPE
+	SYNTAX		INTEGER(1..32)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"spectrum group 's ID."
+	::={ topCcmtsSpectrumGroupApplyEntry 1 } 
+
+topCcmtsSpectrumGPApplyCmcMac OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	not-accessible
+		STATUS		current
+	DESCRIPTION
+		"spectrum group 's applied cmc mac."
+	::={ topCcmtsSpectrumGroupApplyEntry 2 } 
+
+topCcmtsSpectrumGPApplyChnlList OBJECT-TYPE
+	SYNTAX		BITS{
+	upstreamChnl1(0),
+	upstreamChnl2(1),
+	upstreamChnl3(2),
+	upstreamChnl4(3),
+	upstreamChnl5(4),
+	upstreamChnl6(5),
+	upstreamChnl7(6),
+	upstreamChnl8(7),
+	upstreamChnl9(8),
+	upstreamChnl10(9),
+	upstreamChnl11(10),
+    upstreamChnl12(11)
+	}
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"spectrum group 's applied cmc channel list."
+	::={ topCcmtsSpectrumGroupApplyEntry 3 }   
+	
+-- topCcmtsSpectrumGroupChnlTable
+
+topCcmtsSpectrumGroupChnlTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsSpectrumGroupChnlEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"spectrum group channel config ans status table."
+	::={ topCcmtsSpectrumGpObject 5 }
+
+
+topCcmtsSpectrumGroupChnlEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsSpectrumGroupChnlEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"spectrum group channel config ans status table entry."
+	INDEX { topCcmtsSpectrumGPChnlCmcMac
+	       ,topCcmtsSpectrumGPChnlId }
+	::= { topCcmtsSpectrumGroupChnlTable 1 }  
+
+TopCcmtsSpectrumGroupChnlEntry ::=SEQUENCE{
+	topCcmtsSpectrumGPChnlCmcMac        MacAddress,
+	topCcmtsSpectrumGPChnlId            INTEGER,
+	
+	topCcmtsSpectrumGPChnlGroupId       INTEGER, 
+	
+	topCcmtsSpectrumGPChnlSecondaryProf INTEGER,
+	topCcmtsSpectrumGPChnlTertiaryProf  INTEGER,   
+	
+	topCcmtsSpectrumGPChnlBadCount      INTEGER,
+	topCcmtsSpectrumGPChnlGoodCount     INTEGER,     
+	
+	topCcmtsSpectrumGPChnlCurrFrequency     INTEGER,
+	topCcmtsSpectrumGPChnlCurrWidth         INTEGER,
+	topCcmtsSpectrumGPChnlCurrModulation    INTEGER,
+	topCcmtsSpectrumGPChnlCurrPower         INTEGER,  
+	
+	topCcmtsSpectrumGPChnlCurrSnr           INTEGER,
+	topCcmtsSpectrumGPChnlCurrPlr           INTEGER,
+	topCcmtsSpectrumGPChnlCurrCorrect       INTEGER,
+	topCcmtsSpectrumGPChnlCurrUnCorrect     INTEGER,   
+	
+    topCcmtsSpectrumGPChnlLastCorr          Counter64,           
+    topCcmtsSpectrumGPChnlLastUnCorr        Counter64,     
+    topCcmtsSpectrumGPChnlLastUnErr         Counter64,                         
+    topCcmtsSpectrumGPChnlHopsCount     INTEGER,
+	topCcmtsSpectrumGPChnlHopsStatus    INTEGER,
+	topCcmtsSpectrumGPChnlLastHopTime   INTEGER,
+	topCcmtsSpectrumGPChnlLastOkTime        INTEGER,
+	topCcmtsSpectrumGPChnlResetTostatic INTEGER,   
+	topCcmtsSpectrumGPChnlClearHistory      INTEGER, 
+	topCcmtsSpectrumGPChnlHisRecordNum  INTEGER,   
+	topCcmtsSpectrumGPChnlFreqUsedBits  BITS, 
+	topCcmtsSpectrumGPChnlLastHopTimeYMD   INTEGER,
+	topCcmtsSpectrumGPChnlLastOkTimeYMD    INTEGER
+	}
+
+topCcmtsSpectrumGPChnlCmcMac OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"cmc mac address."
+	::={ topCcmtsSpectrumGroupChnlEntry 1 }       
+	
+topCcmtsSpectrumGPChnlId OBJECT-TYPE
+	SYNTAX		INTEGER(1..12)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"upstream channel id."
+	::={ topCcmtsSpectrumGroupChnlEntry 2 }         
+			
+topCcmtsSpectrumGPChnlGroupId OBJECT-TYPE
+	SYNTAX		INTEGER(0..32)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"the spectrum group ID applied on this channel."
+	DEFVAL{0}
+	::={ topCcmtsSpectrumGroupChnlEntry 3 }  
+		 
+topCcmtsSpectrumGPChnlSecondaryProf OBJECT-TYPE
+	SYNTAX		INTEGER(1..18)         
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"channel's secondary modulation profile,when modulation hop is
+		promised,modulation will hop between primary modulaition and secondary,or tertiary.  
+		65535 indicate no profile configured"  
+	DEFVAL{65535}
+	::={ topCcmtsSpectrumGroupChnlEntry 4 }    
+	
+topCcmtsSpectrumGPChnlTertiaryProf OBJECT-TYPE
+	SYNTAX		INTEGER(1..18)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"channel's tertiary modulation profile,when modulation hop is
+		promised,modulation will hop between primary modulaition and secondary,or tertiary.
+		65535 indicate no profile configend"
+	DEFVAL{65535}
+	::={ topCcmtsSpectrumGroupChnlEntry 5 } 
+	  
+topCcmtsSpectrumGPChnlBadCount OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel continuous remaining in bad status period count."  
+	::={ topCcmtsSpectrumGroupChnlEntry 6 }        
+	
+topCcmtsSpectrumGPChnlGoodCount OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's continuous remaining in good status period count."
+	::={ topCcmtsSpectrumGroupChnlEntry 7 }   
+
+topCcmtsSpectrumGPChnlCurrFrequency OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel current center frequency."
+	::={ topCcmtsSpectrumGroupChnlEntry 8}    
+	
+topCcmtsSpectrumGPChnlCurrWidth OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's current frequency width."
+	::={ topCcmtsSpectrumGroupChnlEntry 9 }    
+	
+topCcmtsSpectrumGPChnlCurrModulation OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's current modulation profile."
+	::={ topCcmtsSpectrumGroupChnlEntry 10 }     
+	
+topCcmtsSpectrumGPChnlCurrPower	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's current input power."
+	::={ topCcmtsSpectrumGroupChnlEntry 11 }   
+
+topCcmtsSpectrumGPChnlCurrSnr	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's current snr. 65535 indicate no data."
+	::={ topCcmtsSpectrumGroupChnlEntry 12 } 	    
+	
+topCcmtsSpectrumGPChnlCurrPlr	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's current plr."
+	::={ topCcmtsSpectrumGroupChnlEntry 13 } 	
+	
+topCcmtsSpectrumGPChnlCurrCorrect	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's current correctable codewords percent. 65535 indicate no data."
+	::={ topCcmtsSpectrumGroupChnlEntry 14 } 	
+	
+topCcmtsSpectrumGPChnlCurrUnCorrect	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's current uncorrectable codewords percent. 65535 indicate no data."
+	::={ topCcmtsSpectrumGroupChnlEntry 15 } 	
+       	
+topCcmtsSpectrumGPChnlLastCorr   OBJECT-TYPE
+	SYNTAX		Counter64
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's last correctable codewords number."
+	::={ topCcmtsSpectrumGroupChnlEntry 16 } 
+	                                            
+topCcmtsSpectrumGPChnlLastUnErr   OBJECT-TYPE
+	SYNTAX		Counter64
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's last unerrored codewords number."
+	::={ topCcmtsSpectrumGroupChnlEntry 17 } 
+
+topCcmtsSpectrumGPChnlLastUnCorr   OBJECT-TYPE
+	SYNTAX		Counter64
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's last uncorrectable codewords number."
+	::={ topCcmtsSpectrumGroupChnlEntry 18 } 
+	
+topCcmtsSpectrumGPChnlHopsCount	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's hop counter."
+	::={ topCcmtsSpectrumGroupChnlEntry 19 } 	
+
+topCcmtsSpectrumGPChnlHopsStatus	OBJECT-TYPE
+	SYNTAX		INTEGER
+	            {   
+	                staticBegin(1),
+	                staticWidth(2),
+	                staticWidthEnd(3),  
+	                staticMod1(4),
+	                staticMod2(5),
+	                staticMod3(6),
+	                dynamicFreq(7),
+	                dynamicFreqEnd(8),
+	                dynamicWidth(9),
+	                dynamicWidthEnd(10),
+	                dynamicMod1(11),
+	                dynamicMod2(12),
+	                dynamicMod3(13),
+	                statusMax(14)
+	            }
+	MAX-ACCESS	read-only
+	STATUS		deprecated
+	DESCRIPTION
+		"channel's current hop status."
+	::={ topCcmtsSpectrumGroupChnlEntry 20 } 
+		
+topCcmtsSpectrumGPChnlLastHopTime	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel 's last hop time,relative time since system power on."
+	::={ topCcmtsSpectrumGroupChnlEntry 21 } 	
+	
+	
+topCcmtsSpectrumGPChnlLastOkTime	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel 's last recovery time,relative time since system power on."
+	::={ topCcmtsSpectrumGroupChnlEntry 22 }
+	
+topCcmtsSpectrumGPChnlResetTostatic	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"reset current channel to static config. true(1) is valid value."
+	::={ topCcmtsSpectrumGroupChnlEntry 23 }    
+	
+topCcmtsSpectrumGPChnlClearHistory	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"clear channel's hop history. true(1) is valid value."
+	::={ topCcmtsSpectrumGroupChnlEntry 24 }   
+
+topCcmtsSpectrumGPChnlHisRecordNum	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's hop history number."
+	::={ topCcmtsSpectrumGroupChnlEntry 25 }   
+
+
+topCcmtsSpectrumGPChnlFreqUsedBits	OBJECT-TYPE
+	SYNTAX		BITS{
+		usedBit0(0),
+		usedBit1(1),
+		usedBit2(2),
+		usedBit3(3),
+		usedBit4(4),
+		usedBit5(5),
+		usedBit6(6),
+		usedBit7(7), 
+		usedBit8(8),
+		usedBit9(9),
+		usedBit10(10),    
+		usedBit11(11),
+        usedBit12(12),   
+        usedBit13(13),
+        usedBit14(14),
+        usedBit15(15)
+  	}
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's hop frequency used bits."
+	::={ topCcmtsSpectrumGroupChnlEntry 26 }  		
+
+topCcmtsSpectrumGPChnlLastHopTimeYMD	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel 's last hop time,absolute time such as YYYY-MM-DD."
+	::={ topCcmtsSpectrumGroupChnlEntry 27 }
+
+topCcmtsSpectrumGPChnlLastOkTimeYMD	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel 's last recovery time,absolute time such as YYYY-MM-DD."
+	::={ topCcmtsSpectrumGroupChnlEntry 28 }
+	 
+
+-- topCcmtsSpectrumGroupHopHisTable
+topCcmtsSpectrumGroupHopHisTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCcmtsSpectrumGroupHopHisEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"spectrum group channel hop history table."
+	::={ topCcmtsSpectrumGpObject 6 }
+
+
+topCcmtsSpectrumGroupHopHisEntry OBJECT-TYPE
+	SYNTAX		TopCcmtsSpectrumGroupHopHisEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"spectrum group channel hop history table entry."
+	INDEX { topCcmtsSpectrumGPHisCmcMac
+	       ,topCcmtsSpectrumGPHisChnlId 
+	       ,topCcmtsSpectrumGPHopHisIndex}
+	::= { topCcmtsSpectrumGroupHopHisTable 1 }  
+
+TopCcmtsSpectrumGroupHopHisEntry ::=SEQUENCE{
+	topCcmtsSpectrumGPHisCmcMac        MacAddress,
+	topCcmtsSpectrumGPHisChnlId        INTEGER,  
+	topCcmtsSpectrumGPHopHisIndex      INTEGER, 
+	
+	topCcmtsSpectrumGPHisSelect1st     INTEGER,
+    topCcmtsSpectrumGPHisSelect2st     INTEGER,
+	topCcmtsSpectrumGPHisSelect3st     INTEGER,
+	topCcmtsSpectrumGPHisPolicy        INTEGER,
+	topCcmtsSpectrumGPHisGroupId       INTEGER,
+	topCcmtsSpectrumGPHisMaxHop        INTEGER,
+	topCcmtsSpectrumGPHisSecondaryProf INTEGER,
+	topCcmtsSpectrumGPHisTertiaryProf  INTEGER, 
+	
+	topCcmtsSpectrumGPHisBadCount      INTEGER,
+	topCcmtsSpectrumGPHisGoodCount     INTEGER,  
+	
+	topCcmtsSpectrumGPHisFrequency     INTEGER,
+	topCcmtsSpectrumGPHisWidth         INTEGER,
+	topCcmtsSpectrumGPHisModulation    INTEGER,
+	topCcmtsSpectrumGPHisPower         INTEGER,   
+	
+	topCcmtsSpectrumGPHisSnr           INTEGER,
+	topCcmtsSpectrumGPHisPlr           INTEGER,
+	topCcmtsSpectrumGPHisCorrect       INTEGER,
+	topCcmtsSpectrumGPHisUnCorrect     INTEGER,  
+
+    topCcmtsSpectrumGPHisLastCorr          Counter64,         
+    topCcmtsSpectrumGPHisLastUnCorr        Counter64,     
+    topCcmtsSpectrumGPHisLastUnErr         Counter64,    
+    	
+	topCcmtsSpectrumGPHisHopsCount     INTEGER,
+	topCcmtsSpectrumGPHisHopsStatus    INTEGER,
+	topCcmtsSpectrumGPHisLastHopTime   INTEGER, 
+	topCcmtsSpectrumGPHisLastOkTime  INTEGER,  
+	topCcmtsSpectrumGPHisFreqUsedBits  BITS,
+	topCcmtsSpectrumGPHisLastHopTimeYMD   INTEGER, 
+	topCcmtsSpectrumGPHisLastOkTimeYMD  INTEGER 
+}
+
+topCcmtsSpectrumGPHisCmcMac OBJECT-TYPE
+	SYNTAX		MacAddress
+	MAX-ACCESS	not-accessible
+		STATUS		current
+	DESCRIPTION
+		"cmc mac address."
+	::={ topCcmtsSpectrumGroupHopHisEntry 1 }       
+	
+topCcmtsSpectrumGPHisChnlId OBJECT-TYPE
+	SYNTAX		INTEGER(1..12)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"upstream channel id."
+	::={ topCcmtsSpectrumGroupHopHisEntry 2 }         
+
+topCcmtsSpectrumGPHopHisIndex OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"hop history record index."
+	::={ topCcmtsSpectrumGroupHopHisEntry 3 }    
+		
+topCcmtsSpectrumGPHisSelect1st OBJECT-TYPE
+	SYNTAX		INTEGER
+	            {
+	              width(2),
+	              modulation(3)
+	            }
+	MAX-ACCESS	read-only
+	STATUS		deprecated
+	DESCRIPTION
+		"channel spectrum hop priority first slection."
+	::={ topCcmtsSpectrumGroupHopHisEntry 4 }   
+
+topCcmtsSpectrumGPHisSelect2st OBJECT-TYPE
+	SYNTAX		INTEGER
+	            {
+	              frequency(1),
+	              width(2),
+	              modulation(3)
+	            }
+	MAX-ACCESS	read-only
+	STATUS		deprecated
+	DESCRIPTION
+		"channel spectrum hop priority second slection."
+	::={ topCcmtsSpectrumGroupHopHisEntry 5 }   
+	
+topCcmtsSpectrumGPHisSelect3st OBJECT-TYPE
+	SYNTAX		INTEGER
+	            {
+	              frequency(1),
+	              modulation(3)
+	            }
+	MAX-ACCESS	read-only
+	STATUS		deprecated
+	DESCRIPTION
+		"channel spectrum hop priority third slection."
+	::={ topCcmtsSpectrumGroupHopHisEntry 6 }   
+		
+topCcmtsSpectrumGPHisPolicy OBJECT-TYPE
+	SYNTAX		INTEGER
+	            {
+					freqOnly(8),
+					widthOnly(16),
+					modulationOnly(32),  
+					FreqWidthOnly(24),
+					FreqModulationOnly(40),
+					WidthModulationOnly(48),
+					FreqWidthModulation(56)
+	             }
+	               
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel spectrum hop policy .Use Bitmap to config the policy.
+		 Frequency enable:set the BIT(3) 1,
+		 Frequency disable:set the BIT(3) 0,
+		 Width enable:set the BIT(4) 1,
+		 Width disable:set the BIT(4) 0,
+		 Modulation enable:set the BIT(5) 1,
+		 Modulation disable:set the BIT(5) 0.
+		"  
+	::={ topCcmtsSpectrumGroupHopHisEntry 7}   
+
+topCcmtsSpectrumGPHisGroupId OBJECT-TYPE
+	SYNTAX		INTEGER(1..32)
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"the spectrum group ID applied on this channel."
+	::={ topCcmtsSpectrumGroupHopHisEntry 8 }  
+	
+	 
+topCcmtsSpectrumGPHisMaxHop OBJECT-TYPE
+	SYNTAX		INTEGER(0..20)
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"the maximum hops number allowed."
+	::={ topCcmtsSpectrumGroupHopHisEntry 9 }  
+
+topCcmtsSpectrumGPHisSecondaryProf OBJECT-TYPE
+	SYNTAX		INTEGER  
+	         
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's secondary modulation profile,when modulation hop is
+		promised,modulation will hop between primary modulaition and secondary,or tertiary."
+	::={ topCcmtsSpectrumGroupHopHisEntry 10 }    
+	
+topCcmtsSpectrumGPHisTertiaryProf OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's tertiary modulation profile,when modulation hop is
+		promised,modulation will hop between primary modulaition and secondary,or tertiary."
+	::={ topCcmtsSpectrumGroupHopHisEntry 11 } 
+	  
+topCcmtsSpectrumGPHisBadCount OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel continuous remaining in bad status period count."
+	::={ topCcmtsSpectrumGroupHopHisEntry 12 }        
+	
+topCcmtsSpectrumGPHisGoodCount OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's continuous remaining in good status period count."
+	::={ topCcmtsSpectrumGroupHopHisEntry 13 }   
+
+topCcmtsSpectrumGPHisFrequency OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel current center frequency."
+	::={ topCcmtsSpectrumGroupHopHisEntry 14}    
+	
+topCcmtsSpectrumGPHisWidth OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's current frequency width."
+	::={ topCcmtsSpectrumGroupHopHisEntry 15 }    
+	
+topCcmtsSpectrumGPHisModulation OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's current modulation profile."
+	::={ topCcmtsSpectrumGroupHopHisEntry 16 }     
+	
+topCcmtsSpectrumGPHisPower	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's current input power."
+	::={ topCcmtsSpectrumGroupHopHisEntry 17 }   
+
+topCcmtsSpectrumGPHisSnr	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's current snr."
+	::={ topCcmtsSpectrumGroupHopHisEntry 18 } 	    
+	
+topCcmtsSpectrumGPHisPlr	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's current plr."
+	::={ topCcmtsSpectrumGroupHopHisEntry 19 } 	
+	
+topCcmtsSpectrumGPHisCorrect	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's current correctable codewords percent."
+	::={ topCcmtsSpectrumGroupHopHisEntry 20 } 	
+	
+topCcmtsSpectrumGPHisUnCorrect	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's current uncorrectable codewords percent."
+	::={ topCcmtsSpectrumGroupHopHisEntry 21 } 	
+    
+topCcmtsSpectrumGPHisLastCorr   OBJECT-TYPE
+	SYNTAX		Counter64
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's last correctable codewords number."
+	::={ topCcmtsSpectrumGroupHopHisEntry 22 } 
+	                                            
+topCcmtsSpectrumGPHisLastUnCorr   OBJECT-TYPE
+	SYNTAX		Counter64
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's last unerrored codewords number."
+	::={ topCcmtsSpectrumGroupHopHisEntry 23 } 
+
+topCcmtsSpectrumGPHisLastUnErr   OBJECT-TYPE
+	SYNTAX		Counter64
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's last uncorrectable codewords number."
+	::={ topCcmtsSpectrumGroupHopHisEntry 24 } 
+
+topCcmtsSpectrumGPHisHopsCount	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel's hop counter."
+	::={ topCcmtsSpectrumGroupHopHisEntry 25 } 	
+	
+	
+topCcmtsSpectrumGPHisHopsStatus	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		deprecated
+	DESCRIPTION
+		"channel's current hop status."
+	::={ topCcmtsSpectrumGroupHopHisEntry 26 } 	
+	
+	
+topCcmtsSpectrumGPHisLastHopTime	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel 's last hop time,relative time since system power on."
+	::={ topCcmtsSpectrumGroupHopHisEntry 27 } 	
+
+	
+topCcmtsSpectrumGPHisLastOkTime	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel 's last recovery time,relative time since system power on."
+	::={ topCcmtsSpectrumGroupHopHisEntry 28 }   
+	
+topCcmtsSpectrumGPHisFreqUsedBits	OBJECT-TYPE
+	SYNTAX		BITS{
+		usedBit0(0),
+		usedBit1(1),
+		usedBit2(2),
+		usedBit3(3),
+		usedBit4(4),
+		usedBit5(5),
+		usedBit6(6),
+		usedBit7(7), 
+		usedBit8(8),
+		usedBit9(9),
+		usedBit10(10),    
+		usedBit11(11),
+        usedBit12(12),   
+        usedBit13(13),
+        usedBit14(14),
+        usedBit15(15)
+	}
+
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel 's used channel bitlist."
+	::={ topCcmtsSpectrumGroupHopHisEntry 29 }   
+
+topCcmtsSpectrumGPHisLastHopTimeYMD	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel 's last hop time,absolute time such as YYYY-MM-DD."
+	::={ topCcmtsSpectrumGroupHopHisEntry 30 } 	
+
+topCcmtsSpectrumGPHisLastOkTimeYMD	OBJECT-TYPE
+	SYNTAX		INTEGER
+	MAX-ACCESS	read-only
+	STATUS		current
+	DESCRIPTION
+		"channel 's last hop time,absolute time such as YYYY-MM-DD."
+	::={ topCcmtsSpectrumGroupHopHisEntry 31 } 	
+		
+END

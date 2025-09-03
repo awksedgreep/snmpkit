@@ -1,0 +1,354 @@
+--*******************************************************************
+--TOPVISION-CM-MIB.my: DOCSIS Extention MIB file
+--
+--added at February 2013, Wang Hao
+--
+--Topvision      
+--
+--
+--*******************************************************************
+
+TOPVISION-FFT-MONITOR-MIB DEFINITIONS ::= BEGIN 
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Integer32, 
+    Unsigned32
+        FROM SNMPv2-SMI 
+    DateAndTime,
+    MacAddress, 
+    RowStatus,
+    TruthValue,
+    DisplayString
+        FROM SNMPv2-TC
+    ifIndex
+				FROM IF-MIB
+    topCcmtsTemplateIndex
+				FROM TOPVISION-TEMPLATE-MIB
+    topCcmtsMibObject
+				FROM TOPVISION-CCMTS-MIB;
+		
+------------------------------------------------------------------------------
+--  topCcmtsFftMonitorObject
+--  added at 2013-5-12
+--  author wanghao
+------------------------------------------------------------------------------
+
+topCcmtsFftMonitorObject	OBJECT IDENTIFIER ::={ topCcmtsMibObject 16 } 
+topCcmtsFftMonitorScalarObject	OBJECT IDENTIFIER ::={topCcmtsFftMonitorObject 1 }
+
+topCcmtsFftMonitorGlbStatus OBJECT-TYPE
+    SYNTAX 		INTEGER (0..1)
+    MAX-ACCESS 	read-write
+    STATUS 		obsolete
+    DESCRIPTION
+      	"Global status of fft monitor. 0 represent fft polling is not running,
+		1 represent running. Only use in 8800A"
+    DEFVAL{0}
+    ::= { topCcmtsFftMonitorScalarObject 1 }
+	
+topCcmtsFftMonitorCfgTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsFftMonitorCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		obsolete
+	DESCRIPTION
+		"Fft config table"
+	::= { topCcmtsFftMonitorObject 2 }
+	
+topCcmtsFftMonitorCfgEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsFftMonitorCfgEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		obsolete
+	DESCRIPTION
+		"Fft config entry."
+	INDEX { topCcmtsFftMonitorCmcMacIndex}
+	::= { topCcmtsFftMonitorCfgTable 1 }
+		
+TopCcmtsFftMonitorCfgEntry ::=	SEQUENCE { 
+		topCcmtsFftMonitorCmcMacIndex			MacAddress,
+		topCcmtsFftMonitorTimeInterval			INTEGER,
+		topCcmtsFftMonitorFreqInterval	    	INTEGER,
+		topCcmtsFftMonitorFreqStart	    		INTEGER, 
+		topCcmtsFftMonitorFreqEnd	    		INTEGER,
+		topCcmtsFftMonitorPollingStatus			INTEGER, 
+		topCcmtsFftMonitorCompressDataExpiredTime INTEGER,
+		topCcmtsFftMonitorDataMode			INTEGER		
+	 }
+
+topCcmtsFftMonitorCmcMacIndex OBJECT-TYPE
+	SYNTAX 		MacAddress 
+	MAX-ACCESS 	read-only
+	STATUS 		obsolete
+	DESCRIPTION
+		"Fft monitor config CCMTS mac address index" 
+	::= { topCcmtsFftMonitorCfgEntry 1 }   
+	
+topCcmtsFftMonitorTimeInterval OBJECT-TYPE
+	SYNTAX 		INTEGER (5..86400)
+	MAX-ACCESS 	read-write
+	STATUS 		obsolete
+	DESCRIPTION
+		"Config the CCMTS fft data polling
+		time interval. Unit is second.
+		Default value is 300s"
+	::= { topCcmtsFftMonitorCfgEntry 2 }   
+
+topCcmtsFftMonitorFreqInterval OBJECT-TYPE
+	SYNTAX 		INTEGER (20000..1000000)
+	MAX-ACCESS 	read-write
+	STATUS 		obsolete
+	DESCRIPTION
+		"Config the CCMTS fft data polling
+		freq interval, that affect the data
+		number of fft. Unit is hertz.
+		Default value is 100000Hz"
+	::= { topCcmtsFftMonitorCfgEntry 3 }   
+	
+topCcmtsFftMonitorFreqStart OBJECT-TYPE
+	SYNTAX 		INTEGER 
+	MAX-ACCESS 	read-write
+	STATUS 		obsolete
+	DESCRIPTION
+		"Fft data start frequency. Fixed value 0Hz"
+	::= { topCcmtsFftMonitorCfgEntry 4 }   
+
+topCcmtsFftMonitorFreqEnd OBJECT-TYPE
+	SYNTAX 		INTEGER 
+	MAX-ACCESS 	read-write
+	STATUS 		obsolete
+	DESCRIPTION
+		"Fft data end frequency. Fixed value 81900000Hz"
+	::= { topCcmtsFftMonitorCfgEntry 5 }       
+	
+topCcmtsFftMonitorPollingStatus OBJECT-TYPE
+	SYNTAX 		INTEGER (0..1) 
+	MAX-ACCESS 	read-write
+	STATUS 		obsolete
+	DESCRIPTION
+		"CMC fft data polling status
+		enable(1):the upstream-spectrum monitor is on at this Ccmts
+		disable(0): the upstream-spectrum monitor is off at this Ccmts
+		default value is 0"
+	::= { topCcmtsFftMonitorCfgEntry 6 }   
+
+topCcmtsFftMonitorCompressDataExpiredTime OBJECT-TYPE
+	SYNTAX 		INTEGER 
+	MAX-ACCESS 	read-only
+	STATUS 		obsolete
+	DESCRIPTION
+		"Buffered compressed fft data expired time in second.
+		0 present no data buffered, all data acquisition is real-time"
+	::= { topCcmtsFftMonitorCfgEntry 7 }   
+topCcmtsFftMonitorDataMode OBJECT-TYPE
+	SYNTAX 		INTEGER {
+						 real_time(0),
+						 average(1),
+						 peak_hold(2)						 
+						 } 
+	MAX-ACCESS 	read-write
+	STATUS 		obsolete
+	DESCRIPTION
+		"Represent FFT data as average(1) value or peak_hold(2) value
+		or real_time(0) value. Default value is real_time(0) value" 
+	DEFVAL				{ real_time }
+	::= { topCcmtsFftMonitorCfgEntry 8 }  
+topCcmtsFftMonitorDataTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsFftMonitorDataEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		obsolete
+	DESCRIPTION
+		"Fft data table, cmc polling status"
+	::= { topCcmtsFftMonitorObject 3 }
+	
+topCcmtsFftMonitorDataEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsFftMonitorDataEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		obsolete
+	DESCRIPTION
+		"Fft monitor data entry."
+	INDEX { topCcmtsFftMonitorCmcMacIndex,
+			topCcmtsFftDataFreqIndex}
+	::= { topCcmtsFftMonitorDataTable 1}
+		
+TopCcmtsFftMonitorDataEntry ::=	SEQUENCE { 
+		topCcmtsFftDataCmcMacIndex			MacAddress,
+		topCcmtsFftDataFreqIndex			INTEGER,
+		topCcmtsFftDataBuffer	    		OCTET STRING
+	 }
+
+topCcmtsFftDataCmcMacIndex OBJECT-TYPE
+	SYNTAX 		MacAddress 
+	MAX-ACCESS 	read-only
+	STATUS 		obsolete
+	DESCRIPTION
+		"Fft monitor data CCMTS mac address Index"
+	::= { topCcmtsFftMonitorDataEntry 1 }   
+	
+topCcmtsFftDataFreqIndex OBJECT-TYPE
+	SYNTAX 		INTEGER (0..82)
+	MAX-ACCESS 	read-only
+	STATUS 		obsolete
+	DESCRIPTION
+		"Fft monitor data frequency Index. Uint is MHz"
+	::= { topCcmtsFftMonitorDataEntry 2 }   
+
+topCcmtsFftDataBuffer OBJECT-TYPE
+	SYNTAX 		OCTET STRING 
+	MAX-ACCESS 	read-only
+	STATUS 		obsolete
+	DESCRIPTION
+		"Fft monitor data, in TLV format, first two bytes
+		represent represent number of points
+		other bytes in form 4bytes freq(Hz) and 4bytes power-level(0.01dBmV)"
+	::= { topCcmtsFftMonitorDataEntry 3 }      
+--Added by lvhaiting, for compressed fft data 2014-03-28
+topCcmtsCompressedFftDataTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsCompressedFftDataEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Compressed FFT data table"
+	::= { topCcmtsFftMonitorObject 4 }
+
+topCcmtsCompressedFftDataEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsCompressedFftDataEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Compressed FFT data entry."
+	INDEX { topCcmtsCompressedFftDataCmcMacIndex}
+	::= { topCcmtsCompressedFftDataTable 1}
+		
+TopCcmtsCompressedFftDataEntry ::=	SEQUENCE { 
+		topCcmtsCompressedFftDataCmcMacIndex	MacAddress,
+		topCcmtsCompressedFftDataBuffer			OCTET STRING,
+		topCcmtsCompressedFftDataBuffer2		OCTET STRING
+	 }
+
+topCcmtsCompressedFftDataCmcMacIndex OBJECT-TYPE
+	SYNTAX 		MacAddress 
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Compressed fft data CCMTS mac address Index"
+	::= { topCcmtsCompressedFftDataEntry 1 } 
+
+topCcmtsCompressedFftDataBuffer OBJECT-TYPE
+	SYNTAX 		OCTET STRING 
+	MAX-ACCESS 	read-only
+	STATUS 		current
+	DESCRIPTION
+		"Compressed Fft data for the first phy.
+        First two bytes represent the length of compressed data buffer.
+        Other bytes represent the compressed data buffer.
+        Raw data before been compressed with Zlib, is organized like:
+        Start frequency, 4 bytes;
+        Stop frequency, 4 bytes;
+        Frequency interval, 4 bytes;
+        Number of frequency points, 4 bytes;
+        Later data are power level of noise. 
+		Every two bytes represent one frequency ponit.
+		Unit is 0.01dBmV"        
+	::= { topCcmtsCompressedFftDataEntry 2 }
+
+topCcmtsCompressedFftDataBuffer2 OBJECT-TYPE
+	SYNTAX 		OCTET STRING 
+	MAX-ACCESS 	read-only
+	STATUS 		current
+	DESCRIPTION
+		"Compressed Fft data for the second phy.
+        First two bytes represent the length of compressed data buffer.
+        Other bytes represent the compressed data buffer.
+        Raw data before been compressed with Zlib, is organized like:
+        Start frequency, 4 bytes;
+        Stop frequency, 4 bytes;
+        Frequency interval, 4 bytes;
+        Number of frequency points, 4 bytes;
+        Later data are power level of noise. 
+		Every two bytes represent one frequency ponit.
+		Unit is 0.01dBmV"        
+	::= { topCcmtsCompressedFftDataEntry 3 }	
+
+topCcmtsUsFftStatusTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsUsFftStatusEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Upstream channel FFT Status table"
+	::= { topCcmtsFftMonitorObject 5 }
+
+topCcmtsUsFftStatusEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsUsFftStatusEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Upstream channel FFT Status entry."
+	INDEX {ifIndex }
+	::= { topCcmtsUsFftStatusTable 1}
+		
+TopCcmtsUsFftStatusEntry ::=	SEQUENCE {
+		topCcmtsUsFftDataMode       INTEGER
+	 }
+
+topCcmtsUsFftDataMode    OBJECT-TYPE
+	SYNTAX 		INTEGER{
+						 real_time(0),
+						 average(1),
+						 peak_hold(2)						 
+						 }
+	MAX-ACCESS 	read-write
+	STATUS 		current
+	DESCRIPTION
+		"Specified the output mode of FFT. Represent FFT 
+		data as average(1) value or peak_hold(2) value
+		or real_time(0) value. Default value is real_time(0) value" 
+	DEFVAL				{ real_time }
+	::= { topCcmtsUsFftStatusEntry 1 } 
+	
+	
+
+-------------------	 topCcmtsTemplateUsFftStatusTable  --------------------------------
+topCcmtsTemplateUsFftStatusTable OBJECT-TYPE
+	SYNTAX 		SEQUENCE OF TopCcmtsTemplateUsFftStatusEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Template upstream fft status table"
+	::= { topCcmtsFftMonitorObject 6 }
+	
+topCcmtsTemplateUsFftStatusEntry OBJECT-TYPE
+	SYNTAX 		TopCcmtsTemplateUsFftStatusEntry
+	MAX-ACCESS 	not-accessible
+	STATUS 		current
+	DESCRIPTION
+		"Template upstream fft status entry."
+	INDEX { topCcmtsTemplateIndex}
+	::= { topCcmtsTemplateUsFftStatusTable 1}
+
+TopCcmtsTemplateUsFftStatusEntry ::=	SEQUENCE {     
+		topCcmtsTemplateUsFftDataMode			INTEGER
+	 }  
+
+topCcmtsTemplateUsFftDataMode OBJECT-TYPE
+	SYNTAX 		INTEGER{
+						 real_time(0),
+						 average(1),
+						 peak_hold(2)						 
+						 } 
+	MAX-ACCESS 	read-write
+	STATUS 		current
+	DESCRIPTION
+		"Specified the output mode of FFT in Template. Represent 
+		FFT data as average(1) value or peak_hold(2) value
+		or real_time(0) value. Default value is real_time(0) value" 
+	DEFVAL				{ real_time }
+	::= { topCcmtsTemplateUsFftStatusEntry 1 }
+
+	
+-------------------	 topCcmtsTemplateUsFftStatusTable  --------------------------------
+	
+END
+	
+	 
+

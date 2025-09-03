@@ -8,6 +8,8 @@ defmodule SnmpKit.SnmpLib.MIB.Utilities do
   Original copyright: Ericsson AB 1996-2025 (Apache License 2.0)
   """
 
+  require Logger
+
   @type oid() :: [integer()]
   @type oid_status() :: :resolved | :unresolved
   @type verbosity() :: :silent | :warning | :info | :debug
@@ -139,7 +141,8 @@ defmodule SnmpKit.SnmpLib.MIB.Utilities do
   """
   @spec print_error(binary(), verbosity()) :: :ok
   def print_error(message, verbosity) when verbosity != :silent do
-    IO.puts("❌ Error: #{message}")
+    Logger.error("Error: #{message}")
+    :ok
   end
 
   def print_error(_message, :silent), do: :ok
@@ -177,8 +180,9 @@ defmodule SnmpKit.SnmpLib.MIB.Utilities do
   def vprint(current_verbosity, required_verbosity, module, function, format, args) do
     if printable?(current_verbosity, required_verbosity) do
       message = :io_lib.format(format, args) |> IO.iodata_to_binary()
-      IO.puts("[#{module}:#{function}] #{message}")
+      Logger.debug("[#{module}:#{function}] #{message}")
     end
+    :ok
   end
 
   @doc """

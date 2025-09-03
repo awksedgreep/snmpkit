@@ -1,0 +1,578 @@
+TOPVISION-LICENSE-MIB DEFINITIONS ::= BEGIN
+IMPORTS
+	MODULE-IDENTITY,
+	OBJECT-TYPE,
+	Integer32,
+	Unsigned32,
+	IpAddress
+		FROM SNMPv2-SMI
+	TruthValue,
+	DisplayString,
+	MacAddress,
+	RowStatus,
+	DateAndTime,
+	TEXTUAL-CONVENTION
+		FROM SNMPv2-TC
+	SnmpAdminString
+		FROM SNMP-FRAMEWORK-MIB  -- RFC 3411
+	ifIndex,
+	InterfaceIndex
+		FROM IF-MIB
+
+	Ipv6Address,
+	Ipv6AddressPrefix
+			FROM IPV6-TC  -- RFC2465
+	topCcmtsMibObject
+		FROM TOPVISION-CCMTS-MIB;
+----------------------------
+--topCcmtsLicenseObject   
+--added by wangchunhua
+
+--at 2018-06-25    
+----------------------------
+topCcmtsLicenseObject	OBJECT IDENTIFIER ::={ topCcmtsMibObject 32 } 
+--
+-- topCcmtsLicenseObject
+--
+-----------------------------------------------------------------------
+--topCcmtsManufactureLicenseTable
+-----------------------------------------------------------------------	
+topCcmtsManufactureLicenseTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopCcmtsManufactureLicenseEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes the mfg license for ccmts device."
+        ::= { topCcmtsLicenseObject 1 }
+
+topCcmtsManufactureLicenseEntry OBJECT-TYPE
+		SYNTAX      TopCcmtsManufactureLicenseEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "Each entry contains objects describing information of 
+			manufacture license."
+		INDEX { ifIndex ,
+				topCcmtsMFGLicenseDeviceMAC }
+        ::= { topCcmtsManufactureLicenseTable 1 }
+
+TopCcmtsManufactureLicenseEntry ::= SEQUENCE {
+	topCcmtsMFGLicenseDeviceMAC        MacAddress,
+	topCcmtsManufactureLicenseSubject            SnmpAdminString,
+	topCcmtsManufactureLicenseSerialNumber          OCTET STRING ,
+	topCcmtsManufactureLicensePublicKey            OCTET STRING ,
+	topCcmtsManufactureLicenseSignature          OCTET STRING 
+}
+
+
+topCcmtsMFGLicenseDeviceMAC OBJECT-TYPE
+	SYNTAX	MacAddress
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+		"MAC of C-CMTS"
+    ::= { topCcmtsManufactureLicenseEntry 1 } 
+
+
+topCcmtsManufactureLicenseSubject OBJECT-TYPE
+	SYNTAX	SnmpAdminString (SIZE (0..511))
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The subject of Manufacture license."
+    ::= { topCcmtsManufactureLicenseEntry 2 } 
+
+topCcmtsManufactureLicenseSerialNumber OBJECT-TYPE
+	SYNTAX	OCTET STRING (SIZE (0..255))
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"This manufacture license's serial number represented as
+	an octet string."
+    ::= { topCcmtsManufactureLicenseEntry 3 } 
+	
+topCcmtsManufactureLicensePublicKey OBJECT-TYPE
+	SYNTAX	OCTET STRING (SIZE (1..1024))
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The public key of manufacture license."
+    ::= { topCcmtsManufactureLicenseEntry 4 } 
+	
+topCcmtsManufactureLicenseSignature OBJECT-TYPE
+	SYNTAX	OCTET STRING (SIZE (1..1024))
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The electronic signature of manufacture license."
+    ::= { topCcmtsManufactureLicenseEntry 5 } 
+
+-----------------------------------------------------------------------
+--topCcmtsDeviceLicenseTable
+-----------------------------------------------------------------------	
+topCcmtsDeviceLicenseTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopCcmtsDeviceLicenseEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes the device license for ccmts device."
+        ::= { topCcmtsLicenseObject 2 }
+
+topCcmtsDeviceLicenseEntry OBJECT-TYPE
+		SYNTAX      TopCcmtsDeviceLicenseEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "Each entry contains objects describing information of 
+			ccmts device license."
+		INDEX { ifIndex ,
+				topCcmtsDevLicenseDeviceMAC }
+        ::= { topCcmtsDeviceLicenseTable 1 }
+
+TopCcmtsDeviceLicenseEntry ::= SEQUENCE {
+	topCcmtsDevLicenseDeviceMAC    MacAddress,
+	topCcmtsDeviceLicenseStat	Integer32,
+	
+	topCcmtsDeviceLicenseSubject    SnmpAdminString,
+	topCcmtsDeviceLicenseSerialNumber	OCTET STRING,
+	topCcmtsDeviceSerialNumber    OCTET STRING,
+	topCcmtsDeviceLicenseSignature	OCTET STRING,
+	topCcmtsDeviceLicenseMaxNcEqamAndScqamDsNum    Integer32,
+	topCcmtsDeviceLicenseMaxScqamUsNum	Integer32,
+	topCcmtsDeviceLicenseMaxOfdmDsNum    Integer32,
+	topCcmtsDeviceLicenseMaxOfdmaUsNum	Integer32,
+	topCcmtsDeviceLicenseMaxBcEqamNum    Integer32,	
+	topCcmtsDeviceLicenseMaxCmNum    Integer32
+
+	
+}
+
+
+topCcmtsDevLicenseDeviceMAC OBJECT-TYPE
+	SYNTAX	MacAddress
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+		"MAC of C-CMTS"
+    ::= { topCcmtsDeviceLicenseEntry 1 } 
+
+topCcmtsDeviceLicenseStat OBJECT-TYPE
+	SYNTAX	Integer32 {
+		active (1),
+		non-active (2)
+	}
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The status of device license: 1: active; 2: non-active."
+    ::= { topCcmtsDeviceLicenseEntry 2 } 
+
+topCcmtsDeviceLicenseSubject OBJECT-TYPE
+	SYNTAX	SnmpAdminString (SIZE (0..511))
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The subject of device license."
+    ::= { topCcmtsDeviceLicenseEntry 3 } 
+
+topCcmtsDeviceLicenseSerialNumber OBJECT-TYPE
+	SYNTAX	OCTET STRING (SIZE (0..255))
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"This device license's serial number represented as
+	an octet string."
+    ::= { topCcmtsDeviceLicenseEntry 4 } 
+	topCcmtsDeviceSerialNumber OBJECT-TYPE
+	SYNTAX	OCTET STRING (SIZE (0..255))
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"This device serial number represented as
+	an octet string."
+    ::= { topCcmtsDeviceLicenseEntry 5 } 
+
+topCcmtsDeviceLicenseSignature OBJECT-TYPE
+	SYNTAX	OCTET STRING (SIZE (1..1024))
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"This device license's electronic signature represented as
+	an octet string."
+    ::= { topCcmtsDeviceLicenseEntry 6 } 
+
+topCcmtsDeviceLicenseMaxNcEqamAndScqamDsNum OBJECT-TYPE
+	SYNTAX	Integer32 
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The license authorization's max number of unicast eqam 
+	and scqam downstream channel number."
+	
+    ::= { topCcmtsDeviceLicenseEntry 7 } 
+
+topCcmtsDeviceLicenseMaxScqamUsNum OBJECT-TYPE
+	SYNTAX	Integer32
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The license authorization's max scqam upstream 
+	channel number."
+	
+    ::= { topCcmtsDeviceLicenseEntry 8 } 
+
+topCcmtsDeviceLicenseMaxOfdmDsNum OBJECT-TYPE
+	SYNTAX	Integer32 
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The license authorization's max ofdm downstream 
+	channel number."
+	
+    ::= { topCcmtsDeviceLicenseEntry 9 } 
+
+topCcmtsDeviceLicenseMaxOfdmaUsNum OBJECT-TYPE
+	SYNTAX	Integer32
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The license authorization's max ofdma upstream 
+	channel number."
+	
+    ::= { topCcmtsDeviceLicenseEntry 10 } 
+
+topCcmtsDeviceLicenseMaxBcEqamNum OBJECT-TYPE
+	SYNTAX	Integer32
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The license authorization's max broadcast eqam 
+	channel number."
+	
+    ::= { topCcmtsDeviceLicenseEntry 11 } 
+
+
+topCcmtsDeviceLicenseMaxCmNum OBJECT-TYPE
+	SYNTAX	Integer32
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The license authorization's max cm number."
+	
+    ::= { topCcmtsDeviceLicenseEntry 12 } 
+
+	
+
+
+	
+
+	
+-----------------------------------------------------------------------
+--topCcmtsLicenseSummaryTable
+-----------------------------------------------------------------------	
+topCcmtsLicenseSummaryTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopCcmtsLicenseSummaryEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes the license summary."
+        ::= { topCcmtsLicenseObject 3}
+
+topCcmtsLicenseSummaryEntry OBJECT-TYPE
+		SYNTAX      TopCcmtsLicenseSummaryEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "Each entry contains objects describing the license summary"
+		INDEX { ifIndex ,
+				topCcmtsLicSummaryDeviceMAC }
+        ::= { topCcmtsLicenseSummaryTable 1 }
+
+TopCcmtsLicenseSummaryEntry ::= SEQUENCE {
+	topCcmtsLicSummaryDeviceMAC    MacAddress,
+	topCcmtsDevLicenseStat	Integer32,
+	topCcmtsLicSummaryDeviceSN		OCTET STRING,
+	topCcmtsDevLicenseSN    OCTET STRING,
+	topCcmtsMfgLicenseSN	OCTET STRING
+}
+topCcmtsLicSummaryDeviceMAC OBJECT-TYPE
+	SYNTAX	MacAddress
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+		"MAC of C-CMTS"
+    ::= { topCcmtsLicenseSummaryEntry 1 } 
+
+topCcmtsDevLicenseStat OBJECT-TYPE
+	SYNTAX	Integer32 {
+		active (1),
+		non-active (2),
+		not-support(3)
+		
+	}
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The status of device license: 1: active; 2: non-active; 3:not-support."
+    ::= { topCcmtsLicenseSummaryEntry 2 } 
+
+topCcmtsLicSummaryDeviceSN OBJECT-TYPE
+	SYNTAX	OCTET STRING (SIZE (0..255))
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"This device serial number represented as
+	an octet string."
+    ::= { topCcmtsLicenseSummaryEntry 3 } 
+
+topCcmtsDevLicenseSN OBJECT-TYPE
+	SYNTAX	OCTET STRING (SIZE (0..255))
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"This device license's serial number represented as
+	an octet string."
+    ::= { topCcmtsLicenseSummaryEntry 4 } 
+	
+topCcmtsMfgLicenseSN OBJECT-TYPE
+	SYNTAX	OCTET STRING (SIZE (0..255))
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"This manufacture license's serial number represented as
+	an octet string."
+    ::= { topCcmtsLicenseSummaryEntry 5 } 
+-----------------------------------------------------------------------
+--topLicenseUpgradeRecordTable
+-----------------------------------------------------------------------	
+topLicenseUpgradeRecordTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopLicenseUpgradeRecordEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes the record of upgrading ccmts license."
+        ::= { topCcmtsLicenseObject 4}
+
+topLicenseUpgradeRecordEntry OBJECT-TYPE
+		SYNTAX      TopLicenseUpgradeRecordEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+        "Each entry contains objects describing upgrading 
+			ccmts license record"
+		INDEX { ifIndex ,
+			topCcmtsUpgradeRecordDeviceMAC}
+        ::= { topLicenseUpgradeRecordTable 1 }
+
+TopLicenseUpgradeRecordEntry ::= SEQUENCE {
+	topCcmtsUpgradeRecordDeviceMAC    MacAddress,
+	topCcmtsUpgradeRecordDeviceSN		OCTET STRING,
+	topLicenseUpgradeStatus       Integer32,
+	topLicenseUpgradeTime 		DateAndTime,
+	topLicenseUpgradeFailedReason 	SnmpAdminString
+}
+
+topCcmtsUpgradeRecordDeviceMAC OBJECT-TYPE
+	SYNTAX	MacAddress
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"MAC of C-CMTS"
+    ::= { topLicenseUpgradeRecordEntry 1 } 
+	
+topCcmtsUpgradeRecordDeviceSN OBJECT-TYPE
+	SYNTAX	OCTET STRING(SIZE (0..255))
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"This device serial number represented as
+	an octet string."
+    ::= { topLicenseUpgradeRecordEntry 2 } 
+
+topLicenseUpgradeStatus OBJECT-TYPE
+	SYNTAX	Integer32{
+		success (1),
+		failed (2)
+	}
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The license status of lastest upgrading:
+		success(1), failed(2)."
+    ::= { topLicenseUpgradeRecordEntry 3 } 
+
+topLicenseUpgradeTime OBJECT-TYPE
+	SYNTAX DateAndTime
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The time upgrade ccmts license."
+    ::= { topLicenseUpgradeRecordEntry 4 }
+
+topLicenseUpgradeFailedReason OBJECT-TYPE
+	SYNTAX SnmpAdminString
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The reason why ccmts license upgrade failed."
+    ::= { topLicenseUpgradeRecordEntry 5 }	
+----------------------------
+--topLicenseManageObject   
+--added by wangchunhua
+
+--at 2018-06-25    
+----------------------------
+topLicenseManageObject	OBJECT IDENTIFIER ::={ topCcmtsMibObject 33 } 
+-----------------------------------------------------------------------
+--topLicenseLoadTable
+-----------------------------------------------------------------------	
+topLicenseLoadObject OBJECT IDENTIFIER ::={ topLicenseManageObject 1 }
+
+topLicenseLoadMethod OBJECT-TYPE
+	SYNTAX Integer32{
+		ftp (1),
+		tftp (2)
+	}
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"The method to load the license."
+    ::= { topLicenseLoadObject 1 }
+
+topLicenseLoadServerIpAddr OBJECT-TYPE
+	SYNTAX IpAddress
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"The ip address of the license server."
+    ::= { topLicenseLoadObject 2 }
+
+topLicenseLoadServerIpv6Addr OBJECT-TYPE
+	SYNTAX	Ipv6Address
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"The ipv6 address of the license server."
+    ::= { topLicenseLoadObject 3 }
+
+topLicenseLoadFtpUserName OBJECT-TYPE
+	SYNTAX SnmpAdminString (SIZE (1..50))
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"The username of the license FTP server."
+    ::= { topLicenseLoadObject 4 }
+
+topLicenseLoadFtpPassword OBJECT-TYPE
+	SYNTAX	SnmpAdminString (SIZE (1..50))
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"The password of the license FTP server."
+    ::= { topLicenseLoadObject 5 }
+
+topLicenseLoadSrcPath OBJECT-TYPE
+	SYNTAX	SnmpAdminString (SIZE (1..64))
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"The source file path of the license server."
+    ::= { topLicenseLoadObject 6 }
+	
+topLicenseUpgradeAction OBJECT-TYPE
+	SYNTAX Integer32{
+		noOperation (1),
+		upgrade (2)
+	}
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"This object is used to trigger an upgrade operation."
+    ::= { topLicenseLoadObject 7 }
+-----------------------------------------------------------------------
+--topLicenseRmdcForceUpgradeTable
+-----------------------------------------------------------------------	
+topLicenseRmdcForceUpgradeObject OBJECT IDENTIFIER ::={ topLicenseManageObject 2 }
+
+topLicenseRmdcForceUpgrade OBJECT-TYPE
+	SYNTAX Integer32{
+		force (1),
+		no-force (2)
+	}
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"force upgrade license file."
+    ::= { topLicenseRmdcForceUpgradeObject 1 }
+-----------------------------------------------------------------------
+--topLicenseTftpServerTable
+-----------------------------------------------------------------------	
+topLicenseTftpServerTable OBJECT-TYPE
+		SYNTAX      SEQUENCE OF TopLicenseTftpServerEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "This table describes config of the license tftp-server."
+        ::= { topLicenseManageObject 3}
+
+topLicenseTftpServerEntry OBJECT-TYPE
+		SYNTAX      TopLicenseTftpServerEntry
+        MAX-ACCESS  not-accessible
+        STATUS      current
+        DESCRIPTION
+            "Each entry contains objects describing tftp-server-ip to 
+			upgrade license."
+		INDEX { ifIndex,  topLicTftpServerCcmtsID}
+        ::= { topLicenseTftpServerTable 1 }
+
+TopLicenseTftpServerEntry ::= SEQUENCE {
+	topLicTftpServerCcmtsID		Integer32,
+	topLicenseTftpServerIp     IpAddress,
+	topLicenseTftpServerEnable	Integer32
+}
+topLicTftpServerCcmtsID OBJECT-TYPE
+	SYNTAX	Integer32
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"The ccmts device id."
+    ::= { topLicenseTftpServerEntry 1 } 
+topLicenseTftpServerIp OBJECT-TYPE
+	SYNTAX IpAddress
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"The ip address of the license tftp server to upgrade."
+    ::= { topLicenseTftpServerEntry 2 }
+
+-----------------------------------------------------------------------
+--topRmdcUpgradeLicense
+-----------------------------------------------------------------------	
+topRmdcUpgradeLicenseObject OBJECT IDENTIFIER ::={ topLicenseManageObject 4 }
+
+
+topCcmtsUpgradeLiceseStartId OBJECT-TYPE
+	SYNTAX	Integer32
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"The start id of ccmts device upgrading license."
+    ::= { topRmdcUpgradeLicenseObject 1 } 
+topCcmtsUpgradeLiceseEndId OBJECT-TYPE
+	SYNTAX Integer32
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"The end id of ccmts device upgrading license."
+    ::= { topRmdcUpgradeLicenseObject 2 }
+topCcmtsUpgradeLiceseAction OBJECT-TYPE
+	SYNTAX Integer32{
+		upgrade (1),
+		no-upgrade (2)
+	}
+	MAX-ACCESS read-write
+	STATUS current
+	DESCRIPTION
+	"The action to upgrade ccmts license."
+    ::= { topRmdcUpgradeLicenseObject 3 }	
+END

@@ -1,50 +1,50 @@
 defmodule SnmpKit.SnmpLib.Security.Priv do
   @moduledoc """
-  Privacy (encryption) protocols for SNMPv3 User Security Model.
+  Implements SNMPv3 privacy protocols for message encryption and decryption.
 
-  Implements encryption protocols as specified in RFC 3414 and RFC 3826,
-  providing message confidentiality for SNMPv3 communications.
+  This module provides support for standard SNMPv3 privacy protocols like DES and
+  AES, ensuring data confidentiality in SNMP communications.
 
   ## Supported Protocols
-
-  - **DES-CBC** (RFC 3414) - 56-bit key, legacy support
-  - **AES-128** (RFC 3826) - 128-bit key, good security
-  - **AES-192** (RFC 3826) - 192-bit key, enhanced security
-  - **AES-256** (RFC 3826) - 256-bit key, maximum security
+  - `:none` - No privacy
+  - `:des` - DES-CBC (56-bit)
+  - `:aes128` - AES-CFB128 (128-bit)
+  - `:aes192` - AES-CFB128 (192-bit)
+  - `:aes256` - AES-CFB128 (256-bit)
 
   ## Security Considerations
-
-  - DES is deprecated and should only be used for legacy compatibility
-  - AES-128 provides adequate security for most applications
-  - AES-256 is recommended for high-security environments
-  - All encryption uses CBC mode with random initialization vectors
-  - Privacy requires authentication (cannot use privacy without authentication)
+  - **DES is considered weak** and should only be used for compatibility with
+    legacy devices.
+  - **AES protocols are recommended** for strong encryption.
+  - Keys should be derived securely using the functions in `SnmpKit.SnmpLib.Security.Keys`.
 
   ## Protocol Selection Guidelines
-
-  - **AES-256**: Recommended for high-security environments
-  - **AES-128**: Good balance of security and performance for most deployments
-  - **DES**: Legacy compatibility only, not recommended for new deployments
+  - For new deployments, prefer `:aes256` for the strongest security.
+  - Use `:aes128` for a balance of performance and security.
+  - Use `:des` only when required for interoperability.
 
   ## Technical Details
+  This module implements the privacy aspects of the User-Based Security Model
+  (USM) as defined in RFC 3414 and RFC 3826.
 
   ### Key Derivation
-  Privacy keys are derived from privacy passwords using the same engine ID
-  and algorithm as authentication keys, but with different key usage.
+  Privacy keys are derived from the user's password and the authoritative SNMP
+  engine's ID. This process is handled by the `Keys` module.
 
   ### Initialization Vectors
-  Each encryption operation uses a unique initialization vector (IV) to ensure
-  that identical plaintexts produce different ciphertexts.
+  For CBC and CFB modes, a unique Initialization Vector (IV) is required for each
+  encryption operation. This IV is generated and included in the `privParameters`
+  field of the SNMPv3 message.
 
   ### Padding
-  Block ciphers use PKCS#7 padding to handle messages that don't align
-  with block boundaries.
+  The plaintext data is padded to match the block size of the cipher before
+  encryption. This padding is removed upon decryption.
 
   ## Usage Examples
+  This module is typically used internally by the `USM` module.
 
   ### Message Encryption
-
-      # Encrypt message with AES-256
+      # Assuming keys are derived and user is configured
       priv_key = derived_privacy_key
       auth_key = derived_authentication_key  # Required for IV generation
       plaintext = "confidential SNMP data"
@@ -57,12 +57,11 @@ defmodule SnmpKit.SnmpLib.Security.Priv do
       {:ok, decrypted} = SnmpKit.SnmpLib.Security.Priv.decrypt(
         :aes256, priv_key, auth_key, ciphertext, priv_params
       )
+      assert decrypted == plaintext
 
   ### Protocol Information
-
-      # Get encryption protocol details
-      info = SnmpKit.SnmpLib.Security.Priv.protocol_info(:aes256)
-      # Returns: %{algorithm: :aes_256_cbc, key_size: 32, block_size: 16, ...}
+      iex> SnmpKit.SnmpLib.Security.Priv.protocol_info(:aes128)
+      %{algorithm: :aes_128_cfb128, key_size: 16, iv_size: 16, block_size: 16}
   """
 
   require Logger
@@ -78,69 +77,57 @@ defmodule SnmpKit.SnmpLib.Security.Priv do
   # Protocol specifications per RFC 3414 and RFC 3826
   @protocol_specs %{
     none: %{
-      algorithm: :none,
       key_size: 0,
-      block_size: 0,
       iv_size: 0,
-      secure: false,
-      rfc: "N/A"
+      block_size: 0,
+      algorithm: nil
     },
     des: %{
-      algorithm: :des_cbc,
-      # 56-bit effective + 8 parity bits
       key_size: 8,
-      block_size: 8,
       iv_size: 8,
-      # Deprecated
-      secure: false,
-      rfc: "RFC 3414"
+      block_size: 8,
+      algorithm: :des_cbc
     },
     aes128: %{
-      algorithm: :aes_128_cbc,
       key_size: 16,
-      block_size: 16,
       iv_size: 16,
-      secure: true,
-      rfc: "RFC 3826"
+      block_size: 16,
+      algorithm: :aes_128_cfb128
     },
     aes192: %{
-      algorithm: :aes_192_cbc,
       key_size: 24,
-      block_size: 16,
       iv_size: 16,
-      secure: true,
-      rfc: "RFC 3826"
+      block_size: 16,
+      algorithm: :aes_192_cfb128
     },
     aes256: %{
-      algorithm: :aes_256_cbc,
       key_size: 32,
-      block_size: 16,
       iv_size: 16,
-      secure: true,
-      rfc: "RFC 3826"
+      block_size: 16,
+      algorithm: :aes_256_cfb128
     }
   }
 
-  ## Protocol Information
-
   @doc """
-  Returns information about a specific privacy protocol.
+  Retrieves the specification for a given privacy protocol.
+
+  Returns a map with `:algorithm`, `:key_size`, `:iv_size`, and `:block_size`,
+  or `nil` if the protocol is unsupported.
 
   ## Examples
+      iex> Priv.protocol_info(:aes128)
+      %{algorithm: :aes_128_cfb128, key_size: 16, iv_size: 16, block_size: 16}
 
-      iex> SnmpKit.SnmpLib.Security.Priv.protocol_info(:aes256)
-      %{algorithm: :aes_256_cbc, key_size: 32, block_size: 16, iv_size: 16, secure: true, rfc: "RFC 3826"}
-
-      iex> SnmpKit.SnmpLib.Security.Priv.protocol_info(:des)
-      %{algorithm: :des_cbc, key_size: 8, block_size: 8, iv_size: 8, secure: false, rfc: "RFC 3414"}
+      iex> Priv.protocol_info(:unsupported)
+      nil
   """
   @spec protocol_info(priv_protocol()) :: map() | nil
   def protocol_info(protocol) do
-    Map.get(@protocol_specs, protocol)
+    @protocol_specs[protocol]
   end
 
   @doc """
-  Returns list of all supported privacy protocols.
+  Returns a list of all supported privacy protocols.
   """
   @spec supported_protocols() :: [priv_protocol()]
   def supported_protocols do
@@ -148,13 +135,11 @@ defmodule SnmpKit.SnmpLib.Security.Priv do
   end
 
   @doc """
-  Returns list of cryptographically secure protocols (excludes deprecated ones).
+  Returns a list of cryptographically secure protocols.
   """
   @spec secure_protocols() :: [priv_protocol()]
   def secure_protocols do
-    @protocol_specs
-    |> Enum.filter(fn {_protocol, spec} -> spec.secure end)
-    |> Enum.map(fn {protocol, _spec} -> protocol end)
+    [:aes128, :aes192, :aes256]
   end
 
   @doc """
@@ -162,39 +147,26 @@ defmodule SnmpKit.SnmpLib.Security.Priv do
   """
   @spec secure_protocol?(priv_protocol()) :: boolean()
   def secure_protocol?(protocol) do
-    case protocol_info(protocol) do
-      %{secure: secure} -> secure
-      nil -> false
-    end
+    protocol in secure_protocols()
   end
-
-  ## Encryption Operations
 
   @doc """
   Encrypts plaintext using the specified privacy protocol.
 
   ## Parameters
-
-  - `protocol`: Privacy protocol to use (:des, :aes128, :aes192, :aes256)
-  - `priv_key`: Privacy key (must be correct length for protocol)
-  - `auth_key`: Authentication key (used for IV generation in some protocols)
+  - `protocol`: Privacy protocol to use
+  - `priv_key`: Privacy key for the chosen protocol
+  - `auth_key`: Authentication key (used for IV generation)
   - `plaintext`: Data to encrypt
 
   ## Returns
-
   - `{:ok, {ciphertext, priv_params}}`: Encryption successful
   - `{:error, reason}`: Encryption failed
 
   ## Examples
-
-      # AES-256 encryption (recommended)
+      # AES-128 encryption
       {:ok, {ciphertext, priv_params}} = SnmpKit.SnmpLib.Security.Priv.encrypt(
-        :aes256, priv_key, auth_key, "secret data"
-      )
-
-      # DES encryption (legacy)
-      {:ok, {ciphertext, priv_params}} = SnmpKit.SnmpLib.Security.Priv.encrypt(
-        :des, priv_key, auth_key, "legacy data"
+        :aes128, priv_key, auth_key, "secret data"
       )
   """
   @spec encrypt(priv_protocol(), priv_key(), auth_key(), plaintext()) ::
@@ -215,11 +187,6 @@ defmodule SnmpKit.SnmpLib.Security.Priv do
              {:ok, padded_plaintext} <- apply_padding(plaintext, spec.block_size),
              {:ok, ciphertext} <- perform_encryption(spec, priv_key, iv, padded_plaintext) do
           priv_params = build_privacy_parameters(protocol, iv)
-
-          Logger.debug(
-            "Encryption successful with #{protocol}, ciphertext size: #{byte_size(ciphertext)}"
-          )
-
           {:ok, {ciphertext, priv_params}}
         else
           {:error, reason} ->
@@ -299,15 +266,14 @@ defmodule SnmpKit.SnmpLib.Security.Priv do
     {:error, :invalid_protocol_type}
   end
 
-  ## Key Validation
-
   @doc """
-  Validates that a privacy key is appropriate for the specified protocol.
+  Validates if a privacy key is compliant with the protocol's requirements.
 
   ## Examples
-
-      :ok = SnmpKit.SnmpLib.Security.Priv.validate_key(:aes256, key_32_bytes)
-      {:error, :key_wrong_size} = SnmpKit.SnmpLib.Security.Priv.validate_key(:aes128, key_32_bytes)
+      iex> Priv.validate_key(:aes128, :crypto.strong_rand_bytes(16))
+      :ok
+      iex> Priv.validate_key(:des, <<1, 2, 3>>)
+      {:error, :invalid_key_size}
   """
   @spec validate_key(priv_protocol(), priv_key()) :: :ok | {:error, atom()}
   def validate_key(:none, _key) do
@@ -320,134 +286,121 @@ defmodule SnmpKit.SnmpLib.Security.Priv do
         {:error, :unsupported_protocol}
 
       spec ->
-        key_length = byte_size(key)
-        expected_length = spec.key_size
+        if byte_size(key) == spec.key_size do
+          :ok
+        else
+          Logger.warning(
+            "Privacy key wrong size for #{protocol}: #{byte_size(key)} != #{spec.key_size}"
+          )
 
-        cond do
-          key_length == 0 ->
-            {:error, :empty_key}
-
-          key_length != expected_length ->
-            Logger.error(
-              "Privacy key wrong size for #{protocol}: #{key_length} != #{expected_length}"
-            )
-
-            {:error, :key_wrong_size}
-
-          not spec.secure ->
-            Logger.warning("Using deprecated privacy protocol: #{protocol}")
-            :ok
-
-          true ->
-            :ok
+          {:error, :invalid_key_size}
         end
     end
   end
 
   def validate_key(_protocol, _key) do
-    {:error, :invalid_parameters}
+    {:error, :invalid_key_type}
   end
 
-  ## Batch Operations
-
   @doc """
-  Encrypts multiple plaintexts using the same protocol and key.
-
-  Each plaintext gets a unique IV, ensuring security even for identical plaintexts.
+  Encrypts a batch of plaintexts efficiently.
 
   ## Examples
-
-      plaintexts = ["data1", "data2", "data3"]
-      {:ok, encrypted_list} = SnmpKit.SnmpLib.Security.Priv.encrypt_batch(:aes256, priv_key, auth_key, plaintexts)
-      # Returns list of {ciphertext, priv_params} tuples
+      iex> plaintexts = ["msg1", "msg2"]
+      iex> {:ok, encrypted_list} = Priv.encrypt_batch(:aes128, priv_key, auth_key, plaintexts)
+      iex> length(encrypted_list)
+      2
   """
   @spec encrypt_batch(priv_protocol(), priv_key(), auth_key(), [plaintext()]) ::
           {:ok, [{ciphertext(), priv_params()}]} | {:error, atom()}
-  def encrypt_batch(protocol, priv_key, auth_key, plaintexts) when is_list(plaintexts) do
-    case protocol_info(protocol) do
-      nil ->
-        {:error, :unsupported_protocol}
+  def encrypt_batch(protocol, priv_key, auth_key, plaintexts) do
+    results =
+      Enum.map(plaintexts, fn plaintext ->
+        encrypt(protocol, priv_key, auth_key, plaintext)
+      end)
 
-      _spec ->
-        try do
-          encrypted_list =
-            Enum.map(plaintexts, fn plaintext ->
-              {:ok, {ciphertext, priv_params}} = encrypt(protocol, priv_key, auth_key, plaintext)
-              {ciphertext, priv_params}
-            end)
-
-          {:ok, encrypted_list}
-        rescue
-          _error ->
-            {:error, :batch_encryption_failed}
-        end
+    if Enum.all?(results, fn
+         {:ok, _} -> true
+         _ -> false
+       end) do
+      {:ok, Enum.map(results, fn {:ok, val} -> val end)}
+    else
+      {:error, :batch_encryption_failed}
     end
   end
 
   @doc """
-  Decrypts multiple ciphertexts in batch.
+  Decrypts a batch of ciphertexts efficiently.
   """
-  @spec decrypt_batch(priv_protocol(), priv_key(), auth_key(), [{ciphertext(), priv_params()}]) ::
-          [:ok | {:error, atom()}]
-  def decrypt_batch(protocol, priv_key, auth_key, encrypted_list) when is_list(encrypted_list) do
+  @spec decrypt_batch(
+          priv_protocol(),
+          priv_key(),
+          auth_key(),
+          [{ciphertext(), priv_params()}]
+        ) :: [{:ok, plaintext()} | {:error, atom()}]
+  def decrypt_batch(protocol, priv_key, auth_key, encrypted_list) do
     Enum.map(encrypted_list, fn {ciphertext, priv_params} ->
-      case decrypt(protocol, priv_key, auth_key, ciphertext, priv_params) do
-        {:ok, plaintext} -> {:ok, plaintext}
-        {:error, reason} -> {:error, reason}
-      end
+      decrypt(protocol, priv_key, auth_key, ciphertext, priv_params)
     end)
   end
 
-  ## Performance Testing
-
   @doc """
-  Measures encryption/decryption performance for a given protocol.
+  Benchmarks the performance of a given privacy protocol.
   """
-  @spec benchmark_protocol(priv_protocol(), priv_key(), auth_key(), plaintext(), pos_integer()) ::
-          map()
+  @spec benchmark_protocol(
+          priv_protocol(),
+          priv_key(),
+          auth_key(),
+          plaintext(),
+          non_neg_integer()
+        ) ::
+          %{
+            encrypt_us: float(),
+            decrypt_us: float(),
+            ops_per_sec: float()
+          }
   def benchmark_protocol(protocol, priv_key, auth_key, test_plaintext, iterations \\ 1000) do
-    Logger.info("Benchmarking #{protocol} privacy with #{iterations} iterations")
+    # Warm-up run
+    case encrypt(protocol, priv_key, auth_key, test_plaintext) do
+      {:ok, {ciphertext, priv_params}} ->
+        decrypt(protocol, priv_key, auth_key, ciphertext, priv_params)
 
-    # Warm up
-    {:ok, {test_ciphertext, test_priv_params}} =
-      encrypt(protocol, priv_key, auth_key, test_plaintext)
+      _ ->
+        :ok
+    end
 
-    # Time encryption operations
-    {encrypt_time, _} =
+    # Encryption benchmark
+    encrypt_time =
       :timer.tc(fn ->
-        Enum.each(1..iterations, fn _i ->
+        for _ <- 1..iterations do
           encrypt(protocol, priv_key, auth_key, test_plaintext)
-        end)
+        end
       end)
+      |> elem(0)
 
-    # Time decryption operations
-    {decrypt_time, _} =
+    # Decryption benchmark
+    {:ok, {ciphertext, priv_params}} = encrypt(protocol, priv_key, auth_key, test_plaintext)
+
+    decrypt_time =
       :timer.tc(fn ->
-        Enum.each(1..iterations, fn _i ->
-          decrypt(protocol, priv_key, auth_key, test_ciphertext, test_priv_params)
-        end)
+        for _ <- 1..iterations do
+          decrypt(protocol, priv_key, auth_key, ciphertext, priv_params)
+        end
       end)
+      |> elem(0)
 
-    plaintext_size = byte_size(test_plaintext)
-    ciphertext_size = byte_size(test_ciphertext)
+    total_time_us = encrypt_time + decrypt_time
+    ops = iterations * 2
+    ops_per_sec = ops / (total_time_us / 1_000_000)
 
     %{
-      protocol: protocol,
-      iterations: iterations,
-      plaintext_size: plaintext_size,
-      ciphertext_size: ciphertext_size,
-      encrypt_time_microseconds: encrypt_time,
-      decrypt_time_microseconds: decrypt_time,
-      encrypt_ops_per_second: round(iterations / (encrypt_time / 1_000_000)),
-      decrypt_ops_per_second: round(iterations / (decrypt_time / 1_000_000)),
-      encrypt_throughput_mbps: round(plaintext_size * iterations / encrypt_time),
-      decrypt_throughput_mbps: round(ciphertext_size * iterations / decrypt_time),
-      avg_encrypt_microseconds: round(encrypt_time / iterations),
-      avg_decrypt_microseconds: round(decrypt_time / iterations)
+      encrypt_us: encrypt_time / iterations,
+      decrypt_us: decrypt_time / iterations,
+      ops_per_sec: ops_per_sec
     }
   end
 
-  ## Private Implementation
+  # --- Private Helper Functions ---
 
   defp validate_encryption_params(spec, priv_key, plaintext) do
     with :ok <- validate_key_size(spec, priv_key),
@@ -479,40 +432,38 @@ defmodule SnmpKit.SnmpLib.Security.Priv do
   defp validate_plaintext(_), do: {:error, :invalid_plaintext}
 
   defp validate_ciphertext(spec, ciphertext) do
-    if byte_size(ciphertext) > 0 and rem(byte_size(ciphertext), spec.block_size) == 0 do
+    if rem(byte_size(ciphertext), spec.block_size) == 0 do
       :ok
     else
-      {:error, :invalid_ciphertext}
+      {:error, :invalid_ciphertext_size}
     end
   end
 
   defp validate_privacy_params(spec, priv_params) do
-    expected_size = spec.iv_size
-
-    if byte_size(priv_params) >= expected_size do
+    if byte_size(priv_params) >= spec.iv_size do
       :ok
     else
-      {:error, :invalid_privacy_params}
+      {:error, :invalid_priv_params}
     end
   end
 
   defp generate_iv(:des, spec, _auth_key) do
-    # DES uses random IV
+    # DES uses a simpler IV generation
     iv = :crypto.strong_rand_bytes(spec.iv_size)
     {:ok, iv}
   end
 
   defp generate_iv(protocol, spec, _auth_key) when protocol in [:aes128, :aes192, :aes256] do
-    # AES can use auth_key for IV generation or random
-    # For simplicity, using random IV (more secure)
+    # AES protocols use engineBoots and engineTime for IV, but for simplicity
+    # in this context, we'll use a strong random value.
+    # A full USM implementation would use the other parameters.
     iv = :crypto.strong_rand_bytes(spec.iv_size)
     {:ok, iv}
   end
 
-  defp apply_padding(data, block_size) when block_size > 1 do
-    # PKCS#7 padding
-    padding_length = block_size - rem(byte_size(data), block_size)
-    padding = binary_part(<<padding_length::8>>, 0, 1) |> String.duplicate(padding_length)
+  defp apply_padding(data, block_size) when is_binary(data) and block_size > 0 do
+    padding_size = block_size - rem(byte_size(data), block_size)
+    padding = :binary.copy(<<padding_size>>, padding_size)
     {:ok, data <> padding}
   end
 
@@ -520,20 +471,19 @@ defmodule SnmpKit.SnmpLib.Security.Priv do
     {:ok, data}
   end
 
-  defp remove_padding(padded_data, block_size) when block_size > 1 do
-    if byte_size(padded_data) == 0 do
-      {:error, :empty_data}
-    else
-      # Extract padding length from last byte
-      <<padding_length::8>> = binary_part(padded_data, byte_size(padded_data) - 1, 1)
+  defp remove_padding(padded_data, block_size) when byte_size(padded_data) >= block_size do
+    padding_size = :binary.last(padded_data)
 
-      if padding_length > 0 and padding_length <= block_size and
-           padding_length <= byte_size(padded_data) do
-        data_length = byte_size(padded_data) - padding_length
-        {:ok, binary_part(padded_data, 0, data_length)}
+    if padding_size > 0 and padding_size <= block_size do
+      data_size = byte_size(padded_data) - padding_size
+
+      if data_size >= 0 do
+        {:ok, :binary.part(padded_data, 0, data_size)}
       else
         {:error, :invalid_padding}
       end
+    else
+      {:error, :invalid_padding}
     end
   end
 
@@ -546,7 +496,8 @@ defmodule SnmpKit.SnmpLib.Security.Priv do
       ciphertext = :crypto.crypto_one_time(spec.algorithm, key, iv, plaintext, true)
       {:ok, ciphertext}
     rescue
-      _error ->
+      error ->
+        Logger.error("Encryption failed with algorithm #{spec.algorithm}: #{inspect(error)}")
         {:error, :encryption_failed}
     end
   end
@@ -569,7 +520,7 @@ defmodule SnmpKit.SnmpLib.Security.Priv do
   defp extract_iv(protocol, priv_params) do
     case protocol_info(protocol) do
       %{iv_size: iv_size} when byte_size(priv_params) >= iv_size ->
-        iv = binary_part(priv_params, 0, iv_size)
+        iv = :binary.part(priv_params, 0, iv_size)
         {:ok, iv}
 
       _ ->

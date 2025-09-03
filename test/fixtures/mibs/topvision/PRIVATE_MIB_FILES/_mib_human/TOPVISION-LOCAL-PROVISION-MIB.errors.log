@@ -1,0 +1,25 @@
+MIB search path: /Users/mcotner/.snmp/mibs:/opt/homebrew/Cellar/net-snmp/5.9.4/share/snmp/mibs:/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES
+Cannot find module (DOCS-IF3-MIB): At line 20 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-Local-Provision-MIB.mib
+Cannot find module (DOCS-IF-MIB): At line 37 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-LOADBALANCING-MIB): At line 39 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-IF3-MIB): At line 43 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-QOS-MIB): At line 53 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Bad operator (_): At line 2601 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-IF-MIB): At line 27 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-Local-Provision-MIB.mib
+Did not find 'docsIf3CmtsCmRegStatusId' in module #-1 (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-Local-Provision-MIB.mib)
+Did not find 'topCcmtsMibObject' in module TOPVISION-CCMTS-MIB (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-Local-Provision-MIB.mib)
+Did not find 'docsIfCmtsCmStatusIndex' in module #-1 (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-Local-Provision-MIB.mib)
+Unlinked OID in TOPVISION-LOCAL-PROVISION-MIB: topLocalProvisionObject ::= { topCcmtsMibObject 30 }
+Undefined identifier: topCcmtsMibObject near line 35 of /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-Local-Provision-MIB.mib
+Cannot adopt OID in TOPVISION-LOCAL-PROVISION-MIB: topCcmtsClientClassEntry ::= { topCcmtsClientClassTable 1 }
+Cannot adopt OID in TOPVISION-LOCAL-PROVISION-MIB: topClientClassMemberMacStatus ::= { topClientClassMemberCmMacEntry 3 }
+Cannot adopt OID in TOPVISION-LOCAL-PROVISION-MIB: topClientClassCmMacAddrRange ::= { topClientClassMemberCmMacEntry 2 }
+Cannot adopt OID in TOPVISION-LOCAL-PROVISION-MIB: topClientClassCmMacIndex ::= { topClientClassMemberCmMacEntry 1 }
+Cannot adopt OID in TOPVISION-LOCAL-PROVISION-MIB: topLocalProvisionObject ::= { topCcmtsMibObject 30 }
+Cannot adopt OID in TOPVISION-LOCAL-PROVISION-MIB: topClientClassStatus ::= { topCcmtsClientClassEntry 4 }
+Cannot adopt OID in TOPVISION-LOCAL-PROVISION-MIB: topClientClassBindCmConfig ::= { topCcmtsClientClassEntry 3 }
+Cannot adopt OID in TOPVISION-LOCAL-PROVISION-MIB: topClientClassDescription ::= { topCcmtsClientClassEntry 2 }
+Cannot adopt OID in TOPVISION-LOCAL-PROVISION-MIB: topClientClassInterface ::= { topCcmtsClientClassEntry 1 }
+Cannot adopt OID in TOPVISION-LOCAL-PROVISION-MIB: topClientClassMemberCmMacTable ::= { topLocalProvisionObject 2 }
+Cannot adopt OID in TOPVISION-LOCAL-PROVISION-MIB: topCcmtsClientClassTable ::= { topLocalProvisionObject 1 }
+Cannot adopt OID in TOPVISION-LOCAL-PROVISION-MIB: topClientClassMemberCmMacEntry ::= { topClientClassMemberCmMacTable 1 }

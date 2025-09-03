@@ -1,0 +1,24 @@
+MIB search path: /Users/mcotner/.snmp/mibs:/opt/homebrew/Cellar/net-snmp/5.9.4/share/snmp/mibs:/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES
+Cannot find module (DOCS-QOS3-MIB): At line 28 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-QOS-EXT.mib
+Cannot find module (DOCS-IF-MIB): At line 37 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-LOADBALANCING-MIB): At line 39 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-IF3-MIB): At line 43 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-QOS-MIB): At line 53 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Bad operator (_): At line 2601 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Did not find 'SchedulingType' in module #-1 (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-QOS-EXT.mib)
+Did not find 'topCcmtsMibObject' in module TOPVISION-CCMTS-MIB (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-QOS-EXT.mib)
+Unlinked OID in TOPVISION-QOS-EXT-MIB: topCcmtsQosExt ::= { topCcmtsMibObject 23 }
+Undefined identifier: topCcmtsMibObject near line 47 of /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-QOS-EXT.mib
+Cannot adopt OID in TOPVISION-QOS-EXT-MIB: topCcmtsServiceFlowsUsChannelStatsEntry ::= { topCcmtsServiceFlowsUsChannelStatsTable 1 }
+Cannot adopt OID in TOPVISION-QOS-EXT-MIB: topCcmtsQosExtCtrlObject ::= { topCcmtsQosExt 2 }
+Cannot adopt OID in TOPVISION-QOS-EXT-MIB: topCcmtsQosExtCtrlObjectNotify ::= { topCcmtsQosExt 1 }
+Cannot adopt OID in TOPVISION-QOS-EXT-MIB: topCcmtsQosExt ::= { topCcmtsMibObject 23 }
+Cannot adopt OID in TOPVISION-QOS-EXT-MIB: topCcmtsServiceFlowsUsChannelStatsSfid ::= { topCcmtsServiceFlowsUsChannelStatsEntry 3 }
+Cannot adopt OID in TOPVISION-QOS-EXT-MIB: topCcmtsServiceFlowsUsChannelStatsScheType ::= { topCcmtsServiceFlowsUsChannelStatsEntry 2 }
+Cannot adopt OID in TOPVISION-QOS-EXT-MIB: topCcmtsServiceFlowsUsChannelStatsIfindex ::= { topCcmtsServiceFlowsUsChannelStatsEntry 1 }
+Cannot adopt OID in TOPVISION-QOS-EXT-MIB: topCcmtsDsPriorityMappingEntry ::= { topCcmtsDsPriorityMappingTable 1 }
+Cannot adopt OID in TOPVISION-QOS-EXT-MIB: topCcmtsDsPriorityMappingTable ::= { topCcmtsQosExtCtrlObject 2 }
+Cannot adopt OID in TOPVISION-QOS-EXT-MIB: topCcmtsServiceFlowsUsChannelStatsTable ::= { topCcmtsQosExtCtrlObject 1 }
+Cannot adopt OID in TOPVISION-QOS-EXT-MIB: topCcmtsDsPriorityMappingQueuePriority ::= { topCcmtsDsPriorityMappingEntry 3 }
+Cannot adopt OID in TOPVISION-QOS-EXT-MIB: topCcmtsDsPriorityMappingDocsisPriority ::= { topCcmtsDsPriorityMappingEntry 2 }
+Cannot adopt OID in TOPVISION-QOS-EXT-MIB: topCcmtsDsPriorityMappingCmcIfindex ::= { topCcmtsDsPriorityMappingEntry 1 }

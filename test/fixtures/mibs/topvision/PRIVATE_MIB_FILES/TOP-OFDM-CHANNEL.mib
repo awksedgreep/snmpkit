@@ -1,0 +1,2265 @@
+--*******************************************************************
+--TOP-OFDM-CHANNEL.mib: OFDM/OFDMA channel MIB file
+--
+--added at 2016.12.22, huochao
+--
+--Topvision      
+--
+--*******************************************************************   
+
+TOPVISION-OFDM-CHANNEL-MIB DEFINITIONS ::= BEGIN 
+
+IMPORTS 
+	MODULE-IDENTITY,
+	OBJECT-TYPE,
+	Integer32,
+	TimeTicks,
+	Counter64
+		FROM SNMPv2-SMI
+    TenthdBmV
+        FROM DOCS-IF-MIB        -- RFC 4546
+	TEXTUAL-CONVENTION,
+	MacAddress,
+	RowStatus,
+	DisplayString,
+	TruthValue,
+	TimeStamp
+		FROM SNMPv2-TC
+	OBJECT-GROUP,
+	MODULE-COMPLIANCE
+		FROM SNMPv2-CONF
+	SnmpAdminString
+		FROM SNMP-FRAMEWORK-MIB   
+	topCcmtsDocs31MibObject
+	    FROM  TOPVISION-CCMTS-MIB
+	sumaRoot,
+	topvisionRoot,
+	topvisionHFCCcmtsTree
+		FROM SUMA-EPONEOC-EPON-MIB
+	UsOfdmaModulationType,
+	DsOfdmModulationType,
+	SubcarrierSpacingType,
+	DsOfdmCyclicPrefix,
+	DsOfdmRollOffPeriod,
+	TimeInterleaverDepth,
+	UsOfdmaCyclicPrefix,
+	UsOfdmaRollOffPeriod
+		    FROM DOCS-IF31-MIB
+	topCcmtsTemplateIndex
+	        FROM TOPVISION-TEMPLATE-MIB
+	ifIndex
+			FROM IF-MIB
+	AttributeMask
+			FROM DOCS-IF3-MIB;
+				
+topCmtsDocsis31ChannelObject OBJECT IDENTIFIER ::={ topCcmtsDocs31MibObject 1 } 
+
+topCmtsDsOfdmChanExtTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsDsOfdmChanExtEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel extend table for informations outside of cableLabs definition."
+	::={ topCmtsDocsis31ChannelObject 1 }
+
+topCmtsDsOfdmChanExtEntry OBJECT-TYPE
+	SYNTAX		TopCmtsDsOfdmChanExtEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel extend table entry."
+	INDEX { ifIndex }
+	::= { topCmtsDsOfdmChanExtTable 1 }       
+	
+	
+TopCmtsDsOfdmChanExtEntry ::=SEQUENCE{
+	topCmtsDsOfdmChanExtPowerLevel		 TenthdBmV,
+	topCmtsDsOfdmChanExtDataProfileList  BITS
+	}    
+	
+topCmtsDsOfdmChanExtPowerLevel OBJECT-TYPE
+	SYNTAX		TenthdBmV
+	UNITS       "TenthdBmV"
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel transmit power level applied for all active data subcarriers."  
+	::={ topCmtsDsOfdmChanExtEntry 1 }
+
+topCmtsDsOfdmChanExtDataProfileList OBJECT-TYPE
+	SYNTAX		BITS{
+		profileA(0),
+		profileB(1),
+		profileC(2),
+		profileD(3),
+		profileE(4),
+		profileF(5),
+		profileG(6),
+		profileH(7),
+		profileI(8),
+		profileJ(9),
+		profileK(10),
+		profileL(11),
+		profileM(12),
+		profileN(13),
+		profileO(14),
+		profileP(15)
+	}
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile list."  
+	DEFVAL{profileA}
+	::={ topCmtsDsOfdmChanExtEntry 2 }
+
+topCmtsDsOfdmChanExcludedBandTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsDsOfdmChanExcludedBandEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel exclude band configuration table."
+	::={ topCmtsDocsis31ChannelObject 2 }
+	
+topCmtsDsOfdmChanExcludedBandEntry OBJECT-TYPE
+	SYNTAX		TopCmtsDsOfdmChanExcludedBandEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel exclude band configuration table entry."
+	INDEX { ifIndex,topCmtsDsOfdmChanExcludedBandLowerFreq }
+	::= { topCmtsDsOfdmChanExcludedBandTable 1 }       
+
+TopCmtsDsOfdmChanExcludedBandEntry ::=SEQUENCE{
+	topCmtsDsOfdmChanExcludedBandLowerFreq		Unsigned32,
+	topCmtsDsOfdmChanExcludedBandUpperFreq		Unsigned32,
+	topCmtsDsOfdmChanExcludedBandRowStatus		RowStatus
+	}   
+
+topCmtsDsOfdmChanExcludedBandLowerFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(108000000..1218000000)
+	UNITS       "Hz"
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel exclude band lower frequency."  
+	::={ topCmtsDsOfdmChanExcludedBandEntry 1 }
+
+topCmtsDsOfdmChanExcludedBandUpperFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(108000000..1218000000)
+	UNITS       "Hz"
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel exclude band upper frequency."  
+	::={ topCmtsDsOfdmChanExcludedBandEntry 2 }	
+
+topCmtsDsOfdmChanExcludedBandRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel exclude band configuration table row status."  
+	::={ topCmtsDsOfdmChanExcludedBandEntry 3 }	
+	
+topCmtsDsOfdmProfileCfgTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsDsOfdmProfileCfgEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile configuration table."
+	::={ topCmtsDocsis31ChannelObject 3 }
+	
+topCmtsDsOfdmProfileCfgEntry OBJECT-TYPE
+	SYNTAX		TopCmtsDsOfdmProfileCfgEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile configuration table entry."
+	INDEX { ifIndex,topCmtsDsOfdmProfileId }
+	::= { topCmtsDsOfdmProfileCfgTable 1 }       
+
+TopCmtsDsOfdmProfileCfgEntry ::=SEQUENCE{
+	topCmtsDsOfdmProfileId		        INTEGER,
+	topCmtsDsOfdmProfileModulation		INTEGER,
+	topCmtsDsOfdmProfileRowStatus		RowStatus
+	}   
+
+topCmtsDsOfdmProfileId OBJECT-TYPE
+	SYNTAX		INTEGER(1..16)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profie ID,1 for profile A,... 16 for profile P."  
+	::={ topCmtsDsOfdmProfileCfgEntry 1 }	
+
+topCmtsDsOfdmProfileModulation OBJECT-TYPE
+	SYNTAX		DsOfdmModulationType
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profie modulation."  
+	DEFVAL{qam256}
+	::={ topCmtsDsOfdmProfileCfgEntry 2 }	
+	
+topCmtsDsOfdmProfileRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profie tabele row status."  
+	::={ topCmtsDsOfdmProfileCfgEntry 3 }	
+	
+topCmtsDsOfdmProfileCfgDetailTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsDsOfdmProfileCfgDetailEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile detail table,
+		in some exceptional case,specific band can configure individual modulation."
+	::={ topCmtsDocsis31ChannelObject 4 }
+	
+topCmtsDsOfdmProfileCfgDetailEntry OBJECT-TYPE
+	SYNTAX		TopCmtsDsOfdmProfileCfgDetailEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile detail table entry."
+	INDEX { ifIndex,topCmtsDsOfdmProfileId, topCmtsDsOfdmProfileCfgDetailLowerFreq}
+	::= { topCmtsDsOfdmProfileCfgDetailTable 1 }       
+
+TopCmtsDsOfdmProfileCfgDetailEntry ::=SEQUENCE{
+	topCmtsDsOfdmProfileCfgDetailLowerFreq		Unsigned32,
+	topCmtsDsOfdmProfileCfgDetailUpperFreq		Unsigned32,
+	topCmtsDsOfdmProfileCfgDetailModulation     INTEGER,
+	topCmtsDsOfdmProfileCfgDetailRowStatus		RowStatus
+	}  
+
+topCmtsDsOfdmProfileCfgDetailLowerFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(108000000..1218000000)
+	UNITS       "Hz"
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile lower frequency."  
+	::={ topCmtsDsOfdmProfileCfgDetailEntry 1 }
+
+topCmtsDsOfdmProfileCfgDetailUpperFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(108000000..1218000000)
+	UNITS       "Hz"
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile detail upper frequency."  
+	::={ topCmtsDsOfdmProfileCfgDetailEntry 2 }
+
+topCmtsDsOfdmProfileCfgDetailModulation OBJECT-TYPE
+	SYNTAX		DsOfdmModulationType
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile detail modulation."  
+	DEFVAL{qam256}
+	::={ topCmtsDsOfdmProfileCfgDetailEntry 3 }
+
+topCmtsDsOfdmProfileCfgDetailRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile detail table row status."  
+	::={ topCmtsDsOfdmProfileCfgDetailEntry 4 }	
+
+topCmtsUsOfdmaChanExtTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsUsOfdmaChanExtEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel extend table."
+	::={ topCmtsDocsis31ChannelObject 5 }
+	
+topCmtsUsOfdmaChanExtEntry OBJECT-TYPE
+	SYNTAX		TopCmtsUsOfdmaChanExtEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel extend table entry."
+	INDEX { ifIndex}
+	::= { topCmtsUsOfdmaChanExtTable 1 }       
+
+TopCmtsUsOfdmaChanExtEntry ::=SEQUENCE{
+	topCmtsUsOfdmaChanExtRandomizationSeed		Unsigned32
+	}  
+	
+topCmtsUsOfdmaChanExtRandomizationSeed OBJECT-TYPE
+	SYNTAX		Unsigned32(0..8388607)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel randomization seed value."  
+	DEFVAL{7008426}
+	::={ topCmtsUsOfdmaChanExtEntry 1 }
+	
+topCmtsUsOfdmaChanExcludedBandTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsUsOfdmaChanExcludedBandEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel exclude band table."
+	::={ topCmtsDocsis31ChannelObject 6 }
+	
+topCmtsUsOfdmaChanExcludedBandEntry OBJECT-TYPE
+	SYNTAX		TopCmtsUsOfdmaChanExcludedBandEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel exclude band table entry."
+	INDEX { ifIndex,topCmtsUsOfdmaChanExcludedBandLowerFreq}
+	::= { topCmtsUsOfdmaChanExcludedBandTable 1 }       
+
+TopCmtsUsOfdmaChanExcludedBandEntry ::=SEQUENCE{
+	topCmtsUsOfdmaChanExcludedBandLowerFreq		Unsigned32,
+	topCmtsUsOfdmaChanExcludedBandUpperFreq		Unsigned32,
+	topCmtsUsOfdmaChanExcludedBandRowStatus      RowStatus
+	}  
+	
+topCmtsUsOfdmaChanExcludedBandLowerFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(5000000..204000000)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel exclude band lower frequency."  
+	::={ topCmtsUsOfdmaChanExcludedBandEntry 1 }
+
+topCmtsUsOfdmaChanExcludedBandUpperFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(5000000..204000000)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel exclude band upper frequency."  
+	::={ topCmtsUsOfdmaChanExcludedBandEntry 2 }
+	
+topCmtsUsOfdmaChanExcludedBandRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel exclude band table row status."  
+	::={ topCmtsUsOfdmaChanExcludedBandEntry 3 }
+	
+topCmtsUsOfdmaProfileCfgTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsUsOfdmaProfileCfgEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile table."
+	::={ topCmtsDocsis31ChannelObject 7 }
+	
+topCmtsUsOfdmaProfileCfgEntry OBJECT-TYPE
+	SYNTAX		TopCmtsUsOfdmaProfileCfgEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile table entry."
+	INDEX { ifIndex,topCmtsUsOfdmaProfileId,topCmtsUsOfdmaProfileIuc}
+	::= { topCmtsUsOfdmaProfileCfgTable 1 }       
+
+TopCmtsUsOfdmaProfileCfgEntry ::=SEQUENCE{
+	topCmtsUsOfdmaProfileId		    Unsigned32,
+	topCmtsUsOfdmaProfileIuc		Unsigned32,
+	topCmtsUsOfdmaProfileMinislotModulation      UsOfdmaModulationType,
+	topCmtsUsOfdmaProfileMinislotPilotPattern    Unsigned32,
+	topCmtsUsOfdmaProfileRowStatus		RowStatus
+	}  
+	
+topCmtsUsOfdmaProfileId OBJECT-TYPE
+	SYNTAX		Unsigned32(1..4)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile ID."  
+	::={ topCmtsUsOfdmaProfileCfgEntry 1 }
+	
+topCmtsUsOfdmaProfileIuc OBJECT-TYPE
+	SYNTAX		Unsigned32{
+		iuc5(5),
+		iuc6(6),
+		iuc9(9),
+		iuc10(10),
+		iuc11(11),
+		iuc12(12),
+		iuc13(13)
+	}
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile iuc."  
+	::={ topCmtsUsOfdmaProfileCfgEntry 2 }	
+	
+	
+topCmtsUsOfdmaProfileMinislotModulation OBJECT-TYPE
+	SYNTAX		UsOfdmaModulationType
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile modulation." 
+    DEFVAL{qam256}		
+	::={ topCmtsUsOfdmaProfileCfgEntry 3 }
+	
+topCmtsUsOfdmaProfileMinislotPilotPattern OBJECT-TYPE
+	SYNTAX		Unsigned32(1..14)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile pilot pattern."  
+	::={ topCmtsUsOfdmaProfileCfgEntry 4 }
+	
+topCmtsUsOfdmaProfileRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profie tabele row status."  
+	::={ topCmtsUsOfdmaProfileCfgEntry 5 }
+	
+topCmtsUsOfdmaProfileCfgDetailTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsUsOfdmaProfileCfgDetailEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile detail table,
+		in some exceptional case,specific band can configure individual minislot configuration."
+	::={ topCmtsDocsis31ChannelObject 8 }
+	
+topCmtsUsOfdmaProfileCfgDetailEntry OBJECT-TYPE
+	SYNTAX		TopCmtsUsOfdmaProfileCfgDetailEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile detail entry."
+	INDEX { ifIndex,topCmtsUsOfdmaProfileId,topCmtsUsOfdmaProfileIuc,topCmtsUsOfdmaProfileCfgDetailLowerFreq}
+	::= { topCmtsUsOfdmaProfileCfgDetailTable 1 }       
+
+TopCmtsUsOfdmaProfileCfgDetailEntry ::=SEQUENCE{
+	topCmtsUsOfdmaProfileCfgDetailLowerFreq		    Unsigned32,
+	topCmtsUsOfdmaProfileCfgDetailUpperFreq		Unsigned32,
+	topCmtsUsOfdmaProfileCfgDetailMinislotModulation      UsOfdmaModulationType,
+	topCmtsUsOfdmaProfileCfgDetailMinislotPilotPattern    Unsigned32,
+	topCmtsUsOfdmaProfileCfgDetailRowStatus    RowStatus
+	}  
+	
+topCmtsUsOfdmaProfileCfgDetailLowerFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(5000000..204000000)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile lower frequency."  
+	::={ topCmtsUsOfdmaProfileCfgDetailEntry 1 }
+	
+topCmtsUsOfdmaProfileCfgDetailUpperFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(5000000..204000000)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile upper frequency."  
+	::={ topCmtsUsOfdmaProfileCfgDetailEntry 2 }
+	
+	
+topCmtsUsOfdmaProfileCfgDetailMinislotModulation OBJECT-TYPE
+	SYNTAX		UsOfdmaModulationType
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile modulation."  
+	DEFVAL{qam256}	
+	::={ topCmtsUsOfdmaProfileCfgDetailEntry 3 }
+	
+topCmtsUsOfdmaProfileCfgDetailMinislotPilotPattern OBJECT-TYPE
+	SYNTAX		Unsigned32(1..14)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile pilot pattern."  
+	::={ topCmtsUsOfdmaProfileCfgDetailEntry 4 }
+
+topCmtsUsOfdmaProfileCfgDetailRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile table row status."  
+	::={ topCmtsUsOfdmaProfileCfgDetailEntry 5 }	
+
+
+topCmtsTemplateDsOfdmChanTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsTemplateDsOfdmChanEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel template table."
+	::={ topCmtsDocsis31ChannelObject 9 }
+	
+topCmtsTemplateDsOfdmChanEntry OBJECT-TYPE
+	SYNTAX		TopCmtsTemplateDsOfdmChanEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel template table entry."
+	INDEX {topCcmtsTemplateIndex,topCmtsTemplateDsOfdmChanChannelId}
+	::= { topCmtsTemplateDsOfdmChanTable 1 }       
+
+TopCmtsTemplateDsOfdmChanEntry ::=SEQUENCE{
+           topCmtsTemplateDsOfdmChanChannelId         Unsigned32,
+           topCmtsTemplateDsOfdmChanLowerBdryEncompSpectrum   Unsigned32,
+           topCmtsTemplateDsOfdmChanUpperBdryEncompSpectrum   Unsigned32,
+           topCmtsTemplateDsOfdmChanPlcFreq                   Unsigned32,
+           topCmtsTemplateDsOfdmChanSubcarrierZeroFreq        Unsigned32,
+           topCmtsTemplateDsOfdmChanSubcarrierSpacing         SubcarrierSpacingType,  
+           topCmtsTemplateDsOfdmChanCyclicPrefix              DsOfdmCyclicPrefix,
+           topCmtsTemplateDsOfdmChanRollOffPeriod             DsOfdmRollOffPeriod,
+           topCmtsTemplateDsOfdmChanTimeInterleaverDepth      TimeInterleaverDepth,
+           topCmtsTemplateDsOfdmChanNcpModulation             DsOfdmModulationType,
+           topCmtsTemplateDsOfdmChanPowerTxPower              TenthdBmV,
+           topCmtsTemplateDsOfdmChanAdminStatus               INTEGER,
+           topCmtsTemplateDsOfdmChanDataProfileList           BITS,
+           topCmtsTemplateDsOfdmChanIsPriCapableDs            TruthValue
+	}  
+
+topCmtsTemplateDsOfdmChanChannelId OBJECT-TYPE
+	SYNTAX		Unsigned32(201..206)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream OFDM channel ID."  
+	::={ topCmtsTemplateDsOfdmChanEntry 1 }
+	
+topCmtsTemplateDsOfdmChanLowerBdryEncompSpectrum OBJECT-TYPE
+    SYNTAX      Unsigned32(108000000..1218000000)
+    UNITS       "Hz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+         "This attribute represents the lower boundary frequency 
+         of the encompassed spectrum."
+    ::= { topCmtsTemplateDsOfdmChanEntry 2 }
+
+topCmtsTemplateDsOfdmChanUpperBdryEncompSpectrum OBJECT-TYPE
+    SYNTAX      Unsigned32(108000000..1218000000)
+    UNITS       "Hz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+         "This attribute represents the upper boundary frequency 
+         of the encompassed spectrum."
+    ::= { topCmtsTemplateDsOfdmChanEntry 3 }
+
+topCmtsTemplateDsOfdmChanPlcFreq OBJECT-TYPE
+    SYNTAX      Unsigned32(108000000..1218000000)
+    UNITS       "Hz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This is the PHY Link Channel (PLC) frequency. It is the center
+         frequency of the lowest frequency subcarrier of the PLC. The 
+         aim of the PLC is for the CMTS to convey to the CM the 
+         physical properties of the OFDM channel."
+    ::= { topCmtsTemplateDsOfdmChanEntry 4 }
+
+topCmtsTemplateDsOfdmChanSubcarrierZeroFreq OBJECT-TYPE
+    SYNTAX      Unsigned32(108000000..1218000000)
+    UNITS       "Hz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+         "This attribute specifies the center frequency of the 
+          subcarrier 0 of the OFDM transmission. Note that since 
+          subcarrier 0 is always excluded, it will actually be below the
+          allowed downstream spectrum band. This is the frequency of 
+          subcarrier X(0) in the definition of the DFT."
+    ::= { topCmtsTemplateDsOfdmChanEntry 5 }
+	
+topCmtsTemplateDsOfdmChanSubcarrierSpacing OBJECT-TYPE
+    SYNTAX      SubcarrierSpacingType
+	UNITS       "kHz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This attribute defines the subcarrier spacing associated with
+         a particular FFT mode configured on the OFDM downstream 
+         channel. If it is 4K mode, then the subcarrier spacing is 
+         50kHz. If it is 8K mode, then the subcarrier spacing is 
+         25kHz."
+	DEFVAL{50}
+    ::= { topCmtsTemplateDsOfdmChanEntry 6 }
+	
+topCmtsTemplateDsOfdmChanCyclicPrefix OBJECT-TYPE
+    SYNTAX      DsOfdmCyclicPrefix
+    UNITS       "number of samples"    
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Cyclic prefix enables the receiver to overcome the effects of
+         inter-symbol-interference and intercarrier-interference caused
+         by micro-reflections in the channel. There are five possible 
+         values for the length of the CP and the choice depends on the
+         delay spread of the channel - a longer delay spread requires a 
+         longer cyclic prefix. The cyclic prefix (in usec) are converted 
+         into samples using the sample rate of 204.8 Msamples/s and is
+         an integer multiple of: 1/64 * 20 us."
+	DEFVAL{256}
+    ::= { topCmtsTemplateDsOfdmChanEntry 7 }
+     
+topCmtsTemplateDsOfdmChanRollOffPeriod OBJECT-TYPE
+    SYNTAX      DsOfdmRollOffPeriod
+    UNITS       "number of samples"    
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Roll off period maximizes channel capacity by sharpening the
+         edges of the spectrum of the OFDM signal. For windowing 
+         purposes another segment at the start of the IDFT output is
+         appended to the end of the IDFT output - the roll-off postfix 
+         (RP). There are five possible values for the (RP), and the 
+         choice depends on the bandwidth of the channel and the number 
+         of exclusion bands within the channel. A larger RP provides 
+         sharper edges in the spectrum of the OFDM signal; however, 
+         there is a time vs. frequency trade-off. Larger RP values 
+         reduce the efficiency of transmission in the time domain, 
+         but because the spectral edges are sharper, more useful 
+         subcarriers appear in the frequency domain. There is an 
+         optimum value for the RP that maximizes capacity for a given
+         bandwidth and/or exclusion band scenario."
+	DEFVAL{64}
+    ::= { topCmtsTemplateDsOfdmChanEntry 8 }
+     
+topCmtsTemplateDsOfdmChanTimeInterleaverDepth OBJECT-TYPE    
+    SYNTAX      TimeInterleaverDepth    
+    UNITS       "symbols"    
+    MAX-ACCESS  read-write    
+    STATUS      current    
+    DESCRIPTION    
+        "This attribute represents the number of samples for the 
+        OFDM Downstream channel. This is limited to 16 samples for 
+        and 32 samples for 50 kHz and 25 kHz Subcarrier Spacing, 
+        respectively."
+    ::= { topCmtsTemplateDsOfdmChanEntry 9 }   
+	
+topCmtsTemplateDsOfdmChanNcpModulation OBJECT-TYPE    
+    SYNTAX      DsOfdmModulationType
+    MAX-ACCESS  read-write    
+    STATUS      current    
+    DESCRIPTION    
+        "This attribute represents the modulation of all subcarriers in
+        the NCP channel. Valid values are qpsk, qam16 and qam64."  
+    DEFVAL{qam16}		
+    ::= { topCmtsTemplateDsOfdmChanEntry 10 }   
+	
+topCmtsTemplateDsOfdmChanPowerTxPower OBJECT-TYPE
+	SYNTAX		TenthdBmV
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel transmit power level applied for all active data subcarriers."  
+	::={ topCmtsTemplateDsOfdmChanEntry 11 }
+	
+topCmtsTemplateDsOfdmChanAdminStatus OBJECT-TYPE
+	SYNTAX		INTEGER {
+                up(1),       -- ready to pass packets
+                down(2),
+                testing(3)   -- in some test mode
+            }
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel administator  status."  
+	DEFVAL{down}
+	::={ topCmtsTemplateDsOfdmChanEntry 12 }
+
+topCmtsTemplateDsOfdmChanDataProfileList OBJECT-TYPE
+	SYNTAX		BITS{
+		profileA(0),
+		profileB(1),
+		profileC(2),
+		profileD(3),
+		profileE(4),
+		profileF(5),
+		profileG(6),
+		profileH(7),
+		profileI(8),
+		profileJ(9),
+		profileK(10),
+		profileL(11),
+		profileM(12),
+		profileN(13),
+		profileO(14),
+		profileP(15)
+	}
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile list."  
+	DEFVAL{profileA}
+	::={ topCmtsTemplateDsOfdmChanEntry 13 }	
+
+topCmtsTemplateDsOfdmChanIsPriCapableDs OBJECT-TYPE
+	SYNTAX		TruthValue
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"If set to 'true', this attribute configures the downstream
+		channel as Primary-Capable. 
+		The default value for a downstream channel is 'true'.
+		This attribute is not relevant for upstream interfaces, 
+		therefore it reports the value 'false' for such interfaces.
+		A CMTS may restrict the permitted value of this attribute
+		based upon physical channel capabilities."  
+	DEFVAL{false}
+	::={ topCmtsTemplateDsOfdmChanEntry 14 }
+
+	
+
+topCmtsTemplateDsOfdmChanExcludedBandTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsTemplateDsOfdmChanExcludedBandEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel exclude band table."
+	::={ topCmtsDocsis31ChannelObject 10 }
+	
+topCmtsTemplateDsOfdmChanExcludedBandEntry OBJECT-TYPE
+	SYNTAX		TopCmtsTemplateDsOfdmChanExcludedBandEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel exclude band table entry."
+	INDEX { topCcmtsTemplateIndex,
+	        topCmtsTemplateDsOfdmChanChannelId,
+	        topCmtsTemplateDsOfdmChanExcludedBandLowerFreq }
+	::= { topCmtsTemplateDsOfdmChanExcludedBandTable 1 }       
+
+TopCmtsTemplateDsOfdmChanExcludedBandEntry ::=SEQUENCE{
+	topCmtsTemplateDsOfdmChanExcludedBandLowerFreq		Unsigned32,
+	topCmtsTemplateDsOfdmChanExcludedBandUpperFreq		Unsigned32,
+	topCmtsTemplateDsOfdmChanExcludedBandRowStatus		RowStatus
+	}   
+
+topCmtsTemplateDsOfdmChanExcludedBandLowerFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(108000000..1218000000)
+	UNITS       "Hz"
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel exclude band lower frequency."  
+	::={ topCmtsTemplateDsOfdmChanExcludedBandEntry 1 }
+
+topCmtsTemplateDsOfdmChanExcludedBandUpperFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(108000000..1218000000)
+	UNITS       "Hz"
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel exclude band upper frequency."  
+	::={ topCmtsTemplateDsOfdmChanExcludedBandEntry 2 }	
+
+topCmtsTemplateDsOfdmChanExcludedBandRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel exclude band table row status."  
+	::={ topCmtsTemplateDsOfdmChanExcludedBandEntry 3 }	
+
+
+topCmtsTemplateDsOfdmProfileCfgTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsTemplateDsOfdmProfileCfgEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile table."
+	::={ topCmtsDocsis31ChannelObject 11 }
+	
+topCmtsTemplateDsOfdmProfileCfgEntry OBJECT-TYPE
+	SYNTAX		TopCmtsTemplateDsOfdmProfileCfgEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile table entry."
+	INDEX { topCcmtsTemplateIndex,topCmtsTemplateDsOfdmChanChannelId,topCmtsTemplateDsOfdmProfileId }
+	::= { topCmtsTemplateDsOfdmProfileCfgTable 1 }       
+
+TopCmtsTemplateDsOfdmProfileCfgEntry ::=SEQUENCE{
+	topCmtsTemplateDsOfdmProfileId		        INTEGER,
+	topCmtsTemplateDsOfdmProfileModulation		INTEGER,
+	topCmtsTemplateDsOfdmProfileRowStatus		RowStatus
+	}   
+
+topCmtsTemplateDsOfdmProfileId OBJECT-TYPE
+	SYNTAX		INTEGER(0..15)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profie ID,1 for profile A,... 16 for profile P."  
+	::={ topCmtsTemplateDsOfdmProfileCfgEntry 1 }	
+
+topCmtsTemplateDsOfdmProfileModulation OBJECT-TYPE
+	SYNTAX		DsOfdmModulationType
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profie modulation."  
+	DEFVAL{qam256}
+	::={ topCmtsTemplateDsOfdmProfileCfgEntry 2 }	
+	
+topCmtsTemplateDsOfdmProfileRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profie tabele row status."  
+	::={ topCmtsTemplateDsOfdmProfileCfgEntry 3 }	
+	
+topCmtsTemplateDsOfdmProfileCfgDetailTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsTemplateDsOfdmProfileCfgDetailEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile detail table,
+		in some exceptional case,specific band can configure individual modulation."
+	::={ topCmtsDocsis31ChannelObject 12 }
+	
+topCmtsTemplateDsOfdmProfileCfgDetailEntry OBJECT-TYPE
+	SYNTAX		TopCmtsTemplateDsOfdmProfileCfgDetailEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile detail table entry."
+	INDEX { topCcmtsTemplateIndex,
+	        topCmtsTemplateDsOfdmChanChannelId,
+			topCmtsTemplateDsOfdmProfileId, 
+			topCmtsTemplateDsOfdmProfileCfgDetailLowerFreq
+		  }
+	::= { topCmtsTemplateDsOfdmProfileCfgDetailTable 1 }       
+
+TopCmtsTemplateDsOfdmProfileCfgDetailEntry ::=SEQUENCE{
+	topCmtsTemplateDsOfdmProfileCfgDetailLowerFreq		Unsigned32,
+	topCmtsTemplateDsOfdmProfileCfgDetailUpperFreq		Unsigned32,
+	topCmtsTemplateDsOfdmProfileCfgDetailModulation     INTEGER,
+	topCmtsTemplateDsOfdmProfileCfgDetailRowStatus		RowStatus
+	}  
+
+topCmtsTemplateDsOfdmProfileCfgDetailLowerFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(108000000..1218000000)
+	UNITS       "Hz"
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile detail configure lower frequency."  
+	::={ topCmtsTemplateDsOfdmProfileCfgDetailEntry 1 }
+
+topCmtsTemplateDsOfdmProfileCfgDetailUpperFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(108000000..1218000000)
+	UNITS       "Hz"
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile detail configure upper frequency."  
+	::={ topCmtsTemplateDsOfdmProfileCfgDetailEntry 2 }
+
+topCmtsTemplateDsOfdmProfileCfgDetailModulation OBJECT-TYPE
+	SYNTAX		DsOfdmModulationType
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile detail configure modulation."  
+	DEFVAL{qam256}
+	::={ topCmtsTemplateDsOfdmProfileCfgDetailEntry 3 }
+
+topCmtsTemplateDsOfdmProfileCfgDetailRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile detail table row status."  
+	::={ topCmtsTemplateDsOfdmProfileCfgDetailEntry 4 }	
+
+
+topCmtsTemplateCmtsUsOfdmaChanTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsTemplateCmtsUsOfdmaChanEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel template table."
+	::={ topCmtsDocsis31ChannelObject 13 }
+	
+topCmtsTemplateCmtsUsOfdmaChanEntry OBJECT-TYPE
+	SYNTAX		TopCmtsTemplateCmtsUsOfdmaChanEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 downstream ofdm channel data profile detail table entry."
+	INDEX { topCcmtsTemplateIndex,
+	        topCmtsTemplateUsOfdmaChanId
+		  }
+	::= { topCmtsTemplateCmtsUsOfdmaChanTable 1 }   
+	
+TopCmtsTemplateCmtsUsOfdmaChanEntry ::=SEQUENCE{
+             topCmtsTemplateUsOfdmaChanId                 Unsigned32,
+             topCmtsTemplateUsOfdmaChanTargetRxPower      TenthdBmV,
+             topCmtsTemplateUsOfdmaChanLowerBdryFreq      Unsigned32,
+             topCmtsTemplateUsOfdmaChanUpperBdryFreq      Unsigned32,
+             topCmtsTemplateUsOfdmaChanSubcarrierSpacing   SubcarrierSpacingType,
+             topCmtsTemplateUsOfdmaChanCyclicPrefix        UsOfdmaCyclicPrefix,
+             topCmtsTemplateUsOfdmaChanNumSymbolsPerFrame  Unsigned32,
+             topCmtsTemplateUsOfdmaChanRollOffPeriod         UsOfdmaRollOffPeriod,
+			 topCmtsTemplateUsOfdmaChanPreEqEnable      TruthValue,
+			 topCmtsTemplateUsOfdmaChanFineRngNumSubcarriers   Unsigned32,
+             topCmtsTemplateUsOfdmaChanInitRngNumSubcarriers Unsigned32,
+             topCmtsTemplateUsOfdmaChanInitRngPreambleLen    Unsigned32,
+             topCmtsTemplateUsOfdmaChanRandomizationSeed     Unsigned32,
+             topCmtsTemplateUsOfdmaChanAdminStatus       INTEGER,
+             topCmtsTemplateUsOfdmaChanTxBackoffStart    Integer32,
+             topCmtsTemplateUsOfdmaChanTxBackoffEnd      Integer32,
+             topCmtsTemplateUsOfdmaChanRangingBackoffStart  Integer32,
+             topCmtsTemplateUsOfdmaChanRangingBackoffEnd   Integer32,
+			 topCmtsTemplateUsOfdmaChanSubcarrierZeroFreq	Unsigned32,
+			 topCmtsTemplateUsOfdmaChanDataProfile       Unsigned32      
+}
+
+topCmtsTemplateUsOfdmaChanId OBJECT-TYPE
+	SYNTAX		Unsigned32(65..66)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel template table channel ID."  
+	::={ topCmtsTemplateCmtsUsOfdmaChanEntry 1 }
+	
+
+topCmtsTemplateUsOfdmaChanTargetRxPower OBJECT-TYPE
+     SYNTAX      TenthdBmV
+     UNITS       "TenthdBmV"
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        "This attribute provides the power of the expected commanded 
+         received signal in the channel, referenced to the CCAP input. 
+         The value represents the power spectral density in an 
+         equivalent 1.6 MHz spectrum."
+     ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 2 }
+
+topCmtsTemplateUsOfdmaChanLowerBdryFreq OBJECT-TYPE
+    SYNTAX      Unsigned32(5000000..204000000)
+    UNITS       "Hz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+         "This attribute provides the lower frequency for the OFDMA US
+         channel."
+    ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 3 }
+
+topCmtsTemplateUsOfdmaChanUpperBdryFreq OBJECT-TYPE
+    SYNTAX      Unsigned32(5000000..204000000)
+    UNITS       "Hz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+         "This attribute provides the upper frequency for the OFDMA US
+         channel."
+    ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 4 }
+
+topCmtsTemplateUsOfdmaChanSubcarrierSpacing OBJECT-TYPE
+    SYNTAX      SubcarrierSpacingType
+    UNITS       "kHz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This attribute defines the subcarrier spacing associated with
+         a particular FFT mode configured on the OFDMA upstream channel."
+	DEFVAL{50}
+    ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 5 }
+
+topCmtsTemplateUsOfdmaChanCyclicPrefix OBJECT-TYPE
+    SYNTAX      UsOfdmaCyclicPrefix
+    UNITS       "number of samples"    
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The cyclic prefix assigned to this channel for mitigating
+        interference due to microreflections."
+	DEFVAL{256}
+    ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 6 }
+
+topCmtsTemplateUsOfdmaChanNumSymbolsPerFrame OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+         "This attribute is the number of symbol periods per frame."    
+    ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 7 }
+
+topCmtsTemplateUsOfdmaChanRollOffPeriod OBJECT-TYPE
+    SYNTAX      UsOfdmaRollOffPeriod
+    UNITS       "number of samples"    
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This attribute is the windowing roll-off period."
+	DEFVAL{128}
+    ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 8 }
+
+topCmtsTemplateUsOfdmaChanPreEqEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This attribute indicates pre-equalization is enabled on the 
+        OFDMA upstream channel when its value is true, or disabled when 
+        its value is false."
+	DEFVAL{false}
+    ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 9 }
+
+
+topCmtsTemplateUsOfdmaChanFineRngNumSubcarriers OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This attribute is the maximum number of subcarriers for 
+        fine ranging."
+	DEFVAL{192}
+    ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 10 }
+
+topCmtsTemplateUsOfdmaChanInitRngNumSubcarriers OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This attribute is the maximum number of subcarriers for
+        initial ranging."
+	DEFVAL{32}
+    ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 11 }
+
+topCmtsTemplateUsOfdmaChanInitRngPreambleLen OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "bits"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This attribute is the length of the OFDMA init ranging IUC 
+		preamble in bits."
+	DEFVAL{4}
+    ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 12 }
+
+topCmtsTemplateUsOfdmaChanRandomizationSeed OBJECT-TYPE
+	SYNTAX		Unsigned32(0..8388607)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel randomization seed value."  
+	DEFVAL{7008426}
+    ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 13 }
+
+topCmtsTemplateUsOfdmaChanAdminStatus OBJECT-TYPE
+    SYNTAX      INTEGER {
+                up(1),       -- ready to pass packets
+                down(2),
+                testing(3)   -- in some test mode
+            }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "OFDMA channel admin status."
+	DEFVAL{down}
+    ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 14 }
+	
+topCmtsTemplateUsOfdmaChanTxBackoffStart OBJECT-TYPE
+     SYNTAX      Integer32 (0..15)
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+         "The initial random backoff window to use when retrying
+          transmissions.  Expressed as a power of 2.  A value of 16
+          at the CMTS indicates that a proprietary adaptive retry
+          mechanism is to be used."
+	 DEFVAL{2}
+     ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 15 }
+
+topCmtsTemplateUsOfdmaChanTxBackoffEnd OBJECT-TYPE
+     SYNTAX      Integer32 (0..15)
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+         "The final random backoff window to use when retrying
+          transmissions.  Expressed as a power of 2.  A value of 16
+          at the CMTS indicates that a proprietary adaptive retry
+          mechanism is to be used."
+	 DEFVAL{8}
+     ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 16 }
+
+topCmtsTemplateUsOfdmaChanRangingBackoffStart OBJECT-TYPE
+     SYNTAX      Integer32 (0..15)
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+         "The initial random backoff window to use when retrying
+          Ranging Requests.  Expressed as a power of 2.  A value of
+          16 at the CMTS indicates that a proprietary adaptive retry
+          mechanism is to be used."
+	 DEFVAL{3}
+     ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 17 }
+
+topCmtsTemplateUsOfdmaChanRangingBackoffEnd OBJECT-TYPE
+     SYNTAX      Integer32 (0..15)
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+         "The final random backoff window to use when retrying
+          Ranging Requests.  Expressed as a power of 2.  A value of
+          16 at the CMTS indicates that a proprietary adaptive retry
+          mechanism is to be used."
+	 DEFVAL{6}
+     ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 18 }
+	 
+topCmtsTemplateUsOfdmaChanSubcarrierZeroFreq OBJECT-TYPE
+    SYNTAX      Unsigned32(5000000..204000000)
+    UNITS       "Hz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+         "This attribute specifies the center frequency of the 
+          subcarrier 0 of the OFDMA transmission. Note that since 
+          subcarrier 0 is always excluded, it will actually be below the
+          allowed upstream spectrum band."
+    ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 19 }
+
+topCmtsTemplateUsOfdmaChanDataProfile OBJECT-TYPE
+	SYNTAX		Unsigned32(1..4)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile."  
+     ::= { topCmtsTemplateCmtsUsOfdmaChanEntry 20 }
+     
+
+topCmtsTemplateUsOfdmaChanExcludedBandTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsTemplateUsOfdmaChanExcludedBandEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel exclude band table."
+	::={ topCmtsDocsis31ChannelObject 14 }
+	
+topCmtsTemplateUsOfdmaChanExcludedBandEntry OBJECT-TYPE
+	SYNTAX		TopCmtsTemplateUsOfdmaChanExcludedBandEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel exclude band table entry."
+	INDEX { topCcmtsTemplateIndex,
+	        topCmtsTemplateUsOfdmaChanId,
+            topCmtsTemplateUsOfdmaChanExcludedBandLowerFreq}
+	::= { topCmtsTemplateUsOfdmaChanExcludedBandTable 1 }       
+
+TopCmtsTemplateUsOfdmaChanExcludedBandEntry ::=SEQUENCE{
+	topCmtsTemplateUsOfdmaChanExcludedBandLowerFreq		Unsigned32,
+	topCmtsTemplateUsOfdmaChanExcludedBandUpperFreq		Unsigned32,
+	topCmtsTemplateUsOfdmaChanExcludedBandRowStatus      RowStatus
+	}  
+	
+topCmtsTemplateUsOfdmaChanExcludedBandLowerFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(5000000..204000000)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel exclude band lower frequency."  
+	::={ topCmtsTemplateUsOfdmaChanExcludedBandEntry 1 }
+
+topCmtsTemplateUsOfdmaChanExcludedBandUpperFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(5000000..204000000)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel exclude band upper frequency."  
+	::={ topCmtsTemplateUsOfdmaChanExcludedBandEntry 2 }
+	
+topCmtsTemplateUsOfdmaChanExcludedBandRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel exclude band table row status."  
+	::={ topCmtsTemplateUsOfdmaChanExcludedBandEntry 3 }
+	
+topCmtsTemplateUsOfdmaProfileCfgTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsTemplateUsOfdmaProfileCfgEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile table."
+	::={ topCmtsDocsis31ChannelObject 15 }
+	
+topCmtsTemplateUsOfdmaProfileCfgEntry OBJECT-TYPE
+	SYNTAX		TopCmtsTemplateUsOfdmaProfileCfgEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile table entry."
+	INDEX { topCcmtsTemplateIndex,
+			topCmtsTemplateUsOfdmaChanId,
+			topCmtsTemplateUsOfdmaProfileId,
+			topCmtsTemplateUsOfdmaProfileiuc}
+	::= { topCmtsTemplateUsOfdmaProfileCfgTable 1 }       
+
+TopCmtsTemplateUsOfdmaProfileCfgEntry ::=SEQUENCE{
+	topCmtsTemplateUsOfdmaProfileId		    Unsigned32,
+	topCmtsTemplateUsOfdmaProfileiuc		Unsigned32,
+	topCmtsTemplateUsOfdmaProfileMinislotModulation      UsOfdmaModulationType,
+	topCmtsTemplateUsOfdmaProfileMinislotPilotPattern    Unsigned32,
+	topCmtsTemplateUsOfdmaProfileRowStatus		RowStatus
+	}  
+	
+topCmtsTemplateUsOfdmaProfileId OBJECT-TYPE
+	SYNTAX		Unsigned32(1..4)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile ID."  
+	::={ topCmtsTemplateUsOfdmaProfileCfgEntry 1 }
+	
+topCmtsTemplateUsOfdmaProfileiuc OBJECT-TYPE
+	SYNTAX		Unsigned32{
+		iuc5(5),
+		iuc6(6),
+		iuc9(9),
+		iuc10(10),
+		iuc11(11),
+		iuc12(12),
+		iuc13(13)
+	}
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile iuc."  
+	::={ topCmtsTemplateUsOfdmaProfileCfgEntry 2 }	
+	
+	
+topCmtsTemplateUsOfdmaProfileMinislotModulation OBJECT-TYPE
+	SYNTAX		UsOfdmaModulationType
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile modulation." 
+    DEFVAL{qam256}		
+	::={ topCmtsTemplateUsOfdmaProfileCfgEntry 3 }
+	
+topCmtsTemplateUsOfdmaProfileMinislotPilotPattern OBJECT-TYPE
+	SYNTAX		Unsigned32(1..14)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile pilot pattern."  
+	::={ topCmtsTemplateUsOfdmaProfileCfgEntry 4 }
+	
+topCmtsTemplateUsOfdmaProfileRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profie tabele row status."  
+	::={ topCmtsTemplateUsOfdmaProfileCfgEntry 5 }
+	
+topCmtsTemplateUsOfdmaProfileCfgDetailTable OBJECT-TYPE
+	SYNTAX		SEQUENCE OF TopCmtsTemplateUsOfdmaProfileCfgDetailEntry	
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile detail table,
+		in some exceptional case,specific band can configure individual minislot configuration."
+	::={ topCmtsDocsis31ChannelObject 16 }
+	
+topCmtsTemplateUsOfdmaProfileCfgDetailEntry OBJECT-TYPE
+	SYNTAX		TopCmtsTemplateUsOfdmaProfileCfgDetailEntry
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile detail entry."
+	INDEX { topCcmtsTemplateIndex,
+			topCmtsTemplateUsOfdmaChanId,
+			topCmtsTemplateUsOfdmaProfileId,topCmtsTemplateUsOfdmaProfileiuc,topCmtsTemplateUsOfdmaProfileCfgDetailLowerFreq}
+	::= { topCmtsTemplateUsOfdmaProfileCfgDetailTable 1 }       
+
+TopCmtsTemplateUsOfdmaProfileCfgDetailEntry ::=SEQUENCE{
+	topCmtsTemplateUsOfdmaProfileCfgDetailLowerFreq		    Unsigned32,
+	topCmtsTemplateUsOfdmaProfileCfgDetailUpperFreq		Unsigned32,
+	topCmtsTemplateUsOfdmaProfileCfgDetailMinislotModulation      UsOfdmaModulationType,
+	topCmtsTemplateUsOfdmaProfileCfgDetailMinislotPilotPattern    Unsigned32,
+	topCmtsTemplateUsOfdmaProfileCfgDetailRowStatus    RowStatus
+	}  
+	
+topCmtsTemplateUsOfdmaProfileCfgDetailLowerFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(5000000..204000000)
+	MAX-ACCESS	not-accessible
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile lower frequency."  
+	::={ topCmtsTemplateUsOfdmaProfileCfgDetailEntry 1 }
+	
+topCmtsTemplateUsOfdmaProfileCfgDetailUpperFreq OBJECT-TYPE
+	SYNTAX		Unsigned32(5000000..204000000)
+	MAX-ACCESS	read-create
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile upper frequency."  
+	::={ topCmtsTemplateUsOfdmaProfileCfgDetailEntry 2 }
+	
+	
+topCmtsTemplateUsOfdmaProfileCfgDetailMinislotModulation OBJECT-TYPE
+	SYNTAX		UsOfdmaModulationType
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile modulation."  
+	DEFVAL{qam256}
+	::={ topCmtsTemplateUsOfdmaProfileCfgDetailEntry 3 }
+	
+topCmtsTemplateUsOfdmaProfileCfgDetailMinislotPilotPattern OBJECT-TYPE
+	SYNTAX		Unsigned32(1..14)
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile pilot pattern."  
+	::={ topCmtsTemplateUsOfdmaProfileCfgDetailEntry 4 }
+
+topCmtsTemplateUsOfdmaProfileCfgDetailRowStatus OBJECT-TYPE
+	SYNTAX		RowStatus
+	MAX-ACCESS	read-write
+	STATUS		current
+	DESCRIPTION
+		"DOCSIS 3.1 upstream ofdma channel data profile table row status."  
+	::={ topCmtsTemplateUsOfdmaProfileCfgDetailEntry 5 }	
+	
+topCmtsDsOfdmChanTable OBJECT-TYPE    
+    SYNTAX      SEQUENCE OF TopCmtsDsOfdmChanEntry
+    MAX-ACCESS  not-accessible    
+    STATUS      current    
+    DESCRIPTION    
+        "This CMTS object reports the status of the downstream OFDM channels."
+    ::= { topCmtsDocsis31ChannelObject 17 } 
+          
+topCmtsDsOfdmChanEntry OBJECT-TYPE    
+    SYNTAX      TopCmtsDsOfdmChanEntry    
+    MAX-ACCESS  not-accessible    
+    STATUS      current    
+    DESCRIPTION    
+        "The conceptual row of topCmtsDsOfdmTable.    
+         An instance exists for each downstream OFDM channel."    
+    INDEX { 
+             ifIndex 
+          }
+    ::= { topCmtsDsOfdmChanTable 1 }   
+
+TopCmtsDsOfdmChanEntry ::=  SEQUENCE{    
+	topCmtsDsOfdmChanChannelId                Integer32,
+	topCmtsDsOfdmChanLowerBdryFreq            Unsigned32,
+	topCmtsDsOfdmChanUpperBdryFreq            Unsigned32,
+	topCmtsDsOfdmChanLowerBdryEncompSpectrum  Unsigned32,
+	topCmtsDsOfdmChanUpperBdryEncompSpectrum  Unsigned32,
+	topCmtsDsOfdmChanPlcFreq                  Unsigned32,
+	topCmtsDsOfdmChanSubcarrierZeroFreq       Unsigned32,
+	topCmtsDsOfdmChanFirstActiveSubcarrierNum Unsigned32,
+	topCmtsDsOfdmChanLastActiveSubcarrierNum  Unsigned32,
+	topCmtsDsOfdmChanNumActiveSubcarriers     Unsigned32,
+	topCmtsDsOfdmChanSubcarrierSpacing        SubcarrierSpacingType,
+	topCmtsDsOfdmChanLowerGuardbandWidth      Unsigned32,
+	topCmtsDsOfdmChanUpperGuardbandWidth      Unsigned32,
+	topCmtsDsOfdmChanCyclicPrefix             DsOfdmCyclicPrefix,
+	topCmtsDsOfdmChanRollOffPeriod            DsOfdmRollOffPeriod,
+	topCmtsDsOfdmChanTimeInterleaverDepth     TimeInterleaverDepth,
+	topCmtsDsOfdmChanNumPilots                Unsigned32,
+	topCmtsDsOfdmChanPilotScaleFactor         Unsigned32,
+	topCmtsDsOfdmChanNcpModulation            DsOfdmModulationType,
+	topCmtsDsOfdmChanUtilization              Unsigned32
+   }    
+          
+topCmtsDsOfdmChanChannelId OBJECT-TYPE
+     SYNTAX      Integer32 (0..255)
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "The Cable Modem Termination System identification of the
+          OFDM downstream channel within this particular MAC interface.
+          if the interface is down, the object returns the most
+          current value.  If the downstream channel ID is unknown,
+          this object returns a value of 0."
+     ::= { topCmtsDsOfdmChanEntry 1 }
+
+topCmtsDsOfdmChanLowerBdryFreq OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "Hz"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+         "This attribute represents either the lower boundary frequency 
+         of the lower guardband or (if no guardband is defined) the 
+         lower boundary frequency of the lowest active subcarrier of the 
+         OFDM downstream channel."
+    ::= { topCmtsDsOfdmChanEntry 2 }
+
+topCmtsDsOfdmChanUpperBdryFreq OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "Hz"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+         "This attribute represents either the upper boundary frequency 
+         of the upper guardband or (if no guardband is defined) the 
+         upper boundary frequency of the highest active subcarrier of the 
+         OFDM downstream channel."
+    ::= { topCmtsDsOfdmChanEntry 3 }
+
+topCmtsDsOfdmChanLowerBdryEncompSpectrum OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "Hz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+         "This attribute represents the lower boundary frequency 
+         of the encompassed spectrum."
+    ::= { topCmtsDsOfdmChanEntry 4 }
+
+topCmtsDsOfdmChanUpperBdryEncompSpectrum OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "Hz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+         "This attribute represents the upper boundary frequency 
+         of the encompassed spectrum."
+    ::= { topCmtsDsOfdmChanEntry 5 }
+
+topCmtsDsOfdmChanPlcFreq OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "Hz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This is the PHY Link Channel (PLC) frequency. It is the center
+         frequency of the lowest frequency subcarrier of the PLC. The 
+         aim of the PLC is for the CMTS to convey to the CM the 
+         physical properties of the OFDM channel."
+    ::= { topCmtsDsOfdmChanEntry 6 }
+
+topCmtsDsOfdmChanSubcarrierZeroFreq OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "Hz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+         "This attribute specifies the center frequency of the 
+          subcarrier 0 of the OFDM transmission. Note that since 
+          subcarrier 0 is always excluded, it will actually be below the
+          allowed downstream spectrum band. This is the frequency of 
+          subcarrier X(0) in the definition of the DFT."
+    ::= { topCmtsDsOfdmChanEntry 7 }
+
+topCmtsDsOfdmChanFirstActiveSubcarrierNum OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+         "This attribute corresponds to the number of the first 
+          non-excluded subcarrier. The valid range is 148 to 7895."
+    ::= { topCmtsDsOfdmChanEntry 8 }
+     
+topCmtsDsOfdmChanLastActiveSubcarrierNum OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+         "This attribute corresponds to the number of the last 
+          non-excluded subcarrier. The valid range is 148 to 7895"
+    ::= { topCmtsDsOfdmChanEntry 9 }
+    
+topCmtsDsOfdmChanNumActiveSubcarriers OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute represents the number of active data 
+        subcarriers within the OFDM downstream channel (i.e. this 
+        exclude subcarriers for continuous pilots and the PLC). 
+        For 4K FFT mode, the maximum number of subcarriers including 
+        continuous pilots and the PLC cannot exceed 3800, and for 
+        8K FFT mode, the maximum number of active subcarriers including 
+        continuous pilots and the PLC cannot be greater than 7600. 
+
+        However, there are a minimum of 56 continuous pilots in a 192MHz 
+        channel that has no exclusions, and the size of the PLC is 
+        8 subcarriers for 4K FFT mode and 16 subcarriers for 8K FFT mode. 
+        Therefore the maximum value of NumActiveSubcarriers is 3736 
+        (or 3800 - 56 - 8) for 4K FFT mode and 7528 (or 7600 - 56 - 16) 
+        for 8K FFT mode."
+    ::= { topCmtsDsOfdmChanEntry 10 }
+
+topCmtsDsOfdmChanSubcarrierSpacing OBJECT-TYPE
+    SYNTAX      SubcarrierSpacingType
+    UNITS       "kHz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This attribute defines the subcarrier spacing associated with
+         a particular FFT mode configured on the OFDM downstream 
+         channel. If it is 4K mode, then the subcarrier spacing is 
+         50kHz. If it is 8K mode, then the subcarrier spacing is 
+         25kHz."
+    ::= { topCmtsDsOfdmChanEntry 11 }
+
+topCmtsDsOfdmChanLowerGuardbandWidth OBJECT-TYPE    
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only
+     STATUS      current    
+     DESCRIPTION    
+         "This attribute is the width in Hertz of the lower guard
+         band of the OFDM channel. The valid range is 0 or 
+         1MHz to 1.77GHz."    
+    ::= { topCmtsDsOfdmChanEntry 12 }    
+
+topCmtsDsOfdmChanUpperGuardbandWidth OBJECT-TYPE    
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-only    
+     STATUS      current    
+     DESCRIPTION    
+         "This attribute is the width in Hertz of the upper guard 
+         band of the OFDM channel. The valid range is 0 or 
+         1MHz to 1.77GHz"    
+    ::= { topCmtsDsOfdmChanEntry 13 }    
+
+topCmtsDsOfdmChanCyclicPrefix OBJECT-TYPE
+    SYNTAX      DsOfdmCyclicPrefix
+    UNITS       "number of samples"    
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Cyclic prefix enables the receiver to overcome the effects of
+         inter-symbol-interference and intercarrier-interference caused
+         by micro-reflections in the channel. There are five possible 
+         values for the length of the CP and the choice depends on the
+         delay spread of the channel - a longer delay spread requires a 
+         longer cyclic prefix. The cyclic prefix (in usec) are converted 
+         into samples using the sample rate of 204.8 Msamples/s and is
+         an integer multiple of: 1/64 * 20 us."
+    ::= { topCmtsDsOfdmChanEntry 14 }
+     
+topCmtsDsOfdmChanRollOffPeriod OBJECT-TYPE
+    SYNTAX      DsOfdmRollOffPeriod
+    UNITS       "number of samples"    
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Roll off period maximizes channel capacity by sharpening the
+         edges of the spectrum of the OFDM signal. For windowing 
+         purposes another segment at the start of the IDFT output is
+         appended to the end of the IDFT output - the roll-off postfix 
+         (RP). There are five possible values for the (RP), and the 
+         choice depends on the bandwidth of the channel and the number 
+         of exclusion bands within the channel. A larger RP provides 
+         sharper edges in the spectrum of the OFDM signal; however, 
+         there is a time vs. frequency trade-off. Larger RP values 
+         reduce the efficiency of transmission in the time domain, 
+         but because the spectral edges are sharper, more useful 
+         subcarriers appear in the frequency domain. There is an 
+         optimum value for the RP that maximizes capacity for a given
+         bandwidth and/or exclusion band scenario."
+    ::= { topCmtsDsOfdmChanEntry 15 }
+     
+topCmtsDsOfdmChanTimeInterleaverDepth OBJECT-TYPE    
+    SYNTAX      TimeInterleaverDepth    
+    UNITS       "symbols"    
+    MAX-ACCESS  read-write    
+    STATUS      current    
+    DESCRIPTION    
+        "This attribute represents the number of samples for the 
+        OFDM Downstream channel. This is limited to 16 samples for 
+        and 32 samples for 50 kHz and 25 kHz Subcarrier Spacing, 
+        respectively."
+    ::= { topCmtsDsOfdmChanEntry 16 }    
+
+topCmtsDsOfdmChanNumPilots OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute is the number of continuous pilots  
+        for the OFDM downstream channel."    
+    ::= { topCmtsDsOfdmChanEntry 17 }    
+         
+topCmtsDsOfdmChanPilotScaleFactor OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute represents the scale factor for calculating
+        the number of continuous pilots. "    
+    ::= { topCmtsDsOfdmChanEntry 18 }    
+         
+topCmtsDsOfdmChanNcpModulation OBJECT-TYPE    
+    SYNTAX      DsOfdmModulationType
+    MAX-ACCESS  read-write    
+    STATUS      current    
+    DESCRIPTION    
+        "This attribute represents the modulation of all subcarriers in
+        the NCP channel. Valid values are qpsk, qam16 and qam64."    
+    ::= { topCmtsDsOfdmChanEntry 19 }    
+
+topCmtsDsOfdmChanUtilization OBJECT-TYPE    
+    SYNTAX       Unsigned32 (0..100)
+    UNITS        "percent"
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "The utilization for this OFDM downstream channel, accurate as 
+        of the most recent docsIfCmtsChannelUtilizationInterval.
+        
+        See Reference for specific details on this attribute."
+     REFERENCE 
+        "DOCSIS 3.1 CCAP Operations Support System Interface
+        Specification CM-SP-CCAP OSSIv3.1-I04-15MMDD,
+        OfdmChannelUtilization."
+    ::= { topCmtsDsOfdmChanEntry 20 }  	
+
+topCmtsUsOfdmaChanTable OBJECT-TYPE
+     SYNTAX      SEQUENCE OF TopCmtsUsOfdmaChanEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+        "This object provides channel-level visibility into Upstream
+        OFDMA channel configuration and status."
+     ::= { topCmtsDocsis31ChannelObject 18 }
+
+topCmtsUsOfdmaChanEntry OBJECT-TYPE
+     SYNTAX      TopCmtsUsOfdmaChanEntry
+     MAX-ACCESS  not-accessible
+     STATUS      current
+     DESCRIPTION
+         "The conceptual row of topCmtsUsOfdmaChanTable."
+     INDEX {
+             ifIndex
+           }
+     ::= { topCmtsUsOfdmaChanTable 1 }
+
+TopCmtsUsOfdmaChanEntry ::= SEQUENCE {
+     topCmtsUsOfdmaChanTemplateIndex            Unsigned32,
+     topCmtsUsOfdmaChanConfigChangeCt           Unsigned32,
+     topCmtsUsOfdmaChanTargetRxPower            TenthdBmV,
+     topCmtsUsOfdmaChanLowerBdryFreq            Unsigned32,
+     topCmtsUsOfdmaChanUpperBdryFreq            Unsigned32,
+     topCmtsUsOfdmaChanSubcarrierSpacing        SubcarrierSpacingType,
+     topCmtsUsOfdmaChanCyclicPrefix             UsOfdmaCyclicPrefix,
+     topCmtsUsOfdmaChanNumSymbolsPerFrame       Unsigned32,
+     topCmtsUsOfdmaChanRollOffPeriod            UsOfdmaRollOffPeriod,
+     topCmtsUsOfdmaChanPreEqEnable              TruthValue,
+     topCmtsUsOfdmaChanFineRngGuardband         Unsigned32,
+     topCmtsUsOfdmaChanFineRngNumSubcarriers    Unsigned32,
+     topCmtsUsOfdmaChanFineRngPreambleLen       Unsigned32,
+     topCmtsUsOfdmaChanInitRngGuardband         Unsigned32,
+     topCmtsUsOfdmaChanInitRngNumSubcarriers    Unsigned32,
+     topCmtsUsOfdmaChanInitRngPreambleLen       Unsigned32,
+     topCmtsUsOfdmaChanProvAttribMask           AttributeMask,
+     topCmtsUsOfdmaChanTxBackoffStart           Integer32,
+     topCmtsUsOfdmaChanTxBackoffEnd             Integer32,
+     topCmtsUsOfdmaChanRangingBackoffStart      Integer32,
+     topCmtsUsOfdmaChanRangingBackoffEnd        Integer32,
+     topCmtsUsOfdmaChanUtilization              Unsigned32,
+     topCmtsUsOfdmaChanId                       Integer32,
+	 topCmtsUsOfdmaChanSubcarrierZeroFreq		Unsigned32
+     }
+
+topCmtsUsOfdmaChanTemplateIndex OBJECT-TYPE
+     SYNTAX      Unsigned32
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+         "The index of the UsOfdmaModulationTemplate object which the 
+         CMTS/CCAP utilized when configuring this channel."
+     ::= { topCmtsUsOfdmaChanEntry 1 }
+
+topCmtsUsOfdmaChanConfigChangeCt OBJECT-TYPE
+     SYNTAX      Unsigned32 (0..255)
+     MAX-ACCESS  read-only
+     STATUS      current
+     DESCRIPTION
+         "This attribute contains the value of the Configuration 
+         Change Count field in the Upstream Channel Descriptor (UCD) MAC 
+         Management Message currently in use on this channel."
+     ::= { topCmtsUsOfdmaChanEntry 2 }
+
+topCmtsUsOfdmaChanTargetRxPower OBJECT-TYPE
+     SYNTAX      TenthdBmV
+     UNITS       "TenthdBmV"
+     MAX-ACCESS  read-write
+     STATUS      current
+     DESCRIPTION
+        "This attribute provides the power of the expected commanded 
+         received signal in the channel, referenced to the CCAP input. 
+         The value represents the power spectral density in an 
+         equivalent 1.6 MHz spectrum."
+     ::= { topCmtsUsOfdmaChanEntry 3 }
+
+topCmtsUsOfdmaChanLowerBdryFreq OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "Hz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+         "This attribute provides the lower frequency for the OFDMA US
+         channel."
+    ::= { topCmtsUsOfdmaChanEntry 4 }
+
+topCmtsUsOfdmaChanUpperBdryFreq OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "Hz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+         "This attribute provides the upper frequency for the OFDMA US
+         channel."
+    ::= { topCmtsUsOfdmaChanEntry 5 }
+
+topCmtsUsOfdmaChanSubcarrierSpacing OBJECT-TYPE
+    SYNTAX      SubcarrierSpacingType
+    UNITS       "kHz"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This attribute defines the subcarrier spacing associated with
+         a particular FFT mode configured on the OFDMA upstream channel."
+    ::= { topCmtsUsOfdmaChanEntry 6 }
+
+topCmtsUsOfdmaChanCyclicPrefix OBJECT-TYPE
+    SYNTAX      UsOfdmaCyclicPrefix
+    UNITS       "number of samples"    
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The cyclic prefix assigned to this channel for mitigating
+        interference due to microreflections."
+    ::= { topCmtsUsOfdmaChanEntry 7 }
+
+topCmtsUsOfdmaChanNumSymbolsPerFrame OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+         "This attribute is the number of symbol periods per frame."    
+    ::= { topCmtsUsOfdmaChanEntry 8 }
+
+topCmtsUsOfdmaChanRollOffPeriod OBJECT-TYPE
+    SYNTAX      UsOfdmaRollOffPeriod
+    UNITS       "number of samples"    
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This attribute is the windowing roll-off period."
+    ::= { topCmtsUsOfdmaChanEntry 9 }
+
+topCmtsUsOfdmaChanPreEqEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This attribute indicates pre-equalization is enabled on the 
+        OFDMA upstream channel when its value is true, or disabled when 
+        its value is false."
+    ::= { topCmtsUsOfdmaChanEntry 10 }
+
+topCmtsUsOfdmaChanFineRngGuardband OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "Hz"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute is the sum of the upper and lower guard 
+        bands for fine ranging in Hz."
+    ::= { topCmtsUsOfdmaChanEntry 11 }
+
+topCmtsUsOfdmaChanFineRngNumSubcarriers OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This attribute is the maximum number of subcarriers for 
+        fine ranging."
+    ::= { topCmtsUsOfdmaChanEntry 12 }
+
+topCmtsUsOfdmaChanFineRngPreambleLen OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "bits"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute is the length of the OFDMA fine ranging IUC 
+        preamble in bits."
+    ::= { topCmtsUsOfdmaChanEntry 13 }
+
+topCmtsUsOfdmaChanInitRngGuardband OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "Hz"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute is the sum of the upper and lower guard bands 
+        for initial ranging in Hz."
+    ::= { topCmtsUsOfdmaChanEntry 14 }
+
+topCmtsUsOfdmaChanInitRngNumSubcarriers OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This attribute is the maximum number of subcarriers for
+        initial ranging."
+    ::= { topCmtsUsOfdmaChanEntry 15 }
+
+topCmtsUsOfdmaChanInitRngPreambleLen OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "bits"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This attribute is the maximum number of subcarriers for 
+        initial ranging."
+    ::= { topCmtsUsOfdmaChanEntry 16 }
+
+topCmtsUsOfdmaChanProvAttribMask OBJECT-TYPE
+    SYNTAX      AttributeMask
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute provides the Provisioned Attribute Mask for 
+        the OFDMA upstream channel."
+    ::= { topCmtsUsOfdmaChanEntry 17 }
+
+topCmtsUsOfdmaChanTxBackoffStart OBJECT-TYPE
+    SYNTAX      Integer32 (0..16)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The initial random backoff window to use when retrying
+         transmissions.  Expressed as a power of 2.  A value of 16
+         at the CMTS indicates that a proprietary adaptive retry
+         mechanism is to be used."
+    ::= { topCmtsUsOfdmaChanEntry 18 }
+
+topCmtsUsOfdmaChanTxBackoffEnd OBJECT-TYPE
+    SYNTAX      Integer32 (0..16)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The final random backoff window to use when retrying
+         transmissions.  Expressed as a power of 2.  A value of 16
+         at the CMTS indicates that a proprietary adaptive retry
+         mechanism is to be used."
+    ::= { topCmtsUsOfdmaChanEntry 19 }
+
+topCmtsUsOfdmaChanRangingBackoffStart OBJECT-TYPE
+    SYNTAX      Integer32 (0..16)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The initial random backoff window to use when retrying
+         Ranging Requests.  Expressed as a power of 2.  A value of
+         16 at the CMTS indicates that a proprietary adaptive retry
+         mechanism is to be used."
+    ::= { topCmtsUsOfdmaChanEntry 20 }
+
+topCmtsUsOfdmaChanRangingBackoffEnd OBJECT-TYPE
+    SYNTAX      Integer32 (0..16)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The final random backoff window to use when retrying
+         Ranging Requests.  Expressed as a power of 2.  A value of
+         16 at the CMTS indicates that a proprietary adaptive retry
+         mechanism is to be used."
+    ::= { topCmtsUsOfdmaChanEntry 21 }
+
+topCmtsUsOfdmaChanUtilization OBJECT-TYPE
+    SYNTAX       Unsigned32 (0..100)
+    UNITS        "percent"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The calculated and truncated utilization for this physical 
+        upstream channel, accurate as of the most recent 
+        docsIfCmtsChannelUtilizationInterval.
+
+        The upstream channel utilization is expressed as a percentage 
+        of minislots utilized on the physical channel, regardless of 
+        burst type. 
+        
+        The utilization calculation can be expressed by the 
+        following equation:
+
+        Utilization = MinislotsUtilized/MinislotsAllocated * 100%
+
+        For an Initial Maintenance region, the minislots for the 
+        complete region are considered utilized if the CMTS received 
+        an upstream burst within the region from any CM on the physical
+        channel. For contention REQ and REQ/DATA regions, the minislots 
+        for a transmission opportunity within the region are considered 
+        utilized if the CMTS received an upstream burst within the 
+        opportunity from any CM on the physical channel. For all other 
+        regions, utilized minislots are those in which the CMTS granted
+        bandwidth to any unicast SID on the physical channel.
+
+        For an upstream interface that has multiple logical upstream 
+        channels enabled, the utilization index is a weighted sum of 
+        utilization indices for the logical channels. The weight for 
+        each utilization index is the percentage of upstream mini-slots 
+        allocated for the corresponding logical channel.
+
+        Example:
+        If 75% of bandwidth is allocated to the first logical channel 
+        and 25% to the second, and the utilization for each are 60 and 40, 
+        respectively, the utilization for the upstream physical channel is
+        (60 * 0.75) + (40 * 0.25) = 55. This figure applies to the most 
+        recent utilization interval."
+    ::= { topCmtsUsOfdmaChanEntry 22 }
+    
+    topCmtsUsOfdmaChanId OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute is the upstream Channel Id signaled in the 
+         DOCSIS protocol for the OFDMA upstream channel. The Channel
+         Id is unique within the associated MacDomain."
+    ::= { topCmtsUsOfdmaChanEntry 23 }
+	
+	topCmtsUsOfdmaChanSubcarrierZeroFreq OBJECT-TYPE  
+        SYNTAX      Unsigned32  
+        UNITS       "Hz"  
+        MAX-ACCESS  read-write  
+        STATUS      current  
+        DESCRIPTION  
+            "This attribute specifies the center frequency of the  
+              subcarrier 0 of the OFDMA channel. Note that since  
+              subcarrier 0 is always excluded, it will actually be below the  
+              allowed upstream spectrum band. This is the frequency of  
+              subcarrier X(0) in the definition of the IDFT."  
+        ::= { topCmtsUsOfdmaChanEntry 24 } 
+        
+topCcmtsOfdmMultiProfSysTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsOfdmMultiProfSysEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "OFDM multiple profile system table."
+    ::={ topCmtsDocsis31ChannelObject 19 }
+
+topCcmtsOfdmMultiProfSysEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsOfdmMultiProfSysEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "OFDM multiple profile system table entry"
+    INDEX  { topCcmtsOfdmMultiProfSysIfindex }
+    ::= { topCcmtsOfdmMultiProfSysTable 1 }
+
+TopCcmtsOfdmMultiProfSysEntry ::= SEQUENCE {
+             topCcmtsOfdmMultiProfSysIfindex            INTEGER,
+             topCcmtsOfdmMultiProfSysRxMerPollInterval            INTEGER,
+             topCcmtsOfdmMultiProfSysProfProtectPower            INTEGER,
+             topCcmtsOfdmMultiProfSysRecommandAgeTime            INTEGER,
+             topCcmtsOfdmMultiProfSysUnfitAgeTime            INTEGER,
+             topCcmtsOfdmMultiProfSysDownGradeAdminstatus            INTEGER,
+             topCcmtsOfdmMultiProfSysRxMerCalcPercent            INTEGER,
+             topCcmtsOfdmMultiProfSysAdminstatus    INTEGER
+           }
+
+topCcmtsOfdmMultiProfSysIfindex OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "CMTS ifindex"
+    ::={ topCcmtsOfdmMultiProfSysEntry 1 }
+
+topCcmtsOfdmMultiProfSysRxMerPollInterval OBJECT-TYPE
+    SYNTAX        INTEGER(0|300..86400) 
+    UNITS         "second"
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "RxMER polling interval"
+    DEFVAL {600}
+    ::={ topCcmtsOfdmMultiProfSysEntry 2 }
+
+topCcmtsOfdmMultiProfSysProfProtectPower OBJECT-TYPE
+    SYNTAX        INTEGER(0..50) 
+    UNITS         "0.1 dB"
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "QAM modulation RxMER threshold protect power"
+    DEFVAL {10}
+    ::={ topCcmtsOfdmMultiProfSysEntry 3 }
+
+topCcmtsOfdmMultiProfSysRecommandAgeTime OBJECT-TYPE
+    SYNTAX        INTEGER(0|300..86400) 
+    UNITS         "second"
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "Recommanded profile age time"
+    DEFVAL {1800}
+    ::={ topCcmtsOfdmMultiProfSysEntry 4 }
+
+topCcmtsOfdmMultiProfSysUnfitAgeTime OBJECT-TYPE
+    SYNTAX        INTEGER(0|300..86400) 
+    UNITS         "second"
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "Unfit profile age time"
+    DEFVAL {600}
+    ::={ topCcmtsOfdmMultiProfSysEntry 5 }
+
+topCcmtsOfdmMultiProfSysDownGradeAdminstatus OBJECT-TYPE
+    SYNTAX        INTEGER{
+					enable(1),    
+					disable(2)
+				}
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "downgrade profile administration status"
+    DEFVAL {enable}
+    ::={ topCcmtsOfdmMultiProfSysEntry 6 }
+
+topCcmtsOfdmMultiProfSysRxMerCalcPercent OBJECT-TYPE
+    SYNTAX        INTEGER(0..100) 
+    MAX-ACCESS    read-write
+    STATUS        obsolete
+    DESCRIPTION
+        "Subcarrier percent,Current Not supported OID"
+    ::={ topCcmtsOfdmMultiProfSysEntry 7 }
+    
+topCcmtsOfdmMultiProfSysAdminstatus OBJECT-TYPE
+    SYNTAX        INTEGER{
+					enable(1),    
+					disable(2)
+				}
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "Global function administration status"
+    DEFVAL {disable}
+    ::={ topCcmtsOfdmMultiProfSysEntry 8 }
+    
+topCcmtsOfdmMultiProfRxMerThresTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsOfdmMultiProfRxMerThresEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "OFDM multiple profile RxMER threshold table"
+    ::={topCmtsDocsis31ChannelObject 20 }
+
+topCcmtsOfdmMultiProfRxMerThresEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsOfdmMultiProfRxMerThresEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "OFDM multiple profile RxMER threshold table entry"
+    INDEX  { topCcmtsOfdmMultiProfRxMerThresIfindex,
+           topCcmtsOfdmMultiProfRxMerThresModOrder           }
+    ::= { topCcmtsOfdmMultiProfRxMerThresTable 1 }
+
+TopCcmtsOfdmMultiProfRxMerThresEntry ::= SEQUENCE {
+             topCcmtsOfdmMultiProfRxMerThresIfindex            INTEGER,
+             topCcmtsOfdmMultiProfRxMerThresModOrder            INTEGER,
+             topCcmtsOfdmMultiProfRxMerThreshold            INTEGER
+           }
+
+topCcmtsOfdmMultiProfRxMerThresIfindex OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "CMTS ifindex"
+    ::={ topCcmtsOfdmMultiProfRxMerThresEntry 1 }
+
+topCcmtsOfdmMultiProfRxMerThresModOrder OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "modulation oder"
+    ::={ topCcmtsOfdmMultiProfRxMerThresEntry 2 }
+
+topCcmtsOfdmMultiProfRxMerThreshold OBJECT-TYPE
+    SYNTAX        INTEGER(50..1000) 
+    UNITS         "0.1 dB"
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "OFDM multiple profile QAM modulation RxMER threshold.
+        default: qam16: 15 dB, qam64: 21 dB, qam128: 24 dB, qam256: 27 dB, qam512: 30.5dB, qam1024: 34dB, qam2048: 37 dB, qam4096: 41 dB ."
+    ::={ topCcmtsOfdmMultiProfRxMerThresEntry 3 }
+
+topCcmtsOfdmMultiProfSysTemplateTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsOfdmMultiProfSysTemplateEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "XXX table description is needed"
+    ::={ topCmtsDocsis31ChannelObject 21 }
+
+topCcmtsOfdmMultiProfSysTemplateEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsOfdmMultiProfSysTemplateEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "XXX table entry description is needed"
+    INDEX  { topCcmtsOfdmMultiProfSysTemplateId }
+    ::= { topCcmtsOfdmMultiProfSysTemplateTable 1 }
+
+TopCcmtsOfdmMultiProfSysTemplateEntry ::= SEQUENCE {
+             topCcmtsOfdmMultiProfSysTemplateId            INTEGER,
+             topCcmtsOfdmMultiProfSysTemplateRxMerPollInterval            INTEGER,
+             topCcmtsOfdmMultiProfSysTemplateProfProtectPower            INTEGER,
+             topCcmtsOfdmMultiProfSysTemplateRecommandAgeTime            INTEGER,
+             topCcmtsOfdmMultiProfSysTemplateUnfitAgeTime            INTEGER,
+             topCcmtsOfdmMultiProfSysTemplateDownGradeAdminstatus            INTEGER,
+             topCcmtsOfdmMultiProfSysTemplateRxMerCalcPercent            INTEGER,
+             topCcmtsOfdmMultiProfSysTemplateAdminstatus    INTEGER
+           }
+
+topCcmtsOfdmMultiProfSysTemplateId OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "Template Id"
+    ::={ topCcmtsOfdmMultiProfSysTemplateEntry 1 }
+
+topCcmtsOfdmMultiProfSysTemplateRxMerPollInterval OBJECT-TYPE
+    SYNTAX        INTEGER(0|300..86400) 
+    UNITS         "second"
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "RxMER polling interval"
+    DEFVAL {600}
+    ::={ topCcmtsOfdmMultiProfSysTemplateEntry 2 }
+
+topCcmtsOfdmMultiProfSysTemplateProfProtectPower OBJECT-TYPE
+    SYNTAX        INTEGER(0..50) 
+    UNITS         "0.1 dB"
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "QAM modulation RxMER threshold protect power"
+    DEFVAL {10}
+    ::={ topCcmtsOfdmMultiProfSysTemplateEntry 3 }
+
+topCcmtsOfdmMultiProfSysTemplateRecommandAgeTime OBJECT-TYPE
+    SYNTAX        INTEGER(0|300..86400) 
+    UNITS         "second"
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "Recommanded profile age time"
+    DEFVAL {1800}
+    ::={ topCcmtsOfdmMultiProfSysTemplateEntry 4 }
+
+topCcmtsOfdmMultiProfSysTemplateUnfitAgeTime OBJECT-TYPE
+    SYNTAX        INTEGER(0|300..86400) 
+    UNITS         "second"
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "Unfit profile age time"
+    DEFVAL {600}
+    ::={ topCcmtsOfdmMultiProfSysTemplateEntry 5 }
+
+topCcmtsOfdmMultiProfSysTemplateDownGradeAdminstatus OBJECT-TYPE
+    SYNTAX        INTEGER{
+					enable(1),    
+					disable(2)
+				}
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "downgrade profile administration status"
+    DEFVAL {enable}
+    ::={ topCcmtsOfdmMultiProfSysTemplateEntry 6 }
+
+topCcmtsOfdmMultiProfSysTemplateRxMerCalcPercent OBJECT-TYPE
+    SYNTAX        INTEGER(0..100) 
+    MAX-ACCESS    read-write
+    STATUS        obsolete
+    DESCRIPTION
+        "Subcarrier percent,Current Not supported OID"
+    ::={ topCcmtsOfdmMultiProfSysTemplateEntry 7 }
+    
+topCcmtsOfdmMultiProfSysTemplateAdminstatus OBJECT-TYPE
+    SYNTAX        INTEGER{
+					enable(1),    
+					disable(2)
+				}
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "Global function administration status"
+    DEFVAL {disable}
+    ::={ topCcmtsOfdmMultiProfSysTemplateEntry 8 }
+
+topCcmtsOfdmMultiProfRxMerThresTemplateTable OBJECT-TYPE
+    SYNTAX        SEQUENCE OF TopCcmtsOfdmMultiProfRxMerThresTemplateEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "OFDM multiple profile QAM modulation RxMER threshold table"
+    ::={ topCmtsDocsis31ChannelObject 22 }
+
+topCcmtsOfdmMultiProfRxMerThresTemplateEntry OBJECT-TYPE
+    SYNTAX        TopCcmtsOfdmMultiProfRxMerThresTemplateEntry
+    MAX-ACCESS    not-accessible
+    STATUS        current
+    DESCRIPTION
+        "topCcmtsOfdmMultiProfRxMerThresTemplateTable entry"
+    INDEX  { topCcmtsOfdmMultiProfRxMerThresTemplateId,
+           topCcmtsOfdmMultiProfRxMerThresTemplateModOrder           }
+    ::= { topCcmtsOfdmMultiProfRxMerThresTemplateTable 1 }
+
+TopCcmtsOfdmMultiProfRxMerThresTemplateEntry ::= SEQUENCE {
+             topCcmtsOfdmMultiProfRxMerThresTemplateId            INTEGER,
+             topCcmtsOfdmMultiProfRxMerThresTemplateModOrder            INTEGER,
+             topCcmtsOfdmMultiProfRxMerThresTemplateThreshold            INTEGER
+           }
+
+topCcmtsOfdmMultiProfRxMerThresTemplateId OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "Template ID"
+    ::={ topCcmtsOfdmMultiProfRxMerThresTemplateEntry 1 }
+
+topCcmtsOfdmMultiProfRxMerThresTemplateModOrder OBJECT-TYPE
+    SYNTAX        INTEGER
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "OFDM multiple profile QAM modulation order"
+    ::={ topCcmtsOfdmMultiProfRxMerThresTemplateEntry 2 }
+
+topCcmtsOfdmMultiProfRxMerThresTemplateThreshold OBJECT-TYPE
+    SYNTAX        INTEGER(1..1000) 
+    UNITS         "0.1 dB"
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+        "OFDM multiple profile QAM modulation RxMER threshold.
+        default: qam16: 16 dB, qam64: 21 dB, qam128: 24 dB, qam256: 27 dB, qam1024: 30.5dB, qam2048: 37 dB, qam4096: 41 dB, qam8192 : 46 dB,qam16384: 52dB."
+    ::={ topCcmtsOfdmMultiProfRxMerThresTemplateEntry 3 }
+END

@@ -214,8 +214,33 @@ defmodule SnmpKit.SnmpLib.MIB.Compiler do
 
     Logger.log_batch_compilation_start(length(mib_files))
 
-    # For now, compile in order provided (dependency resolution comes later)
-    compile_results = Enum.map(mib_files, &compile(&1, opts))
+    # Compile each file independently and guard against crashes so the batch continues
+    compile_results =
+      Enum.map(mib_files, fn file ->
+        try do
+          compile(file, opts)
+        rescue
+          exception ->
+            err =
+              Error.new(
+                :exception,
+                message: Exception.message(exception),
+                context: %{file: file, exception: exception.__struct__}
+              )
+
+            {:error, [err]}
+        catch
+          kind, reason ->
+            err =
+              Error.new(
+                :thrown,
+                message: "#{inspect(kind)}: #{inspect(reason)}",
+                context: %{file: file}
+              )
+
+            {:error, [err]}
+        end
+      end)
 
     {successes, errors} = partition_results(compile_results, mib_files)
 

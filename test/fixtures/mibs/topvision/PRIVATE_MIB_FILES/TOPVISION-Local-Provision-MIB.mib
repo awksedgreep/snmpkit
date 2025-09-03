@@ -1,0 +1,168 @@
+TOPVISION-LOCAL-PROVISION-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Integer32,
+	Unsigned32,
+    IpAddress
+        FROM SNMPv2-SMI
+    TruthValue,
+    DisplayString,
+    MacAddress,
+    RowStatus,
+    TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    ifIndex,
+    InterfaceIndex
+        FROM IF-MIB
+	docsIf3CmtsCmRegStatusId 
+             FROM DOCS-IF3-MIB
+	Ipv6Address,
+	Ipv6AddressPrefix
+			FROM IPV6-TC  -- RFC2465
+    topCcmtsMibObject
+		FROM TOPVISION-CCMTS-MIB
+	docsIfCmtsCmStatusIndex
+		FROM DOCS-IF-MIB;
+	 
+			 
+
+--
+-- topLocalProvisionObject
+--
+
+topLocalProvisionObject OBJECT IDENTIFIER ::= { topCcmtsMibObject 30 }
+
+
+
+--
+--topCcmtsClientClassTable
+--
+
+topCcmtsClientClassTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF TopCcmtsClientClassEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table contains information about 
+        local-provision client-class bind information."
+    ::= { topLocalProvisionObject 1 }
+
+topCcmtsClientClassEntry OBJECT-TYPE
+    SYNTAX          TopCcmtsClientClassEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object describes the client-class and which information bind to this client-class."
+    INDEX    {  topClientClassInterface } 
+    ::= { topCcmtsClientClassTable 1 }
+
+
+TopCcmtsClientClassEntry ::= SEQUENCE {
+		topClientClassInterface		   INTEGER,
+		topClientClassDescription      OCTET STRING,
+        topClientClassBindCmConfig     OCTET STRING,
+		topClientClassStatus           RowStatus
+}
+
+topClientClassInterface OBJECT-TYPE
+	SYNTAX      INTEGER (1..32)
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION
+		"The interface of client-class."
+	::= { topCcmtsClientClassEntry 1 }
+
+topClientClassDescription OBJECT-TYPE
+	SYNTAX      OCTET STRING(SIZE(0..255))
+	MAX-ACCESS  read-create
+	STATUS      current
+	DESCRIPTION
+		"The description of client-class."
+	::= { topCcmtsClientClassEntry 2 }
+		
+
+topClientClassBindCmConfig OBJECT-TYPE
+	SYNTAX      OCTET STRING(SIZE(0..64))
+	MAX-ACCESS  read-create
+	STATUS      current
+	DESCRIPTION
+		"The CM config file that bind to this client-class."
+	::= { topCcmtsClientClassEntry 3 }
+
+
+topClientClassStatus  OBJECT-TYPE
+	SYNTAX          RowStatus
+	MAX-ACCESS      read-create
+	STATUS          current
+	DESCRIPTION
+		"Indicates the status of the rows in this table, 
+		and can be used to create a new row or destroy the specific row." 
+	::= { topCcmtsClientClassEntry 4 }	
+
+		
+	
+--
+-- topClientClassMemberMacTable
+--	
+topClientClassMemberCmMacTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF TopClientClassMemberCmMacEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table contains information about 
+        local-provision client-class member."
+    ::= { topLocalProvisionObject 2 }
+
+topClientClassMemberCmMacEntry OBJECT-TYPE
+    SYNTAX          TopClientClassMemberCmMacEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object describes the client-class and its member MAC."
+    INDEX    {  topClientClassInterface,
+				topClientClassCmMacIndex } 
+    ::= { topClientClassMemberCmMacTable 1 }
+	
+
+TopClientClassMemberCmMacEntry ::= SEQUENCE {
+        topClientClassCmMacIndex          INTEGER,
+		topClientClassCmMacAddrRange      OCTET STRING,
+		topClientClassMemberMacStatus     RowStatus
+}
+	
+
+topClientClassCmMacIndex OBJECT-TYPE
+	SYNTAX      INTEGER (1..4096)
+	MAX-ACCESS  read-only
+	STATUS      current
+	DESCRIPTION
+		"The index of CM MAC range."
+	::= { topClientClassMemberCmMacEntry 1 }
+
+topClientClassCmMacAddrRange OBJECT-TYPE
+	SYNTAX      OCTET STRING (SIZE(14..35))
+	MAX-ACCESS  read-create
+	STATUS      current
+	DESCRIPTION
+		"The string of CM MAC address rang. 
+		It can be set a single MAC(format is 'xxxx.xxxx.xxxx' or 'xx:xx:xx:xx:xx:xx'), 
+		or set a MAC range(format is 'xxxx.xxxx.xxxx yyyy.yyyy.yyyy' or 'xx:xx:xx:xx:xx:xx yy:yy:yy:yy:yy:yy').
+		If set a MAC range, there need a space between start MAC and end MAC."
+	::= { topClientClassMemberCmMacEntry 2 }
+
+
+topClientClassMemberMacStatus  OBJECT-TYPE
+	SYNTAX          RowStatus
+	MAX-ACCESS      read-create
+	STATUS          current
+	DESCRIPTION
+		"Indicates the status of the rows in this table, 
+		and can be used to create a new row or destroy the specific row." 
+	::= { topClientClassMemberCmMacEntry 3 }
+
+
+
+
+END

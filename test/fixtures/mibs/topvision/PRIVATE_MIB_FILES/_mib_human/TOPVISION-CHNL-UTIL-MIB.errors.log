@@ -1,0 +1,23 @@
+MIB search path: /Users/mcotner/.snmp/mibs:/opt/homebrew/Cellar/net-snmp/5.9.4/share/snmp/mibs:/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES
+Cannot find module (DOCS-IF-MIB): At line 37 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-LOADBALANCING-MIB): At line 39 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-IF3-MIB): At line 43 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Cannot find module (DOCS-QOS-MIB): At line 53 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Bad operator (_): At line 2601 in /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib
+Did not find 'topCcmtsSystemObject' in module TOPVISION-CCMTS-MIB (/Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CHNL-UTIL-MIB.mib)
+Unlinked OID in TOPVISION-CHNL-UTIL-MIB: topCcmtsChnlUtilThresholdTable ::= { topCcmtsSystemObject 23 }
+Undefined identifier: topCcmtsSystemObject near line 33 of /Users/mcotner/Documents/elixir/snmpkit/test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CHNL-UTIL-MIB.mib
+Cannot adopt OID in TOPVISION-CHNL-UTIL-MIB: topCcmtsChnlUtilThresholdTable ::= { topCcmtsSystemObject 23 }
+Cannot adopt OID in TOPVISION-CHNL-UTIL-MIB: topCcmtsChnlUtilThresholdEntry ::= { topCcmtsChnlUtilThresholdTable 1 }
+Cannot adopt OID in TOPVISION-CHNL-UTIL-MIB: topCcmtsDownChnlUtilCriticalRcoeveryThreshold ::= { topCcmtsChnlUtilThresholdEntry 12 }
+Cannot adopt OID in TOPVISION-CHNL-UTIL-MIB: topCcmtsDownChnlUtilCriticalAlarmThreshold ::= { topCcmtsChnlUtilThresholdEntry 11 }
+Cannot adopt OID in TOPVISION-CHNL-UTIL-MIB: topCcmtsDownChnlUtilMajorRecoveryThreshold ::= { topCcmtsChnlUtilThresholdEntry 10 }
+Cannot adopt OID in TOPVISION-CHNL-UTIL-MIB: topCcmtsDownChnlUtilMajorAlarmThreshold ::= { topCcmtsChnlUtilThresholdEntry 9 }
+Cannot adopt OID in TOPVISION-CHNL-UTIL-MIB: topCcmtsDownChnlUtilMinorRecoveryThreshold ::= { topCcmtsChnlUtilThresholdEntry 8 }
+Cannot adopt OID in TOPVISION-CHNL-UTIL-MIB: topCcmtsDownChnlUtilMinorAlarmThreshold ::= { topCcmtsChnlUtilThresholdEntry 7 }
+Cannot adopt OID in TOPVISION-CHNL-UTIL-MIB: topCcmtsUpChnlUtilCriticalRecoveryThreshold ::= { topCcmtsChnlUtilThresholdEntry 6 }
+Cannot adopt OID in TOPVISION-CHNL-UTIL-MIB: topCcmtsUpChnlUtilCriticalAlarmThreshold ::= { topCcmtsChnlUtilThresholdEntry 5 }
+Cannot adopt OID in TOPVISION-CHNL-UTIL-MIB: topCcmtsUpChnlUtilMajorRecoveryThreshold ::= { topCcmtsChnlUtilThresholdEntry 4 }
+Cannot adopt OID in TOPVISION-CHNL-UTIL-MIB: topCcmtsUpChnlUtilMajorAlarmThreshold ::= { topCcmtsChnlUtilThresholdEntry 3 }
+Cannot adopt OID in TOPVISION-CHNL-UTIL-MIB: topCcmtsUpChnlUtilMinorRecoveryThreshold ::= { topCcmtsChnlUtilThresholdEntry 2 }
+Cannot adopt OID in TOPVISION-CHNL-UTIL-MIB: topCcmtsUpChnlUtilMinorAlarmThreshold ::= { topCcmtsChnlUtilThresholdEntry 1 }
