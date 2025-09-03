@@ -35,7 +35,7 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
           request: request,
           timeout: timeout,
           root_oid: root_oid_list,
-          next_oid: request.oid,
+          next_oid: root_oid_list,
           results: []
         }
 
@@ -90,7 +90,9 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
       version = Keyword.get(request.opts, :version, :v2c)
       max_repetitions = Keyword.get(request.opts, :max_repetitions, 10)
 
-      pdu = PDU.build_get_bulk_request([oid], request_id, 0, max_repetitions)
+      # Ensure oid is in list format for PDU building
+      oid_list = if is_list(oid), do: oid, else: [oid]
+      pdu = PDU.build_get_bulk_request(oid_list, request_id, 0, max_repetitions)
       message = PDU.build_message(pdu, community, version)
 
       case PDU.encode_message(message) do
@@ -125,7 +127,9 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
         # All varbinds are valid. Continue the walk from the last OID.
         new_results = state.results ++ varbinds
         last_oid = elem(List.last(varbinds), 0)
-        new_state = %{state | results: new_results, next_oid: last_oid}
+        # Ensure last_oid is in list format for next iteration
+        last_oid_list = if is_list(last_oid), do: last_oid, else: [last_oid]
+        new_state = %{state | results: new_results, next_oid: last_oid_list}
         walk_loop(new_state)
 
       0 ->

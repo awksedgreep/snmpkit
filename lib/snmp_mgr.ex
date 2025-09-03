@@ -15,7 +15,7 @@ defmodule SnmpKit.SnmpMgr do
 
   ## Parameters
   - `target` - The target device (e.g., "192.168.1.1:161" or "device.local")
-  - `oid` - The OID to retrieve (string format)
+  - `oid` - The OID to retrieve (string "1.3.6.1.2.1.1.1.0" or list [1,3,6,1,2,1,1,1,0] format)
   - `opts` - Options including :community, :timeout, :retries
 
   ## Examples
@@ -29,6 +29,7 @@ defmodule SnmpKit.SnmpMgr do
   """
   def get(target, oid, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+
     case SnmpKit.SnmpMgr.Core.send_get_request(target, oid, merged_opts) do
       {:ok, {_type, value}} -> {:ok, value}
       {:error, reason} -> {:error, reason}
@@ -43,7 +44,7 @@ defmodule SnmpKit.SnmpMgr do
 
   ## Parameters
   - `target` - The target device (e.g., "192.168.1.1:161" or "device.local")
-  - `oid` - The OID to retrieve (string format)
+  - `oid` - The OID to retrieve (string "1.3.6.1.2.1.1.1.0" or list [1,3,6,1,2,1,1,1,0] format)
   - `opts` - Options including :community, :timeout, :retries
 
   ## Examples
@@ -65,7 +66,7 @@ defmodule SnmpKit.SnmpMgr do
 
   ## Parameters
   - `target` - The target device
-  - `oid` - The starting OID
+  - `oid` - The starting OID (string "1.3.6.1.2.1.1.1.0" or list [1,3,6,1,2,1,1,1,0] format)
   - `opts` - Options including :community, :timeout, :retries
 
   ## Examples
@@ -79,6 +80,7 @@ defmodule SnmpKit.SnmpMgr do
   """
   def get_next(target, oid, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+
     case SnmpKit.SnmpMgr.Core.send_get_next_request(target, oid, merged_opts) do
       {:ok, {oid_string, _type, value}} -> {:ok, {oid_string, value}}
       {:error, reason} -> {:error, reason}
@@ -90,7 +92,7 @@ defmodule SnmpKit.SnmpMgr do
 
   ## Parameters
   - `target` - The target device (host:port format)
-  - `oid` - The OID to use as starting point for GET-NEXT
+  - `oid` - The OID to use as starting point for GET-NEXT (string "1.3.6.1.2.1.1.1.0" or list [1,3,6,1,2,1,1,1,0] format)
   - `opts` - Options including :community, :timeout, :retries
 
   ## Examples
@@ -108,7 +110,7 @@ defmodule SnmpKit.SnmpMgr do
 
   ## Parameters
   - `target` - The target device
-  - `oid` - The OID to set
+  - `oid` - The OID to set (string "1.3.6.1.2.1.1.1.0" or list [1,3,6,1,2,1,1,1,0] format)
   - `value` - The value to set
   - `opts` - Options including :community, :timeout, :retries
 
@@ -132,6 +134,11 @@ defmodule SnmpKit.SnmpMgr do
 
   Returns immediately with a reference. The caller will receive a message
   with the result.
+
+  ## Parameters
+  - `target` - The target device
+  - `oid` - The OID to retrieve (string "1.3.6.1.2.1.1.1.0" or list [1,3,6,1,2,1,1,1,0] format)
+  - `opts` - Options including :community, :timeout, :retries
 
   ## Examples
 
@@ -158,7 +165,7 @@ defmodule SnmpKit.SnmpMgr do
 
   ## Parameters
   - `target` - The target device
-  - `oid` - The starting OID
+  - `oid` - The starting OID (string "1.3.6.1.2.1.1.1.0" or list [1,3,6,1,2,1,1,1,0] format)
   - `opts` - Options including :non_repeaters, :max_repetitions, :community, :timeout
 
   ## Examples

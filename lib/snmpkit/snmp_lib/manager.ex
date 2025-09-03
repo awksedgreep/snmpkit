@@ -814,7 +814,14 @@ defmodule SnmpKit.SnmpLib.Manager do
   end
 
   # Helper functions
-  defp normalize_oid(oid) when is_list(oid), do: oid
+  defp normalize_oid(oid) when is_list(oid) do
+    # Validate the list OID before returning
+    case SnmpKit.SnmpLib.OID.valid_oid?(oid) do
+      :ok -> oid
+      {:error, :empty_oid} -> [1, 3, 6, 1]
+      {:error, _} -> [1, 3, 6, 1]
+    end
+  end
 
   defp normalize_oid(oid) when is_binary(oid) do
     # First try MIB symbolic name resolution
