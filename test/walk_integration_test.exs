@@ -35,18 +35,22 @@ defmodule SnmpKit.WalkIntegrationTest do
         case verify_simulator_ready() do
           :ok ->
             Logger.info("Integration test simulator ready on port #{@integration_port}")
+
             on_exit(fn ->
               if Process.alive?(sim_pid) do
                 Process.exit(sim_pid, :normal)
               end
             end)
+
             {:ok, simulator_pid: sim_pid}
 
           {:error, reason} ->
             Logger.error("Integration simulator not ready: #{inspect(reason)}")
+
             if Process.alive?(sim_pid) do
               Process.exit(sim_pid, :normal)
             end
+
             {:skip, "Simulator not responding"}
         end
 
@@ -60,8 +64,11 @@ defmodule SnmpKit.WalkIntegrationTest do
     @tag timeout: @test_timeout
     test "complete walk workflow returns expected results" do
       # Test the full walk workflow from start to finish
-      {:ok, results} = SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
-                                         port: @integration_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
+          port: @integration_port,
+          timeout: @test_timeout
+        )
 
       # Verify basic response structure
       assert is_list(results), "Walk should return a list"
@@ -104,12 +111,20 @@ defmodule SnmpKit.WalkIntegrationTest do
     @tag timeout: @test_timeout
     test "walk integration with different SNMP versions" do
       # Test v1 walk
-      {:ok, v1_results} = SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
-                                            version: :v1, port: @integration_port, timeout: @test_timeout)
+      {:ok, v1_results} =
+        SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
+          version: :v1,
+          port: @integration_port,
+          timeout: @test_timeout
+        )
 
       # Test v2c walk
-      {:ok, v2c_results} = SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
-                                             version: :v2c, port: @integration_port, timeout: @test_timeout)
+      {:ok, v2c_results} =
+        SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
+          version: :v2c,
+          port: @integration_port,
+          timeout: @test_timeout
+        )
 
       # Both should return results
       assert length(v1_results) > 0, "v1 walk should return results"
@@ -150,8 +165,11 @@ defmodule SnmpKit.WalkIntegrationTest do
       ]
 
       Enum.each(test_subtrees, fn {oid, description} ->
-        {:ok, results} = SnmpKit.SNMP.walk(@integration_host, oid,
-                                           port: @integration_port, timeout: @test_timeout)
+        {:ok, results} =
+          SnmpKit.SNMP.walk(@integration_host, oid,
+            port: @integration_port,
+            timeout: @test_timeout
+          )
 
         assert length(results) > 0, "#{description} walk should return results"
 
@@ -177,8 +195,12 @@ defmodule SnmpKit.WalkIntegrationTest do
       base_results = nil
 
       Enum.each(bulk_params, fn params ->
-        {:ok, results} = SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
-                                           params ++ [port: @integration_port, timeout: @test_timeout])
+        {:ok, results} =
+          SnmpKit.SNMP.walk(
+            @integration_host,
+            "1.3.6.1.2.1.1",
+            params ++ [port: @integration_port, timeout: @test_timeout]
+          )
 
         assert length(results) > 0, "Walk with #{inspect(params)} should return results"
         verify_result_format(results, "bulk_#{inspect(params)}")
@@ -201,8 +223,11 @@ defmodule SnmpKit.WalkIntegrationTest do
       # Measure walk performance
       start_time = System.monotonic_time(:millisecond)
 
-      {:ok, results} = SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
-                                         port: @integration_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
+          port: @integration_port,
+          timeout: @test_timeout
+        )
 
       end_time = System.monotonic_time(:millisecond)
       duration = end_time - start_time
@@ -214,7 +239,9 @@ defmodule SnmpKit.WalkIntegrationTest do
       results_per_second = length(results) / (duration / 1000)
       assert results_per_second > 1, "Should process at least 1 result per second"
 
-      Logger.info("Walk performance: #{length(results)} results in #{duration}ms (#{Float.round(results_per_second, 2)} results/sec)")
+      Logger.info(
+        "Walk performance: #{length(results)} results in #{duration}ms (#{Float.round(results_per_second, 2)} results/sec)"
+      )
     end
   end
 
@@ -223,7 +250,9 @@ defmodule SnmpKit.WalkIntegrationTest do
     test "walk handles network timeouts gracefully" do
       # Test with very short timeout
       case SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
-                             port: @integration_port, timeout: 1) do
+             port: @integration_port,
+             timeout: 1
+           ) do
         {:ok, results} ->
           # If it completes quickly, that's fine
           assert is_list(results)
@@ -242,7 +271,9 @@ defmodule SnmpKit.WalkIntegrationTest do
     @tag timeout: @test_timeout
     test "walk handles non-existent OIDs gracefully" do
       case SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.99.99.99",
-                             port: @integration_port, timeout: @test_timeout) do
+             port: @integration_port,
+             timeout: @test_timeout
+           ) do
         {:ok, []} ->
           # Empty results are acceptable for non-existent OIDs
           :ok
@@ -259,8 +290,11 @@ defmodule SnmpKit.WalkIntegrationTest do
 
     @tag timeout: @test_timeout
     test "walk handles invalid target gracefully" do
-      result = SnmpKit.SNMP.walk("192.168.255.255", "1.3.6.1.2.1.1",
-                                 port: @integration_port, timeout: 2000)
+      result =
+        SnmpKit.SNMP.walk("192.168.255.255", "1.3.6.1.2.1.1",
+          port: @integration_port,
+          timeout: 2000
+        )
 
       assert match?({:error, _}, result), "Walk to invalid target should return error"
     end
@@ -284,20 +318,28 @@ defmodule SnmpKit.WalkIntegrationTest do
 
       for oid <- system_oids do
         case SnmpKit.SNMP.get_with_type(@integration_host, oid,
-                                        port: @integration_port, timeout: @test_timeout) do
+               port: @integration_port,
+               timeout: @test_timeout
+             ) do
           {:ok, result} ->
             individual_results = [result | individual_results]
+
           {:error, _} ->
-            :ok  # Some OIDs might not exist
+            # Some OIDs might not exist
+            :ok
         end
       end
 
       # Walk the system group
-      {:ok, walk_results} = SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
-                                              port: @integration_port, timeout: @test_timeout)
+      {:ok, walk_results} =
+        SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
+          port: @integration_port,
+          timeout: @test_timeout
+        )
 
       # Walk should return at least as many results as successful individual GETs
       assert length(individual_results) > 0, "Should get some individual results"
+
       assert length(walk_results) >= length(individual_results),
              "Walk should return at least as many results as individual GETs"
 
@@ -312,11 +354,17 @@ defmodule SnmpKit.WalkIntegrationTest do
 
     @tag timeout: @test_timeout
     test "walk vs bulk_walk comparison" do
-      {:ok, walk_results} = SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
-                                              port: @integration_port, timeout: @test_timeout)
+      {:ok, walk_results} =
+        SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
+          port: @integration_port,
+          timeout: @test_timeout
+        )
 
-      {:ok, bulk_results} = SnmpKit.SnmpMgr.bulk_walk(@integration_host, "1.3.6.1.2.1.1",
-                                                      port: @integration_port, timeout: @test_timeout)
+      {:ok, bulk_results} =
+        SnmpKit.SnmpMgr.bulk_walk(@integration_host, "1.3.6.1.2.1.1",
+          port: @integration_port,
+          timeout: @test_timeout
+        )
 
       # Both should return results
       assert length(walk_results) > 0, "Walk should return results"
@@ -347,14 +395,18 @@ defmodule SnmpKit.WalkIntegrationTest do
   describe "Walk Type Preservation Integration" do
     @tag timeout: @test_timeout
     test "walk preserves all SNMP types in real data" do
-      {:ok, results} = SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1",
-                                         port: @integration_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1",
+          port: @integration_port,
+          timeout: @test_timeout
+        )
 
       # Should find multiple different SNMP types
-      found_types = results
-                   |> Enum.map(fn {_oid, type, _value} -> type end)
-                   |> Enum.uniq()
-                   |> Enum.sort()
+      found_types =
+        results
+        |> Enum.map(fn {_oid, type, _value} -> type end)
+        |> Enum.uniq()
+        |> Enum.sort()
 
       # Should find at least basic types
       required_types = [:integer, :octet_string, :object_identifier]
@@ -373,12 +425,15 @@ defmodule SnmpKit.WalkIntegrationTest do
 
     @tag timeout: @test_timeout
     test "walk never loses type information in real scenarios" do
-      {:ok, results} = SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
-                                         port: @integration_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
+          port: @integration_port,
+          timeout: @test_timeout
+        )
 
       # Every single result must have type information
       Enum.each(results, fn result ->
-        assert match?({_oid, type, _value}, result) when is_atom(type),
+        assert match?({_oid, type, _value} when is_atom(type), result),
                "Every result must have type information: #{inspect(result)}"
 
         {_oid, type, _value} = result
@@ -393,8 +448,11 @@ defmodule SnmpKit.WalkIntegrationTest do
     @tag timeout: @test_timeout
     test "walk does not return zero results for system group" do
       # This is the specific bug from the bug report
-      {:ok, results} = SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
-                                         port: @integration_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
+          port: @integration_port,
+          timeout: @test_timeout
+        )
 
       refute length(results) == 0,
              "Walk MUST NOT return zero results for system group - this was the main bug!"
@@ -405,8 +463,11 @@ defmodule SnmpKit.WalkIntegrationTest do
 
     @tag timeout: @test_timeout
     test "walk iteration continues until proper completion" do
-      {:ok, results} = SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
-                                         port: @integration_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
+          port: @integration_port,
+          timeout: @test_timeout
+        )
 
       # Should not stop after just one result
       refute length(results) == 1, "Walk should not stop after single result"
@@ -416,9 +477,11 @@ defmodule SnmpKit.WalkIntegrationTest do
 
       # Check for different system objects
       prefixes = ["1.3.6.1.2.1.1.1.", "1.3.6.1.2.1.1.2.", "1.3.6.1.2.1.1.3."]
-      found_prefixes = Enum.filter(prefixes, fn prefix ->
-        Enum.any?(oids, &String.starts_with?(&1, prefix))
-      end)
+
+      found_prefixes =
+        Enum.filter(prefixes, fn prefix ->
+          Enum.any?(oids, &String.starts_with?(&1, prefix))
+        end)
 
       assert length(found_prefixes) >= 2,
              "Should find multiple different system objects, found: #{inspect(found_prefixes)}"
@@ -427,8 +490,12 @@ defmodule SnmpKit.WalkIntegrationTest do
     @tag timeout: @test_timeout
     test "walk with explicit v1 does not fail due to parameter conflicts" do
       # This addresses the v1 parameter contamination issue
-      {:ok, results} = SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
-                                         version: :v1, port: @integration_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@integration_host, "1.3.6.1.2.1.1",
+          version: :v1,
+          port: @integration_port,
+          timeout: @test_timeout
+        )
 
       assert length(results) > 0, "v1 walk should not fail due to parameter conflicts"
       verify_result_format(results, "v1_regression_test")
@@ -452,7 +519,9 @@ defmodule SnmpKit.WalkIntegrationTest do
   defp verify_simulator_ready do
     try do
       case SnmpKit.SNMP.get_with_type(@integration_host, "1.3.6.1.2.1.1.1.0",
-                                      port: @integration_port, timeout: 5000) do
+             port: @integration_port,
+             timeout: 5000
+           ) do
         {:ok, _} -> :ok
         {:error, reason} -> {:error, reason}
       end
@@ -477,10 +546,23 @@ defmodule SnmpKit.WalkIntegrationTest do
 
   defp valid_snmp_types do
     [
-      :integer, :octet_string, :null, :object_identifier, :oid, :boolean,
-      :counter32, :counter64, :gauge32, :unsigned32, :timeticks,
-      :ip_address, :opaque, :string,
-      :no_such_object, :no_such_instance, :end_of_mib_view
+      :integer,
+      :octet_string,
+      :null,
+      :object_identifier,
+      :oid,
+      :boolean,
+      :counter32,
+      :counter64,
+      :gauge32,
+      :unsigned32,
+      :timeticks,
+      :ip_address,
+      :opaque,
+      :string,
+      :no_such_object,
+      :no_such_instance,
+      :end_of_mib_view
     ]
   end
 end

@@ -256,10 +256,10 @@ defmodule SnmpKit.SnmpLib.SecurityV3Test do
       assert :ok = Priv.validate_key(:aes256, :crypto.strong_rand_bytes(32))
 
       # Wrong key sizes
-      assert {:error, :key_wrong_size} =
+      assert {:error, :invalid_key_size} =
                Priv.validate_key(:des, :crypto.strong_rand_bytes(16))
 
-      assert {:error, :key_wrong_size} =
+      assert {:error, :invalid_key_size} =
                Priv.validate_key(:aes128, :crypto.strong_rand_bytes(8))
     end
 

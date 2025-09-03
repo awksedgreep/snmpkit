@@ -213,7 +213,7 @@ defmodule SnmpKit.SnmpLib.SNMPv3EdgeCasesTest do
     test "zero-length keys" do
       assert {:error, :empty_auth_key} = Auth.authenticate(:sha256, <<>>, "test message")
       assert {:error, :empty_key} = Auth.validate_key(:sha256, <<>>)
-      assert {:error, :empty_key} = Priv.validate_key(:aes128, <<>>)
+      assert {:error, :invalid_key_size} = Priv.validate_key(:aes128, <<>>)
     end
 
     test "oversized keys" do
@@ -222,7 +222,7 @@ defmodule SnmpKit.SnmpLib.SNMPv3EdgeCasesTest do
       oversized_priv_key = :crypto.strong_rand_bytes(100)
 
       assert {:error, :invalid_key_length} = Auth.validate_key(:sha256, oversized_auth_key)
-      assert {:error, :key_wrong_size} = Priv.validate_key(:aes128, oversized_priv_key)
+      assert {:error, :invalid_key_size} = Priv.validate_key(:aes128, oversized_priv_key)
     end
 
     test "non-binary key types" do
