@@ -233,15 +233,40 @@ defmodule SnmpKit.SnmpMgr.Bulk do
       |> Keyword.put(:max_repetitions, max_repetitions)
       |> Keyword.put(:version, :v2c)
 
+    # Debug logging for walk_multi issue investigation
+    require Logger
+
+    Logger.debug(
+      "bulk_walk_subtree: current_oid=#{inspect(current_oid)}, remaining=#{remaining}, max_rep=#{max_repetitions}"
+    )
+
     case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, current_oid, bulk_opts) do
       {:ok, results} ->
+        Logger.debug("bulk_walk_subtree: got #{length(results)} raw results")
+
         # Filter results that are still within the subtree scope
         {in_scope, next_oid} = filter_subtree_results(results, root_oid)
 
+        Logger.debug(
+          "bulk_walk_subtree: #{length(in_scope)} in_scope, next_oid=#{inspect(next_oid)}"
+        )
+
+        Logger.debug(
+          "bulk_walk_subtree: in_scope OIDs: #{inspect(Enum.map(in_scope, fn {oid, _, _} -> oid end))}"
+        )
+
         if Enum.empty?(in_scope) or next_oid == nil do
+          Logger.debug(
+            "bulk_walk_subtree: stopping - empty_in_scope=#{Enum.empty?(in_scope)}, next_oid_nil=#{next_oid == nil}"
+          )
+
           {:ok, Enum.reverse(acc)}
         else
           new_acc = Enum.reverse(in_scope) ++ acc
+
+          Logger.debug(
+            "bulk_walk_subtree: continuing with #{length(new_acc)} total results so far"
+          )
 
           bulk_walk_subtree(
             target,
@@ -254,6 +279,7 @@ defmodule SnmpKit.SnmpMgr.Bulk do
         end
 
       {:error, _} = error ->
+        Logger.debug("bulk_walk_subtree: error - #{inspect(error)}")
         error
     end
   end
@@ -263,24 +289,57 @@ defmodule SnmpKit.SnmpMgr.Bulk do
   end
 
   defp filter_table_results(results, root_oid) do
+    require Logger
+
     in_scope_results =
       results
       |> Enum.filter(fn
         # Only accept 3-tuple format with proper type information
-        {oid_list, _type, _value} -> List.starts_with?(oid_list, root_oid)
+        {oid_list, _type, _value} ->
+          starts_with = List.starts_with?(oid_list, root_oid)
+
+          Logger.debug(
+            "filter: checking #{inspect(oid_list)} starts_with #{inspect(root_oid)} = #{starts_with}"
+          )
+
+          starts_with
+
         # Reject 2-tuple format - type information must be preserved
-        {_oid_list, _value} -> false
+        {_oid_list, _value} ->
+          Logger.debug("filter: rejecting 2-tuple format")
+          false
       end)
 
     # Keep OIDs as lists internally - conversion to strings happens at final output
 
+    # Fix: next_oid should be derived from last in_scope result, not last overall result
+    # and we need to increment it properly for the next GETBULK request
     next_oid =
-      case List.last(results) do
-        {oid_list, _type, _value} -> oid_list
-        # Do not accept 2-tuple format - type information must be preserved
-        {_oid_list, _value} -> nil
-        _ -> nil
+      case List.last(in_scope_results) do
+        {oid_list, _type, _value} ->
+          # For bulk operations, the next OID should be the last successful OID
+          # The SNMP agent will return the next available OIDs from this point
+          Logger.debug("filter: next_oid from last in_scope: #{inspect(oid_list)}")
+          oid_list
+
+        _ ->
+          # If no in_scope results, try to get next_oid from last overall result
+          case List.last(results) do
+            {oid_list, _type, _value} ->
+              Logger.debug("filter: next_oid from last overall: #{inspect(oid_list)}")
+              oid_list
+
+            {_oid_list, _value} ->
+              nil
+
+            _ ->
+              nil
+          end
       end
+
+    Logger.debug(
+      "filter: returning #{length(in_scope_results)} in_scope, next_oid=#{inspect(next_oid)}"
+    )
 
     {in_scope_results, next_oid}
   end

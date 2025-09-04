@@ -116,13 +116,19 @@ defmodule SnmpKit.SnmpMgr.Multi do
   def get_bulk_multi(targets_and_oids, opts \\ []) do
     # get_bulk_multi called with #{length(targets_and_oids)} targets
     timeout = Keyword.get(opts, :timeout, @default_timeout)
-    max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
+    _max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
 
-    # Use direct SNMP get_bulk operations instead of Engine
-    requests = normalize_bulk_requests(targets_and_oids, opts)
+    # Use Engine for shared socket operations
+    engine = get_or_start_engine(opts)
+    # Engine obtained: #{inspect(engine)}
 
-    # Submit batch using get_bulk directly
-    results = submit_bulk_batch(requests, timeout, max_concurrent)
+    # Convert to engine request format
+    requests = normalize_requests_for_engine(targets_and_oids, :get_bulk, opts)
+    # Normalized #{length(requests)} requests
+
+    # Submit batch to engine
+    results = submit_batch_to_engine(engine, requests, timeout)
+    # Got results: #{inspect(results)}
 
     format_results(targets_and_oids, results, opts)
   end
@@ -175,10 +181,10 @@ defmodule SnmpKit.SnmpMgr.Multi do
     timeout = Keyword.get(opts, :timeout, @default_timeout * 3)
     max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
 
-    # Use SnmpKit.SnmpMgr.Walk.walk for proper iterative walk behavior
+    # Use direct iterative walks instead of Engine (which only handles single requests)
     requests = normalize_walk_requests(targets_and_oids, opts)
 
-    # Submit batch using Walk.walk directly
+    # Submit batch using proper iterative walk logic
     results = submit_walk_batch(requests, timeout, max_concurrent)
 
     format_results(targets_and_oids, results, opts)
@@ -524,7 +530,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
     end
   end
 
-  # Walk-specific request normalization for V2Walk
+  # Walk-specific request normalization for proper iterative walks
   defp normalize_walk_requests(targets_and_data, global_opts) do
     targets_and_data
     |> Enum.map(fn
@@ -544,14 +550,40 @@ defmodule SnmpKit.SnmpMgr.Multi do
     end)
   end
 
-  # Submit walk requests using Walk.walk directly
+  # Submit walk requests using proper iterative walk logic
   defp submit_walk_batch(requests, timeout, max_concurrent) do
-    # Use Task.async_stream for concurrent walks with proper Walk.walk execution
+    # Use Task.async_stream for concurrent walks with proper iterative walk execution
     requests
     |> Task.async_stream(
       fn request ->
-        # Call Walk.walk directly for each request
-        SnmpKit.SnmpMgr.Walk.walk(request.target, request.oid, request.opts)
+        # Use the bulk walk function directly for proper iterative behavior
+        case resolve_oid(request.oid) do
+          {:ok, start_oid} ->
+            # Call the iterative bulk walk function that handles multiple GETBULK requests
+            case bulk_walk_subtree_iterative(
+                   request.target,
+                   start_oid,
+                   start_oid,
+                   [],
+                   1000,
+                   request.opts
+                 ) do
+              {:ok, results} ->
+                # Convert OID lists to strings for final output (matching single walk format)
+                formatted_results =
+                  Enum.map(results, fn
+                    {oid_list, type, value} -> {Enum.join(oid_list, "."), type, value}
+                  end)
+
+                {:ok, formatted_results}
+
+              error ->
+                error
+            end
+
+          error ->
+            error
+        end
       end,
       max_concurrency: max_concurrent,
       timeout: timeout + 1000,
@@ -564,43 +596,74 @@ defmodule SnmpKit.SnmpMgr.Multi do
     end)
   end
 
-  # Bulk-specific request normalization for direct get_bulk calls
-  defp normalize_bulk_requests(targets_and_data, global_opts) do
-    targets_and_data
-    |> Enum.map(fn
-      {target, data, request_opts} ->
-        %{
-          target: target,
-          oid: data,
-          opts: Keyword.merge(global_opts, request_opts)
-        }
+  # Proper iterative bulk walk that continues until end of subtree
+  defp bulk_walk_subtree_iterative(target, current_oid, root_oid, acc, remaining, opts)
+       when remaining > 0 do
+    max_repetitions =
+      min(remaining, Keyword.get(opts, :max_repetitions, 10))
 
-      {target, data} ->
-        %{
-          target: target,
-          oid: data,
-          opts: global_opts
-        }
-    end)
+    bulk_opts =
+      opts
+      |> Keyword.put(:max_repetitions, max_repetitions)
+      |> Keyword.put(:version, :v2c)
+
+    case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, current_oid, bulk_opts) do
+      {:ok, results} ->
+        # Filter results that are still within the subtree scope
+        {in_scope, next_oid} = filter_subtree_results_iterative(results, root_oid)
+
+        if Enum.empty?(in_scope) or next_oid == nil do
+          {:ok, Enum.reverse(acc)}
+        else
+          new_acc = Enum.reverse(in_scope) ++ acc
+
+          # Continue walking from the next OID
+          bulk_walk_subtree_iterative(
+            target,
+            next_oid,
+            root_oid,
+            new_acc,
+            remaining - length(in_scope),
+            opts
+          )
+        end
+
+      {:error, _} = error ->
+        error
+    end
   end
 
-  # Submit bulk requests using get_bulk directly
-  defp submit_bulk_batch(requests, timeout, max_concurrent) do
-    # Use Task.async_stream for concurrent bulk operations with proper get_bulk execution
-    requests
-    |> Task.async_stream(
-      fn request ->
-        # Call get_bulk directly for each request
-        SnmpKit.SnmpMgr.Bulk.get_bulk(request.target, request.oid, request.opts)
-      end,
-      max_concurrency: max_concurrent,
-      timeout: timeout + 1000,
-      on_timeout: :kill_task
-    )
-    |> Enum.map(fn
-      {:ok, result} -> result
-      {:exit, :timeout} -> {:error, :timeout}
-      {:exit, reason} -> {:error, {:task_failed, reason}}
-    end)
+  defp bulk_walk_subtree_iterative(_target, _current_oid, _root_oid, acc, 0, _opts) do
+    {:ok, Enum.reverse(acc)}
   end
+
+  # Proper filtering for iterative walks
+  defp filter_subtree_results_iterative(results, root_oid) do
+    in_scope_results =
+      results
+      |> Enum.filter(fn
+        {oid_list, _type, _value} -> List.starts_with?(oid_list, root_oid)
+        {_oid_list, _value} -> false
+      end)
+
+    # Next OID should be from the last in-scope result for continuing the walk
+    next_oid =
+      case List.last(in_scope_results) do
+        {oid_list, _type, _value} -> oid_list
+        _ -> nil
+      end
+
+    {in_scope_results, next_oid}
+  end
+
+  # OID resolution helper
+  defp resolve_oid(oid) when is_binary(oid) do
+    SnmpKit.SnmpLib.OID.string_to_list(oid)
+  end
+
+  defp resolve_oid(oid) when is_list(oid) do
+    {:ok, oid}
+  end
+
+  defp resolve_oid(_), do: {:error, :invalid_oid}
 end
