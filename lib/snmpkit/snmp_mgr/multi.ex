@@ -599,6 +599,8 @@ defmodule SnmpKit.SnmpMgr.Multi do
   # Proper iterative bulk walk that continues until end of subtree
   defp bulk_walk_subtree_iterative(target, current_oid, root_oid, acc, remaining, opts)
        when remaining > 0 do
+    require Logger
+
     max_repetitions =
       min(remaining, Keyword.get(opts, :max_repetitions, 10))
 
@@ -607,15 +609,54 @@ defmodule SnmpKit.SnmpMgr.Multi do
       |> Keyword.put(:max_repetitions, max_repetitions)
       |> Keyword.put(:version, :v2c)
 
+    Logger.debug(
+      "walk_multi_iterative: target=#{target}, current_oid=#{inspect(current_oid)}, remaining=#{remaining}, max_rep=#{max_repetitions}"
+    )
+
     case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, current_oid, bulk_opts) do
       {:ok, results} ->
+        Logger.debug("walk_multi_iterative: got #{length(results)} raw results from GETBULK")
+
+        # Log first few results for debugging
+        results
+        |> Enum.take(3)
+        |> Enum.with_index()
+        |> Enum.each(fn {{oid, type, value}, idx} ->
+          Logger.debug(
+            "walk_multi_iterative: result[#{idx}] = #{inspect(oid)} (#{type}) = #{inspect(String.slice(to_string(value), 0, 20))}"
+          )
+        end)
+
         # Filter results that are still within the subtree scope
         {in_scope, next_oid} = filter_subtree_results_iterative(results, root_oid)
 
+        Logger.debug(
+          "walk_multi_iterative: #{length(in_scope)} results in scope, next_oid=#{inspect(next_oid)}"
+        )
+
+        Logger.debug("walk_multi_iterative: root_oid=#{inspect(root_oid)}")
+
+        # Log in-scope OIDs
+        in_scope
+        |> Enum.take(3)
+        |> Enum.with_index()
+        |> Enum.each(fn {{oid, _type, _value}, idx} ->
+          Logger.debug("walk_multi_iterative: in_scope[#{idx}] = #{inspect(oid)}")
+        end)
+
         if Enum.empty?(in_scope) or next_oid == nil do
+          Logger.debug(
+            "walk_multi_iterative: STOPPING - empty_in_scope=#{Enum.empty?(in_scope)}, next_oid_nil=#{next_oid == nil}"
+          )
+
+          Logger.debug("walk_multi_iterative: final result count = #{length(acc)}")
           {:ok, Enum.reverse(acc)}
         else
           new_acc = Enum.reverse(in_scope) ++ acc
+
+          Logger.debug(
+            "walk_multi_iterative: CONTINUING - total results so far = #{length(new_acc)}"
+          )
 
           # Continue walking from the next OID
           bulk_walk_subtree_iterative(
@@ -628,8 +669,9 @@ defmodule SnmpKit.SnmpMgr.Multi do
           )
         end
 
-      {:error, _} = error ->
-        error
+      {:error, error} ->
+        Logger.debug("walk_multi_iterative: ERROR - #{inspect(error)}")
+        {:error, error}
     end
   end
 
@@ -639,18 +681,37 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
   # Proper filtering for iterative walks
   defp filter_subtree_results_iterative(results, root_oid) do
+    require Logger
+
     in_scope_results =
       results
       |> Enum.filter(fn
-        {oid_list, _type, _value} -> List.starts_with?(oid_list, root_oid)
-        {_oid_list, _value} -> false
+        {oid_list, _type, _value} ->
+          starts_with = List.starts_with?(oid_list, root_oid)
+
+          Logger.debug(
+            "walk_multi_filter: checking #{inspect(oid_list)} starts_with #{inspect(root_oid)} = #{starts_with}"
+          )
+
+          starts_with
+
+        {_oid_list, _value} ->
+          Logger.debug("walk_multi_filter: rejecting 2-tuple format")
+          false
       end)
+
+    Logger.debug("walk_multi_filter: #{length(in_scope_results)} results passed filtering")
 
     # Next OID should be from the last in-scope result for continuing the walk
     next_oid =
       case List.last(in_scope_results) do
-        {oid_list, _type, _value} -> oid_list
-        _ -> nil
+        {oid_list, _type, _value} ->
+          Logger.debug("walk_multi_filter: next_oid = #{inspect(oid_list)}")
+          oid_list
+
+        _ ->
+          Logger.debug("walk_multi_filter: next_oid = nil (no in_scope results)")
+          nil
       end
 
     {in_scope_results, next_oid}
