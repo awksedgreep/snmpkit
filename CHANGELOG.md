@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.6] - 2025-01-12
+
+### Fixed
+- **Multi-Walk Bug Fix**: Fixed critical bug in `SnmpKit.SnmpMgr.MultiV2.walk_multi/2` where walk operations were only returning the first result instead of performing complete iterative walks
+- **SNMP v2c Compliance**: Removed obsolete v1-style GET_NEXT code paths from MultiV2 module to ensure all operations use proper SNMP v2c GET_BULK operations
+- **Walk Operation Delegation**: Walk operations now properly delegate to `SnmpKit.SnmpMgr.V2Walk` module for complete iterative walk functionality
+
+### Technical Details
+- Multi-walk operations now return all discovered results (1000+ items) instead of just 1 result
+- Confirmed exclusive use of GET_BULK PDU operations (0xA5) for efficient bulk retrieval
+- Maintained high performance with ~3.5 results per packet efficiency
+
 ## [0.6.0] - 2025-08-18
 
 ### Added
