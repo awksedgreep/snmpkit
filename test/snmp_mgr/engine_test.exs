@@ -29,7 +29,7 @@ defmodule SnmpKit.SnmpMgr.EngineComprehensiveTest do
         case SnmpKit.SnmpMgr.start_engine(name: :engine_test_supervisor) do
           {:ok, _pid} ->
             # Wait for router to be available
-            Process.sleep(100)
+            Process.sleep(10)
             :ok
 
           {:error, {:already_started, _pid}} ->
@@ -617,7 +617,7 @@ defmodule SnmpKit.SnmpMgr.EngineComprehensiveTest do
       results = SnmpKit.SnmpMgr.engine_batch(cleanup_requests)
 
       # Give time for cleanup
-      Process.sleep(100)
+      Process.sleep(10)
 
       case results do
         {:ok, batch_results} ->
@@ -696,7 +696,7 @@ defmodule SnmpKit.SnmpMgr.EngineComprehensiveTest do
       _result = SnmpKit.SnmpMgr.engine_request(test_request)
 
       # Wait for metrics to update
-      Process.sleep(50)
+      Process.sleep(5)
 
       {:ok, after_stats} = SnmpKit.SnmpMgr.get_engine_stats()
 

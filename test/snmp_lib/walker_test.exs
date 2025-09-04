@@ -62,12 +62,12 @@ defmodule SnmpKit.SnmpLib.WalkerTest do
       # system subtree
       base_oid = [1, 3, 6, 1, 2, 1, 1]
 
-      assert {:error, _} = Walker.walk_subtree("invalid.host.test", base_oid, timeout: 100)
+      assert {:error, _} = Walker.walk_subtree("192.168.255.254", base_oid, timeout: 50)
     end
 
     test "handles subtree boundary detection" do
       # Should stop when OIDs no longer match prefix
-      assert {:error, _} = Walker.walk_subtree("invalid.host.test", [1, 3, 6, 1], timeout: 100)
+      assert {:error, _} = Walker.walk_subtree("192.168.255.254", [1, 3, 6, 1], timeout: 50)
     end
 
     test "uses appropriate strategy for subtree walking" do
@@ -189,7 +189,7 @@ defmodule SnmpKit.SnmpLib.WalkerTest do
 
   describe "Walker error handling" do
     test "handles network timeouts gracefully" do
-      opts = [timeout: 50]
+      opts = [timeout: 20]
 
       # Should timeout quickly
       assert {:error, _} = Walker.walk_table("192.168.255.255", [1, 3, 6, 1], opts)
@@ -198,7 +198,7 @@ defmodule SnmpKit.SnmpLib.WalkerTest do
     @tag :skip
     test "implements retry logic" do
       # Test with unreachable host
-      opts = [max_retries: 2, retry_delay: 100, timeout: 50]
+      opts = [max_retries: 1, retry_delay: 50, timeout: 20]
 
       # Should retry on failures
       start_time = System.monotonic_time(:millisecond)
@@ -207,13 +207,13 @@ defmodule SnmpKit.SnmpLib.WalkerTest do
 
       # Should take longer due to retries
       # At least one retry delay
-      assert end_time - start_time >= 100
+      assert end_time - start_time >= 50
     end
 
     test "handles table boundary conditions" do
       # Test with various table scenarios
-      assert {:error, _} = Walker.walk_table("invalid.host.test", [1, 3, 6, 1], timeout: 100)
-      assert {:error, _} = Walker.walk_subtree("invalid.host.test", [1, 3, 6, 1], timeout: 100)
+      assert {:error, _} = Walker.walk_table("192.168.255.254", [1, 3, 6, 1], timeout: 20)
+      assert {:error, _} = Walker.walk_subtree("192.168.255.254", [1, 3, 6, 1], timeout: 20)
     end
 
     test "gracefully handles empty tables" do

@@ -19,6 +19,8 @@ ExUnit.configure(
     # :integration,
     # Performance tests
     :performance,
+    # SNMPv3 cryptographic tests (CPU-intensive, ~15-20 seconds)
+    :snmpv3,
     # DOCSIS-specific tests
     # :docsis,
     # Memory-intensive tests

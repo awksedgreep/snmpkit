@@ -1,5 +1,6 @@
 defmodule SnmpKit.SnmpLib.MIB.ComprehensiveMibTest do
   use ExUnit.Case, async: true
+  @moduletag :mib
 
   @moduledoc """
   Comprehensive test suite for all MIB fixtures to ensure 100% compatibility

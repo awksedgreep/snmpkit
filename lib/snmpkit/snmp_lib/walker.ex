@@ -92,7 +92,7 @@ defmodule SnmpKit.SnmpLib.Walker do
   ## Examples
 
       # Test that walk_table function exists and handles invalid input properly
-      iex> match?({:error, _}, SnmpKit.SnmpLib.Walker.walk_table("invalid.host", [1, 3, 6, 1, 2, 1, 2, 2], timeout: 100))
+      iex> match?({:error, _}, SnmpKit.SnmpLib.Walker.walk_table("192.168.255.254", [1, 3, 6, 1, 2, 1, 2, 2], timeout: 50))
       true
 
       # Walk with high bulk size for faster collection
@@ -133,7 +133,7 @@ defmodule SnmpKit.SnmpLib.Walker do
   ## Examples
 
       # Test that walk_subtree function exists and handles invalid input properly
-      iex> match?({:error, _}, SnmpKit.SnmpLib.Walker.walk_subtree("invalid.host", [1, 3, 6, 1, 2, 1, 1], timeout: 100))
+      iex> match?({:error, _}, SnmpKit.SnmpLib.Walker.walk_subtree("192.168.255.254", [1, 3, 6, 1, 2, 1, 1], timeout: 100))
       true
   """
   @spec walk_subtree(host(), oid(), walk_opts()) :: walk_result()

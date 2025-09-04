@@ -25,27 +25,27 @@ defmodule SnmpKit.SnmpLib.ManagerTest do
 
     test "validates input parameters" do
       # Test invalid host
-      assert {:error, _} = Manager.get("", [1, 3, 6, 1], timeout: 100)
+      assert {:error, _} = Manager.get("", [1, 3, 6, 1], timeout: 50)
 
       # Test invalid OID (empty)
-      assert {:error, _} = Manager.get("192.168.1.1", [], timeout: 100)
+      assert {:error, _} = Manager.get("192.168.1.1", [], timeout: 50)
 
       # Test with valid parameters but non-existent host
       assert {:error, _} =
-               Manager.get("192.168.255.255", [1, 3, 6, 1, 2, 1, 1, 1, 0], timeout: 100)
+               Manager.get("192.0.2.1", [1, 3, 6, 1, 2, 1, 1, 1, 0], timeout: 50)
     end
 
     test "handles community string options" do
       opts = [community: "private", timeout: 100]
 
       # Should attempt connection with private community
-      assert {:error, _} = Manager.get("invalid.host.test", [1, 3, 6, 1, 2, 1, 1, 1, 0], opts)
+      assert {:error, _} = Manager.get("192.0.2.1", [1, 3, 6, 1, 2, 1, 1, 1, 0], opts)
     end
 
     test "handles timeout options" do
       # Short timeout should fail quickly
       start_time = System.monotonic_time(:millisecond)
-      {:error, _} = Manager.get("192.168.255.255", [1, 3, 6, 1, 2, 1, 1, 1, 0], timeout: 50)
+      {:error, _} = Manager.get("192.0.2.1", [1, 3, 6, 1, 2, 1, 1, 1, 0], timeout: 50)
       end_time = System.monotonic_time(:millisecond)
 
       # Should complete within reasonable time of timeout
@@ -378,8 +378,8 @@ defmodule SnmpKit.SnmpLib.ManagerTest do
       # Network errors (timeout or network unreachable)
       assert {:error, _} = Manager.get("192.168.255.255", [1, 3, 6, 1], timeout: 50)
 
-      # Invalid host errors
-      assert {:error, _} = Manager.get("invalid.hostname.test", [1, 3, 6, 1], timeout: 100)
+      # Network unreachable errors (using non-routable IP to avoid DNS lookup)
+      assert {:error, _} = Manager.get("192.0.2.1", [1, 3, 6, 1], timeout: 50)
     end
 
     test "handles SNMP protocol errors" do
@@ -576,14 +576,14 @@ defmodule SnmpKit.SnmpLib.ManagerTest do
 
     test "validates input parameters" do
       # Test invalid host
-      assert {:error, _} = Manager.get_next("", [1, 3, 6, 1], timeout: 100)
+      assert {:error, _} = Manager.get_next("", [1, 3, 6, 1], timeout: 50)
 
       # Test invalid OID (empty)
-      assert {:error, _} = Manager.get_next("192.168.1.1", [], timeout: 100)
+      assert {:error, _} = Manager.get_next("192.168.1.1", [], timeout: 50)
 
       # Test with valid parameters but non-existent host
       assert {:error, _} =
-               Manager.get_next("192.168.255.255", [1, 3, 6, 1, 2, 1, 1, 1, 0], timeout: 100)
+               Manager.get_next("192.0.2.1", [1, 3, 6, 1, 2, 1, 1, 1, 0], timeout: 50)
     end
 
     test "handles community string options" do
@@ -591,13 +591,13 @@ defmodule SnmpKit.SnmpLib.ManagerTest do
 
       # Should attempt connection with private community
       assert {:error, _} =
-               Manager.get_next("invalid.host.test", [1, 3, 6, 1, 2, 1, 1, 1, 0], opts)
+               Manager.get_next("192.0.2.1", [1, 3, 6, 1, 2, 1, 1, 1, 0], opts)
     end
 
     test "handles timeout options" do
       # Short timeout should fail quickly
       start_time = System.monotonic_time(:millisecond)
-      {:error, _} = Manager.get_next("192.168.255.255", [1, 3, 6, 1, 2, 1, 1, 1, 0], timeout: 50)
+      {:error, _} = Manager.get_next("192.0.2.1", [1, 3, 6, 1, 2, 1, 1, 1, 0], timeout: 50)
       end_time = System.monotonic_time(:millisecond)
 
       # Should complete within reasonable time of timeout

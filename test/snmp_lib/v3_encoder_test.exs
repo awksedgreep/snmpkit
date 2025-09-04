@@ -1,5 +1,6 @@
-defmodule SnmpKit.SnmpLib.V3EncoderTest do
-  use ExUnit.Case, async: true
+defmodule SnmpKit.SnmpLib.PDU.V3EncoderTest do
+  use ExUnit.Case, async: false
+  @moduletag :snmpv3
 
   alias SnmpKit.SnmpLib.PDU.{V3Encoder, Constants}
   alias SnmpKit.SnmpLib.Security

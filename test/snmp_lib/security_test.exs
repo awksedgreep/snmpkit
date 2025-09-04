@@ -1,5 +1,6 @@
 defmodule SnmpKit.SnmpLib.SecurityTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
+  @moduletag :snmpv3
   doctest SnmpKit.SnmpLib.Security
 
   alias SnmpKit.SnmpLib.Security

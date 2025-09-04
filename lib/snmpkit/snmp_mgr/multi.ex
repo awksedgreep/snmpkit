@@ -60,10 +60,10 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
     # Use Engine for shared socket operations
     engine = get_or_start_engine(opts)
-    
+
     # Convert to engine request format
     requests = normalize_requests_for_engine(targets_and_oids, :get, opts)
-    
+
     # Submit batch to engine
     results = submit_batch_to_engine(engine, requests, timeout)
 
@@ -116,19 +116,13 @@ defmodule SnmpKit.SnmpMgr.Multi do
   def get_bulk_multi(targets_and_oids, opts \\ []) do
     # get_bulk_multi called with #{length(targets_and_oids)} targets
     timeout = Keyword.get(opts, :timeout, @default_timeout)
-    _max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
+    max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
 
-    # Use Engine for shared socket operations
-    engine = get_or_start_engine(opts)
-    # Engine obtained: #{inspect(engine)}
-    
-    # Convert to engine request format
-    requests = normalize_requests_for_engine(targets_and_oids, :get_bulk, opts)
-    # Normalized #{length(requests)} requests
-    
-    # Submit batch to engine
-    results = submit_batch_to_engine(engine, requests, timeout)
-    # Got results: #{inspect(results)}
+    # Use direct SNMP get_bulk operations instead of Engine
+    requests = normalize_bulk_requests(targets_and_oids, opts)
+
+    # Submit batch using get_bulk directly
+    results = submit_bulk_batch(requests, timeout, max_concurrent)
 
     format_results(targets_and_oids, results, opts)
   end
@@ -179,16 +173,13 @@ defmodule SnmpKit.SnmpMgr.Multi do
   def walk_multi(targets_and_oids, opts \\ []) do
     # Walks take longer
     timeout = Keyword.get(opts, :timeout, @default_timeout * 3)
-    _max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
+    max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
 
-    # Use Engine for shared socket operations
-    engine = get_or_start_engine(opts)
-    
-    # Convert to engine request format
-    requests = normalize_requests_for_engine(targets_and_oids, :walk, opts)
-    
-    # Submit batch to engine
-    results = submit_batch_to_engine(engine, requests, timeout)
+    # Use SnmpKit.SnmpMgr.Walk.walk for proper iterative walk behavior
+    requests = normalize_walk_requests(targets_and_oids, opts)
+
+    # Submit batch using Walk.walk directly
+    results = submit_walk_batch(requests, timeout, max_concurrent)
 
     format_results(targets_and_oids, results, opts)
   end
@@ -243,10 +234,10 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
     # Use Engine for shared socket operations
     engine = get_or_start_engine(opts)
-    
+
     # Convert to engine request format
     requests = normalize_requests_for_engine(targets_and_tables, :walk_table, opts)
-    
+
     # Submit batch to engine
     results = submit_batch_to_engine(engine, requests, timeout)
 
@@ -287,10 +278,10 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
     # Use Engine for shared socket operations
     engine = get_or_start_engine(opts)
-    
+
     # Convert operations to engine request format
     requests = normalize_mixed_operations_for_engine(operations, opts)
-    
+
     # Submit batch to engine
     submit_batch_to_engine(engine, requests, timeout)
   end
@@ -330,7 +321,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
         {:ok, engine} = SnmpKit.SnmpMgr.Engine.start_link(name: SnmpKit.SnmpMgr.Engine)
         Logger.debug("Started SNMP engine: #{inspect(engine)}")
         engine
-      
+
       engine ->
         Logger.debug("Using existing SNMP engine: #{inspect(engine)}")
         engine
@@ -345,12 +336,18 @@ defmodule SnmpKit.SnmpMgr.Multi do
           type: operation_type,
           target: target,
           oid: data,
-          community: Keyword.get(request_opts, :community, Keyword.get(global_opts, :community, "public")),
+          community:
+            Keyword.get(request_opts, :community, Keyword.get(global_opts, :community, "public")),
           version: Keyword.get(request_opts, :version, Keyword.get(global_opts, :version, :v2c)),
-          max_repetitions: Keyword.get(request_opts, :max_repetitions, Keyword.get(global_opts, :max_repetitions, 10)),
+          max_repetitions:
+            Keyword.get(
+              request_opts,
+              :max_repetitions,
+              Keyword.get(global_opts, :max_repetitions, 10)
+            ),
           opts: Keyword.merge(global_opts, request_opts)
         }
-      
+
       {target, data} ->
         %{
           type: operation_type,
@@ -372,12 +369,18 @@ defmodule SnmpKit.SnmpMgr.Multi do
           type: operation,
           target: target,
           oid: args,
-          community: Keyword.get(request_opts, :community, Keyword.get(global_opts, :community, "public")),
+          community:
+            Keyword.get(request_opts, :community, Keyword.get(global_opts, :community, "public")),
           version: Keyword.get(request_opts, :version, Keyword.get(global_opts, :version, :v2c)),
-          max_repetitions: Keyword.get(request_opts, :max_repetitions, Keyword.get(global_opts, :max_repetitions, 10)),
+          max_repetitions:
+            Keyword.get(
+              request_opts,
+              :max_repetitions,
+              Keyword.get(global_opts, :max_repetitions, 10)
+            ),
           opts: Keyword.merge(global_opts, request_opts)
         }
-      
+
       {operation, target, args} ->
         %{
           type: operation,
@@ -394,7 +397,8 @@ defmodule SnmpKit.SnmpMgr.Multi do
   defp submit_batch_to_engine(engine, requests, timeout) do
     # Submit batch to engine and collect results
     Logger.debug("Submitting batch of #{length(requests)} requests to engine #{inspect(engine)}")
-    tasks = 
+
+    tasks =
       requests
       |> Enum.with_index()
       |> Enum.map(fn {request, index} ->
@@ -405,19 +409,24 @@ defmodule SnmpKit.SnmpMgr.Multi do
           result
         end)
       end)
-    
+
     # Collect all results
-    Logger.debug("Waiting for #{length(tasks)} tasks to complete with timeout #{timeout + 1000}ms")
-    results = tasks
-    |> Task.yield_many(timeout + 1000)  # Add buffer to engine timeout
-    |> Enum.map(fn {_task, result} ->
-      case result do
-        {:ok, value} -> value
-        nil -> {:error, :timeout}
-        {:exit, reason} -> {:error, {:task_failed, reason}}
-      end
-    end)
-    
+    Logger.debug(
+      "Waiting for #{length(tasks)} tasks to complete with timeout #{timeout + 1000}ms"
+    )
+
+    results =
+      tasks
+      # Add buffer to engine timeout
+      |> Task.yield_many(timeout + 1000)
+      |> Enum.map(fn {_task, result} ->
+        case result do
+          {:ok, value} -> value
+          nil -> {:error, :timeout}
+          {:exit, reason} -> {:error, {:task_failed, reason}}
+        end
+      end)
+
     Logger.debug("Batch completed with results: #{inspect(results)}")
     results
   end
@@ -513,5 +522,85 @@ defmodule SnmpKit.SnmpMgr.Multi do
         # Unknown format, default to :list
         results
     end
+  end
+
+  # Walk-specific request normalization for V2Walk
+  defp normalize_walk_requests(targets_and_data, global_opts) do
+    targets_and_data
+    |> Enum.map(fn
+      {target, data, request_opts} ->
+        %{
+          target: target,
+          oid: data,
+          opts: Keyword.merge(global_opts, request_opts)
+        }
+
+      {target, data} ->
+        %{
+          target: target,
+          oid: data,
+          opts: global_opts
+        }
+    end)
+  end
+
+  # Submit walk requests using Walk.walk directly
+  defp submit_walk_batch(requests, timeout, max_concurrent) do
+    # Use Task.async_stream for concurrent walks with proper Walk.walk execution
+    requests
+    |> Task.async_stream(
+      fn request ->
+        # Call Walk.walk directly for each request
+        SnmpKit.SnmpMgr.Walk.walk(request.target, request.oid, request.opts)
+      end,
+      max_concurrency: max_concurrent,
+      timeout: timeout + 1000,
+      on_timeout: :kill_task
+    )
+    |> Enum.map(fn
+      {:ok, result} -> result
+      {:exit, :timeout} -> {:error, :timeout}
+      {:exit, reason} -> {:error, {:task_failed, reason}}
+    end)
+  end
+
+  # Bulk-specific request normalization for direct get_bulk calls
+  defp normalize_bulk_requests(targets_and_data, global_opts) do
+    targets_and_data
+    |> Enum.map(fn
+      {target, data, request_opts} ->
+        %{
+          target: target,
+          oid: data,
+          opts: Keyword.merge(global_opts, request_opts)
+        }
+
+      {target, data} ->
+        %{
+          target: target,
+          oid: data,
+          opts: global_opts
+        }
+    end)
+  end
+
+  # Submit bulk requests using get_bulk directly
+  defp submit_bulk_batch(requests, timeout, max_concurrent) do
+    # Use Task.async_stream for concurrent bulk operations with proper get_bulk execution
+    requests
+    |> Task.async_stream(
+      fn request ->
+        # Call get_bulk directly for each request
+        SnmpKit.SnmpMgr.Bulk.get_bulk(request.target, request.oid, request.opts)
+      end,
+      max_concurrency: max_concurrent,
+      timeout: timeout + 1000,
+      on_timeout: :kill_task
+    )
+    |> Enum.map(fn
+      {:ok, result} -> result
+      {:exit, :timeout} -> {:error, :timeout}
+      {:exit, reason} -> {:error, {:task_failed, reason}}
+    end)
   end
 end

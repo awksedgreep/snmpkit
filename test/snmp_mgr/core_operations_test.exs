@@ -248,13 +248,14 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
 
     test "invalid targets return proper errors" do
       invalid_targets = [
-        "invalid..hostname",
+        "192.0.2.1",
         "256.256.256.256",
-        "not.a.valid.target"
+        "192.168.255.254"
       ]
 
       Enum.each(invalid_targets, fn target ->
-        result = SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: "public", timeout: 200)
+        result =
+          SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: "public", timeout: 200)
 
         case result do
           {:error, reason} ->
@@ -552,7 +553,8 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
       # regardless of snmp_lib internal changes
 
       # Use documentation range IP (unreachable) for quick timeout
-      result = SnmpKit.SnmpMgr.get("192.0.2.254", "1.3.6.1.2.1.1.1.0", community: "public", timeout: 50)
+      result =
+        SnmpKit.SnmpMgr.get("192.0.2.254", "1.3.6.1.2.1.1.1.0", community: "public", timeout: 50)
 
       case result do
         {:ok, value} ->

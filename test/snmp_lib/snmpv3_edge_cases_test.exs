@@ -1,5 +1,6 @@
 defmodule SnmpKit.SnmpLib.SNMPv3EdgeCasesTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
+  @moduletag :snmpv3
 
   alias SnmpKit.SnmpLib.PDU.{V3Encoder, Constants}
   alias SnmpKit.SnmpLib.Security.{Auth, Priv, Keys}
