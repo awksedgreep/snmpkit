@@ -59,16 +59,6 @@ defmodule SnmpKit.SnmpMgr do
       {:ok, {oid, type, uptime}} = SnmpMgr.get_with_type("router.local", "sysUpTime.0")
       # {:ok, {"1.3.6.1.2.1.1.3.0", :timeticks, 123456789}}
   """
-  def get_with_type(target, oid, opts \\ []) do
-    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-
-    case SnmpKit.SnmpMgr.Core.send_get_request_with_type(target, oid, merged_opts) do
-      {:ok, {oid_str, type, value}} ->
-        {:ok, SnmpKit.SnmpMgr.Format.enrich_varbind({oid_str, type, value}, merged_opts)}
-
-      {:error, reason} -> {:error, reason}
-    end
-  end
 
   @doc """
   Performs an SNMP GETNEXT request.
@@ -111,16 +101,6 @@ defmodule SnmpKit.SnmpMgr do
       {:ok, {oid, type, val}} = SnmpMgr.get_next_with_type("device.local", "1.3.6.1.2.1.1")
       # {"1.3.6.1.2.1.1.1.0", :octet_string, "Linux hostname 5.4.0 #1 SMP"}
   """
-  def get_next_with_type(target, oid, opts \\ []) do
-    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-
-    case SnmpKit.SnmpMgr.Core.send_get_next_request(target, oid, merged_opts) do
-      {:ok, {oid_string, type, value}} ->
-        {:ok, SnmpKit.SnmpMgr.Format.enrich_varbind({oid_string, type, value}, merged_opts)}
-
-      {:error, reason} -> {:error, reason}
-    end
-  end
 
   @doc """
   Performs an SNMP SET request.
@@ -714,7 +694,7 @@ defmodule SnmpKit.SnmpMgr do
       |> Keyword.put(:include_formatted, true)
       |> SnmpKit.SnmpMgr.Config.merge_opts()
 
-    case get_with_type(target, oid, merged_opts) do
+    case get(target, oid, merged_opts) do
       {:ok, enriched} -> {:ok, enriched}
       {:error, reason} -> {:error, reason}
     end
