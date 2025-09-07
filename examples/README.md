@@ -124,13 +124,13 @@ Examples for scalable, high-concurrency SNMP operations.
 ### Basic SNMP Operations
 
 ```elixir
-# Simple GET
-{:ok, description} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
+# Simple GET (enriched map)
+{:ok, %{formatted: description}} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
 
-# Walk a subtree
+# Walk a subtree (list of enriched maps)
 {:ok, interfaces} = SnmpKit.SNMP.walk("192.168.1.1", "ifTable")
 
-# Bulk operations for efficiency
+# Bulk operations for efficiency (list of enriched maps)
 {:ok, results} = SnmpKit.SNMP.bulk_walk("192.168.1.1", "system")
 ```
 
@@ -179,7 +179,7 @@ defmodule MyAppTest do
   end
   
   test "can query device", %{target: target} do
-    {:ok, description} = SnmpKit.SNMP.get(target, "sysDescr.0")
+{:ok, %{formatted: description}} = SnmpKit.SNMP.get(target, "sysDescr.0")
     assert String.contains?(description, "Router")
   end
 end
@@ -211,7 +211,7 @@ Examples demonstrate robust error handling:
 
 ```elixir
 case SnmpKit.SNMP.get(target, oid) do
-  {:ok, value} -> 
+  {:ok, %{value: value}} -> 
     process_value(value)
   {:error, :timeout} ->
     Logger.warn("Device #{target} timeout")
