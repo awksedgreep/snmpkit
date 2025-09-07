@@ -4,7 +4,7 @@ defmodule Snmpkit.MixProject do
   def project do
     [
       app: :snmpkit,
-      version: "0.6.6",
+      version: "1.0.0",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -90,6 +90,8 @@ defmodule Snmpkit.MixProject do
         "docs/mib-guide.md",
         "docs/testing-guide.md",
         "docs/unified-api-guide.md",
+        "docs/enriched-output-migration.md",
+        "docs/concurrent-multi.md",
         "docs/v0.2.0-release-notes.md",
         "docs/v0.3.0-release-notes.md",
         "docs/v0.3.1-release-notes.md",

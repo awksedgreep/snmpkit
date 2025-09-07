@@ -5,7 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2025-xx-xx
+## [1.0.0] - 2025-09-07
+
+- API: Multi-target operations now default to Concurrent Multi (high-throughput) behavior. The legacy path remains available via `strategy: :simple`.
+- API: No manual engine/service start is required for multi-target operations. The Concurrent Multi components are auto-ensured at call time.
+- Docs: Rename "Multi v2" to "Concurrent Multi" and clarify that high-throughput multi-target execution is the recommended default approach.
+- Docs: Remove "start a service first" wording from examples; advanced examples may still show explicit starts for demonstration purposes.
+
+Note: For migration guidance from 0.x to 1.x enriched output, see docs/enriched-output-migration.md
 
 ### Breaking
 - Standardized enriched map result across all SNMP operations: `%{name?, oid, type, value, formatted?}`
@@ -13,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pretty helpers now include type and raw value; return the same map shape
 - Removed `get_with_type/3` and `get_next_with_type/3`
 - Multi-target APIs preserve outer shape but enrich inner items
-- See `standardize_api.md` for migration details
+- Migration: see `docs/enriched-output-migration.md`
 
 ## [0.6.6] - 2025-01-12
 

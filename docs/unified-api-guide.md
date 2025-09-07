@@ -4,7 +4,9 @@
 
 ## 🎯 Overview
 
-SnmpKit v0.2.0 introduces a **unified API** that organizes all functionality into logical, context-based modules. This design eliminates naming conflicts, improves discoverability, and provides a cleaner developer experience while maintaining 100% backward compatibility.
+SnmpKit provides a **unified API** that organizes all functionality into logical, context-based modules. This design eliminates naming conflicts, improves discoverability, and provides a cleaner developer experience. In 1.0, result shapes are standardized as enriched maps across operations.
+
+Note: Migrating from 0.x to 1.x? See the Enriched Output Migration Guide: enriched-output-migration.html
 
 ## 🏗️ API Architecture
 
@@ -33,10 +35,11 @@ While the namespaced `SnmpKit.SNMP` API remains available, prefer the concise he
 ### Basic Operations
 
 ```elixir
-# GET operations
-{:ok, value} = SnmpKit.get("192.168.1.1", "sysDescr.0")
+# GET operations (enriched varbind map)
+{:ok, %{name: name, oid: oid, type: type, value: value, formatted: formatted}} =
+  SnmpKit.get("192.168.1.1", "sysDescr.0")
 
-# WALK operations
+# WALK operations (list of enriched maps)
 {:ok, results} = SnmpKit.walk("192.168.1.1", "system")
 {:ok, table} = SnmpKit.walk_table("192.168.1.1", "ifTable")
 
@@ -59,6 +62,11 @@ results = SnmpKit.bulk_walk!("192.168.1.1", "system")
 ```
 
 ### Multi-Target Operations
+
+Concurrent Multi (formerly “Multi v2”)
+- High-throughput multi-target execution using a shared socket and non-blocking correlation.
+- Works with existing return_format options (:list, :with_targets, :map).
+- No manual setup expected in typical app usage; some advanced examples may show explicit engine starts, which will be optional moving forward.
 
 ```elixir
 # Query multiple devices simultaneously
@@ -108,12 +116,12 @@ task = SnmpKit.SNMP.get_bulk_async("192.168.1.1", "interfaces")
 ### Pretty Formatting
 
 ```elixir
-# Human-readable output
-{:ok, formatted} = SnmpKit.SNMP.get_pretty("192.168.1.1", "sysUpTime.0")
-# Returns: "12 days, 4:32:10.45"
+# Human-readable output that still preserves type and raw value
+{:ok, %{formatted: uptime, value: ticks, type: :timeticks}} =
+  SnmpKit.SNMP.get_pretty("192.168.1.1", "sysUpTime.0")
 
 {:ok, formatted_walk} = SnmpKit.SNMP.walk_pretty("192.168.1.1", "system")
-# Returns: [{"sysDescr.0", "Linux router"}, {"sysUpTime.0", "12 days, 4:32:10.45"}]
+# Returns: [%{oid: "...", type: :octet_string, value: "...", formatted: "..."}, ...]
 
 {:ok, formatted_bulk} = SnmpKit.SNMP.bulk_walk_pretty("192.168.1.1", "interfaces")
 ```
@@ -136,7 +144,7 @@ end)
 
 # Metrics recording
 SnmpKit.SNMP.record_metric(:counter, :requests_total, 1, %{host: "router1"})
-```)
+```
 
 ## 📚 MIB Operations (`SnmpKit.MIB`)
 
@@ -304,6 +312,28 @@ For convenience and backward compatibility, common operations are available dire
 ```
 
 ## 🔄 Migration Guide
+
+### Enriched Output (1.0+)
+- All SNMP operations now return enriched maps per varbind: `%{name?, oid, type, value, formatted?}`
+- Defaults: `include_names: true`, `include_formatted: true`
+- Disable per call: `include_names: false`, `include_formatted: false`
+- Disable globally: use SnmpKit.SnmpMgr.Config.set_default_include_names(false) or set_default_include_formatted(false)
+
+Examples:
+```elixir
+# Before (0.x):
+{:ok, value} = SnmpKit.get(target, oid)
+{:ok, {next_oid, value}} = SnmpKit.get_next(target, oid)
+{:ok, [{oid, type, value}]} = SnmpKit.walk(target, root)
+
+# After (1.x):
+{:ok, %{value: value}} = SnmpKit.get(target, oid)
+{:ok, %{oid: next_oid, value: value}} = SnmpKit.get_next(target, oid)
+{:ok, [%{oid: oid, type: type, value: value}]} = SnmpKit.walk(target, root)
+
+# Pretty functions return the same map shape with formatted included
+{:ok, %{formatted: f, value: v, type: t}} = SnmpKit.get_pretty(target, oid)
+```
 
 ### From Direct Module Usage
 

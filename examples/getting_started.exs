@@ -9,7 +9,7 @@
 # Run this script with: elixir examples/getting_started.exs
 
 Mix.install([
-  {:snmpkit, "~> 0.3.5"}
+  {:snmpkit, "~> 1.0"}
 ])
 
 defmodule GettingStartedExample do
@@ -407,7 +407,7 @@ IO.puts("""
   ╚══════╝╚═╝  ╚═══╝╚═╝     ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝   ╚═╝
 
   A modern, comprehensive SNMP toolkit for Elixir
-  Version 0.3.5 - Getting Started Example
+  Version 1.0 - Getting Started Example
 
 """)
 

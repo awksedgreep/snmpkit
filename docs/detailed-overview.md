@@ -36,7 +36,7 @@ Add `snmpkit` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:snmpkit, "~> 0.2.0"}
+    {:snmpkit, "~> 1.0"}
   ]
 end
 ```
@@ -49,8 +49,8 @@ SnmpKit provides a clean, organized API through context-based modules:
 
 ```elixir
 # Basic SNMP operations
-{:ok, description} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
-{:ok, uptime} = SnmpKit.SNMP.get("192.168.1.1", "sysUpTime.0")
+{:ok, %{formatted: description}} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
+{:ok, %{value: uptime}} = SnmpKit.SNMP.get("192.168.1.1", "sysUpTime.0")
 
 # Walk operations
 {:ok, system_info} = SnmpKit.SNMP.walk("192.168.1.1", "system")
@@ -66,8 +66,8 @@ SnmpKit provides a clean, organized API through context-based modules:
   {"host3", "ifInOctets.1"}
 ])
 
-# Pretty formatting
-{:ok, formatted} = SnmpKit.SNMP.get_pretty("192.168.1.1", "sysUpTime.0")
+# Pretty formatting (enriched map with formatted)
+{:ok, %{formatted: formatted}} = SnmpKit.SNMP.get_pretty("192.168.1.1", "sysUpTime.0")
 # Returns: "12 days, 4:32:10.45"
 
 # Async operations

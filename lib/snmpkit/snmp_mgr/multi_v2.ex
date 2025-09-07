@@ -136,7 +136,10 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
         {:ok, [{"1.3.6.1.2.1.1.1.0", "Router 1"}, ...]}
       ]
   """
-  def execute_mixed(operations, opts \\ []) do
+def execute_mixed(operations, opts \\ []) do
+    # Ensure required components are running (idempotent)
+    ensure_components_started()
+
     timeout = Keyword.get(opts, :timeout, @default_timeout * 3)
     max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
 
@@ -162,7 +165,10 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
 
   # Private functions
 
-  defp execute_multi_operation(targets_and_data, operation_type, opts) do
+defp execute_multi_operation(targets_and_data, operation_type, opts) do
+    # Ensure required components are running (idempotent)
+    ensure_components_started()
+
     timeout = Keyword.get(opts, :timeout, @default_timeout)
     max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
 
@@ -429,6 +435,26 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
         # Unknown format, default to :list
         Enum.map(results, &enrich_any_result(&1, opts))
     end
+  end
+
+  # Ensure the V2 components are running; safe to call repeatedly
+  defp ensure_components_started() do
+    # RequestIdGenerator
+    unless Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator) do
+      _ = SnmpKit.SnmpMgr.RequestIdGenerator.start_link(name: SnmpKit.SnmpMgr.RequestIdGenerator)
+    end
+
+    # SocketManager
+    unless Process.whereis(SnmpKit.SnmpMgr.SocketManager) do
+      _ = SnmpKit.SnmpMgr.SocketManager.start_link(name: SnmpKit.SnmpMgr.SocketManager)
+    end
+
+    # EngineV2
+    unless Process.whereis(SnmpKit.SnmpMgr.EngineV2) do
+      _ = SnmpKit.SnmpMgr.EngineV2.start_link(name: SnmpKit.SnmpMgr.EngineV2)
+    end
+
+    :ok
   end
 
   # Enrich any result to standardized maps, preserving {:ok, ...} | {:error, ...}

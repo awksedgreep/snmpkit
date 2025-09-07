@@ -190,7 +190,7 @@ router_target = "127.0.0.1:1162"
 
 # Test cable modem
 case SNMP.get(cable_modem_target, "sysDescr.0") do
-  {:ok, description} ->
+  {:ok, %{formatted: description}} ->
     IO.puts("📡 Cable Modem: #{description}")
   {:error, reason} ->
     IO.puts("❌ Cable modem error: #{inspect(reason)}")
@@ -198,7 +198,7 @@ end
 
 # Test router
 case SNMP.get(router_target, "sysDescr.0") do
-  {:ok, description} ->
+  {:ok, %{formatted: description}} ->
     IO.puts("🔀 Router: #{description}")
   {:error, reason} ->
     IO.puts("❌ Router error: #{inspect(reason)}")
@@ -220,19 +220,19 @@ cable_modem_target = "127.0.0.1:1161"
 IO.puts("=== Basic SNMP GET Operations ===\n")
 
 # Standard GET operation
-{:ok, system_desc} = SNMP.get(cable_modem_target, "sysDescr.0")
+{:ok, %{formatted: system_desc}} = SNMP.get(cable_modem_target, "sysDescr.0")
 IO.puts("System Description: #{system_desc}")
 
-# GET with type information
-{:ok, {oid, type, value}} = SNMP.get_with_type(cable_modem_target, "sysUpTime.0")
-IO.puts("System Uptime: #{value} (#{type}) at OID #{oid}")  # Remove Enum.join
+# GET returns type and raw value in enriched map
+{:ok, %{oid: oid, type: type, value: ticks}} = SNMP.get(cable_modem_target, "sysUpTime.0")
+IO.puts("System Uptime (raw): #{ticks} (#{type}) at OID #{oid}")
 
-# GET with pretty formatting
-{:ok, formatted_uptime} = SNMP.get_pretty(cable_modem_target, "sysUpTime.0")
+# GET with pretty formatting (still preserves type and raw value)
+{:ok, %{formatted: formatted_uptime}} = SNMP.get_pretty(cable_modem_target, "sysUpTime.0")
 IO.puts("Formatted Uptime: #{formatted_uptime}")
 
 # GET system contact
-{:ok, contact} = SNMP.get(cable_modem_target, "sysContact.0")
+{:ok, %{formatted: contact}} = SNMP.get(cable_modem_target, "sysContact.0")
 IO.puts("System Contact: #{contact}")
 
 ```
@@ -255,7 +255,7 @@ IO.puts("System group contains #{length(system_info)} objects:")
 # Display first few system objects
 system_info
 |> Enum.take(5)
-|> Enum.each(fn {oid, type, value} ->
+|> Enum.each(fn %{oid: oid, type: type, value: value} ->
   IO.puts("  #{oid} (#{type}) = #{inspect(value)}")
 end)
 
@@ -264,7 +264,7 @@ end)
 IO.puts("\nPretty formatted system info:")
 pretty_system
 |> Enum.take(3)
-|> Enum.each(fn {name, value} ->
+|> Enum.each(fn %{oid: name, formatted: value} ->
   IO.puts("  #{name}: #{value}")
 end)
 ```
@@ -281,22 +281,22 @@ router_target = "127.0.0.1:1162"
 IO.puts("\n=== Interface Information ===\n")
 
 # Get interface count from cable modem
-{:ok, cm_if_count} = SNMP.get(cable_modem_target, "ifNumber.0")
+{:ok, %{value: cm_if_count}} = SNMP.get(cable_modem_target, "ifNumber.0")
 IO.puts("Cable Modem interfaces: #{cm_if_count}")
 
 # Get interface count from router
-{:ok, router_if_count} = SNMP.get(router_target, "ifNumber.0")
+{:ok, %{value: router_if_count}} = SNMP.get(router_target, "ifNumber.0")
 IO.puts("Router interfaces: #{router_if_count}")
 
 # Get interface descriptions
-{:ok, cm_if1_desc} = SNMP.get(cable_modem_target, "ifDescr.1")
-{:ok, cm_if2_desc} = SNMP.get(cable_modem_target, "ifDescr.2")
+{:ok, %{formatted: cm_if1_desc}} = SNMP.get(cable_modem_target, "ifDescr.1")
+{:ok, %{formatted: cm_if2_desc}} = SNMP.get(cable_modem_target, "ifDescr.2")
 IO.puts("\nCable Modem Interface Details:")
 IO.puts("  Interface 1: #{cm_if1_desc}")
 IO.puts("  Interface 2: #{cm_if2_desc}")
 
-{:ok, router_if1_desc} = SNMP.get(router_target, "ifDescr.1")
-{:ok, router_if2_desc} = SNMP.get(router_target, "ifDescr.2")
+{:ok, %{formatted: router_if1_desc}} = SNMP.get(router_target, "ifDescr.1")
+{:ok, %{formatted: router_if2_desc}} = SNMP.get(router_target, "ifDescr.2")
 IO.puts("\nRouter Interface Details:")
 IO.puts("  Interface 1: #{router_if1_desc}")
 IO.puts("  Interface 2: #{router_if2_desc}")
@@ -331,7 +331,7 @@ IO.puts("Targeted bulk operation returned #{length(bulk_specific)} objects")
 # Show some bulk results
 bulk_results
 |> Enum.take(3)
-|> Enum.each(fn {oid, type, value} ->
+|> Enum.each(fn %{oid: oid, type: type, value: value} ->
   IO.puts("  #{oid} (#{type}): #{inspect(value)}")
 end)
 ```
@@ -394,9 +394,8 @@ multi_walk_results
       # Show first few objects
       walk_data
       |> Enum.take(3)
-      |> Enum.each(fn {obj_oid, type, value} ->
-        oid_str = if is_list(obj_oid), do: Enum.join(obj_oid, "."), else: obj_oid
-        IO.puts("    #{oid_str} (#{type}) = #{inspect(value)}")
+      |> Enum.each(fn %{oid: obj_oid, type: type, value: value} ->
+        IO.puts("    #{obj_oid} (#{type}) = #{inspect(value)}")
       end)
     {:error, reason} ->
       IO.puts("  ❌ #{target} #{oid}: #{inspect(reason)}")
@@ -551,17 +550,17 @@ switch_target = "127.0.0.1:1163"
 IO.puts("✅ Enterprise switch simulation started on #{switch_target}")
 
 # Test the switch
-{:ok, switch_desc} = SNMP.get(switch_target, "sysDescr.0")
-{:ok, switch_interfaces} = SNMP.get(switch_target, "ifNumber.0")
+{:ok, %{formatted: switch_desc}} = SNMP.get(switch_target, "sysDescr.0")
+{:ok, %{value: switch_interfaces}} = SNMP.get(switch_target, "ifNumber.0")
 IO.puts("Switch: #{switch_desc}")
 IO.puts("Interfaces: #{switch_interfaces}")
 
 # Check a few interface statuses
 Enum.each([1, 5, 15, 25], fn port ->
   case SNMP.get(switch_target, "ifDescr.#{port}") do
-    {:ok, desc} ->
+    {:ok, %{formatted: desc}} ->
       case SNMP.get(switch_target, "ifOperStatus.#{port}") do
-        {:ok, status} ->
+        {:ok, %{value: status}} ->
           status_text = if status == 1, do: "UP", else: "DOWN"
           IO.puts("  Port #{port}: #{desc} - #{status_text}")
         _ -> nil
@@ -651,19 +650,19 @@ wireless_ap_oids = %{
 IO.puts("✅ Wireless AP simulation started on #{wireless_ap_target}")
 
 # Test the wireless AP
-{:ok, ap_desc} = SNMP.get(wireless_ap_target, "sysDescr.0")
-{:ok, ap_interfaces} = SNMP.get(wireless_ap_target, "ifNumber.0")
+{:ok, %{formatted: ap_desc}} = SNMP.get(wireless_ap_target, "sysDescr.0")
+{:ok, %{value: ap_interfaces}} = SNMP.get(wireless_ap_target, "ifNumber.0")
 IO.puts("Wireless AP: #{ap_desc}")
 IO.puts("Interfaces: #{ap_interfaces}")
 
 # Check wireless-specific data
 case SNMP.get(wireless_ap_target, "1.3.6.1.4.1.41112.1.4.1.1.6.1") do
-  {:ok, clients_24} -> IO.puts("2.4GHz Clients: #{clients_24}")
+  {:ok, %{value: clients_24}} -> IO.puts("2.4GHz Clients: #{clients_24}")
   _ -> IO.puts("2.4GHz Clients: Not available")
 end
 
 case SNMP.get(wireless_ap_target, "1.3.6.1.4.1.41112.1.4.1.1.6.2") do
-  {:ok, clients_5} -> IO.puts("5GHz Clients: #{clients_5}")
+  {:ok, %{value: clients_5}} -> IO.puts("5GHz Clients: #{clients_5}")
   _ -> IO.puts("5GHz Clients: Not available")
 end
 

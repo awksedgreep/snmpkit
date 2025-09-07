@@ -36,7 +36,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
         )
 
       case result do
-        {:ok, value} ->
+        {:ok, %{value: value}} ->
           # Successful operation through snmp_lib - must be real data
           assert is_binary(value) or is_integer(value) or is_list(value)
           assert byte_size(to_string(value)) > 0
@@ -101,7 +101,7 @@ defmodule SnmpKit.SnmpMgr.CoreOperationsTest do
         )
 
       case result do
-        {:ok, {oid, value}} ->
+        {:ok, %{oid: oid, value: value}} ->
           # Successful get_next through snmp_lib
           assert is_binary(oid) or is_list(oid)
           # Value can be various types including atoms for special SNMP values

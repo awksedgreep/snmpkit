@@ -39,26 +39,6 @@ defmodule SnmpKit.SnmpMgr do
     end
   end
 
-  @doc """
-  Performs an SNMP GET request and returns the result in 3-tuple format.
-
-  This function returns the same format as walk, bulk, and other operations:
-  `{oid_string, type, value}` for consistency across the library.
-
-  ## Parameters
-  - `target` - The target device (e.g., "192.168.1.1:161" or "device.local")
-  - `oid` - The OID to retrieve (string "1.3.6.1.2.1.1.1.0" or list [1,3,6,1,2,1,1,1,0] format)
-  - `opts` - Options including :community, :timeout, :retries
-
-  ## Examples
-
-      # Note: This function makes actual network calls and is not suitable for doctests
-      {:ok, {oid, type, value}} = SnmpMgr.get_with_type("device.local:161", "sysDescr.0", community: "public")
-      # {:ok, {"1.3.6.1.2.1.1.1.0", :octet_string, "Linux server 5.4.0-42-generic"}}
-
-      {:ok, {oid, type, uptime}} = SnmpMgr.get_with_type("router.local", "sysUpTime.0")
-      # {:ok, {"1.3.6.1.2.1.1.3.0", :timeticks, 123456789}}
-  """
 
   @doc """
   Performs an SNMP GETNEXT request.
@@ -88,19 +68,6 @@ defmodule SnmpKit.SnmpMgr do
     end
   end
 
-  @doc """
-  Performs an SNMP GET-NEXT request and returns the result with type information.
-
-  ## Parameters
-  - `target` - The target device (host:port format)
-  - `oid` - The OID to use as starting point for GET-NEXT (string "1.3.6.1.2.1.1.1.0" or list [1,3,6,1,2,1,1,1,0] format)
-  - `opts` - Options including :community, :timeout, :retries
-
-  ## Examples
-
-      {:ok, {oid, type, val}} = SnmpMgr.get_next_with_type("device.local", "1.3.6.1.2.1.1")
-      # {"1.3.6.1.2.1.1.1.0", :octet_string, "Linux hostname 5.4.0 #1 SMP"}
-  """
 
   @doc """
   Performs an SNMP SET request.
@@ -369,9 +336,14 @@ defmodule SnmpKit.SnmpMgr do
       iex> SnmpMgr.get_multi([{"device1", [1,3,6,1,2,1,1,1,0]}, {"device2", [1,3,6,1,2,1,1,3,0]}])
       [{:error, {:network_error, :hostname_resolution_failed}}, {:error, {:network_error, :hostname_resolution_failed}}]
   """
-  def get_multi(targets_and_oids, opts \\ []) do
+def get_multi(targets_and_oids, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-    SnmpKit.SnmpMgr.Multi.get_multi(targets_and_oids, merged_opts)
+    strategy = Keyword.get(merged_opts, :strategy, :concurrent)
+
+    case strategy do
+      :simple -> SnmpKit.SnmpMgr.Multi.get_multi(targets_and_oids, merged_opts)
+      _ -> SnmpKit.SnmpMgr.MultiV2.get_multi(targets_and_oids, merged_opts)
+    end
   end
 
   @doc """
@@ -381,13 +353,18 @@ defmodule SnmpKit.SnmpMgr do
   - `targets_and_oids` - List of {target, oid} tuples
   - `opts` - Options applied to all requests including :max_repetitions
   """
-  def get_bulk_multi(targets_and_oids, opts \\ []) do
+def get_bulk_multi(targets_and_oids, opts \\ []) do
     merged_opts =
       opts
       |> Keyword.put(:version, :v2c)
       |> (&SnmpKit.SnmpMgr.Config.merge_opts/1).()
 
-    SnmpKit.SnmpMgr.Multi.get_bulk_multi(targets_and_oids, merged_opts)
+    strategy = Keyword.get(merged_opts, :strategy, :concurrent)
+
+    case strategy do
+      :simple -> SnmpKit.SnmpMgr.Multi.get_bulk_multi(targets_and_oids, merged_opts)
+      _ -> SnmpKit.SnmpMgr.MultiV2.get_bulk_multi(targets_and_oids, merged_opts)
+    end
   end
 
   @doc """
@@ -397,9 +374,14 @@ defmodule SnmpKit.SnmpMgr do
   - `targets_and_oids` - List of {target, root_oid} tuples
   - `opts` - Options applied to all requests
   """
-  def walk_multi(targets_and_oids, opts \\ []) do
+def walk_multi(targets_and_oids, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-    SnmpKit.SnmpMgr.Multi.walk_multi(targets_and_oids, merged_opts)
+    strategy = Keyword.get(merged_opts, :strategy, :concurrent)
+
+    case strategy do
+      :simple -> SnmpKit.SnmpMgr.Multi.walk_multi(targets_and_oids, merged_opts)
+      _ -> SnmpKit.SnmpMgr.MultiV2.walk_multi(targets_and_oids, merged_opts)
+    end
   end
 
   @doc """
@@ -428,7 +410,12 @@ defmodule SnmpKit.SnmpMgr do
       # ]
   """
   def adaptive_walk(target, root_oid, opts \\ []) do
-    SnmpKit.SnmpMgr.AdaptiveWalk.bulk_walk(target, root_oid, opts)
+    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+
+    case SnmpKit.SnmpMgr.AdaptiveWalk.bulk_walk(target, root_oid, merged_opts) do
+      {:ok, results} -> {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @doc """

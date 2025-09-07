@@ -2,8 +2,9 @@
 
 # Scalable High Concurrency SNMP Polling Example
 # 
-# This demonstrates the new MultiV2 architecture for polling thousands of devices
-# efficiently without GenServer bottlenecks. Perfect for cable modem management.
+# This demonstrates the Concurrent Multi architecture (formerly MultiV2)
+# for polling thousands of devices efficiently without GenServer bottlenecks.
+# Perfect for cable modem management.
 #
 # Key Features:
 # - Direct UDP sending (no GenServer serialization)
@@ -19,7 +20,8 @@ defmodule ScalablePollingExample do
   Demonstrates scalable SNMP polling for thousands of cable modems.
   
   This example shows how to efficiently poll 5,000+ cable modems using
-  the new MultiV2 architecture that eliminates GenServer bottlenecks.
+  the Concurrent Multi architecture (formerly MultiV2) that eliminates
+  GenServer bottlenecks.
   """
 
   def run() do
@@ -44,16 +46,17 @@ defmodule ScalablePollingExample do
   end
   
   defp start_snmp_architecture() do
-    IO.puts("Starting SNMP architecture components...")
+    IO.puts("Starting SNMP architecture components (advanced example)...")
     
-    # Start required components for new architecture
+    # Advanced: Explicit start for demonstration purposes. In normal app usage,
+    # a future auto-ensure flow will remove the need to start these manually.
     {:ok, _} = SnmpKit.SnmpMgr.RequestIdGenerator.start_link()
     {:ok, _} = SnmpKit.SnmpMgr.SocketManager.start_link()
     {:ok, _} = SnmpKit.SnmpMgr.EngineV2.start_link()
     
     IO.puts("✓ RequestIdGenerator started (ETS atomic counter)")
     IO.puts("✓ SocketManager started (shared 4MB UDP socket)")
-    IO.puts("✓ EngineV2 started (pure response correlator)")
+    IO.puts("✓ EngineV2 started (response correlator)")
     IO.puts("")
   end
   

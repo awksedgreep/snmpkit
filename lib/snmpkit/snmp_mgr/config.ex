@@ -129,6 +129,34 @@ defmodule SnmpKit.SnmpMgr.Config do
   end
 
   @doc """
+  Sets the default include_names flag (controls reverse MIB lookups in results).
+  """
+  def set_default_include_names(flag) when is_boolean(flag) do
+    GenServer.call(__MODULE__, {:set, :include_names, flag})
+  end
+
+  @doc """
+  Gets the default include_names flag.
+  """
+  def get_default_include_names do
+    GenServer.call(__MODULE__, {:get, :include_names})
+  end
+
+  @doc """
+  Sets the default include_formatted flag (controls formatted field in results).
+  """
+  def set_default_include_formatted(flag) when is_boolean(flag) do
+    GenServer.call(__MODULE__, {:set, :include_formatted, flag})
+  end
+
+  @doc """
+  Gets the default include_formatted flag.
+  """
+  def get_default_include_formatted do
+    GenServer.call(__MODULE__, {:get, :include_formatted})
+  end
+
+  @doc """
   Adds a directory to the MIB search paths.
 
   ## Examples

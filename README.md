@@ -5,6 +5,7 @@ IMPORTANT: Breaking changes in 1.0
 - `include_names: true` by default (can be disabled per call or globally)
 - `include_formatted: true` by default (can be disabled to avoid formatting overhead)
 - Pretty helpers now preserve type and raw value and return the same enriched map shape
+- Migration guide: see docs/enriched-output-migration.md
 - Removed deprecated functions: `get_with_type/3` and `get_next_with_type/3` (use `get/3` and `get_next/3` which now always include type in the enriched map)
 - Multi-target APIs keep their outer return_format but inner items are enriched maps
 
@@ -30,6 +31,21 @@ Examples
 # rows: [%{oid: "1.3.6...", type: :integer, value: 1}, ...]
 ```
 
+Multi-target defaults (1.0)
+- Concurrent Multi is the default for multi-target operations (get_multi, get_bulk_multi, walk_multi)
+- Default SNMP version for multi-target operations is :v2c (override with version: :v1 if needed)
+- No manual engine/service start is required — components are ensured at call time
+- Legacy/simple behavior is still available via `strategy: :simple`
+- Note: Single-target operations default to :v1 (configurable via SnmpKit.SnmpMgr.Config)
+
+```elixir
+# Default: Concurrent Multi
+{:ok, results} = SnmpKit.get_multi([{"h1", "sysDescr.0"}, {"h2", "sysUpTime.0"}])
+
+# Legacy/simple path (opt-in)
+{:ok, results} = SnmpKit.get_multi([{"h1", "sysDescr.0"}, {"h2", "sysUpTime.0"}], strategy: :simple)
+```
+
 - 🎯 **Unified API** - Clean, context-based modules (`SnmpKit.SNMP`, `SnmpKit.MIB`, `SnmpKit.Sim`)
 - 🧬 **Pure Elixir Implementation** - No Erlang SNMP dependencies
 - 📋 **Advanced MIB Support** - Native parsing, compilation, and object resolution
@@ -44,7 +60,7 @@ Examples
 ```elixir
 def deps do
   [
-    {:snmpkit, "~> 0.3.5"}
+    {:snmpkit, "~> 1.0"}
   ]
 end
 ```
@@ -52,9 +68,15 @@ end
 ### Basic Usage
 
 ```elixir
-# Basic SNMP operations
-{:ok, description} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
+# Basic SNMP operations return enriched maps
+{:ok, %{name: name, oid: oid, type: type, value: description, formatted: formatted}} =
+  SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
+
 {:ok, system_info} = SnmpKit.SNMP.walk("192.168.1.1", "system")
+# system_info: [
+#   %{name: "sysDescr.0", oid: "1.3.6.1.2.1.1.1.0", type: :octet_string, value: "...", formatted: "..."},
+#   ...
+# ]
 
 # MIB operations
 {:ok, oid} = SnmpKit.MIB.resolve("sysDescr.0")
@@ -78,6 +100,8 @@ device_profile = %{
 ## 📚 Documentation
 
 - **[Complete API Documentation](https://hexdocs.pm/snmpkit)** - Full function reference
+- **[Concurrent Multi (High-Throughput Multi-Target)](https://hexdocs.pm/snmpkit/concurrent-multi.html)** - Concepts, defaults, and return formats
+- **[Enriched Output Migration Guide](https://hexdocs.pm/snmpkit/enriched-output-migration.html)** - Migrate from 0.x to 1.x
 - **[Interactive Livebook Tour](https://hexdocs.pm/snmpkit/snmpkit_tour.html)** - Learn by doing
 - **[MIB Guide](https://hexdocs.pm/snmpkit/mib-guide.html)** - Working with MIBs
 - **[Testing Guide](https://hexdocs.pm/snmpkit/testing-guide.html)** - Testing strategies

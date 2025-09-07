@@ -26,8 +26,8 @@ defmodule SnmpKit.EnrichedOutputSimTest do
     assert Map.has_key?(result, :formatted)
 
     # GET pretty uptime
-    assert {:ok, up} = SnmpKit.SNMP.get_pretty(target, "sysUpTime.0")
-    assert %{oid: ^oid_uptime?, type: :timeticks, value: _, formatted: fmt} = up
+assert {:ok, up} = SnmpKit.SNMP.get_pretty(target, "sysUpTime.0")
+    assert %{oid: _oid_uptime, type: :timeticks, value: _, formatted: fmt} = up
     assert is_binary(fmt)
   end
 

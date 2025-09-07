@@ -93,33 +93,6 @@ defmodule SnmpKit.SnmpMgr.Table do
               nil
           end
       end)
-          {:ok, oid_list} ->
-            if List.starts_with?(oid_list, table_oid) and length(oid_list) > table_oid_length + 2 do
-              # Extract: table_oid + [1] + column + index_parts
-              rest = Enum.drop(oid_list, table_oid_length)
-
-              case rest do
-                [1, column | [_ | _] = index_parts] ->
-                  index =
-                    if length(index_parts) == 1 do
-                      hd(index_parts)
-                    else
-                      index_parts
-                    end
-
-                  {index, column, value}
-
-                _ ->
-                  nil
-              end
-            else
-              nil
-            end
-
-          {:error, _} ->
-            nil
-        end
-      end)
       |> Enum.filter(&(&1 != nil))
       |> Enum.group_by(fn {index, _column, _value} -> index end)
       |> Enum.map(fn {index, entries} ->
@@ -175,17 +148,6 @@ defmodule SnmpKit.SnmpMgr.Table do
             _ ->
               nil
           end
-      end)
-          {:ok, oid_list} when length(oid_list) >= 3 ->
-            # Extract column and index from the end of the OID
-            # Format: ...table.1.column.index
-            [index | rest] = Enum.reverse(oid_list)
-            [column | _] = rest
-            {index, column, value}
-
-          _ ->
-            nil
-        end
       end)
       |> Enum.filter(&(&1 != nil))
       |> Enum.group_by(fn {index, _column, _value} -> index end)
@@ -267,13 +229,6 @@ defmodule SnmpKit.SnmpMgr.Table do
               nil
           end
       end)
-          {:ok, oid_list} when length(oid_list) >= 1 ->
-            List.last(oid_list)
-
-          _ ->
-            nil
-        end
-      end)
       |> Enum.filter(&(&1 != nil))
       |> Enum.uniq()
       |> Enum.sort()
@@ -317,14 +272,6 @@ defmodule SnmpKit.SnmpMgr.Table do
             _ ->
               nil
           end
-      end)
-          {:ok, oid_list} when length(oid_list) >= 2 ->
-            # Get second-to-last element (column number)
-            oid_list |> Enum.reverse() |> Enum.at(1)
-
-          _ ->
-            nil
-        end
       end)
       |> Enum.filter(&(&1 != nil))
       |> Enum.uniq()
