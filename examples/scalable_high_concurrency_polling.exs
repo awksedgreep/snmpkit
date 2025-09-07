@@ -105,8 +105,8 @@ defmodule ScalablePollingExample do
     duration = end_time - start_time
     
     # Analyze results
-    success_count = Enum.count(results, fn 
-      {:ok, _} -> true
+success_count = Enum.count(results, fn 
+      {:ok, %{oid: _, type: _, value: _}} -> true
       _ -> false
     end)
     
@@ -198,7 +198,7 @@ defmodule ScalablePollingExample do
     final_stats = SnmpKit.SnmpMgr.SocketManager.get_buffer_stats()
     
     # Show results
-    success_count = Enum.count(results, fn {:ok, _} -> true; _ -> false end)
+success_count = Enum.count(results, fn {:ok, %{oid: _, type: _, value: _}} -> true; _ -> false end)
     error_count = length(results) - success_count
     
     IO.puts("  Results: #{success_count} success, #{error_count} errors")

@@ -153,7 +153,7 @@ defmodule GettingStartedExample do
     # GET operation
     IO.puts("🔍 GET Operation:")
     case SNMP.get(target, "sysDescr.0") do
-      {:ok, description} ->
+      {:ok, %{formatted: description}} ->
         IO.puts("   System Description: #{description}")
       {:error, reason} ->
         IO.puts("   ❌ GET failed: #{inspect(reason)}")
@@ -166,7 +166,9 @@ defmodule GettingStartedExample do
 
     for oid <- system_oids do
       case SNMP.get(target, oid) do
-        {:ok, value} ->
+        {:ok, %{formatted: formatted}} ->
+          IO.puts("   #{oid}: #{formatted}")
+        {:ok, %{value: value}} ->
           IO.puts("   #{oid}: #{inspect(value)}")
         {:error, reason} ->
           IO.puts("   #{oid}: ❌ #{inspect(reason)}")
@@ -178,10 +180,11 @@ defmodule GettingStartedExample do
     case SNMP.walk(target, "system") do
       {:ok, results} ->
         IO.puts("   Found #{length(results)} objects in system group:")
-        for {oid, value} <- Enum.take(results, 5) do
-          oid_str = Enum.join(oid, ".")
-          IO.puts("     #{oid_str} = #{inspect(value)}")
-        end
+        results
+        |> Enum.take(5)
+        |> Enum.each(fn %{oid: oid_str, formatted: formatted} ->
+          IO.puts("     #{oid_str} = #{formatted}")
+        end)
         if length(results) > 5 do
           IO.puts("     ... and #{length(results) - 5} more")
         end
@@ -217,9 +220,9 @@ defmodule GettingStartedExample do
 
   defp group_interface_data(results) do
     results
-    |> Enum.reduce(%{}, fn {oid, value}, acc ->
-      case oid do
-        [1, 3, 6, 1, 2, 1, 2, 2, 1, column, index] ->
+    |> Enum.reduce(%{}, fn %{oid: oid_str, value: value}, acc ->
+      case SnmpKit.SnmpLib.OID.string_to_list(oid_str) do
+        {:ok, [1, 3, 6, 1, 2, 1, 2, 2, 1, column, index]} ->
           interface_data = Map.get(acc, index, %{})
           field_name = case column do
             2 -> "ifDescr"

@@ -146,7 +146,7 @@ defmodule DocsisExample do
     IO.puts(~S|])|)
     IO.puts("")
 
-    IO.puts("# Bulk walk with compiled MIB names")
+IO.puts("# Bulk walk with compiled MIB names")
     IO.puts(~S|{:ok, results} = SnmpKit.SnmpMgr.bulk_walk_pretty("192.168.1.100", "docsIfCmtsTable")|)
     IO.puts("")
   end

@@ -54,9 +54,9 @@ IO.puts("✅ Cable modem simulation started on port 1161")
 target = "127.0.0.1:1161"
 
 # Query some basic information
-{:ok, description} = SnmpKit.SNMP.get(target, "1.3.6.1.2.1.1.1.0")
-{:ok, name} = SnmpKit.SNMP.get(target, "1.3.6.1.2.1.1.5.0")
-{:ok, status} = SnmpKit.SNMP.get(target, "1.3.6.1.2.1.10.127.1.2.2.1.1.2")
+{:ok, %{formatted: description}} = SnmpKit.SNMP.get(target, "1.3.6.1.2.1.1.1.0")
+{:ok, %{formatted: name}} = SnmpKit.SNMP.get(target, "1.3.6.1.2.1.1.5.0")
+{:ok, %{value: status}} = SnmpKit.SNMP.get(target, "1.3.6.1.2.1.10.127.1.2.2.1.1.2")
 
 IO.puts("\n📊 Cable Modem Information:")
 IO.puts("  Description: #{description}")
