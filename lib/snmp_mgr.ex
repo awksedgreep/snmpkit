@@ -30,8 +30,11 @@ defmodule SnmpKit.SnmpMgr do
   def get(target, oid, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
 
-    case SnmpKit.SnmpMgr.Core.send_get_request(target, oid, merged_opts) do
-      {:ok, {_type, value}} -> {:ok, value}
+    # Ensure we always return type and apply enrichment
+    case SnmpKit.SnmpMgr.Core.send_get_request_with_type(target, oid, merged_opts) do
+      {:ok, {oid_str, type, value}} ->
+        {:ok, SnmpKit.SnmpMgr.Format.enrich_varbind({oid_str, type, value}, merged_opts)}
+
       {:error, reason} -> {:error, reason}
     end
   end
@@ -58,7 +61,13 @@ defmodule SnmpKit.SnmpMgr do
   """
   def get_with_type(target, oid, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-    SnmpKit.SnmpMgr.Core.send_get_request_with_type(target, oid, merged_opts)
+
+    case SnmpKit.SnmpMgr.Core.send_get_request_with_type(target, oid, merged_opts) do
+      {:ok, {oid_str, type, value}} ->
+        {:ok, SnmpKit.SnmpMgr.Format.enrich_varbind({oid_str, type, value}, merged_opts)}
+
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @doc """
@@ -82,7 +91,9 @@ defmodule SnmpKit.SnmpMgr do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
 
     case SnmpKit.SnmpMgr.Core.send_get_next_request(target, oid, merged_opts) do
-      {:ok, {oid_string, _type, value}} -> {:ok, {oid_string, value}}
+      {:ok, {oid_string, type, value}} ->
+        {:ok, SnmpKit.SnmpMgr.Format.enrich_varbind({oid_string, type, value}, merged_opts)}
+
       {:error, reason} -> {:error, reason}
     end
   end
@@ -102,7 +113,13 @@ defmodule SnmpKit.SnmpMgr do
   """
   def get_next_with_type(target, oid, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-    SnmpKit.SnmpMgr.Core.send_get_next_request(target, oid, merged_opts)
+
+    case SnmpKit.SnmpMgr.Core.send_get_next_request(target, oid, merged_opts) do
+      {:ok, {oid_string, type, value}} ->
+        {:ok, SnmpKit.SnmpMgr.Format.enrich_varbind({oid_string, type, value}, merged_opts)}
+
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @doc """
@@ -198,7 +215,10 @@ defmodule SnmpKit.SnmpMgr do
           |> Keyword.put(:version, :v2c)
           |> (&SnmpKit.SnmpMgr.Config.merge_opts/1).()
 
-        SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, oid, merged_opts)
+        case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, oid, merged_opts) do
+          {:ok, results} -> {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
+          {:error, reason} -> {:error, reason}
+        end
     end
   end
 
@@ -254,7 +274,12 @@ defmodule SnmpKit.SnmpMgr do
   """
   @spec walk(target(), oid(), opts()) :: {:ok, [{list(), atom(), any()}]} | {:error, any()}
   def walk(target, root_oid, opts \\ []) do
-    SnmpKit.SnmpMgr.Walk.walk(target, root_oid, opts)
+    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+
+    case SnmpKit.SnmpMgr.Walk.walk(target, root_oid, merged_opts) do
+      {:ok, results} -> {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @doc """
@@ -279,7 +304,12 @@ defmodule SnmpKit.SnmpMgr do
   """
   @spec walk_table(target(), oid(), opts()) :: {:ok, [{list(), atom(), any()}]} | {:error, any()}
   def walk_table(target, table_oid, opts \\ []) do
-    SnmpKit.SnmpMgr.Walk.walk_table(target, table_oid, opts)
+    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+
+    case SnmpKit.SnmpMgr.Walk.walk_table(target, table_oid, merged_opts) do
+      {:ok, results} -> {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @doc """
@@ -678,13 +708,15 @@ defmodule SnmpKit.SnmpMgr do
   """
   @spec get_pretty(target(), oid(), opts()) :: {:ok, String.t()} | {:error, any()}
   def get_pretty(target, oid, opts \\ []) do
-    case get_with_type(target, oid, opts) do
-      {:ok, {_oid, type, value}} ->
-        formatted_value = SnmpKit.SnmpMgr.Format.format_by_type(type, value)
-        {:ok, formatted_value}
+    # Force include_formatted: true to ensure formatted field is present
+    merged_opts =
+      opts
+      |> Keyword.put(:include_formatted, true)
+      |> SnmpKit.SnmpMgr.Config.merge_opts()
 
-      {:error, reason} ->
-        {:error, reason}
+    case get_with_type(target, oid, merged_opts) do
+      {:ok, enriched} -> {:ok, enriched}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -704,18 +736,14 @@ defmodule SnmpKit.SnmpMgr do
   @spec walk_pretty(target(), oid(), opts()) ::
           {:ok, [{String.t(), String.t()}]} | {:error, any()}
   def walk_pretty(target, oid, opts \\ []) do
-    case SnmpKit.SnmpMgr.Walk.walk(target, oid, opts) do
-      {:ok, results} ->
-        formatted_results =
-          Enum.map(results, fn {oid, type, value} ->
-            formatted_value = SnmpKit.SnmpMgr.Format.format_by_type(type, value)
-            {oid, formatted_value}
-          end)
+    merged_opts =
+      opts
+      |> Keyword.put(:include_formatted, true)
+      |> SnmpKit.SnmpMgr.Config.merge_opts()
 
-        {:ok, formatted_results}
-
-      {:error, reason} ->
-        {:error, reason}
+    case SnmpKit.SnmpMgr.Walk.walk(target, oid, merged_opts) do
+      {:ok, results} -> {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -735,18 +763,14 @@ defmodule SnmpKit.SnmpMgr do
   @spec bulk_pretty(target(), oid(), opts()) ::
           {:ok, [{String.t(), String.t()}]} | {:error, any()}
   def bulk_pretty(target, oid, opts \\ []) do
-    case SnmpKit.SnmpMgr.Bulk.get_bulk(target, oid, opts) do
-      {:ok, results} ->
-        formatted_results =
-          Enum.map(results, fn {oid, type, value} ->
-            formatted_value = SnmpKit.SnmpMgr.Format.format_by_type(type, value)
-            {oid, formatted_value}
-          end)
+    merged_opts =
+      opts
+      |> Keyword.put(:include_formatted, true)
+      |> SnmpKit.SnmpMgr.Config.merge_opts()
 
-        {:ok, formatted_results}
-
-      {:error, reason} ->
-        {:error, reason}
+    case SnmpKit.SnmpMgr.Bulk.get_bulk(target, oid, merged_opts) do
+      {:ok, results} -> {:ok, results |> SnmpKit.SnmpMgr.Format.enrich_varbinds(merged_opts)}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -772,21 +796,11 @@ defmodule SnmpKit.SnmpMgr do
   @spec bulk_walk(target(), oid(), opts()) ::
           {:ok, [{String.t(), atom(), any()}]} | {:error, any()}
   def bulk_walk(target, oid, opts \\ []) do
-    case SnmpKit.SnmpMgr.AdaptiveWalk.bulk_walk(target, oid, opts) do
+    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+
+    case SnmpKit.SnmpMgr.AdaptiveWalk.bulk_walk(target, oid, merged_opts) do
       {:ok, results} ->
-        formatted_results =
-          Enum.map(results, fn {oid_list, type, value} ->
-            # Convert OID list to dotted string format
-            oid_string =
-              case oid_list do
-                oid when is_list(oid) -> Enum.join(oid, ".")
-                oid when is_binary(oid) -> oid
-              end
-
-            {oid_string, type, value}
-          end)
-
-        {:ok, formatted_results}
+        {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
 
       {:error, reason} ->
         {:error, reason}
@@ -815,18 +829,14 @@ defmodule SnmpKit.SnmpMgr do
   @spec bulk_walk_pretty(target(), oid(), opts()) ::
           {:ok, [{String.t(), atom(), String.t()}]} | {:error, any()}
   def bulk_walk_pretty(target, oid, opts \\ []) do
-    case bulk_walk(target, oid, opts) do
-      {:ok, results} ->
-        formatted_results =
-          Enum.map(results, fn {oid_string, type, value} ->
-            formatted_value = SnmpKit.SnmpMgr.Format.format_by_type(type, value)
-            {oid_string, type, formatted_value}
-          end)
+    merged_opts =
+      opts
+      |> Keyword.put(:include_formatted, true)
+      |> SnmpKit.SnmpMgr.Config.merge_opts()
 
-        {:ok, formatted_results}
-
-      {:error, reason} ->
-        {:error, reason}
+    case bulk_walk(target, oid, merged_opts) do
+      {:ok, results} -> {:ok, results}
+      {:error, reason} -> {:error, reason}
     end
   end
 

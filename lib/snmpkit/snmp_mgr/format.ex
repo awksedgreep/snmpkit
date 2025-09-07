@@ -180,6 +180,61 @@ defmodule SnmpKit.SnmpMgr.Format do
   def format_by_type(_type, value) when is_atom(value), do: Atom.to_string(value)
   def format_by_type(_type, value), do: inspect(value)
 
+  # Enrichment helpers
+  @doc """
+  Enrich a single varbind tuple into a standardized map.
+
+  Accepts {oid, type, value} where oid may be a list or dotted string.
+  Options:
+  - include_names (default true)
+  - include_formatted (default true)
+  """
+  def enrich_varbind({oid_any, type, value}, opts \\ []) do
+    include_names = Keyword.get(opts, :include_names, true)
+    include_formatted = Keyword.get(opts, :include_formatted, true)
+
+    oid_string =
+      cond do
+        is_list(oid_any) -> Enum.join(oid_any, ".")
+        is_binary(oid_any) -> oid_any
+        true -> to_string(oid_any)
+      end
+
+    name =
+      if include_names do
+        case SnmpKit.SnmpMgr.MIB.reverse_lookup(oid_string) do
+          {:ok, mib_name} -> mib_name
+          _ -> nil
+        end
+      else
+        nil
+      end
+
+    enriched = %{
+      oid: oid_string,
+      type: type,
+      value: value
+    }
+
+    enriched = if include_names, do: Map.put(enriched, :name, name), else: enriched
+
+    enriched =
+      if include_formatted do
+        Map.put(enriched, :formatted, format_by_type(type, value))
+      else
+        enriched
+      end
+
+    enriched
+  end
+
+  @doc """
+  Enrich a list of varbind tuples into standardized maps.
+  """
+  def enrich_varbinds(list, opts \\ []) when is_list(list) do
+    Enum.map(list, &enrich_varbind(&1, opts))
+  end
+
   @doc """
   Formats byte counts into human-readable sizes.
 

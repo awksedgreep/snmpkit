@@ -14,7 +14,9 @@ defmodule SnmpKit.SnmpMgr.Config do
     retries: 1,
     port: 161,
     version: :v1,
-    mib_paths: []
+    mib_paths: [],
+    include_names: true,
+    include_formatted: true
   }
 
   ## Public API
@@ -259,7 +261,10 @@ defmodule SnmpKit.SnmpMgr.Config do
       retries: Application.get_env(:snmp_mgr, :retries, @default_config.retries),
       port: Application.get_env(:snmp_mgr, :port, @default_config.port),
       version: Application.get_env(:snmp_mgr, :version, @default_config.version),
-      mib_paths: Application.get_env(:snmp_mgr, :mib_paths, @default_config.mib_paths)
+      mib_paths: Application.get_env(:snmp_mgr, :mib_paths, @default_config.mib_paths),
+      include_names: Application.get_env(:snmp_mgr, :include_names, @default_config.include_names),
+      include_formatted:
+        Application.get_env(:snmp_mgr, :include_formatted, @default_config.include_formatted)
     }
 
     config =

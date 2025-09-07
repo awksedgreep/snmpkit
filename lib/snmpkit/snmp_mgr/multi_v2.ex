@@ -402,7 +402,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
   defp format_results(targets_and_data, results, opts) do
     case Keyword.get(opts, :return_format, :list) do
       :list ->
-        results
+        Enum.map(results, &enrich_any_result(&1, opts))
 
       :with_targets ->
         # Normalize targets_and_data to extract target and data parts
@@ -411,7 +411,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
         normalized_targets
         |> Enum.zip(results)
         |> Enum.map(fn {{target, data}, result} ->
-          {target, data, result}
+          {target, data, enrich_any_result(result, opts)}
         end)
 
       :map ->
@@ -421,15 +421,24 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
         normalized_targets
         |> Enum.zip(results)
         |> Enum.map(fn {{target, data}, result} ->
-          {{target, data}, result}
+          {{target, data}, enrich_any_result(result, opts)}
         end)
         |> Enum.into(%{})
 
       _ ->
         # Unknown format, default to :list
-        results
+        Enum.map(results, &enrich_any_result(&1, opts))
     end
   end
+
+  # Enrich any result to standardized maps, preserving {:ok, ...} | {:error, ...}
+  defp enrich_any_result({:ok, %{oid: _}} = result, _opts), do: result
+  defp enrich_any_result({:ok, [%{oid: _} | _] = _already} = result, _opts), do: result
+  defp enrich_any_result({:ok, {oid, type, value}}, opts),
+    do: {:ok, SnmpKit.SnmpMgr.Format.enrich_varbind({oid, type, value}, opts)}
+  defp enrich_any_result({:ok, list}, opts) when is_list(list),
+    do: {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(list, opts)}
+  defp enrich_any_result(other, _opts), do: other
 
   defp normalize_targets_and_data(targets_and_data) do
     targets_and_data
