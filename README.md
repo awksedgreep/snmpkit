@@ -18,6 +18,18 @@ SnmpKit is a complete SNMP (Simple Network Management Protocol) solution built f
 
 ## ✨ Key Features
 
+Performance and result toggles
+- include_names: true by default; set include_names: false per call or via application config to skip reverse lookup and speed up response processing
+- include_formatted: true by default; set include_formatted: false to skip formatting and return raw values only
+
+Examples
+- High-throughput walk without formatting or name resolution:
+
+```elixir
+{:ok, rows} = SnmpKit.SNMP.walk("192.168.1.1", "ifTable", include_names: false, include_formatted: false)
+# rows: [%{oid: "1.3.6...", type: :integer, value: 1}, ...]
+```
+
 - 🎯 **Unified API** - Clean, context-based modules (`SnmpKit.SNMP`, `SnmpKit.MIB`, `SnmpKit.Sim`)
 - 🧬 **Pure Elixir Implementation** - No Erlang SNMP dependencies
 - 📋 **Advanced MIB Support** - Native parsing, compilation, and object resolution
