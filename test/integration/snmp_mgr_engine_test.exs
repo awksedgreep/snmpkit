@@ -28,7 +28,7 @@ defmodule SnmpKit.SnmpMgr.EngineIntegrationTest do
         )
 
       case result do
-        {:ok, value} ->
+        {:ok, %{value: value}} ->
           # Successful operation through snmp_lib
           assert is_binary(value) or is_integer(value) or is_list(value)
 
@@ -809,7 +809,7 @@ defmodule SnmpKit.SnmpMgr.EngineIntegrationTest do
         result = operation.()
 
         case result do
-          {:ok, value} ->
+          {:ok, %{value: value}} ->
             # Value should be in expected format from snmp_lib
             assert is_binary(value) or is_integer(value) or is_list(value) or
                      is_tuple(value) or is_atom(value)

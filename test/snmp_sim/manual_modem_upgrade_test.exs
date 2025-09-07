@@ -25,7 +25,7 @@ defmodule SnmpKit.SnmpSim.ManualModemUpgradeTest do
 
       # Read back should return ipAddress type as dotted string via manager
       case SnmpKit.SnmpMgr.get(target, @server_oid, community: modem.community, version: :v2c, timeout: 300) do
-        {:ok, value} -> assert value == "192.168.100.20" or is_binary(value)
+        {:ok, %{value: value}} -> assert value == "192.168.100.20" or is_binary(value)
         {:error, reason} -> flunk("GET server failed: #{inspect(reason)}")
       end
 
@@ -67,14 +67,14 @@ defmodule SnmpKit.SnmpSim.ManualModemUpgradeTest do
       # Oper should move to inProgress (1) shortly
       :timer.sleep(50)
       case SnmpKit.SnmpMgr.get(target, @oper_oid, community: modem.community, version: :v2c, timeout: 300) do
-        {:ok, oper} -> assert oper in [1, 3, 4, 5]
+        {:ok, %{value: oper}} -> assert oper in [1, 3, 4, 5]
         {:error, reason} -> flunk("GET oper failed: #{inspect(reason)}")
       end
 
       # Eventually completes to completeFromMgt (3), default delays total ~1500ms
       :timer.sleep(1200)
       case SnmpKit.SnmpMgr.get(target, @oper_oid, community: modem.community, version: :v2c, timeout: 300) do
-        {:ok, oper} -> assert oper in [3, 4, 5]
+        {:ok, %{value: oper}} -> assert oper in [3, 4, 5]
         {:error, reason} -> flunk("GET oper final failed: #{inspect(reason)}")
       end
     end

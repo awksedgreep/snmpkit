@@ -35,7 +35,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
         )
 
       case result do
-        {:ok, value} ->
+        {:ok, %{value: value}} ->
           # Successful operation through snmp_lib
           assert is_binary(value) or is_integer(value) or is_list(value) or is_atom(value)
           assert byte_size(to_string(value)) > 0
@@ -110,7 +110,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
         {:ok, results} when is_list(results) ->
           # Successful walk through snmp_lib
           if length(results) > 0 do
-            Enum.each(results, fn {oid, type, value} ->
+            Enum.each(results, fn %{oid: oid, type: type, value: value} ->
               assert is_binary(oid)
               assert String.starts_with?(oid, "1.3.6.1.2.1.1")
               assert is_atom(type)
@@ -137,7 +137,7 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
         )
 
       case result do
-        {:ok, {oid, value}} ->
+        {:ok, %{oid: oid, value: value}} ->
           # Successful get_next through snmp_lib
           assert is_binary(oid) or is_list(oid)
           assert is_binary(value) or is_integer(value) or is_list(value) or is_atom(value)

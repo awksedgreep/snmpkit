@@ -34,16 +34,11 @@ defmodule SnmpKit.SnmpMgr.BulkOperationsTest do
           # Successful bulk operation through snmp_lib - must be meaningful data
           assert length(results) >= 0
 
-          # Validate result structure from snmp_lib - each result must be valid
+          # Validate enriched result structure - each result must be a map
           Enum.each(results, fn
-            {oid, type, value} ->
+            %{oid: oid, type: type, value: value} = _map ->
               assert is_binary(oid) or is_list(oid)
               assert is_atom(type)
-              assert is_binary(value) or is_integer(value) or is_atom(value)
-
-            {oid, value} ->
-              # Fallback for older format
-              assert is_binary(oid) or is_list(oid)
               assert is_binary(value) or is_integer(value) or is_atom(value)
 
             other ->
@@ -609,19 +604,12 @@ defmodule SnmpKit.SnmpMgr.BulkOperationsTest do
 
       case result do
         {:ok, results} when is_list(results) ->
-          # Validate structure consistency with snmp_lib
+          # Validate structure consistency with enriched varbinds
           Enum.each(results, fn
-            {oid, type, value} ->
+            %{oid: oid, type: type, value: value} = _map ->
               assert is_binary(oid) or is_list(oid)
               assert is_atom(type)
-
-              assert is_binary(value) or is_integer(value) or is_atom(value) or is_list(value) or
-                       is_nil(value)
-
-            {oid, value} ->
-              # Fallback for older format
-              assert is_binary(oid) or is_list(oid)
-              assert is_binary(value) or is_integer(value) or is_atom(value)
+              assert is_binary(value) or is_integer(value) or is_atom(value) or is_list(value) or is_nil(value)
 
             other ->
               flunk("Inconsistent result format: #{inspect(other)}")
@@ -790,6 +778,7 @@ defmodule SnmpKit.SnmpMgr.BulkOperationsTest do
     # Helper functions for OID ordering tests
     defp extract_oids_from_bulk_results(results) do
       Enum.map(results, fn
+        %{oid: oid} -> oid
         {oid, _type, _value} -> oid
         {oid, _value} -> oid
         oid when is_binary(oid) or is_list(oid) -> oid

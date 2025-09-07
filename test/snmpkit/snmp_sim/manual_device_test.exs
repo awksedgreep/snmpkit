@@ -142,13 +142,13 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
       target = "127.0.0.1:#{port}"
 
       # Test basic GET operations
-      {:ok, value} = SNMP.get(target, "1.3.6.1.2.1.1.1.0")
+      {:ok, %{value: value}} = SNMP.get(target, "1.3.6.1.2.1.1.1.0")
       assert value == "ARRIS SURFboard SB8200 DOCSIS 3.1 Cable Modem"
 
-      {:ok, value} = SNMP.get(target, "1.3.6.1.2.1.1.4.0")
+      {:ok, %{value: value}} = SNMP.get(target, "1.3.6.1.2.1.1.4.0")
       assert value == "admin@example.com"
 
-      {:ok, value} = SNMP.get(target, "1.3.6.1.2.1.2.1.0")
+      {:ok, %{value: value}} = SNMP.get(target, "1.3.6.1.2.1.2.1.0")
       assert value == 2
 
       Device.stop(device)
@@ -161,7 +161,7 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
 
       # Test GET_NEXT operations
       case SNMP.get_next(target, "1.3.6.1.2.1.1.1.0") do
-        {:ok, {next_oid, value}} ->
+        {:ok, %{oid: next_oid, value: value}} ->
           assert next_oid == "1.3.6.1.2.1.1.3.0"
           assert value == 0
         {:error, reason} ->
@@ -170,7 +170,7 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
 
       # Test GET_NEXT with partial OID (should find first child)
       case SNMP.get_next(target, "1.3.6.1.2.1.1") do
-        {:ok, {next_oid, value}} ->
+        {:ok, %{oid: next_oid, value: value}} ->
           assert next_oid == "1.3.6.1.2.1.1.1.0"
           assert value == "ARRIS SURFboard SB8200 DOCSIS 3.1 Cable Modem"
         {:error, reason} ->
@@ -373,7 +373,7 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
 
       # Device should still work with valid OIDs
       target = "127.0.0.1:#{port}"
-      {:ok, value} = SNMP.get(target, "1.3.6.1.2.1.1.1.0")
+      {:ok, %{value: value}} = SNMP.get(target, "1.3.6.1.2.1.1.1.0")
       assert value == "Valid OID"
 
       Device.stop(device)
@@ -397,13 +397,13 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
       target = "127.0.0.1:#{port}"
 
       # Test that different types are handled correctly
-      {:ok, string_val} = SNMP.get(target, "1.3.6.1.2.1.1.1.0")
+      {:ok, %{value: string_val}} = SNMP.get(target, "1.3.6.1.2.1.1.1.0")
       assert string_val == "String value"
 
-      {:ok, int_val} = SNMP.get(target, "1.3.6.1.2.1.1.4.0")
+      {:ok, %{value: int_val}} = SNMP.get(target, "1.3.6.1.2.1.1.4.0")
       assert int_val == 42
 
-      {:ok, counter_val} = SNMP.get(target, "1.3.6.1.2.1.1.5.0")
+      {:ok, %{value: counter_val}} = SNMP.get(target, "1.3.6.1.2.1.1.5.0")
       assert counter_val == 1000
 
       Device.stop(device)
@@ -428,7 +428,7 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
       {:ok, single_device} = Sim.start_device(single_profile, port: port2)
 
       target2 = "127.0.0.1:#{port2}"
-      {:ok, value} = SNMP.get(target2, "1.3.6.1.2.1.1.1.0")
+      {:ok, %{value: value}} = SNMP.get(target2, "1.3.6.1.2.1.1.1.0")
       assert value == "Single OID device"
 
       # get_next should return end_of_mib
@@ -463,8 +463,8 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
       target = "127.0.0.1:#{port}"
 
       # Get initial values
-      {:ok, initial1} = SNMP.get(target, "1.3.6.1.2.1.2.2.1.10.1")
-      {:ok, initial2} = SNMP.get(target, "1.3.6.1.2.1.2.2.1.10.2")
+      {:ok, %{value: initial1}} = SNMP.get(target, "1.3.6.1.2.1.2.2.1.10.1")
+      {:ok, %{value: initial2}} = SNMP.get(target, "1.3.6.1.2.1.2.2.1.10.2")
 
       # Values should be accessible
       assert is_integer(initial1)
@@ -472,7 +472,7 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
 
       # Device should handle get_next operations on counters
       case SNMP.get_next(target, "1.3.6.1.2.1.2.2.1.10.1") do
-        {:ok, {next_oid, next_value}} ->
+        {:ok, %{oid: next_oid, value: next_value}} ->
           assert next_oid == "1.3.6.1.2.1.2.2.1.10.2"
           assert is_integer(next_value)
         {:error, _} ->
@@ -493,7 +493,7 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
 
       # Should work with correct community
       target = "127.0.0.1:#{port}"
-      {:ok, value} = SNMP.get(target, "1.3.6.1.2.1.1.1.0", community: "test-community")
+      {:ok, %{value: value}} = SNMP.get(target, "1.3.6.1.2.1.1.1.0", community: "test-community")
       assert value == "Community Test Device"
 
       # Should fail with wrong community

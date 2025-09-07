@@ -36,13 +36,9 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
           # Validate each result has proper structure if we have results
           if length(results) > 0 do
             Enum.each(results, fn
-              {oid, type, value} ->
+              %{oid: oid, type: type, value: value} = _map ->
                 assert is_binary(oid) or is_list(oid)
                 assert is_atom(type)
-                assert value != nil
-
-              {oid, value} ->
-                assert is_binary(oid) or is_list(oid)
                 assert value != nil
 
               other ->
@@ -256,13 +252,6 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
                    ]
           end
 
-          # Performance comparison (informational)
-          IO.puts("\nPerformance Comparison:")
-          IO.puts("  Bulk walk: #{bulk_time}ms (#{length(bulk_results)} results)")
-
-          IO.puts(
-            "  Traditional walk: #{traditional_time}ms (#{length(traditional_results)} results)"
-          )
 
         {{:ok, bulk_results}, {:error, _}} ->
           # Bulk succeeded where traditional failed - this is acceptable
@@ -379,9 +368,9 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
         {:ok, results} when is_list(results) ->
           # Empty OID should return results from MIB root
           assert length(results) >= 0
-          # Verify format: {oid_string, type, formatted_value}
+          # Verify enriched map format with formatted field
           if length(results) > 0 do
-            Enum.each(results, fn {oid_string, type, formatted_value} ->
+            Enum.each(results, fn %{oid: oid_string, type: type, formatted: formatted_value} ->
               assert is_binary(oid_string), "OID should be string, got: #{inspect(oid_string)}"
               assert is_atom(type), "Type should be atom, got: #{inspect(type)}"
 
@@ -419,7 +408,7 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
           assert length(results) >= 0
           # Verify format consistency
           if length(results) > 0 do
-            Enum.each(results, fn {oid_string, type, formatted_value} ->
+            Enum.each(results, fn %{oid: oid_string, type: type, formatted: formatted_value} ->
               assert is_binary(oid_string)
               assert is_atom(type)
               assert is_binary(formatted_value)
@@ -455,9 +444,9 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
       case result do
         {:ok, results} when is_list(results) ->
           assert length(results) >= 0
-          # Verify format: {oid_string, type, value}
+          # Verify enriched map format with raw value
           if length(results) > 0 do
-            Enum.each(results, fn {oid_string, type, value} ->
+            Enum.each(results, fn %{oid: oid_string, type: type, value: value} ->
               assert is_binary(oid_string)
               assert is_atom(type)
               assert value != nil
@@ -507,25 +496,25 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
         case result_pretty do
           {:ok, results} when is_list(results) ->
             assert length(results) >= 0
-            # Verify format: {oid_string, type, formatted_value}
-            if length(results) > 0 do
-              Enum.each(results, fn {oid_string, type, formatted_value} ->
-                assert is_binary(oid_string),
-                       "OID should be string for #{description}, got: #{inspect(oid_string)}"
+          # Verify enriched map format with formatted field
+          if length(results) > 0 do
+            Enum.each(results, fn %{oid: oid_string, type: type, formatted: formatted_value} ->
+              assert is_binary(oid_string),
+                     "OID should be string for #{description}, got: #{inspect(oid_string)}"
 
-                assert is_atom(type),
-                       "Type should be atom for #{description}, got: #{inspect(type)}"
+              assert is_atom(type),
+                     "Type should be atom for #{description}, got: #{inspect(type)}"
 
-                assert is_binary(formatted_value),
-                       "Formatted value should be string for #{description}, got: #{inspect(formatted_value)}"
-              end)
+              assert is_binary(formatted_value),
+                     "Formatted value should be string for #{description}, got: #{inspect(formatted_value)}"
+            end)
 
-              # Verify OIDs are properly scoped
-              first_oid = elem(hd(results), 0)
+            # Verify OIDs are properly scoped
+            first_oid = hd(results).oid
 
-              assert String.starts_with?(first_oid, "1.3"),
-                     "#{description} should return OIDs starting with 1.3, got: #{first_oid}"
-            end
+            assert String.starts_with?(first_oid, "1.3"),
+                   "#{description} should return OIDs starting with 1.3, got: #{first_oid}"
+          end
 
           {:error, reason} when reason in [:timeout, :no_such_name, :gen_err] ->
             # Acceptable in test environment
@@ -553,9 +542,9 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
         case result_bulk do
           {:ok, results} when is_list(results) ->
             assert length(results) >= 0
-            # Verify format: {oid_string, type, value}
+            # Verify enriched map format with raw value
             if length(results) > 0 do
-              Enum.each(results, fn {oid_string, type, value} ->
+              Enum.each(results, fn %{oid: oid_string, type: type, value: value} ->
                 assert is_binary(oid_string),
                        "OID should be string for #{description}, got: #{inspect(oid_string)}"
 
@@ -622,8 +611,8 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
 
             if length(list_results) > 0 and length(string_results) > 0 do
               # First OID should be the same or very similar
-              first_list_oid = elem(hd(list_results), 0)
-              first_string_oid = elem(hd(string_results), 0)
+              first_list_oid = hd(list_results).oid
+              first_string_oid = hd(string_results).oid
 
               # Both should start with the same prefix
               assert String.starts_with?(first_list_oid, "1.3"),
@@ -687,6 +676,7 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
 
   defp extract_oids(results) do
     Enum.map(results, fn
+      %{oid: oid} -> oid
       {oid, _type, _value} -> oid
       {oid, _value} -> oid
       oid when is_binary(oid) or is_list(oid) -> oid

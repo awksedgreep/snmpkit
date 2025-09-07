@@ -1,7 +1,7 @@
 #!/usr/bin/env elixir
 
 # Single Socket Demo for SnmpKit Multi Operations
-# This demo shows how the updated multi.ex functions use a single shared socket
+# Demonstrates the shared-socket engine used by Concurrent Multi (formerly MultiV2)
 # for all SNMP operations instead of creating individual sockets per request.
 
 # Start the application

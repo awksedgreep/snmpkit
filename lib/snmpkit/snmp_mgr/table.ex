@@ -35,34 +35,63 @@ defmodule SnmpKit.SnmpMgr.Table do
 
     table_data =
       oid_type_value_tuples
-      |> Enum.map(fn {oid_string, _type, value} ->
-        case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
-          {:ok, oid_list} ->
-            if List.starts_with?(oid_list, table_oid) and length(oid_list) > table_oid_length + 2 do
-              # Extract: table_oid + [1] + column + index_parts
-              rest = Enum.drop(oid_list, table_oid_length)
+      |> Enum.map(fn
+        {oid_string, _type, value} ->
+          case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
+            {:ok, oid_list} ->
+              if List.starts_with?(oid_list, table_oid) and length(oid_list) > table_oid_length + 2 do
+                # Extract: table_oid + [1] + column + index_parts
+                rest = Enum.drop(oid_list, table_oid_length)
 
-              case rest do
-                [1, column | [_ | _] = index_parts] ->
-                  index =
-                    if length(index_parts) == 1 do
-                      hd(index_parts)
-                    else
-                      index_parts
-                    end
+                case rest do
+                  [1, column | [_ | _] = index_parts] ->
+                    index =
+                      if length(index_parts) == 1 do
+                        hd(index_parts)
+                      else
+                        index_parts
+                      end
 
-                  {index, column, value}
+                    {index, column, value}
 
-                _ ->
-                  nil
+                  _ ->
+                    nil
+                end
+              else
+                nil
               end
-            else
-              nil
-            end
 
-          {:error, _} ->
-            nil
-        end
+            {:error, _} ->
+              nil
+          end
+
+        %{oid: oid_string, type: _type, value: value} ->
+          case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
+            {:ok, oid_list} ->
+              if List.starts_with?(oid_list, table_oid) and length(oid_list) > table_oid_length + 2 do
+                rest = Enum.drop(oid_list, table_oid_length)
+
+                case rest do
+                  [1, column | [_ | _] = index_parts] ->
+                    index =
+                      if length(index_parts) == 1 do
+                        hd(index_parts)
+                      else
+                        index_parts
+                      end
+
+                    {index, column, value}
+
+                  _ ->
+                    nil
+                end
+              else
+                nil
+              end
+
+            {:error, _} ->
+              nil
+          end
       end)
       |> Enum.filter(&(&1 != nil))
       |> Enum.group_by(fn {index, _column, _value} -> index end)
@@ -95,18 +124,30 @@ defmodule SnmpKit.SnmpMgr.Table do
     # Group by index (last part of OID)
     rows =
       oid_type_value_tuples
-      |> Enum.map(fn {oid_string, _type, value} ->
-        case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
-          {:ok, oid_list} when length(oid_list) >= 3 ->
-            # Extract column and index from the end of the OID
-            # Format: ...table.1.column.index
-            [index | rest] = Enum.reverse(oid_list)
-            [column | _] = rest
-            {index, column, value}
+      |> Enum.map(fn
+        {oid_string, _type, value} ->
+          case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
+            {:ok, oid_list} when length(oid_list) >= 3 ->
+              # Extract column and index from the end of the OID
+              # Format: ...table.1.column.index
+              [index | rest] = Enum.reverse(oid_list)
+              [column | _] = rest
+              {index, column, value}
 
-          _ ->
-            nil
-        end
+            _ ->
+              nil
+          end
+
+        %{oid: oid_string, type: _type, value: value} ->
+          case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
+            {:ok, oid_list} when length(oid_list) >= 3 ->
+              [index | rest] = Enum.reverse(oid_list)
+              [column | _] = rest
+              {index, column, value}
+
+            _ ->
+              nil
+          end
       end)
       |> Enum.filter(&(&1 != nil))
       |> Enum.group_by(fn {index, _column, _value} -> index end)
@@ -169,14 +210,24 @@ defmodule SnmpKit.SnmpMgr.Table do
   def get_indexes(oid_type_value_tuples) when is_list(oid_type_value_tuples) do
     indexes =
       oid_type_value_tuples
-      |> Enum.map(fn {oid_string, _type, _value} ->
-        case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
-          {:ok, oid_list} when length(oid_list) >= 1 ->
-            List.last(oid_list)
+      |> Enum.map(fn
+        {oid_string, _type, _value} ->
+          case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
+            {:ok, oid_list} when length(oid_list) >= 1 ->
+              List.last(oid_list)
 
-          _ ->
-            nil
-        end
+            _ ->
+              nil
+          end
+
+        %{oid: oid_string} ->
+          case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
+            {:ok, oid_list} when length(oid_list) >= 1 ->
+              List.last(oid_list)
+
+            _ ->
+              nil
+          end
       end)
       |> Enum.filter(&(&1 != nil))
       |> Enum.uniq()
@@ -202,15 +253,25 @@ defmodule SnmpKit.SnmpMgr.Table do
   def get_columns(oid_type_value_tuples) when is_list(oid_type_value_tuples) do
     columns =
       oid_type_value_tuples
-      |> Enum.map(fn {oid_string, _type, _value} ->
-        case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
-          {:ok, oid_list} when length(oid_list) >= 2 ->
-            # Get second-to-last element (column number)
-            oid_list |> Enum.reverse() |> Enum.at(1)
+      |> Enum.map(fn
+        {oid_string, _type, _value} ->
+          case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
+            {:ok, oid_list} when length(oid_list) >= 2 ->
+              # Get second-to-last element (column number)
+              oid_list |> Enum.reverse() |> Enum.at(1)
 
-          _ ->
-            nil
-        end
+            _ ->
+              nil
+          end
+
+        %{oid: oid_string} ->
+          case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
+            {:ok, oid_list} when length(oid_list) >= 2 ->
+              oid_list |> Enum.reverse() |> Enum.at(1)
+
+            _ ->
+              nil
+          end
       end)
       |> Enum.filter(&(&1 != nil))
       |> Enum.uniq()

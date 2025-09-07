@@ -1,5 +1,11 @@
 # SnmpKit 🚀
 
+IMPORTANT: Breaking changes in 1.0
+- Unified enriched map results across all operations: `%{name?, oid, type, value, formatted?}`
+- `include_names` and `include_formatted` default to true; disable per call or globally
+- Pretty helpers return enriched maps (with type and raw value retained)
+- Removed `get_with_type/3` and `get_next_with_type/3`
+
 [![Hex.pm](https://img.shields.io/hexpm/v/snmpkit.svg)](https://hex.pm/packages/snmpkit)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/snmpkit)
 [![License](https://img.shields.io/github/license/awksedgreep/snmpkit.svg)](LICENSE)
@@ -30,7 +36,7 @@ Add `snmpkit` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:snmpkit, "~> 0.2.0"}
+    {:snmpkit, "~> 1.0"}
   ]
 end
 ```
@@ -43,8 +49,8 @@ SnmpKit provides a clean, organized API through context-based modules:
 
 ```elixir
 # Basic SNMP operations
-{:ok, description} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
-{:ok, uptime} = SnmpKit.SNMP.get("192.168.1.1", "sysUpTime.0")
+{:ok, %{formatted: description}} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
+{:ok, %{value: uptime}} = SnmpKit.SNMP.get("192.168.1.1", "sysUpTime.0")
 
 # Walk operations
 {:ok, system_info} = SnmpKit.SNMP.walk("192.168.1.1", "system")
@@ -60,8 +66,8 @@ SnmpKit provides a clean, organized API through context-based modules:
   {"host3", "ifInOctets.1"}
 ])
 
-# Pretty formatting
-{:ok, formatted} = SnmpKit.SNMP.get_pretty("192.168.1.1", "sysUpTime.0")
+# Pretty formatting (enriched map with formatted)
+{:ok, %{formatted: formatted}} = SnmpKit.SNMP.get_pretty("192.168.1.1", "sysUpTime.0")
 # Returns: "12 days, 4:32:10.45"
 
 # Async operations
