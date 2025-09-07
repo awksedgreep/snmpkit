@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2025-xx-xx
+
+### Breaking
+- Standardized enriched map result across all SNMP operations: `%{name?, oid, type, value, formatted?}`
+- Type always included; names and formatted included by default (configurable via include_names/include_formatted)
+- Pretty helpers now include type and raw value; return the same map shape
+- Removed `get_with_type/3` and `get_next_with_type/3`
+- Multi-target APIs preserve outer shape but enrich inner items
+- See `standardize_api.md` for migration details
+
 ## [0.6.6] - 2025-01-12
 
 ### Fixed

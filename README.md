@@ -1,5 +1,13 @@
 # SnmpKit 🚀
 
+IMPORTANT: Breaking changes in 1.0
+- Standardized result shape: all SNMP operations now return enriched maps per varbind: `%{name?, oid, type, value, formatted?}`
+- `include_names: true` by default (can be disabled per call or globally)
+- `include_formatted: true` by default (can be disabled to avoid formatting overhead)
+- Pretty helpers now preserve type and raw value and return the same enriched map shape
+- Removed deprecated functions: `get_with_type/3` and `get_next_with_type/3` (use `get/3` and `get_next/3` which now always include type in the enriched map)
+- Multi-target APIs keep their outer return_format but inner items are enriched maps
+
 [![Hex.pm](https://img.shields.io/hexpm/v/snmpkit.svg)](https://hex.pm/packages/snmpkit)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/snmpkit)
 [![License](https://img.shields.io/github/license/awksedgreep/snmpkit.svg)](LICENSE)

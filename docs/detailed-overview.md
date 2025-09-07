@@ -1,5 +1,11 @@
 # SnmpKit 🚀
 
+IMPORTANT: Breaking changes in 1.0
+- Unified enriched map results across all operations: `%{name?, oid, type, value, formatted?}`
+- `include_names` and `include_formatted` default to true; disable per call or globally
+- Pretty helpers return enriched maps (with type and raw value retained)
+- Removed `get_with_type/3` and `get_next_with_type/3`
+
 [![Hex.pm](https://img.shields.io/hexpm/v/snmpkit.svg)](https://hex.pm/packages/snmpkit)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/snmpkit)
 [![License](https://img.shields.io/github/license/awksedgreep/snmpkit.svg)](LICENSE)
