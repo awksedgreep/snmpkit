@@ -439,22 +439,27 @@ defp execute_multi_operation(targets_and_data, operation_type, opts) do
 
   # Ensure the V2 components are running; safe to call repeatedly
   defp ensure_components_started() do
-    # RequestIdGenerator
-    unless Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator) do
-      _ = SnmpKit.SnmpMgr.RequestIdGenerator.start_link(name: SnmpKit.SnmpMgr.RequestIdGenerator)
-    end
+    # Honor auto_start_services toggle; if disabled, do nothing.
+    case SnmpKit.SnmpMgr.Config.get(:auto_start_services) do
+      false -> :ok
+      _true ->
+        # RequestIdGenerator
+        unless Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator) do
+          _ = SnmpKit.SnmpMgr.RequestIdGenerator.start_link(name: SnmpKit.SnmpMgr.RequestIdGenerator)
+        end
 
-    # SocketManager
-    unless Process.whereis(SnmpKit.SnmpMgr.SocketManager) do
-      _ = SnmpKit.SnmpMgr.SocketManager.start_link(name: SnmpKit.SnmpMgr.SocketManager)
-    end
+        # SocketManager
+        unless Process.whereis(SnmpKit.SnmpMgr.SocketManager) do
+          _ = SnmpKit.SnmpMgr.SocketManager.start_link(name: SnmpKit.SnmpMgr.SocketManager)
+        end
 
-    # EngineV2
-    unless Process.whereis(SnmpKit.SnmpMgr.EngineV2) do
-      _ = SnmpKit.SnmpMgr.EngineV2.start_link(name: SnmpKit.SnmpMgr.EngineV2)
-    end
+        # EngineV2
+        unless Process.whereis(SnmpKit.SnmpMgr.EngineV2) do
+          _ = SnmpKit.SnmpMgr.EngineV2.start_link(name: SnmpKit.SnmpMgr.EngineV2)
+        end
 
-    :ok
+        :ok
+    end
   end
 
   # Enrich any result to standardized maps, preserving {:ok, ...} | {:error, ...}

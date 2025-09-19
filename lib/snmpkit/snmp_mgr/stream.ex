@@ -245,8 +245,12 @@ defmodule SnmpKit.SnmpMgr.Stream do
         # Filter results within scope
         {in_scope, next_oid} = filter_stream_results(results, state.root_oid)
 
-        if Enum.empty?(in_scope) or next_oid == nil do
-          {in_scope, %{state | finished: true}}
+        # Enrich results for consistency with single/multi APIs
+        merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+        enriched = SnmpKit.SnmpMgr.Format.enrich_varbinds(in_scope, merged_opts)
+
+        if Enum.empty?(enriched) or next_oid == nil do
+          {enriched, %{state | finished: true}}
         else
           new_state =
             if state.adaptive and start_time != nil and end_time != nil do
@@ -256,7 +260,7 @@ defmodule SnmpKit.SnmpMgr.Stream do
                 update_stream_adaptive_state(
                   state.adaptive_state,
                   response_time,
-                  length(in_scope)
+                  length(enriched)
                 )
 
               %{state | current_oid: next_oid, adaptive_state: adaptive_state}
@@ -264,7 +268,7 @@ defmodule SnmpKit.SnmpMgr.Stream do
               %{state | current_oid: next_oid}
             end
 
-          {in_scope, new_state}
+          {enriched, new_state}
         end
 
       {:error, reason} ->

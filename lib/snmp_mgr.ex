@@ -6,6 +6,31 @@ defmodule SnmpKit.SnmpMgr do
   without requiring heavyweight management processes or configurations.
   """
 
+  @doc """
+  Ensures internal manager services are started.
+
+  Starts RequestIdGenerator, SocketManager, and EngineV2 if they are not running.
+  Safe to call multiple times.
+  """
+  def ensure_started() do
+    # RequestIdGenerator
+    unless Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator) do
+      _ = SnmpKit.SnmpMgr.RequestIdGenerator.start_link(name: SnmpKit.SnmpMgr.RequestIdGenerator)
+    end
+
+    # SocketManager
+    unless Process.whereis(SnmpKit.SnmpMgr.SocketManager) do
+      _ = SnmpKit.SnmpMgr.SocketManager.start_link(name: SnmpKit.SnmpMgr.SocketManager)
+    end
+
+    # EngineV2
+    unless Process.whereis(SnmpKit.SnmpMgr.EngineV2) do
+      _ = SnmpKit.SnmpMgr.EngineV2.start_link(name: SnmpKit.SnmpMgr.EngineV2)
+    end
+
+    :ok
+  end
+
   @type target :: binary() | tuple() | map()
   @type oid :: binary() | list()
   @type opts :: keyword()

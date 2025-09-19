@@ -177,14 +177,14 @@ defmodule SnmpKit.SnmpMgr.FormatTest do
       assert result == "00:1b:21:3c:4d:5e"
     end
 
-    test "keeps octet strings as-is regardless of length" do
+  test "formats non-printable octet strings as spaced hex with hex: prefix" do
       short_binary = <<0x00, 0x1B>>
       result = SnmpKit.SnmpMgr.Format.format_by_type(:octet_string, short_binary)
-      assert result == short_binary
+      assert result == "hex:00 1B"
 
       six_byte_binary = <<0x00, 0x1B, 0x21, 0x3C, 0x4D, 0x5E>>
       result2 = SnmpKit.SnmpMgr.Format.format_by_type(:octet_string, six_byte_binary)
-      assert result2 == six_byte_binary
+      assert result2 == "hex:00 1B 21 3C 4D 5E"
     end
 
     test "formats explicit MAC addresses correctly" do
@@ -233,11 +233,11 @@ defmodule SnmpKit.SnmpMgr.FormatTest do
       assert Format.format_by_type(:octet_string, "wlan01") == "wlan01"
     end
 
-    test "handles binary octet strings as strings" do
-      # Even 6-byte binary data should remain as-is if typed as octet_string
+    test "formats binary octet strings as spaced hex when non-printable" do
+      # Even 6-byte binary data should render as hex when not printable UTF-8
       binary_data = <<0x00, 0x1B, 0x21, 0x3C, 0x4D, 0x5E>>
       result = Format.format_by_type(:octet_string, binary_data)
-      assert result == binary_data
+      assert result == "hex:00 1B 21 3C 4D 5E"
     end
   end
 end

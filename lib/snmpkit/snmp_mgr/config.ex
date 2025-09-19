@@ -13,10 +13,11 @@ defmodule SnmpKit.SnmpMgr.Config do
     timeout: 5000,
     retries: 1,
     port: 161,
-    version: :v1,
+    version: :v2c,
     mib_paths: [],
     include_names: true,
-    include_formatted: true
+    include_formatted: true,
+    auto_start_services: true
   }
 
   ## Public API
@@ -150,6 +151,20 @@ defmodule SnmpKit.SnmpMgr.Config do
   end
 
   @doc """
+  Sets whether manager services auto-start on demand.
+  """
+  def set_default_auto_start_services(flag) when is_boolean(flag) do
+    GenServer.call(__MODULE__, {:set, :auto_start_services, flag})
+  end
+
+  @doc """
+  Gets whether manager services auto-start on demand.
+  """
+  def get_default_auto_start_services do
+    GenServer.call(__MODULE__, {:get, :auto_start_services})
+  end
+
+  @doc """
   Gets the default include_formatted flag.
   """
   def get_default_include_formatted do
@@ -198,7 +213,7 @@ defmodule SnmpKit.SnmpMgr.Config do
         timeout: 5000,
         retries: 1,
         port: 161,
-        version: :v1,
+        version: :v2c,
         mib_paths: []
       }
   """
@@ -292,7 +307,9 @@ defmodule SnmpKit.SnmpMgr.Config do
       mib_paths: Application.get_env(:snmp_mgr, :mib_paths, @default_config.mib_paths),
       include_names: Application.get_env(:snmp_mgr, :include_names, @default_config.include_names),
       include_formatted:
-        Application.get_env(:snmp_mgr, :include_formatted, @default_config.include_formatted)
+        Application.get_env(:snmp_mgr, :include_formatted, @default_config.include_formatted),
+      auto_start_services:
+        Application.get_env(:snmp_mgr, :auto_start_services, @default_config.auto_start_services)
     }
 
     config =

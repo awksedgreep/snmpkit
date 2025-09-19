@@ -9,6 +9,9 @@ defmodule SnmpKit.SnmpMgr.Format do
   All functions work with the 3-tuple format `{oid_string, type, value}` that
   SnmpMgr uses throughout the library.
 
+  Note: As of 1.1, enrichment helpers will also include `oid_list` alongside
+  `oid` (string) and guarantee `formatted` is a String.t when requested.
+
   ## Examples
 
       # Format uptime from SNMP result
@@ -99,7 +102,7 @@ defmodule SnmpKit.SnmpMgr.Format do
           "#{value} (Unsigned32)"
 
         :octet_string ->
-          inspect(value)
+          format_octet_string(value)
 
         :object_identifier ->
           case value do
@@ -175,7 +178,29 @@ defmodule SnmpKit.SnmpMgr.Format do
   def format_by_type(:ip_address, value), do: ip_address(value)
   def format_by_type(:mac_address, value), do: mac_address(value)
 
-  def format_by_type(_type, value) when is_binary(value), do: value
+  def format_by_type(:octet_string, value) when is_binary(value), do: format_octet_string(value)
+
+  def format_by_type(:octet_string, value) when is_list(value) do
+    if Enum.all?(value, &is_integer/1) and Enum.all?(value, &(&1 >= 0 and &1 <= 255)) do
+      bin = :erlang.list_to_binary(value)
+      format_octet_string(bin)
+    else
+      inspect(value)
+    end
+  end
+
+  def format_by_type(:octet_string, value), do: inspect(value)
+
+  def format_by_type(_type, value) when is_binary(value) do
+    # If the caller provided a binary (not necessarily UTF-8), attempt to
+    # convert to printable string; otherwise fallback to hex representation.
+    if String.valid?(value) and String.printable?(value) do
+      value
+    else
+      "hex:" <> hex_pairs(value)
+    end
+  end
+
   def format_by_type(_type, value) when is_integer(value), do: Integer.to_string(value)
   def format_by_type(_type, value) when is_atom(value), do: Atom.to_string(value)
   def format_by_type(_type, value), do: inspect(value)
@@ -189,15 +214,34 @@ defmodule SnmpKit.SnmpMgr.Format do
   - include_names (default true)
   - include_formatted (default true)
   """
-  def enrich_varbind({oid_any, type, value}, opts \\ []) do
+  # Provide default opts once, then pattern match in subsequent clauses
+  def enrich_varbind(varbind, opts \\ [])
+  # Idempotent: if a map already looks enriched, return it unchanged.
+  def enrich_varbind(%{oid: _oid, type: _type, value: _value} = already_enriched, _opts) do
+    already_enriched
+  end
+
+  def enrich_varbind({oid_any, type, value}, opts) do
     include_names = Keyword.get(opts, :include_names, true)
     include_formatted = Keyword.get(opts, :include_formatted, true)
 
-    oid_string =
+    {oid_string, oid_list} =
       cond do
-        is_list(oid_any) -> Enum.join(oid_any, ".")
-        is_binary(oid_any) -> oid_any
-        true -> to_string(oid_any)
+        is_list(oid_any) ->
+          {Enum.join(oid_any, "."), oid_any}
+
+        is_binary(oid_any) ->
+          case SnmpKit.SnmpLib.OID.string_to_list(oid_any) do
+            {:ok, list} -> {oid_any, list}
+            _ -> {oid_any, []}
+          end
+
+        true ->
+          str = to_string(oid_any)
+          case SnmpKit.SnmpLib.OID.string_to_list(str) do
+            {:ok, list} -> {str, list}
+            _ -> {str, []}
+          end
       end
 
     name =
@@ -212,6 +256,7 @@ defmodule SnmpKit.SnmpMgr.Format do
 
     enriched = %{
       oid: oid_string,
+      oid_list: oid_list,
       type: type,
       value: value
     }
@@ -230,9 +275,13 @@ defmodule SnmpKit.SnmpMgr.Format do
 
   @doc """
   Enrich a list of varbind tuples into standardized maps.
+  Idempotent with respect to already-enriched maps.
   """
   def enrich_varbinds(list, opts \\ []) when is_list(list) do
-    Enum.map(list, &enrich_varbind(&1, opts))
+    Enum.map(list, fn
+      %{oid: _oid, type: _type, value: _value} = m -> enrich_varbind(m, opts)
+      other -> enrich_varbind(other, opts)
+    end)
   end
 
   @doc """
@@ -257,6 +306,40 @@ defmodule SnmpKit.SnmpMgr.Format do
   end
 
   def bytes(other), do: inspect(other)
+
+  # Internal helpers
+  defp printable_utf8?(bin) when is_binary(bin) do
+    String.valid?(bin) and String.printable?(bin)
+  end
+
+  defp hex_pairs(bin) when is_binary(bin) do
+    bin
+    |> :binary.bin_to_list()
+    |> Enum.map(&Integer.to_string(&1, 16))
+    |> Enum.map(&String.upcase/1)
+    |> Enum.map(&String.pad_leading(&1, 2, "0"))
+    |> Enum.join(" ")
+  end
+
+  defp format_octet_string(value) when is_binary(value) do
+    if printable_utf8?(value) do
+      value
+    else
+      "hex:" <> hex_pairs(value)
+    end
+  end
+
+  defp format_octet_string(value) when is_list(value) do
+    if Enum.all?(value, &is_integer/1) and Enum.all?(value, &(&1 >= 0 and &1 <= 255)) do
+      value
+      |> :erlang.list_to_binary()
+      |> format_octet_string()
+    else
+      inspect(value)
+    end
+  end
+
+  defp format_octet_string(other), do: inspect(other)
 
   @doc """
   Formats network speeds (bits per second) into human-readable rates.

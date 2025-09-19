@@ -12,6 +12,8 @@ defmodule SnmpKit.SnmpMgr.Bulk do
   @doc """
   Performs a single GETBULK request.
 
+  Returns enriched varbind maps (same standardized shape as other SnmpMgr APIs).
+
   ## Parameters
   - `target` - The target device
   - `oids` - Single OID or list of OIDs to retrieve
@@ -52,7 +54,15 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
             # Use the first OID as the starting point for GETBULK
             starting_oid = hd(resolved_oids)
-            SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, starting_oid, bulk_opts)
+
+            case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, starting_oid, bulk_opts) do
+              {:ok, results} ->
+                merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+                {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
+
+              {:error, reason} ->
+                {:error, reason}
+            end
 
           error ->
             error
@@ -62,6 +72,9 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
   @doc """
   Optimized table retrieval using GETBULK.
+
+  Returns enriched varbind maps for each entry, e.g.:
+  {:ok, [%{oid: "1.3.6.1...", oid_list: [...], type: :octet_string, value: "eth0", name: ..., formatted: ...}, ...]}
 
   Uses GETBULK to efficiently retrieve an entire SNMP table,
   automatically handling pagination when tables are larger than max_repetitions.
@@ -88,13 +101,8 @@ defmodule SnmpKit.SnmpMgr.Bulk do
       {:ok, start_oid} ->
         case bulk_walk_table(target, start_oid, start_oid, [], max_entries, opts) do
           {:ok, results} ->
-            # Convert OID lists to strings for final output
-            formatted_results =
-              Enum.map(results, fn
-                {oid_list, type, value} -> {Enum.join(oid_list, "."), type, value}
-              end)
-
-            {:ok, formatted_results}
+            merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+            {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
 
           error ->
             error
@@ -107,6 +115,8 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
   @doc """
   Bulk walk operation using GETBULK instead of iterative GETNEXT.
+
+  Returns enriched varbind maps for each entry (same shape as other APIs).
 
   Significantly more efficient than traditional walks for large subtrees.
 
@@ -131,20 +141,15 @@ defmodule SnmpKit.SnmpMgr.Bulk do
       {:ok, start_oid} ->
         case bulk_walk_subtree(target, start_oid, start_oid, [], max_entries, opts) do
           {:ok, results} ->
-            # Convert OID lists to strings for final output
-            formatted_results =
-              Enum.map(results, fn
-                {oid_list, type, value} -> {Enum.join(oid_list, "."), type, value}
-              end)
-
-            {:ok, formatted_results}
+            merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+            {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
 
           error ->
             error
         end
 
       error ->
-        error
+      error
     end
   end
 

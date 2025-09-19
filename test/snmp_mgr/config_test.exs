@@ -82,9 +82,17 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
     end
   end
 
-  describe "Version-specific Configuration" do
-    test "SNMPv1 operations use configured version", %{device: device} do
+  describe "Version defaults and configuration" do
+    test "default version is :v2c and used by Config.merge_opts/1" do
+      # Reset to defaults and verify version
+      Config.reset()
+      assert Config.get_default_version() == :v2c
 
+      merged = Config.merge_opts([])
+      assert Keyword.get(merged, :version) == :v2c
+    end
+
+    test "SNMPv1 operations use configured version when explicitly set", %{device: device} do
       Config.set_default_version(:v1)
 
       # Test with v1 operations (no bulk operations)
@@ -101,8 +109,7 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
       assert Config.get_default_version() == :v1
     end
 
-    test "SNMPv2c operations use configured version", %{device: device} do
-
+    test "SNMPv2c operations use configured version when explicitly set", %{device: device} do
       Config.set_default_version(:v2c)
 
       # Test with v2c operations (bulk operations available)

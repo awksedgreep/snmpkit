@@ -23,7 +23,7 @@ defmodule SnmpKit.SnmpSim.LazyDevicePoolTest do
 
     on_exit(fn ->
       if Process.alive?(pool_pid) do
-        GenServer.stop(pool_pid)
+        Process.exit(pool_pid, :normal)
       end
     end)
 
