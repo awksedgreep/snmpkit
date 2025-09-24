@@ -6,8 +6,8 @@ defmodule SnmpKit.SnmpMgr.Bulk do
   than iterative GETNEXT requests for retrieving large amounts of data.
   """
 
-  @default_max_repetitions 20
-  @default_non_repeaters 0
+@default_max_repetitions 30
+@default_non_repeaters 0
 
   @doc """
   Performs a single GETBULK request.

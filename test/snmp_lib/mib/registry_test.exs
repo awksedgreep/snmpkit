@@ -58,6 +58,22 @@ defmodule SnmpKit.SnmpLib.MIB.RegistryTest do
     end
   end
 
+  describe "reverse_lookup/1 instance suffix handling" do
+    test "appends .0 for scalar leaves" do
+      assert {:ok, "sysUpTime.0"} = Registry.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 3, 0])
+      assert {:ok, "snmpInPkts.0"} = Registry.reverse_lookup([1, 3, 6, 1, 2, 1, 11, 1, 0])
+    end
+
+    test "appends single index for table columns" do
+      assert {:ok, "ifDescr.42"} = Registry.reverse_lookup([1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 42])
+      assert {:ok, "ifType.7"} = Registry.reverse_lookup([1, 3, 6, 1, 2, 1, 2, 2, 1, 3, 7])
+    end
+
+    test "does not append suffix for exact symbol OIDs" do
+      assert {:ok, "enterprises"} = Registry.reverse_lookup([1, 3, 6, 1, 4, 1])
+    end
+  end
+
   describe "children/1" do
     test "finds direct children of system group" do
       {:ok, children} = Registry.children([1, 3, 6, 1, 2, 1, 1])

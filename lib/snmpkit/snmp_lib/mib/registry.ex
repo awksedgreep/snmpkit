@@ -252,6 +252,7 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
         find_partial_reverse_match(oid, oid_to_name_map)
 
       name ->
+        # Exact match to a symbol — return the base name as-is
         {:ok, name}
     end
   end
@@ -281,13 +282,14 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
         find_partial_match(oid, oid_to_name_map, length - 1)
 
       base_name ->
-        instance_part = Enum.drop(oid, length)
+        # Append the remaining OID components as an instance suffix, if any
+        instance = Enum.drop(oid, length)
 
-        if Enum.empty?(instance_part) do
-          {:ok, base_name}
-        else
-          instance_string = Enum.join(instance_part, ".")
-          {:ok, "#{base_name}.#{instance_string}"}
+        case instance do
+          [] -> {:ok, base_name}
+          _ ->
+            suffix = instance |> Enum.map(&Integer.to_string/1) |> Enum.join(".")
+            {:ok, base_name <> "." <> suffix}
         end
     end
   end
@@ -364,4 +366,5 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
     |> Enum.map(fn {name, oid} -> {oid, name} end)
     |> Enum.into(%{})
   end
+
 end

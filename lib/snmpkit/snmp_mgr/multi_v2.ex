@@ -47,7 +47,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
   ## Parameters
   - `targets_and_oids` - List of {target, oid} or {target, oid, opts} tuples
   - `opts` - Global options applied to all requests
-    - `:max_repetitions` - Maximum repetitions for GetBulk (default: 10)
+    - `:max_repetitions` - Maximum repetitions for GetBulk (default: 30)
 
   ## Examples
 
@@ -208,7 +208,7 @@ defp execute_multi_operation(targets_and_data, operation_type, opts) do
             Keyword.get(
               request_opts,
               :max_repetitions,
-              Keyword.get(global_opts, :max_repetitions, 10)
+              Keyword.get(global_opts, :max_repetitions, 30)
             ),
           opts: Keyword.merge(global_opts, request_opts)
         }
@@ -220,7 +220,7 @@ defp execute_multi_operation(targets_and_data, operation_type, opts) do
           oid: data,
           community: Keyword.get(global_opts, :community, "public"),
           version: Keyword.get(global_opts, :version, :v2c),
-          max_repetitions: Keyword.get(global_opts, :max_repetitions, 10),
+          max_repetitions: Keyword.get(global_opts, :max_repetitions, 30),
           opts: global_opts
         }
     end)
@@ -241,7 +241,7 @@ defp execute_multi_operation(targets_and_data, operation_type, opts) do
             Keyword.get(
               request_opts,
               :max_repetitions,
-              Keyword.get(global_opts, :max_repetitions, 10)
+              Keyword.get(global_opts, :max_repetitions, 30)
             ),
           opts: Keyword.merge(global_opts, request_opts)
         }
@@ -253,7 +253,7 @@ defp execute_multi_operation(targets_and_data, operation_type, opts) do
           oid: args,
           community: Keyword.get(global_opts, :community, "public"),
           version: Keyword.get(global_opts, :version, :v2c),
-          max_repetitions: Keyword.get(global_opts, :max_repetitions, 10),
+          max_repetitions: Keyword.get(global_opts, :max_repetitions, 30),
           opts: global_opts
         }
     end)
@@ -370,7 +370,7 @@ defp execute_multi_operation(targets_and_data, operation_type, opts) do
         SnmpKit.SnmpLib.PDU.encode_message(message)
 
       :get_bulk ->
-        max_rep = Keyword.get(request.opts, :max_repetitions, 10)
+        max_rep = Keyword.get(request.opts, :max_repetitions, 30)
         pdu = SnmpKit.SnmpLib.PDU.build_get_bulk_request(request.oid, request_id, 0, max_rep)
         message = SnmpKit.SnmpLib.PDU.build_message(pdu, community, version)
         SnmpKit.SnmpLib.PDU.encode_message(message)

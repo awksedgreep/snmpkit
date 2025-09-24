@@ -231,7 +231,7 @@ defmodule SnmpKit.SnmpLib.PDU do
           non_neg_integer(),
           non_neg_integer()
         ) :: pdu()
-  def build_get_bulk_request(oid_list, request_id, non_repeaters \\ 0, max_repetitions \\ 10) do
+  def build_get_bulk_request(oid_list, request_id, non_repeaters \\ 0, max_repetitions \\ 30) do
     Builder.build_get_bulk_request(oid_list, request_id, non_repeaters, max_repetitions)
   end
 

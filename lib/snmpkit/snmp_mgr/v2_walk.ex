@@ -88,7 +88,7 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
       target = resolve_target(request.target)
       community = Keyword.get(request.opts, :community, "public")
       version = Keyword.get(request.opts, :version, :v2c)
-      max_repetitions = Keyword.get(request.opts, :max_repetitions, 10)
+      max_repetitions = Keyword.get(request.opts, :max_repetitions, 30)
 
       # Ensure oid is in list format for PDU building
       oid_list = if is_list(oid), do: oid, else: [oid]

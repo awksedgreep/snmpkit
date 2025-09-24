@@ -50,7 +50,7 @@ defmodule SnmpKit.SnmpLib.Manager do
   @default_retries 3
   @default_port 161
   @default_local_port 0
-  @default_max_repetitions 10
+  @default_max_repetitions 30
   @default_non_repeaters 0
 
   @type host :: binary() | :inet.ip_address()
