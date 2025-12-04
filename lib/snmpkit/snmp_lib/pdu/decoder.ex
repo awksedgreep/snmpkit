@@ -382,10 +382,16 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
     end
   end
 
-  defp parse_oid(<<@object_identifier, length, oid_data::binary-size(length), rest::binary>>) do
-    case decode_oid_data(oid_data) do
-      {:ok, oid} -> {:ok, {oid, rest}}
-      error -> error
+  defp parse_oid(<<@object_identifier, rest::binary>>) do
+    case parse_ber_length_and_remaining(rest) do
+      {:ok, {_len, oid_data, rest2}} ->
+        case decode_oid_data(oid_data) do
+          {:ok, oid} -> {:ok, {oid, rest2}}
+          error -> error
+        end
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -424,53 +430,80 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
 
   defp decode_oid_subid(<<>>, _), do: {:error, :incomplete_oid}
 
-  defp parse_value_with_type(<<@octet_string, length, value::binary-size(length), rest::binary>>) do
-    {:ok, {:octet_string, value, rest}}
+  defp parse_value_with_type(<<@octet_string, rest::binary>>) do
+    case parse_ber_length_and_remaining(rest) do
+      {:ok, {_len, value, rest2}} -> {:ok, {:octet_string, value, rest2}}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
-  defp parse_value_with_type(<<@integer, length, value_data::binary-size(length), rest::binary>>) do
-    int_value = decode_integer_value(value_data)
-    {:ok, {:integer, int_value, rest}}
+  defp parse_value_with_type(<<@integer, rest::binary>>) do
+    case parse_ber_length_and_remaining(rest) do
+      {:ok, {_len, value_bytes, rest2}} ->
+        {:ok, {:integer, decode_integer_value(value_bytes), rest2}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   defp parse_value_with_type(<<@null, 0, rest::binary>>) do
     {:ok, {:null, :null, rest}}
   end
 
-  defp parse_value_with_type(
-         <<@object_identifier, length, oid_data::binary-size(length), rest::binary>>
-       ) do
-    case decode_oid_data(oid_data) do
-      {:ok, oid_list} ->
-        {:ok, {:object_identifier, oid_list, rest}}
+  defp parse_value_with_type(<<@object_identifier, rest::binary>>) do
+    case parse_ber_length_and_remaining(rest) do
+      {:ok, {_len, oid_data, rest2}} ->
+        case decode_oid_data(oid_data) do
+          {:ok, oid_list} -> {:ok, {:object_identifier, oid_list, rest2}}
+          {:error, _} -> {:error, :invalid_oid}
+        end
 
-      {:error, _} ->
-        {:error, :invalid_oid}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
-  defp parse_value_with_type(<<@counter32, length, value::binary-size(length), rest::binary>>) do
-    {:ok, {:counter32, decode_unsigned_integer(value), rest}}
+  defp parse_value_with_type(<<@counter32, rest::binary>>) do
+    case parse_ber_length_and_remaining(rest) do
+      {:ok, {_len, value, rest2}} -> {:ok, {:counter32, decode_unsigned_integer(value), rest2}}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
-  defp parse_value_with_type(<<@gauge32, length, value::binary-size(length), rest::binary>>) do
-    {:ok, {:gauge32, decode_unsigned_integer(value), rest}}
+  defp parse_value_with_type(<<@gauge32, rest::binary>>) do
+    case parse_ber_length_and_remaining(rest) do
+      {:ok, {_len, value, rest2}} -> {:ok, {:gauge32, decode_unsigned_integer(value), rest2}}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
-  defp parse_value_with_type(<<@timeticks, length, value::binary-size(length), rest::binary>>) do
-    {:ok, {:timeticks, decode_unsigned_integer(value), rest}}
+  defp parse_value_with_type(<<@timeticks, rest::binary>>) do
+    case parse_ber_length_and_remaining(rest) do
+      {:ok, {_len, value, rest2}} -> {:ok, {:timeticks, decode_unsigned_integer(value), rest2}}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
-  defp parse_value_with_type(<<@counter64, length, value::binary-size(length), rest::binary>>) do
-    {:ok, {:counter64, decode_counter64(value), rest}}
+  defp parse_value_with_type(<<@counter64, rest::binary>>) do
+    case parse_ber_length_and_remaining(rest) do
+      {:ok, {_len, value, rest2}} -> {:ok, {:counter64, decode_counter64(value), rest2}}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
-  defp parse_value_with_type(<<@ip_address, length, value::binary-size(length), rest::binary>>) do
-    {:ok, {:ip_address, value, rest}}
+  defp parse_value_with_type(<<@ip_address, rest::binary>>) do
+    case parse_ber_length_and_remaining(rest) do
+      {:ok, {_len, value, rest2}} -> {:ok, {:ip_address, value, rest2}}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
-  defp parse_value_with_type(<<@opaque_type, length, value::binary-size(length), rest::binary>>) do
-    {:ok, {:opaque, value, rest}}
+  defp parse_value_with_type(<<@opaque_type, rest::binary>>) do
+    case parse_ber_length_and_remaining(rest) do
+      {:ok, {_len, value, rest2}} -> {:ok, {:opaque, value, rest2}}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   defp parse_value_with_type(<<@no_such_object, 0, rest::binary>>) do
