@@ -263,11 +263,13 @@ lreverse(_Tag, L) when is_list(L) ->
     lists:reverse(L);
 lreverse(Tag, X) ->
     exit({bad_list, Tag, X}).
--file("/Users/mcotner/.asdf/installs/erlang/27.3.3/lib/parsetools-2.6/include/yeccpre.hrl", 0).
+-file("/Users/mcotner/.asdf/installs/erlang/28.0.2/lib/parsetools-2.7/include/yeccpre.hrl", 0).
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -451,7 +453,7 @@ yecctoken2string1(Other) ->
 
 
 
--file("src/mib_grammar_elixir.erl", 454).
+-file("src/mib_grammar_elixir.erl", 456).
 
 -dialyzer({nowarn_function, yeccpars2/7}).
 -compile({nowarn_unused_function,  yeccpars2/7}).

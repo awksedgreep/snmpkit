@@ -555,7 +555,7 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
 
   defp decode_unsigned_integer(_), do: 0
 
-  defp decode_counter64(data) when byte_size(data) == 8 do
+  defp decode_counter64(data) when byte_size(data) <= 8 and byte_size(data) > 0 do
     :binary.decode_unsigned(data, :big)
   end
 
