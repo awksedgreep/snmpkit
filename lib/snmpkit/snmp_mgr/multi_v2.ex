@@ -136,7 +136,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
         {:ok, [{"1.3.6.1.2.1.1.1.0", "Router 1"}, ...]}
       ]
   """
-def execute_mixed(operations, opts \\ []) do
+  def execute_mixed(operations, opts \\ []) do
     # Ensure required components are running (idempotent)
     ensure_components_started()
 
@@ -152,7 +152,11 @@ def execute_mixed(operations, opts \\ []) do
       |> Task.async_stream(
         fn operation -> execute_single_operation(operation, timeout) end,
         max_concurrency: max_concurrent,
-        timeout: timeout + 1000,
+        timeout:
+          if(Enum.any?(normalized_operations, fn op -> op.type in [:walk, :walk_table] end),
+            do: 1_200_000,
+            else: timeout + 1000
+          ),
         on_timeout: :kill_task
       )
       |> Enum.map(fn
@@ -165,7 +169,7 @@ def execute_mixed(operations, opts \\ []) do
 
   # Private functions
 
-defp execute_multi_operation(targets_and_data, operation_type, opts) do
+  defp execute_multi_operation(targets_and_data, operation_type, opts) do
     # Ensure required components are running (idempotent)
     ensure_components_started()
 
@@ -181,7 +185,7 @@ defp execute_multi_operation(targets_and_data, operation_type, opts) do
       |> Task.async_stream(
         fn request -> execute_single_operation(request, timeout) end,
         max_concurrency: max_concurrent,
-        timeout: timeout + 1000,
+        timeout: if(operation_type in [:walk, :walk_table], do: 1_200_000, else: timeout + 1000),
         on_timeout: :kill_task
       )
       |> Enum.map(fn
@@ -441,11 +445,16 @@ defp execute_multi_operation(targets_and_data, operation_type, opts) do
   defp ensure_components_started() do
     # Honor auto_start_services toggle; if disabled, do nothing.
     case SnmpKit.SnmpMgr.Config.get(:auto_start_services) do
-      false -> :ok
+      false ->
+        :ok
+
       _true ->
         # RequestIdGenerator
         unless Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator) do
-          _ = SnmpKit.SnmpMgr.RequestIdGenerator.start_link(name: SnmpKit.SnmpMgr.RequestIdGenerator)
+          _ =
+            SnmpKit.SnmpMgr.RequestIdGenerator.start_link(
+              name: SnmpKit.SnmpMgr.RequestIdGenerator
+            )
         end
 
         # SocketManager
@@ -465,10 +474,13 @@ defp execute_multi_operation(targets_and_data, operation_type, opts) do
   # Enrich any result to standardized maps, preserving {:ok, ...} | {:error, ...}
   defp enrich_any_result({:ok, %{oid: _}} = result, _opts), do: result
   defp enrich_any_result({:ok, [%{oid: _} | _] = _already} = result, _opts), do: result
+
   defp enrich_any_result({:ok, {oid, type, value}}, opts),
     do: {:ok, SnmpKit.SnmpMgr.Format.enrich_varbind({oid, type, value}, opts)}
+
   defp enrich_any_result({:ok, list}, opts) when is_list(list),
     do: {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(list, opts)}
+
   defp enrich_any_result(other, _opts), do: other
 
   defp normalize_targets_and_data(targets_and_data) do
