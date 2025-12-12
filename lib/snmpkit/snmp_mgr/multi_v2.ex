@@ -18,12 +18,20 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
   ## Parameters
   - `targets_and_oids` - List of {target, oid} or {target, oid, opts} tuples
   - `opts` - Global options applied to all requests
-    - `:timeout` - Request timeout in milliseconds (default: 10000)
+    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
+      How long to wait for each individual SNMP response
     - `:max_concurrent` - Maximum concurrent requests (default: 10)
     - `:return_format` - Format of returned results (default: `:list`)
       - `:list` - Returns list of results in same order as input
       - `:with_targets` - Returns list of {target, oid, result} tuples
       - `:map` - Returns map with {target, oid} keys and result values
+
+  ## Per-Request Options
+  Individual requests can override global options by providing a third element:
+  - `{target, oid, opts}` where opts can include:
+    - `:timeout` - Override global timeout for this specific request
+    - `:community` - Override SNMP community string
+    - `:version` - Override SNMP version (:v1, :v2c)
 
   ## Examples
 
@@ -47,7 +55,15 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
   ## Parameters
   - `targets_and_oids` - List of {target, oid} or {target, oid, opts} tuples
   - `opts` - Global options applied to all requests
+    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
+      How long to wait for each individual SNMP response
     - `:max_repetitions` - Maximum repetitions for GetBulk (default: 30)
+    - `:max_concurrent` - Maximum concurrent requests (default: 10)
+
+  ## Per-Request Options
+  Individual requests can override global options:
+    - `:timeout` - Override global timeout for this specific request
+    - `:max_repetitions` - Override max repetitions for this request
 
   ## Examples
 
@@ -68,9 +84,30 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
   @doc """
   Performs walk operations against multiple targets concurrently.
 
+  A walk operation retrieves all OIDs under a given root OID by sending
+  multiple GETBULK requests until the end of the MIB subtree is reached.
+
   ## Parameters
   - `targets_and_oids` - List of {target, root_oid} or {target, root_oid, opts} tuples
   - `opts` - Global options applied to all requests
+    - `:timeout` - Per-PDU timeout in milliseconds (default: 30000)
+      How long to wait for each GETBULK PDU response during the walk.
+      A walk may require many PDUs, so total walk time = N_pdus × timeout.
+      Task timeout is capped at 20 minutes to prevent infinite hangs.
+    - `:max_repetitions` - OIDs requested per GETBULK PDU (default: 30)
+    - `:max_concurrent` - Maximum concurrent walk operations (default: 10)
+
+  ## Per-Request Options
+  Individual walk requests can override global options:
+    - `:timeout` - Override per-PDU timeout for this specific walk
+    - `:max_repetitions` - Override max repetitions for this walk
+    - `:community` - Override SNMP community string
+
+  ## Timeout Behavior
+  - Each GETBULK PDU has its own timeout (per-PDU timeout)
+  - Large tables may require 50-200+ PDUs to walk completely
+  - Total walk time can be substantial: N_pdus × per_PDU_timeout
+  - Operations are protected by 20-minute maximum task timeout
 
   ## Examples
 
@@ -93,9 +130,21 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
   @doc """
   Performs table walk operations against multiple targets concurrently.
 
+  Similar to walk_multi but optimized for SNMP table operations.
+
   ## Parameters
   - `targets_and_tables` - List of {target, table_oid} or {target, table_oid, opts} tuples
   - `opts` - Global options applied to all requests
+    - `:timeout` - Per-PDU timeout in milliseconds (default: 50000)
+      How long to wait for each GETBULK PDU response during table walk.
+      Table walks often require more PDUs than regular walks.
+    - `:max_repetitions` - Rows requested per GETBULK PDU (default: 30)
+    - `:max_concurrent` - Maximum concurrent table walks (default: 10)
+
+  ## Per-Request Options
+  Individual table walk requests can override global options:
+    - `:timeout` - Override per-PDU timeout for this specific table walk
+    - `:max_repetitions` - Override max repetitions for this table
 
   ## Examples
 
@@ -120,7 +169,23 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
 
   ## Parameters
   - `operations` - List of {operation, target, oid_or_args, opts} tuples
+    where operation is :get, :get_bulk, :walk, or :walk_table
   - `opts` - Global options
+    - `:timeout` - Per-PDU timeout in milliseconds (default: 30000)
+      Applied to all operations. Walk operations may require many PDUs.
+    - `:max_concurrent` - Maximum concurrent operations (default: 10)
+
+  ## Per-Operation Options
+  Each operation tuple can include individual options:
+    - `:timeout` - Override per-PDU timeout for this specific operation
+    - `:max_repetitions` - Override for bulk/walk operations
+    - `:community` - Override SNMP community string
+
+  ## Timeout Behavior
+  - GET/GETBULK: Single PDU timeout
+  - WALK operations: Per-PDU timeout, may require many PDUs
+  - Mixed operations with walks use 20-minute task timeout cap
+  - Operations without walks use shorter task timeout protection
 
   ## Examples
 

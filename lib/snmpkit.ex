@@ -9,11 +9,35 @@ defmodule SnmpKit do
   - `SnmpKit.MIB` - MIB compilation, loading, and resolution
   - `SnmpKit.Sim` - SNMP device simulation and testing
 
+  ## Timeout Behavior
+
+  SnmpKit uses two types of timeouts:
+
+  ### PDU Timeout (`:timeout` parameter)
+  - Controls how long to wait for each individual SNMP PDU response
+  - Default: 10 seconds for GET/GETBULK, 30 seconds for walks
+  - Applied per SNMP packet, not per operation
+
+  ### Task Timeout (internal)
+  - Prevents operations from hanging indefinitely
+  - GET/GETBULK: PDU timeout + 1 second (safeguard)
+  - Walk operations: 20 minutes maximum (allows large table walks)
+
+  ### Walk Operations
+  Walk operations may send many GETBULK PDUs to retrieve all data:
+  - Each PDU has its own timeout (PDU timeout)
+  - Large tables may need 50-200+ PDUs
+  - Total time = N_pdus × PDU_timeout (up to 20 minute maximum)
+
   ## Quick Examples
 
       # SNMP Operations
       {:ok, value} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
       {:ok, results} = SnmpKit.SNMP.walk("192.168.1.1", "system")
+
+      # With custom PDU timeout
+      {:ok, value} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0", timeout: 15_000)
+      {:ok, results} = SnmpKit.SNMP.walk("192.168.1.1", "ifTable", timeout: 30_000)
 
       # MIB Operations
       {:ok, oid} = SnmpKit.MIB.resolve("sysDescr.0")

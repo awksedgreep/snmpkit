@@ -4,6 +4,20 @@ defmodule SnmpKit.SnmpMgr.Core do
 
   This module handles the low-level SNMP PDU encoding/decoding and UDP communication
   without requiring the heavyweight :snmpm manager process.
+
+  ## Timeout Behavior
+
+  All functions in this module use a single timeout parameter that controls
+  the SNMP PDU timeout - how long to wait for a response to each individual
+  SNMP packet sent to the target device.
+
+  - **Default timeout**: 10 seconds (10,000 milliseconds)
+  - **Timeout applies to**: Each individual SNMP PDU (GET, SET, GETBULK, etc.)
+  - **Not applicable to**: Multi-PDU operations (use walk functions for those)
+
+  For operations that may require multiple PDUs (like walking large tables),
+  consider using the higher-level walk functions in `SnmpKit.SnmpMgr.MultiV2`
+  which handle multi-PDU timeouts appropriately.
   """
 
   @type snmp_result :: {:ok, term()} | {:error, atom() | tuple()}
@@ -13,6 +27,15 @@ defmodule SnmpKit.SnmpMgr.Core do
 
   @doc """
   Sends an SNMP GET request and returns the response.
+
+  ## Parameters
+  - `target` - SNMP target (host, "host:port", or target map)
+  - `oid` - Object identifier (string or list format)
+  - `opts` - Request options
+    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
+    - `:community` - SNMP community string (default: "public")
+    - `:version` - SNMP version (:v1, :v2c) (default: :v2c)
+    - `:port` - SNMP port (default: 161)
   """
   @spec send_get_request(target(), oid(), opts()) :: snmp_result()
   def send_get_request(target, oid, opts \\ []) do
@@ -178,6 +201,15 @@ defmodule SnmpKit.SnmpMgr.Core do
 
   @doc """
   Sends an SNMP SET request and returns the response.
+
+  ## Parameters
+  - `target` - SNMP target (host, "host:port", or target map)
+  - `oid` - Object identifier to set
+  - `value` - Value to set (will be encoded based on type)
+  - `opts` - Request options
+    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
+    - `:community` - SNMP community string (default: "public")
+    - `:version` - SNMP version (:v1, :v2c) (default: :v2c)
   """
   @spec send_set_request(target(), oid(), term(), opts()) :: snmp_result()
   def send_set_request(target, oid, value, opts \\ []) do
@@ -270,6 +302,18 @@ defmodule SnmpKit.SnmpMgr.Core do
 
   @doc """
   Sends an SNMP GETBULK request (SNMPv2c only).
+
+  GETBULK is more efficient than multiple GETNEXT operations for retrieving
+  multiple consecutive OIDs.
+
+  ## Parameters
+  - `target` - SNMP target (host, "host:port", or target map)
+  - `oid` - Starting OID for bulk retrieval
+  - `opts` - Request options
+    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
+    - `:max_repetitions` - Maximum number of OIDs to retrieve (default: 30)
+    - `:community` - SNMP community string (default: "public")
+    - `:version` - SNMP version (must be :v2c) (default: :v2c)
   """
   @spec send_get_bulk_request(target(), oid(), opts()) :: snmp_result()
   def send_get_bulk_request(target, oid, opts \\ []) do
@@ -338,6 +382,20 @@ defmodule SnmpKit.SnmpMgr.Core do
 
   @doc """
   Sends an asynchronous SNMP GET request.
+
+  Returns immediately with a reference. The calling process will receive
+  a message with the result.
+
+  ## Parameters
+  - `target` - SNMP target (host, "host:port", or target map)
+  - `oid` - Object identifier (string or list format)
+  - `opts` - Request options
+    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
+    - `:community` - SNMP community string (default: "public")
+    - `:version` - SNMP version (:v1, :v2c) (default: :v2c)
+
+  ## Returns
+  Reference that will be included in the response message.
   """
   @spec send_get_request_async(target(), oid(), opts()) :: reference()
   def send_get_request_async(target, oid, opts \\ []) do
@@ -354,6 +412,21 @@ defmodule SnmpKit.SnmpMgr.Core do
 
   @doc """
   Sends an asynchronous SNMP GETBULK request.
+
+  Returns immediately with a reference. The calling process will receive
+  a message with the result.
+
+  ## Parameters
+  - `target` - SNMP target (host, "host:port", or target map)
+  - `oid` - Starting OID for bulk retrieval
+  - `opts` - Request options
+    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
+    - `:max_repetitions` - Maximum number of OIDs to retrieve (default: 30)
+    - `:community` - SNMP community string (default: "public")
+    - `:version` - SNMP version (must be :v2c) (default: :v2c)
+
+  ## Returns
+  Reference that will be included in the response message.
   """
   @spec send_get_bulk_request_async(target(), oid(), opts()) :: reference()
   def send_get_bulk_request_async(target, oid, opts \\ []) do
