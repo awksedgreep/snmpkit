@@ -263,7 +263,13 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
     end)
   end
 
-  defp execute_single_operation(request, timeout) do
+  defp execute_single_operation(request, global_timeout) do
+    # Use per-request timeout if specified, otherwise use global timeout
+    timeout = Keyword.get(request.opts, :timeout, global_timeout)
+
+    # Validate timeout is a positive integer
+    timeout = if is_integer(timeout) and timeout > 0, do: timeout, else: global_timeout
+
     try do
       case request.type do
         :walk ->
@@ -285,7 +291,13 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
     end
   end
 
-  defp execute_single_request(request, timeout) do
+  defp execute_single_request(request, global_timeout) do
+    # Use per-request timeout if specified, otherwise use global timeout
+    timeout = Keyword.get(request.opts, :timeout, global_timeout)
+
+    # Validate timeout is a positive integer
+    timeout = if is_integer(timeout) and timeout > 0, do: timeout, else: global_timeout
+
     try do
       # Generate unique request ID
       request_id = SnmpKit.SnmpMgr.RequestIdGenerator.next_id()
