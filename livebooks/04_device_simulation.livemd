@@ -1,0 +1,257 @@
+# Device Simulation
+
+Build realistic SNMP device simulations for testing and development.
+
+## Setup
+
+```elixir
+Mix.install([
+  {:snmpkit, "~> 1.3"}
+])
+
+alias SnmpKit.{SNMP, Sim}
+alias SnmpKit.SnmpSim.ProfileLoader
+
+IO.puts("Simulation modules ready!")
+```
+
+## Why Simulate?
+
+Device simulation lets you:
+- Test SNMP code without real hardware
+- Create reproducible test scenarios
+- Simulate edge cases and error conditions
+- Develop offline
+
+## Profile Sources
+
+SnmpKit supports multiple ways to define device profiles:
+
+| Source | Use Case |
+|--------|----------|
+| `{:manual, map}` | Quick testing, simple devices |
+| `{:walk_file, path}` | Real device snapshots |
+| `{:oid_walk, path}` | Numeric OID dumps |
+| `{:json_profile, path}` | Structured profiles |
+
+## Manual Profiles
+
+Define OIDs directly in code - great for testing.
+
+### Simple Device
+
+```elixir
+# Minimal device with just system info
+simple_oids = %{
+  "1.3.6.1.2.1.1.1.0" => "Simple Test Device",
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 12345},
+  "1.3.6.1.2.1.1.5.0" => "test-001"
+}
+
+{:ok, profile} = ProfileLoader.load_profile(:simple, {:manual, simple_oids})
+{:ok, _device} = Sim.start_device(profile, port: 2001)
+
+# Test it
+{:ok, result} = SNMP.get("127.0.0.1:2001", "sysDescr.0")
+IO.puts("Simple device: #{result.formatted}")
+```
+
+### Type Inference
+
+SnmpKit automatically infers types:
+
+```elixir
+auto_typed_oids = %{
+  # Strings (binary) -> STRING
+  "1.3.6.1.2.1.1.1.0" => "Device Description",
+
+  # Integers -> INTEGER
+  "1.3.6.1.2.1.2.1.0" => 4,
+
+  # Explicit types with maps
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 100000},
+  "1.3.6.1.2.1.2.2.1.10.1" => %{type: "Counter32", value: 1234567},
+  "1.3.6.1.2.1.2.2.1.5.1" => %{type: "Gauge32", value: 1000000000}
+}
+
+{:ok, profile} = ProfileLoader.load_profile(:typed, {:manual, auto_typed_oids})
+{:ok, _device} = Sim.start_device(profile, port: 2002)
+
+{:ok, result} = SNMP.get("127.0.0.1:2002", "sysUpTime.0")
+IO.puts("Uptime type: #{result.type}, value: #{result.value}")
+```
+
+## Building Realistic Devices
+
+### Cable Modem
+
+```elixir
+cable_modem = %{
+  # System Group
+  "1.3.6.1.2.1.1.1.0" => "ARRIS SURFboard SB8200 DOCSIS 3.1 Cable Modem",
+  "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.4115.1.20.1",
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 8640000},  # 1 day
+  "1.3.6.1.2.1.1.4.0" => "support@isp.com",
+  "1.3.6.1.2.1.1.5.0" => "CM-MAC-001",
+  "1.3.6.1.2.1.1.6.0" => "Customer Premises",
+
+  # Interfaces
+  "1.3.6.1.2.1.2.1.0" => 2,
+  "1.3.6.1.2.1.2.2.1.1.1" => 1,
+  "1.3.6.1.2.1.2.2.1.1.2" => 2,
+  "1.3.6.1.2.1.2.2.1.2.1" => "downstream0",
+  "1.3.6.1.2.1.2.2.1.2.2" => "upstream0",
+  "1.3.6.1.2.1.2.2.1.3.1" => 127,
+  "1.3.6.1.2.1.2.2.1.3.2" => 129,
+  "1.3.6.1.2.1.2.2.1.5.1" => %{type: "Gauge32", value: 1000000000},
+  "1.3.6.1.2.1.2.2.1.5.2" => %{type: "Gauge32", value: 30000000},
+  "1.3.6.1.2.1.2.2.1.8.1" => 1,  # up
+  "1.3.6.1.2.1.2.2.1.8.2" => 1,
+
+  # Traffic counters
+  "1.3.6.1.2.1.2.2.1.10.1" => %{type: "Counter32", value: 98765432},
+  "1.3.6.1.2.1.2.2.1.16.1" => %{type: "Counter32", value: 12345678}
+}
+
+{:ok, cm_profile} = ProfileLoader.load_profile(:cable_modem, {:manual, cable_modem})
+{:ok, _cm} = Sim.start_device(cm_profile, port: 2003)
+
+IO.puts("Cable modem on port 2003")
+
+# Query it
+{:ok, results} = SNMP.walk("127.0.0.1:2003", "system")
+IO.puts("System info (#{length(results)} objects)")
+```
+
+### Multi-Port Switch
+
+Build devices programmatically:
+
+```elixir
+# 24-port switch
+num_ports = 24
+
+switch_oids = %{
+  "1.3.6.1.2.1.1.1.0" => "Cisco Catalyst 2960-24TT-L",
+  "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.9.1.716",
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 432000000},  # 50 days
+  "1.3.6.1.2.1.1.4.0" => "netops@company.com",
+  "1.3.6.1.2.1.1.5.0" => "switch-floor2",
+  "1.3.6.1.2.1.1.6.0" => "Building A, Floor 2, Closet 3",
+  "1.3.6.1.2.1.2.1.0" => num_ports
+}
+
+# Add interfaces programmatically
+switch_oids = Enum.reduce(1..num_ports, switch_oids, fn port, acc ->
+  # Simulate some ports up, some down
+  status = if rem(port, 5) == 0, do: 2, else: 1  # Every 5th port is down
+
+  Map.merge(acc, %{
+    "1.3.6.1.2.1.2.2.1.1.#{port}" => port,
+    "1.3.6.1.2.1.2.2.1.2.#{port}" => "FastEthernet0/#{port}",
+    "1.3.6.1.2.1.2.2.1.3.#{port}" => 6,  # ethernetCsmacd
+    "1.3.6.1.2.1.2.2.1.5.#{port}" => %{type: "Gauge32", value: 100_000_000},
+    "1.3.6.1.2.1.2.2.1.8.#{port}" => status,
+    "1.3.6.1.2.1.2.2.1.10.#{port}" => %{type: "Counter32", value: :rand.uniform(1_000_000_000)},
+    "1.3.6.1.2.1.2.2.1.16.#{port}" => %{type: "Counter32", value: :rand.uniform(500_000_000)}
+  })
+end)
+
+{:ok, switch_profile} = ProfileLoader.load_profile(:switch, {:manual, switch_oids})
+{:ok, _switch} = Sim.start_device(switch_profile, port: 2004)
+
+IO.puts("24-port switch on port 2004")
+
+# Count interfaces
+{:ok, if_count} = SNMP.get("127.0.0.1:2004", "ifNumber.0")
+IO.puts("Interface count: #{if_count.value}")
+
+# Walk interface descriptions
+{:ok, if_descr} = SNMP.walk("127.0.0.1:2004", "ifDescr")
+IO.puts("Interface descriptions: #{length(if_descr)} entries")
+```
+
+## Device Behaviors
+
+Add dynamic behaviors to make devices more realistic:
+
+```elixir
+# Device with behaviors enabled
+dynamic_oids = %{
+  "1.3.6.1.2.1.1.1.0" => "Dynamic Device",
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 0},
+  "1.3.6.1.2.1.2.2.1.10.1" => %{type: "Counter32", value: 1000},
+  "1.3.6.1.2.1.2.2.1.16.1" => %{type: "Counter32", value: 500}
+}
+
+{:ok, dynamic_profile} = ProfileLoader.load_profile(
+  :dynamic,
+  {:manual, dynamic_oids},
+  behaviors: [:counter_increment, :time_based_changes]
+)
+
+{:ok, _device} = Sim.start_device(dynamic_profile, port: 2005)
+
+IO.puts("Dynamic device on port 2005")
+IO.puts("Behaviors: counter_increment, time_based_changes")
+```
+
+## Multiple Devices
+
+Start several devices for multi-target testing:
+
+```elixir
+# Create 5 devices on consecutive ports
+devices = for i <- 1..5 do
+  oids = %{
+    "1.3.6.1.2.1.1.1.0" => "Test Device #{i}",
+    "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: i * 100000},
+    "1.3.6.1.2.1.1.5.0" => "device-#{String.pad_leading("#{i}", 3, "0")}"
+  }
+
+  port = 2010 + i
+  {:ok, profile} = ProfileLoader.load_profile(:"device_#{i}", {:manual, oids})
+  {:ok, device} = Sim.start_device(profile, port: port)
+
+  {port, device}
+end
+
+IO.puts("Started #{length(devices)} devices on ports 2011-2015")
+
+# Query all of them
+targets = Enum.map(2011..2015, &{"127.0.0.1:#{&1}", "sysName.0"})
+results = SNMP.get_multi(targets)
+
+IO.puts("\nDevice names:")
+Enum.zip(2011..2015, results)
+|> Enum.each(fn {port, result} ->
+  case result do
+    {:ok, %{formatted: name}} -> IO.puts("  Port #{port}: #{name}")
+    {:error, reason} -> IO.puts("  Port #{port}: Error - #{inspect(reason)}")
+  end
+end)
+```
+
+## Device Populations
+
+For large-scale testing, use the population API:
+
+```elixir
+# This would start many devices efficiently
+# device_configs = [
+#   {:cable_modem, {:walk_file, "priv/walks/cm.walk"}, count: 100},
+#   {:switch, {:walk_file, "priv/walks/switch.walk"}, count: 20}
+# ]
+#
+# {:ok, devices} = Sim.start_device_population(
+#   device_configs,
+#   port_range: 30_000..39_999
+# )
+
+IO.puts("Device population API available for large-scale simulation")
+IO.puts("See 05_high_performance.livemd for examples")
+```
+
+## Next Steps
+
+- **[High Performance](05_high_performance.livemd)** - Poll many devices efficiently with the V2 engine

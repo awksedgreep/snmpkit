@@ -1,0 +1,240 @@
+# MIB Management
+
+Understanding and working with MIBs (Management Information Bases) in SnmpKit.
+
+## Setup
+
+```elixir
+Mix.install([
+  {:snmpkit, "~> 1.3"}
+])
+
+alias SnmpKit.MIB
+
+IO.puts("MIB module ready!")
+```
+
+## What is a MIB?
+
+A MIB defines the structure and meaning of SNMP data:
+- Maps human-readable names to numeric OIDs
+- Defines data types for each object
+- Organizes objects into a hierarchical tree
+
+SnmpKit includes standard MIBs (SNMPv2-MIB, IF-MIB, etc.) loaded by default.
+
+## OID Name Resolution
+
+### Resolve Names to OIDs
+
+```elixir
+# Common SNMP objects
+names = ["sysDescr", "sysUpTime", "sysContact", "sysName", "sysLocation", "ifNumber"]
+
+IO.puts("Name to OID resolution:")
+Enum.each(names, fn name ->
+  case MIB.resolve(name) do
+    {:ok, oid} ->
+      IO.puts("  #{name} -> #{Enum.join(oid, ".")}")
+    {:error, reason} ->
+      IO.puts("  #{name} -> Error: #{inspect(reason)}")
+  end
+end)
+```
+
+### Resolve with Instance Index
+
+```elixir
+# Add .0 for scalar objects or .index for table entries
+names_with_index = ["sysDescr.0", "sysUpTime.0", "ifDescr.1", "ifDescr.2"]
+
+IO.puts("Names with instance index:")
+Enum.each(names_with_index, fn name ->
+  case MIB.resolve(name) do
+    {:ok, oid} ->
+      IO.puts("  #{name} -> #{Enum.join(oid, ".")}")
+    {:error, _} ->
+      IO.puts("  #{name} -> Not found")
+  end
+end)
+```
+
+## Reverse Lookup
+
+Convert OIDs back to names:
+
+```elixir
+oids = [
+  [1, 3, 6, 1, 2, 1, 1, 1, 0],      # sysDescr.0
+  [1, 3, 6, 1, 2, 1, 1, 3, 0],      # sysUpTime.0
+  [1, 3, 6, 1, 2, 1, 2, 1, 0],      # ifNumber.0
+  [1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 1] # ifDescr.1
+]
+
+IO.puts("OID to name resolution:")
+Enum.each(oids, fn oid ->
+  oid_str = Enum.join(oid, ".")
+  case MIB.reverse_lookup(oid) do
+    {:ok, name} ->
+      IO.puts("  #{oid_str} -> #{name}")
+    {:error, reason} ->
+      IO.puts("  #{oid_str} -> #{inspect(reason)}")
+  end
+end)
+```
+
+### Reverse Lookup from String
+
+```elixir
+# Also works with string format
+{:ok, name} = MIB.reverse_lookup("1.3.6.1.2.1.1.1.0")
+IO.puts("1.3.6.1.2.1.1.1.0 -> #{name}")
+```
+
+## MIB Tree Navigation
+
+### Get Children of a Node
+
+```elixir
+# Get children of the system group
+{:ok, system_oid} = MIB.resolve("system")
+{:ok, children} = MIB.children(system_oid)
+
+IO.puts("Children of 'system' (#{Enum.join(system_oid, ".")}):")
+Enum.each(children, fn child_name ->
+  case MIB.resolve(child_name) do
+    {:ok, oid} ->
+      IO.puts("  #{child_name} (#{Enum.join(oid, ".")})")
+    {:error, _} ->
+      IO.puts("  #{child_name}")
+  end
+end)
+```
+
+### Get Parent of a Node
+
+```elixir
+{:ok, sys_descr_oid} = MIB.resolve("sysDescr.0")
+{:ok, parent_oid} = MIB.parent(sys_descr_oid)
+{:ok, parent_name} = MIB.reverse_lookup(parent_oid)
+
+IO.puts("sysDescr.0 parent: #{parent_name} (#{Enum.join(parent_oid, ".")})")
+
+# Go up another level
+{:ok, grandparent_oid} = MIB.parent(parent_oid)
+{:ok, grandparent_name} = MIB.reverse_lookup(grandparent_oid)
+
+IO.puts("sysDescr parent: #{grandparent_name} (#{Enum.join(grandparent_oid, ".")})")
+```
+
+### Walk the MIB Tree
+
+```elixir
+{:ok, mib_oid} = MIB.resolve("mib-2")
+{:ok, tree} = MIB.walk_tree(mib_oid)
+
+IO.puts("MIB-2 subtree (first 10 entries):")
+tree
+|> Enum.take(10)
+|> Enum.each(fn {name, oid} ->
+  IO.puts("  #{name}: #{Enum.join(oid, ".")}")
+end)
+```
+
+## Standard MIB Groups
+
+SnmpKit includes these standard MIBs:
+
+| Group | OID | Description |
+|-------|-----|-------------|
+| system | 1.3.6.1.2.1.1 | Basic device info |
+| interfaces | 1.3.6.1.2.1.2 | Network interfaces |
+| at | 1.3.6.1.2.1.3 | Address translation |
+| ip | 1.3.6.1.2.1.4 | IP statistics |
+| icmp | 1.3.6.1.2.1.5 | ICMP statistics |
+| tcp | 1.3.6.1.2.1.6 | TCP statistics |
+| udp | 1.3.6.1.2.1.7 | UDP statistics |
+| snmp | 1.3.6.1.2.1.11 | SNMP statistics |
+
+```elixir
+groups = ["system", "interfaces", "ip", "tcp", "udp", "snmp"]
+
+IO.puts("Standard MIB groups:")
+Enum.each(groups, fn group ->
+  case MIB.resolve(group) do
+    {:ok, oid} ->
+      {:ok, children} = MIB.children(oid)
+      IO.puts("  #{group} (#{Enum.join(oid, ".")}): #{length(children)} children")
+    {:error, _} ->
+      IO.puts("  #{group}: Not found")
+  end
+end)
+```
+
+## Common Interface Table OIDs
+
+```elixir
+if_oids = [
+  {"ifIndex", "Interface index"},
+  {"ifDescr", "Interface description"},
+  {"ifType", "Interface type"},
+  {"ifMtu", "Maximum transmission unit"},
+  {"ifSpeed", "Interface speed (bps)"},
+  {"ifPhysAddress", "MAC address"},
+  {"ifAdminStatus", "Admin status (up/down)"},
+  {"ifOperStatus", "Operational status"},
+  {"ifInOctets", "Bytes received"},
+  {"ifOutOctets", "Bytes sent"}
+]
+
+IO.puts("Interface table columns:")
+Enum.each(if_oids, fn {name, desc} ->
+  case MIB.resolve(name) do
+    {:ok, oid} ->
+      IO.puts("  #{name}: #{Enum.join(oid, ".")} - #{desc}")
+    {:error, _} ->
+      IO.puts("  #{name}: Not in standard MIBs")
+  end
+end)
+```
+
+## Enhanced Resolution
+
+Get additional metadata about an OID:
+
+```elixir
+case MIB.resolve_enhanced("sysDescr") do
+  {:ok, info} ->
+    IO.puts("Enhanced info for sysDescr:")
+    IO.inspect(info, label: "  ")
+  {:error, reason} ->
+    IO.puts("Error: #{inspect(reason)}")
+end
+```
+
+## Using MIB Resolution with SNMP Operations
+
+```elixir
+# Start a quick test device
+device_oids = %{
+  "1.3.6.1.2.1.1.1.0" => "Test Device",
+  "1.3.6.1.2.1.1.5.0" => "test-device-01"
+}
+
+{:ok, profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(:test, {:manual, device_oids})
+{:ok, _device} = SnmpKit.Sim.start_device(profile, port: 1163)
+
+target = "127.0.0.1:1163"
+
+# Use names instead of numeric OIDs
+{:ok, result} = SnmpKit.SNMP.get(target, "sysDescr.0")
+IO.puts("sysDescr.0: #{result.formatted}")
+
+# The result includes the resolved name
+IO.puts("Name in result: #{result.name}")
+```
+
+## Next Steps
+
+- **[Device Simulation](04_device_simulation.livemd)** - Create custom device profiles
+- **[High Performance](05_high_performance.livemd)** - Polling at scale

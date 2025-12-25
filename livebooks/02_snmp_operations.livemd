@@ -1,0 +1,280 @@
+# SNMP Operations Deep Dive
+
+A comprehensive guide to all SNMP operations in SnmpKit.
+
+## Setup
+
+```elixir
+Mix.install([
+  {:snmpkit, "~> 1.3"}
+])
+
+alias SnmpKit.{SNMP, Sim}
+```
+
+## Create Test Devices
+
+We'll create two simulated devices to demonstrate various operations.
+
+```elixir
+# Cable modem with traffic counters
+cable_modem_oids = %{
+  "1.3.6.1.2.1.1.1.0" => "ARRIS SURFboard SB8200 DOCSIS 3.1 Cable Modem",
+  "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.4115.1.20.1",
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 987654},
+  "1.3.6.1.2.1.1.4.0" => "admin@example.com",
+  "1.3.6.1.2.1.1.5.0" => "cm-001",
+  "1.3.6.1.2.1.1.6.0" => "Home Network",
+  "1.3.6.1.2.1.2.1.0" => 2,
+  "1.3.6.1.2.1.2.2.1.1.1" => 1,
+  "1.3.6.1.2.1.2.2.1.1.2" => 2,
+  "1.3.6.1.2.1.2.2.1.2.1" => "cable-downstream0",
+  "1.3.6.1.2.1.2.2.1.2.2" => "cable-upstream0",
+  "1.3.6.1.2.1.2.2.1.3.1" => 127,
+  "1.3.6.1.2.1.2.2.1.3.2" => 127,
+  "1.3.6.1.2.1.2.2.1.10.1" => %{type: "Counter32", value: 1500000},
+  "1.3.6.1.2.1.2.2.1.16.1" => %{type: "Counter32", value: 900000}
+}
+
+{:ok, cm_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(:cable_modem, {:manual, cable_modem_oids})
+{:ok, _cm} = Sim.start_device(cm_profile, port: 1161)
+
+# Router with more interfaces
+router_oids = %{
+  "1.3.6.1.2.1.1.1.0" => "Cisco IOS Software, C2900 Software, Version 15.1(4)M12a",
+  "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.9.1.576",
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 456789},
+  "1.3.6.1.2.1.1.4.0" => "netops@company.com",
+  "1.3.6.1.2.1.1.5.0" => "router-001",
+  "1.3.6.1.2.1.1.6.0" => "Data Center",
+  "1.3.6.1.2.1.2.1.0" => 4,
+  "1.3.6.1.2.1.2.2.1.1.1" => 1,
+  "1.3.6.1.2.1.2.2.1.1.2" => 2,
+  "1.3.6.1.2.1.2.2.1.1.3" => 3,
+  "1.3.6.1.2.1.2.2.1.1.4" => 4,
+  "1.3.6.1.2.1.2.2.1.2.1" => "GigabitEthernet0/0",
+  "1.3.6.1.2.1.2.2.1.2.2" => "GigabitEthernet0/1",
+  "1.3.6.1.2.1.2.2.1.2.3" => "Serial0/0/0",
+  "1.3.6.1.2.1.2.2.1.2.4" => "Loopback0",
+  "1.3.6.1.2.1.2.2.1.5.1" => %{type: "Gauge32", value: 1000000000},
+  "1.3.6.1.2.1.2.2.1.5.2" => %{type: "Gauge32", value: 1000000000},
+  "1.3.6.1.2.1.2.2.1.5.3" => %{type: "Gauge32", value: 1544000},
+  "1.3.6.1.2.1.2.2.1.8.1" => 1,
+  "1.3.6.1.2.1.2.2.1.8.2" => 1,
+  "1.3.6.1.2.1.2.2.1.8.3" => 2,
+  "1.3.6.1.2.1.2.2.1.8.4" => 1
+}
+
+{:ok, router_profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(:router, {:manual, router_oids})
+{:ok, _router} = Sim.start_device(router_profile, port: 1162)
+
+cm_target = "127.0.0.1:1161"
+router_target = "127.0.0.1:1162"
+
+IO.puts("Devices ready:")
+IO.puts("  Cable modem: #{cm_target}")
+IO.puts("  Router: #{router_target}")
+```
+
+## Basic GET Operations
+
+### Simple GET
+
+```elixir
+cm_target = "127.0.0.1:1161"
+
+# Get returns an enriched map with multiple fields
+{:ok, result} = SNMP.get(cm_target, "sysDescr.0")
+
+IO.puts("Enriched result:")
+IO.puts("  OID: #{result.oid}")
+IO.puts("  Type: #{result.type}")
+IO.puts("  Raw value: #{inspect(result.value)}")
+IO.puts("  Formatted: #{result.formatted}")
+IO.puts("  Name: #{result.name}")
+```
+
+### GET with Options
+
+```elixir
+cm_target = "127.0.0.1:1161"
+
+# Custom timeout and community
+{:ok, result} = SNMP.get(cm_target, "sysUpTime.0",
+  timeout: 5000,
+  community: "public"
+)
+
+IO.puts("Uptime: #{result.formatted}")
+```
+
+### GETNEXT
+
+Get the next OID in the tree:
+
+```elixir
+cm_target = "127.0.0.1:1161"
+
+{:ok, result} = SNMP.get_next(cm_target, "sysDescr")
+IO.puts("Next after sysDescr: #{result.oid} = #{result.formatted}")
+
+{:ok, result2} = SNMP.get_next(cm_target, result.oid)
+IO.puts("Next after that: #{result2.oid} = #{result2.formatted}")
+```
+
+## WALK Operations
+
+### Basic Walk
+
+```elixir
+cm_target = "127.0.0.1:1161"
+
+{:ok, results} = SNMP.walk(cm_target, "system")
+
+IO.puts("System group:")
+Enum.each(results, fn %{oid: oid, type: type, formatted: value} ->
+  IO.puts("  #{oid} (#{type}) = #{value}")
+end)
+```
+
+### Walk with Pretty Output
+
+```elixir
+router_target = "127.0.0.1:1162"
+
+{:ok, results} = SNMP.walk_pretty(router_target, "ifDescr")
+
+IO.puts("Interface descriptions:")
+Enum.each(results, fn %{oid: oid, formatted: value} ->
+  IO.puts("  #{oid}: #{value}")
+end)
+```
+
+## Bulk Operations
+
+Bulk operations are more efficient for retrieving large amounts of data.
+
+### GETBULK
+
+```elixir
+router_target = "127.0.0.1:1162"
+
+{:ok, results} = SNMP.get_bulk(router_target, "interfaces", max_repetitions: 10)
+
+IO.puts("Bulk get returned #{length(results)} objects:")
+Enum.take(results, 5) |> Enum.each(fn %{oid: oid, formatted: value} ->
+  IO.puts("  #{oid} = #{value}")
+end)
+```
+
+### Bulk Walk
+
+```elixir
+router_target = "127.0.0.1:1162"
+
+{:ok, results} = SNMP.bulk_walk(router_target, "interfaces")
+
+IO.puts("Bulk walk returned #{length(results)} objects")
+```
+
+### Adaptive Walk
+
+Automatically optimizes bulk parameters based on device response:
+
+```elixir
+router_target = "127.0.0.1:1162"
+
+{:ok, results} = SNMP.adaptive_walk(router_target, "interfaces")
+
+IO.puts("Adaptive walk returned #{length(results)} objects")
+```
+
+## Multi-Target Operations
+
+Query multiple devices simultaneously.
+
+### GET Multiple Targets
+
+```elixir
+cm_target = "127.0.0.1:1161"
+router_target = "127.0.0.1:1162"
+
+requests = [
+  {cm_target, "sysDescr.0"},
+  {router_target, "sysDescr.0"},
+  {cm_target, "sysName.0"},
+  {router_target, "sysName.0"}
+]
+
+results = SNMP.get_multi(requests)
+
+IO.puts("Multi-target results:")
+Enum.zip(requests, results)
+|> Enum.each(fn {{target, oid}, result} ->
+  case result do
+    {:ok, %{formatted: value}} ->
+      IO.puts("  #{target} #{oid}: #{value}")
+    {:error, reason} ->
+      IO.puts("  #{target} #{oid}: ERROR - #{inspect(reason)}")
+  end
+end)
+```
+
+### WALK Multiple Targets
+
+```elixir
+cm_target = "127.0.0.1:1161"
+router_target = "127.0.0.1:1162"
+
+walk_requests = [
+  {cm_target, "system"},
+  {router_target, "system"}
+]
+
+results = SNMP.walk_multi(walk_requests)
+
+IO.puts("Multi-target walk:")
+Enum.zip(walk_requests, results)
+|> Enum.each(fn {{target, oid}, result} ->
+  case result do
+    {:ok, data} ->
+      IO.puts("  #{target} #{oid}: #{length(data)} objects")
+    {:error, reason} ->
+      IO.puts("  #{target} #{oid}: ERROR - #{inspect(reason)}")
+  end
+end)
+```
+
+## Streaming Operations
+
+For very large tables, use streaming to process data without loading everything into memory.
+
+```elixir
+router_target = "127.0.0.1:1162"
+
+stream = SNMP.walk_stream(router_target, "interfaces")
+
+IO.puts("Streaming interface data:")
+stream
+|> Stream.take(5)
+|> Enum.each(fn {oid, type, value} ->
+  IO.puts("  #{inspect(oid)} (#{type}) = #{inspect(value)}")
+end)
+```
+
+## Error Handling
+
+```elixir
+# Timeout handling
+case SNMP.get("192.168.255.255:161", "sysDescr.0", timeout: 1000) do
+  {:ok, result} -> IO.puts("Got: #{result.formatted}")
+  {:error, :timeout} -> IO.puts("Request timed out")
+  {:error, reason} -> IO.puts("Error: #{inspect(reason)}")
+end
+```
+
+## Next Steps
+
+- **[MIB Management](03_mib_management.livemd)** - OID resolution and custom MIBs
+- **[Device Simulation](04_device_simulation.livemd)** - Build realistic test devices
+- **[High Performance](05_high_performance.livemd)** - Scale to thousands of devices

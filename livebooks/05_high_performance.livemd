@@ -1,0 +1,357 @@
+# High Performance Polling
+
+Scale SNMP polling to hundreds or thousands of devices with SnmpKit's V2 engine.
+
+## Setup
+
+```elixir
+Mix.install([
+  {:snmpkit, "~> 1.3"}
+])
+
+alias SnmpKit.{SNMP, Sim}
+alias SnmpKit.SnmpSim.ProfileLoader
+
+IO.puts("High performance modules ready!")
+```
+
+## The V2 Engine
+
+SnmpKit's V2 engine (`SnmpKit.SnmpMgr.MultiV2`) provides:
+
+- **Direct UDP sending** - No GenServer bottlenecks
+- **Centralized response correlation** - Efficient request tracking
+- **Configurable concurrency** - Control parallel requests
+- **Per-request options** - Fine-grained timeout/community control
+
+The V2 engine is used automatically by `SNMP.get_multi/2`, `SNMP.walk_multi/2`, etc.
+
+## Create a Device Fleet
+
+Let's simulate a realistic network with 20 devices:
+
+```elixir
+# Create 20 diverse devices
+device_count = 20
+base_port = 3000
+
+devices = for i <- 1..device_count do
+  # Vary device types
+  {device_type, description, if_count} = case rem(i, 4) do
+    0 -> {:switch, "Cisco Catalyst 2960-#{24 + rem(i, 3) * 24}TT", 24 + rem(i, 3) * 24}
+    1 -> {:router, "Cisco ISR 4331", 4}
+    2 -> {:cable_modem, "ARRIS SB8200 DOCSIS 3.1", 2}
+    3 -> {:access_point, "Ubiquiti UniFi AP-AC-Pro", 3}
+  end
+
+  # Build OID map
+  oids = %{
+    "1.3.6.1.2.1.1.1.0" => description,
+    "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.9.1.#{100 + i}",
+    "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: :rand.uniform(864_000_00)},
+    "1.3.6.1.2.1.1.4.0" => "netops@company.com",
+    "1.3.6.1.2.1.1.5.0" => "#{device_type}-#{String.pad_leading("#{i}", 3, "0")}",
+    "1.3.6.1.2.1.1.6.0" => "Rack #{div(i - 1, 5) + 1}, Unit #{rem(i - 1, 5) + 1}",
+    "1.3.6.1.2.1.2.1.0" => if_count
+  }
+
+  # Add interfaces
+  oids = Enum.reduce(1..if_count, oids, fn port, acc ->
+    Map.merge(acc, %{
+      "1.3.6.1.2.1.2.2.1.1.#{port}" => port,
+      "1.3.6.1.2.1.2.2.1.2.#{port}" => "eth#{port - 1}",
+      "1.3.6.1.2.1.2.2.1.3.#{port}" => 6,
+      "1.3.6.1.2.1.2.2.1.5.#{port}" => %{type: "Gauge32", value: 1_000_000_000},
+      "1.3.6.1.2.1.2.2.1.8.#{port}" => if(:rand.uniform() > 0.1, do: 1, else: 2),
+      "1.3.6.1.2.1.2.2.1.10.#{port}" => %{type: "Counter32", value: :rand.uniform(4_000_000_000)},
+      "1.3.6.1.2.1.2.2.1.16.#{port}" => %{type: "Counter32", value: :rand.uniform(2_000_000_000)}
+    })
+  end)
+
+  port = base_port + i
+  {:ok, profile} = ProfileLoader.load_profile(device_type, {:manual, oids})
+  {:ok, device} = Sim.start_device(profile, port: port)
+
+  %{
+    port: port,
+    target: "127.0.0.1:#{port}",
+    type: device_type,
+    device: device
+  }
+end
+
+IO.puts("Created #{length(devices)} devices on ports #{base_port + 1}-#{base_port + device_count}")
+IO.puts("")
+
+# Show device distribution
+devices
+|> Enum.group_by(& &1.type)
+|> Enum.each(fn {type, devs} ->
+  IO.puts("  #{type}: #{length(devs)} devices")
+end)
+```
+
+## Multi-Target GET
+
+Poll all devices simultaneously:
+
+```elixir
+targets = Enum.map(devices, & &1.target)
+
+# Build requests for sysDescr from all devices
+requests = Enum.map(targets, &{&1, "sysDescr.0"})
+
+# Time the operation
+{time_us, results} = :timer.tc(fn ->
+  SNMP.get_multi(requests)
+end)
+
+success_count = Enum.count(results, &match?({:ok, _}, &1))
+
+IO.puts("GET #{length(requests)} devices:")
+IO.puts("  Time: #{div(time_us, 1000)} ms")
+IO.puts("  Success: #{success_count}/#{length(results)}")
+IO.puts("  Rate: #{Float.round(length(requests) / (time_us / 1_000_000), 1)} req/sec")
+```
+
+## Multi-Target GET with Multiple OIDs
+
+Get several values from each device:
+
+```elixir
+targets = Enum.map(devices, & &1.target)
+
+# Request multiple OIDs per device
+oids = ["sysDescr.0", "sysName.0", "sysUpTime.0", "ifNumber.0"]
+
+requests = for target <- targets, oid <- oids do
+  {target, oid}
+end
+
+{time_us, results} = :timer.tc(fn ->
+  SNMP.get_multi(requests)
+end)
+
+success_count = Enum.count(results, &match?({:ok, _}, &1))
+
+IO.puts("GET #{length(requests)} values (#{length(targets)} devices x #{length(oids)} OIDs):")
+IO.puts("  Time: #{div(time_us, 1000)} ms")
+IO.puts("  Success: #{success_count}/#{length(results)}")
+IO.puts("  Rate: #{Float.round(length(requests) / (time_us / 1_000_000), 1)} req/sec")
+```
+
+## Concurrency Control
+
+Adjust `max_concurrent` to control parallel requests:
+
+```elixir
+targets = Enum.map(devices, & &1.target)
+requests = Enum.map(targets, &{&1, "sysDescr.0"})
+
+IO.puts("Comparing concurrency levels:\n")
+
+for max_concurrent <- [1, 5, 10, 20] do
+  {time_us, results} = :timer.tc(fn ->
+    SNMP.get_multi(requests, max_concurrent: max_concurrent)
+  end)
+
+  success = Enum.count(results, &match?({:ok, _}, &1))
+  rate = Float.round(length(requests) / (time_us / 1_000_000), 1)
+
+  IO.puts("  max_concurrent: #{max_concurrent}")
+  IO.puts("    Time: #{div(time_us, 1000)} ms, Rate: #{rate} req/sec, Success: #{success}/#{length(results)}")
+  IO.puts("")
+end
+```
+
+## Multi-Target WALK
+
+Walk entire subtrees from multiple devices:
+
+```elixir
+targets = Enum.map(devices, & &1.target)
+
+# Walk system group from all devices
+walk_requests = Enum.map(targets, &{&1, "system"})
+
+{time_us, results} = :timer.tc(fn ->
+  SNMP.walk_multi(walk_requests)
+end)
+
+success_results = Enum.filter(results, &match?({:ok, _}, &1))
+total_oids = Enum.reduce(success_results, 0, fn {:ok, data}, acc -> acc + length(data) end)
+
+IO.puts("WALK system from #{length(targets)} devices:")
+IO.puts("  Time: #{div(time_us, 1000)} ms")
+IO.puts("  Success: #{length(success_results)}/#{length(results)} devices")
+IO.puts("  Total OIDs: #{total_oids}")
+```
+
+## Walk Interface Tables
+
+Walk larger tables from all devices:
+
+```elixir
+targets = Enum.map(devices, & &1.target)
+
+walk_requests = Enum.map(targets, &{&1, "interfaces"})
+
+{time_us, results} = :timer.tc(fn ->
+  SNMP.walk_multi(walk_requests, timeout: 30_000)
+end)
+
+success_results = Enum.filter(results, &match?({:ok, _}, &1))
+total_oids = Enum.reduce(success_results, 0, fn {:ok, data}, acc -> acc + length(data) end)
+
+IO.puts("WALK interfaces from #{length(targets)} devices:")
+IO.puts("  Time: #{div(time_us, 1000)} ms")
+IO.puts("  Success: #{length(success_results)}/#{length(results)} devices")
+IO.puts("  Total OIDs: #{total_oids}")
+IO.puts("  Avg OIDs/device: #{if length(success_results) > 0, do: div(total_oids, length(success_results)), else: 0}")
+```
+
+## Per-Request Options
+
+Override options for specific requests:
+
+```elixir
+targets = Enum.map(devices, & &1.target)
+
+# Mix of normal and custom-timeout requests
+requests = targets
+|> Enum.with_index()
+|> Enum.map(fn {target, i} ->
+  if rem(i, 5) == 0 do
+    # Every 5th request gets a longer timeout
+    {target, "sysDescr.0", timeout: 15_000}
+  else
+    {target, "sysDescr.0"}
+  end
+end)
+
+{time_us, results} = :timer.tc(fn ->
+  SNMP.get_multi(requests)
+end)
+
+IO.puts("GET with mixed timeouts:")
+IO.puts("  Time: #{div(time_us, 1000)} ms")
+IO.puts("  Success: #{Enum.count(results, &match?({:ok, _}, &1))}/#{length(results)}")
+```
+
+## Return Formats
+
+Choose how results are returned:
+
+```elixir
+targets = Enum.take(Enum.map(devices, & &1.target), 5)
+requests = Enum.map(targets, &{&1, "sysName.0"})
+
+IO.puts("Return format comparison:\n")
+
+# Default: list
+results_list = SNMP.get_multi(requests, return_format: :list)
+IO.puts("  :list format:")
+Enum.each(results_list, fn
+  {:ok, %{formatted: v}} -> IO.puts("    #{v}")
+  {:error, e} -> IO.puts("    Error: #{inspect(e)}")
+end)
+
+IO.puts("")
+
+# With targets
+results_with = SNMP.get_multi(requests, return_format: :with_targets)
+IO.puts("  :with_targets format:")
+Enum.each(results_with, fn
+  {target, oid, {:ok, %{formatted: v}}} -> IO.puts("    #{target} #{oid}: #{v}")
+  {target, oid, {:error, e}} -> IO.puts("    #{target} #{oid}: Error")
+end)
+
+IO.puts("")
+
+# As map
+results_map = SNMP.get_multi(requests, return_format: :map)
+IO.puts("  :map format:")
+Enum.each(results_map, fn
+  {{target, oid}, {:ok, %{formatted: v}}} -> IO.puts("    {#{target}, #{oid}} => #{v}")
+  {{target, oid}, {:error, _}} -> IO.puts("    {#{target}, #{oid}} => Error")
+end)
+```
+
+## Bulk Operations at Scale
+
+Use GETBULK for efficient table retrieval:
+
+```elixir
+targets = Enum.map(devices, & &1.target)
+
+bulk_requests = Enum.map(targets, &{&1, "ifDescr"})
+
+{time_us, results} = :timer.tc(fn ->
+  SNMP.get_bulk_multi(bulk_requests, max_repetitions: 20)
+end)
+
+success_results = Enum.filter(results, &match?({:ok, _}, &1))
+total_oids = Enum.reduce(success_results, 0, fn {:ok, data}, acc -> acc + length(data) end)
+
+IO.puts("GETBULK ifDescr from #{length(targets)} devices:")
+IO.puts("  Time: #{div(time_us, 1000)} ms")
+IO.puts("  Success: #{length(success_results)}/#{length(results)} devices")
+IO.puts("  Total OIDs: #{total_oids}")
+```
+
+## Polling Loop Pattern
+
+A typical monitoring pattern:
+
+```elixir
+targets = Enum.map(devices, & &1.target)
+
+# Define what to poll
+poll_oids = ["sysUpTime.0", "ifInOctets.1", "ifOutOctets.1"]
+
+# Build all requests
+requests = for target <- targets, oid <- poll_oids, do: {target, oid}
+
+# Simulate a few poll cycles
+IO.puts("Simulating 3 poll cycles:\n")
+
+for cycle <- 1..3 do
+  {time_us, results} = :timer.tc(fn ->
+    SNMP.get_multi(requests, max_concurrent: 20)
+  end)
+
+  success = Enum.count(results, &match?({:ok, _}, &1))
+  rate = Float.round(length(requests) / (time_us / 1_000_000), 1)
+
+  IO.puts("Cycle #{cycle}: #{success}/#{length(requests)} success, #{div(time_us, 1000)}ms, #{rate} req/sec")
+
+  # In real code, you'd process results here
+  Process.sleep(500)
+end
+```
+
+## Performance Tips
+
+1. **Tune `max_concurrent`** - Start with 10-20, increase based on network capacity
+2. **Use bulk operations** - GETBULK is faster than multiple GETs for tables
+3. **Batch requests** - Combine multiple OIDs in single `get_multi` calls
+4. **Set appropriate timeouts** - Short for fast networks, longer for WAN
+5. **Handle errors gracefully** - Some devices may be unreachable
+
+```elixir
+IO.puts("Performance guidelines:")
+IO.puts("")
+IO.puts("  Devices    max_concurrent    Expected")
+IO.puts("  -------    --------------    --------")
+IO.puts("  10-50      5-10              Fast")
+IO.puts("  50-200     10-20             Good")
+IO.puts("  200-1000   20-50             Monitor carefully")
+IO.puts("  1000+      50-100            Test thoroughly")
+```
+
+## Cleanup
+
+```elixir
+IO.puts("Livebook complete!")
+IO.puts("Devices will be cleaned up when runtime stops.")
+```

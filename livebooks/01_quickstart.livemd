@@ -1,0 +1,128 @@
+# SnmpKit Quickstart
+
+Get up and running with SnmpKit in 5 minutes.
+
+## Setup
+
+```elixir
+Mix.install([
+  {:snmpkit, "~> 1.3"}
+])
+
+alias SnmpKit.{SNMP, MIB, Sim}
+
+IO.puts("SnmpKit ready!")
+```
+
+## Start a Simulated Device
+
+We'll create a simple cable modem simulation to test against - no real network required.
+
+```elixir
+# Define a minimal device with system info
+device_oids = %{
+  "1.3.6.1.2.1.1.1.0" => "ARRIS SURFboard SB8200 DOCSIS 3.1 Cable Modem",
+  "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.4115.1.20.1",
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 123456},
+  "1.3.6.1.2.1.1.4.0" => "admin@example.com",
+  "1.3.6.1.2.1.1.5.0" => "cable-modem-01",
+  "1.3.6.1.2.1.1.6.0" => "Home Office",
+  "1.3.6.1.2.1.2.1.0" => 2,
+  "1.3.6.1.2.1.2.2.1.1.1" => 1,
+  "1.3.6.1.2.1.2.2.1.2.1" => "cable-downstream0",
+  "1.3.6.1.2.1.2.2.1.1.2" => 2,
+  "1.3.6.1.2.1.2.2.1.2.2" => "cable-upstream0"
+}
+
+{:ok, profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
+  :cable_modem,
+  {:manual, device_oids}
+)
+
+{:ok, _device} = Sim.start_device(profile, port: 1161)
+
+target = "127.0.0.1:1161"
+IO.puts("Simulated device running on #{target}")
+```
+
+## Basic GET Operation
+
+Retrieve a single value from the device:
+
+```elixir
+target = "127.0.0.1:1161"
+
+{:ok, result} = SNMP.get(target, "sysDescr.0")
+
+IO.puts("System Description: #{result.formatted}")
+IO.puts("OID: #{result.oid}")
+IO.puts("Type: #{result.type}")
+```
+
+## GET Multiple Values
+
+```elixir
+target = "127.0.0.1:1161"
+
+{:ok, name} = SNMP.get(target, "sysName.0")
+{:ok, location} = SNMP.get(target, "sysLocation.0")
+{:ok, contact} = SNMP.get(target, "sysContact.0")
+
+IO.puts("""
+Device Info:
+  Name: #{name.formatted}
+  Location: #{location.formatted}
+  Contact: #{contact.formatted}
+""")
+```
+
+## WALK Operation
+
+Retrieve all values under a subtree:
+
+```elixir
+target = "127.0.0.1:1161"
+
+{:ok, results} = SNMP.walk(target, "system")
+
+IO.puts("System group (#{length(results)} objects):")
+Enum.each(results, fn %{oid: oid, formatted: value} ->
+  IO.puts("  #{oid} = #{value}")
+end)
+```
+
+## Walk the Interface Table
+
+```elixir
+target = "127.0.0.1:1161"
+
+{:ok, interfaces} = SNMP.walk(target, "interfaces")
+
+IO.puts("Interfaces (#{length(interfaces)} objects):")
+Enum.each(interfaces, fn %{oid: oid, type: type, value: value} ->
+  IO.puts("  #{oid} (#{type}) = #{inspect(value)}")
+end)
+```
+
+## Using MIB Name Resolution
+
+Convert between OID names and numbers:
+
+```elixir
+# Name to OID
+{:ok, oid} = MIB.resolve("sysDescr.0")
+IO.puts("sysDescr.0 -> #{Enum.join(oid, ".")}")
+
+# OID to name
+{:ok, name} = MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1, 0])
+IO.puts("1.3.6.1.2.1.1.1.0 -> #{name}")
+```
+
+## Next Steps
+
+Now that you have the basics, explore:
+
+- **[SNMP Operations](02_snmp_operations.livemd)** - Bulk operations, multi-target, streaming
+- **[MIB Management](03_mib_management.livemd)** - Tree navigation, compiling custom MIBs
+- **[Device Simulation](04_device_simulation.livemd)** - Building realistic test devices
+- **[High Performance](05_high_performance.livemd)** - Polling at scale with the V2 engine
