@@ -52,7 +52,7 @@ defmodule GettingStartedExample do
 
       Next steps:
       - Explore the API documentation: https://hexdocs.pm/snmpkit
-      - Try the interactive Livebook: livebooks/snmpkit_tour.livemd
+      - Try the quickstart Livebook: livebooks/01_quickstart.livemd
       - Read the guides: docs/mib-guide.md and docs/testing-guide.md
       - Check out more examples in the examples/ directory
 

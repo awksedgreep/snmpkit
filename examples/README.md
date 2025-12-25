@@ -258,7 +258,7 @@ end)
 ## Getting Help
 
 - **Documentation**: [https://hexdocs.pm/snmpkit](https://hexdocs.pm/snmpkit)
-- **Interactive Tour**: [../livebooks/snmpkit_tour.livemd](../livebooks/snmpkit_tour.livemd)
+- **Quickstart**: [../livebooks/01_quickstart.livemd](../livebooks/01_quickstart.livemd)
 - **Guides**: [../docs/](../docs/)
 - **Issues**: [GitHub Issues](https://github.com/awksedgreep/snmpkit/issues)
 

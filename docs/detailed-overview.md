@@ -275,7 +275,8 @@ end
 ## 📚 Documentation
 
 - **[Full API Documentation](https://hexdocs.pm/snmpkit)** - Complete function reference
-- **[Livebook Tour](livebooks/snmpkit_tour.livemd)** - Interactive examples and tutorials
+- **[Quickstart Livebook](livebooks/01_quickstart.livemd)** - Get running in 5 minutes
+- **[High Performance Livebook](livebooks/05_high_performance.livemd)** - Polling at scale
 - **[Examples Directory](examples/)** - Practical usage examples
 - **[MIB Guide](docs/mib-guide.md)** - Working with MIBs and OID resolution
 - **[Testing Guide](docs/testing-guide.md)** - Testing strategies and simulated devices
