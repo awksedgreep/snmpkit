@@ -4,7 +4,7 @@
 # Demonstrates how to create realistic DOCSIS cable modem simulations without walk files
 
 Mix.install([
-  {:snmpkit, "~> 1.0"}
+  {:snmpkit, "~> 1.3"}
 ])
 
 alias SnmpKit.{SNMP, Sim}

@@ -55,7 +55,7 @@ Add SnmpKit to your `mix.exs` dependencies:
 ```elixir
 def deps do
   [
-    {:snmpkit, "~> 1.0"}
+    {:snmpkit, "~> 1.3"}
   ]
 end
 ```

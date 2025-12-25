@@ -4,7 +4,7 @@
 # This shows the simplest way to create a cable modem simulation without walk files
 
 Mix.install([
-  {:snmpkit, "~> 1.0"}
+  {:snmpkit, "~> 1.3"}
 ])
 
 # Create essential cable modem OIDs

@@ -9,7 +9,7 @@
 # Run this script with: elixir examples/getting_started.exs
 
 Mix.install([
-  {:snmpkit, "~> 1.0"}
+  {:snmpkit, "~> 1.3"}
 ])
 
 defmodule GettingStartedExample do
