@@ -496,7 +496,7 @@ We follow [Semantic Versioning](https://semver.org/):
 - [API Documentation](https://hexdocs.pm/snmpkit)
 - [MIB Guide](docs/mib-guide.md)
 - [Testing Guide](docs/testing-guide.md)
-- [Examples](examples/)
+- [Examples](https://github.com/awksedgreep/snmpkit/tree/main/examples)
 
 ### Mentorship
 

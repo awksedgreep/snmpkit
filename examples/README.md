@@ -259,7 +259,7 @@ end)
 
 - **Documentation**: [https://hexdocs.pm/snmpkit](https://hexdocs.pm/snmpkit)
 - **Quickstart**: [../livebooks/01_quickstart.livemd](../livebooks/01_quickstart.livemd)
-- **Guides**: [../docs/](../docs/)
+- **Guides**: [docs/](https://github.com/awksedgreep/snmpkit/tree/main/docs)
 - **Issues**: [GitHub Issues](https://github.com/awksedgreep/snmpkit/issues)
 
 ## Contributing Examples
