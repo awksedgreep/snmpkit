@@ -280,6 +280,7 @@ end
 - **[Examples Directory](examples/)** - Practical usage examples
 - **[MIB Guide](docs/mib-guide.md)** - Working with MIBs and OID resolution
 - **[Testing Guide](docs/testing-guide.md)** - Testing strategies and simulated devices
+- **[Timeout Documentation](TIMEOUT_DOCUMENTATION.md)** - Comprehensive guide to timeout configuration and behavior
 
 ## 🚀 Migration from Other Libraries
 

@@ -60,7 +60,7 @@ Multi-target defaults (1.0)
 ```elixir
 def deps do
   [
-    {:snmpkit, "~> 1.0"}
+    {:snmpkit, "~> 1.3"}
   ]
 end
 ```
@@ -104,6 +104,7 @@ device_profile = %{
 - **[Enriched Output Migration Guide](https://hexdocs.pm/snmpkit/enriched-output-migration.html)** - Migrate from 0.x to 1.x
 - **[Quickstart Livebook](https://hexdocs.pm/snmpkit/01_quickstart.html)** - Get running in 5 minutes
 - **[High Performance Guide](https://hexdocs.pm/snmpkit/05_high_performance.html)** - Polling at scale
+- **[Timeout Documentation](TIMEOUT_DOCUMENTATION.md)** - Understanding timeout behavior and configuration
 - **[MIB Guide](https://hexdocs.pm/snmpkit/mib-guide.html)** - Working with MIBs
 - **[Testing Guide](https://hexdocs.pm/snmpkit/testing-guide.html)** - Testing strategies
 - **[Contributing Guide](https://hexdocs.pm/snmpkit/contributing.html)** - Development guidelines

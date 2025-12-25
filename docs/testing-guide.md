@@ -218,25 +218,30 @@ defmodule MyApp.IntegrationTest do
     end
     
     test "can query basic system information", %{target: target} do
-      {:ok, description} = SnmpKit.SNMP.get(target, "sysDescr.0")
+      {:ok, %{value: description, type: type}} = SnmpKit.SNMP.get(target, "sysDescr.0")
+      assert type == :octet_string
       assert is_binary(description)
       assert String.length(description) > 0
-      
-      {:ok, uptime} = SnmpKit.SNMP.get(target, "sysUpTime.0") 
+
+      {:ok, %{value: uptime, formatted: formatted}} = SnmpKit.SNMP.get(target, "sysUpTime.0")
       assert is_integer(uptime)
       assert uptime >= 0
+      assert is_binary(formatted)  # Human-readable uptime string
     end
     
     test "can walk interface table", %{target: target} do
       {:ok, interfaces} = SnmpKit.SNMP.walk(target, "ifTable")
       assert is_list(interfaces)
       assert length(interfaces) > 0
-      
-      # Verify interface data structure
-      for {oid, value} <- interfaces do
-        assert is_list(oid)
-        assert length(oid) > 0
+
+      # Verify enriched map data structure
+      for %{oid: oid, oid_list: oid_list, type: type, value: value, name: name} <- interfaces do
+        assert is_binary(oid)
+        assert is_list(oid_list)
+        assert length(oid_list) > 0
+        assert is_atom(type)
         assert value != nil
+        assert is_binary(name)
       end
     end
     
@@ -244,6 +249,12 @@ defmodule MyApp.IntegrationTest do
       {:ok, results} = SnmpKit.SNMP.bulk_walk(target, "system")
       assert is_list(results)
       assert length(results) > 0
+
+      # Each result is an enriched map
+      [first | _] = results
+      assert Map.has_key?(first, :oid)
+      assert Map.has_key?(first, :value)
+      assert Map.has_key?(first, :type)
     end
   end
   
@@ -296,10 +307,11 @@ defmodule MyApp.RealDeviceTest do
   end
   
   test "can communicate with real device" do
-    {:ok, description} = SnmpKit.SNMP.get(@real_device_ip, "sysDescr.0",
-                                          community: @real_device_community)
+    {:ok, %{value: description, formatted: formatted}} =
+      SnmpKit.SNMP.get(@real_device_ip, "sysDescr.0",
+                       community: @real_device_community)
     assert is_binary(description)
-    IO.puts("Real device description: #{description}")
+    IO.puts("Real device description: #{formatted}")
   end
 end
 ```
@@ -333,14 +345,17 @@ defmodule MyApp.CustomDeviceTest do
     target = "127.0.0.1:30001"
     
     # Test the custom device
-    {:ok, description} = SnmpKit.SNMP.get(target, "sysDescr.0")
+    {:ok, %{value: description, name: name}} = SnmpKit.SNMP.get(target, "sysDescr.0")
     assert description == "Test Switch v1.0"
-    
-    {:ok, if_name} = SnmpKit.SNMP.get(target, "ifDescr.1")
+    assert name == "sysDescr.0"
+
+    {:ok, %{value: if_name, type: type}} = SnmpKit.SNMP.get(target, "ifDescr.1")
     assert if_name == "FastEthernet0/1"
-    
-    {:ok, if_status} = SnmpKit.SNMP.get(target, "ifOperStatus.1")
+    assert type == :octet_string
+
+    {:ok, %{value: if_status, formatted: formatted}} = SnmpKit.SNMP.get(target, "ifOperStatus.1")
     assert if_status == 1  # up
+    assert formatted == "up"
   end
 end
 ```
@@ -369,10 +384,11 @@ defmodule MyApp.ProfileTest do
     
     {:ok, device} = SnmpKit.Sim.start_device(profile, port: 30002)
     target = "127.0.0.1:30002"
-    
-    {:ok, description} = SnmpKit.SNMP.get(target, "sysDescr.0")
+
+    {:ok, %{value: description, type: type}} = SnmpKit.SNMP.get(target, "sysDescr.0")
     assert description == "Test Device"
-    
+    assert type == :octet_string
+
     # Clean up
     File.rm!(walk_file)
   end
@@ -452,17 +468,21 @@ defmodule MyApp.PerformanceTest do
   
   test "measures walk performance", %{devices: [device | _]} do
     target = device.target
-    
+
     {time, {:ok, results}} = :timer.tc(fn ->
       SnmpKit.SNMP.walk(target, "system")
     end)
-    
+
     objects_per_ms = length(results) / (time / 1000)
-    
+
     IO.puts("Walk time: #{time/1000}ms")
     IO.puts("Objects retrieved: #{length(results)}")
     IO.puts("Objects per ms: #{objects_per_ms}")
-    
+
+    # Verify enriched map format
+    [first | _] = results
+    assert %{oid: _, value: _, type: _, name: _} = first
+
     assert time < 1_000_000  # Should complete in < 1 second
     assert length(results) > 0
   end
@@ -478,13 +498,16 @@ defmodule MyApp.ResourceTest do
   test "handles large result sets without memory issues" do
     device = MyApp.TestHelper.start_test_device(:large_table_device)
     target = device.target
-    
+
     # Monitor memory usage
     initial_memory = :erlang.memory(:total)
-    
-    # Perform large walk operation
+
+    # Perform large walk operation - returns list of enriched maps
     {:ok, results} = SnmpKit.SNMP.walk(target, "largeTable")
-    
+
+    # Each result is an enriched map with oid, oid_list, type, value, name, formatted
+    assert Enum.all?(results, &is_map/1)
+
     peak_memory = :erlang.memory(:total)
     
     # Force garbage collection
@@ -567,29 +590,61 @@ defmodule MyApp.TestDataGenerator do
   Generates test data for SNMP testing.
   """
   
+  @doc """
+  Generates mock walk data in the enriched map format.
+  Useful for testing code that processes walk results.
+  """
   def generate_walk_data(base_oid, count \\ 100) do
     for i <- 1..count do
-      oid = base_oid ++ [i]
-      value = "Value #{i}"
-      {oid, value}
+      oid_list = base_oid ++ [i]
+      oid_string = Enum.join(oid_list, ".")
+      %{
+        oid: oid_string,
+        oid_list: oid_list,
+        type: :octet_string,
+        value: "Value #{i}",
+        name: "testObject.#{i}",
+        formatted: "Value #{i}"
+      }
     end
   end
   
+  @doc """
+  Generates mock interface table data in the enriched map format.
+  Each entry includes oid, oid_list, type, value, name, and formatted fields.
+  """
   def generate_interface_table(interface_count \\ 24) do
     for i <- 1..interface_count do
+      oper_status = Enum.random([1, 2])
+      oper_status_formatted = if oper_status == 1, do: "up", else: "down"
+      in_octets = :rand.uniform(1_000_000_000)
+      out_octets = :rand.uniform(1_000_000_000)
+
       [
-        {[1, 3, 6, 1, 2, 1, 2, 2, 1, 1, i], i},  # ifIndex
-        {[1, 3, 6, 1, 2, 1, 2, 2, 1, 2, i], "eth#{i}"},  # ifDescr
-        {[1, 3, 6, 1, 2, 1, 2, 2, 1, 3, i], 6},  # ifType (ethernet)
-        {[1, 3, 6, 1, 2, 1, 2, 2, 1, 5, i], 1_000_000_000},  # ifSpeed
-        {[1, 3, 6, 1, 2, 1, 2, 2, 1, 8, i], Enum.random([1, 2])},  # ifOperStatus
-        {[1, 3, 6, 1, 2, 1, 2, 2, 1, 10, i], :rand.uniform(1_000_000_000)},  # ifInOctets
-        {[1, 3, 6, 1, 2, 1, 2, 2, 1, 16, i], :rand.uniform(1_000_000_000)}   # ifOutOctets
+        %{oid: "1.3.6.1.2.1.2.2.1.1.#{i}", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 1, i],
+          type: :integer, value: i, name: "ifIndex.#{i}", formatted: "#{i}"},
+        %{oid: "1.3.6.1.2.1.2.2.1.2.#{i}", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 2, i],
+          type: :octet_string, value: "eth#{i}", name: "ifDescr.#{i}", formatted: "eth#{i}"},
+        %{oid: "1.3.6.1.2.1.2.2.1.3.#{i}", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 3, i],
+          type: :integer, value: 6, name: "ifType.#{i}", formatted: "ethernetCsmacd"},
+        %{oid: "1.3.6.1.2.1.2.2.1.5.#{i}", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 5, i],
+          type: :gauge32, value: 1_000_000_000, name: "ifSpeed.#{i}", formatted: "1 Gbps"},
+        %{oid: "1.3.6.1.2.1.2.2.1.8.#{i}", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 8, i],
+          type: :integer, value: oper_status, name: "ifOperStatus.#{i}", formatted: oper_status_formatted},
+        %{oid: "1.3.6.1.2.1.2.2.1.10.#{i}", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 10, i],
+          type: :counter32, value: in_octets, name: "ifInOctets.#{i}", formatted: "#{in_octets}"},
+        %{oid: "1.3.6.1.2.1.2.2.1.16.#{i}", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 16, i],
+          type: :counter32, value: out_octets, name: "ifOutOctets.#{i}", formatted: "#{out_octets}"}
       ]
     end
     |> List.flatten()
   end
   
+  @doc """
+  Generates a device profile for use with SnmpKit.Sim.
+  Note: Device profiles use OID list keys mapped to raw values,
+  while SNMP responses use the enriched map format.
+  """
   def generate_device_profile(type \\ :generic) do
     base_objects = %{
       [1, 3, 6, 1, 2, 1, 1, 1, 0] => device_description(type),
@@ -599,11 +654,13 @@ defmodule MyApp.TestDataGenerator do
       [1, 3, 6, 1, 2, 1, 1, 5, 0] => "test-device-#{:rand.uniform(1000)}",
       [1, 3, 6, 1, 2, 1, 1, 6, 0] => "Test Lab"
     }
-    
-    interface_objects = 
+
+    # Convert enriched maps to OID -> value format for device profile
+    interface_objects =
       generate_interface_table()
+      |> Enum.map(fn %{oid_list: oid_list, value: value} -> {oid_list, value} end)
       |> Enum.into(%{})
-    
+
     Map.merge(base_objects, interface_objects)
   end
   

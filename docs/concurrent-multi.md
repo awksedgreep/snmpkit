@@ -36,3 +36,6 @@ Best practices
 - Use bulk operations and batching for scale.
 - Avoid unnecessary formatting or name resolution in hot paths (include_formatted: false, include_names: false when needed).
 
+Related documentation
+- See [Timeout Documentation](TIMEOUT_DOCUMENTATION.md) for comprehensive guidance on timeout configuration, which is critical for multi-target operations.
+

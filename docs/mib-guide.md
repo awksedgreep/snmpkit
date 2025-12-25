@@ -35,9 +35,9 @@ Convert human-readable names to numeric OIDs:
 {:ok, oid} = SnmpKit.MIB.resolve("sysDescr.0")
 # Returns: [1, 3, 6, 1, 2, 1, 1, 1, 0]
 
-# Multiple resolutions
+# Multiple resolutions (resolve each individually)
 names = ["sysDescr.0", "sysUpTime.0", "sysName.0"]
-{:ok, oids} = SnmpKit.MIB.resolve_many(names)
+oids = Enum.map(names, &SnmpKit.MIB.resolve/1)
 
 # Partial name resolution
 {:ok, oid} = SnmpKit.MIB.resolve("system.sysDescr.0")
@@ -53,9 +53,9 @@ Convert numeric OIDs back to readable names:
 {:ok, name} = SnmpKit.MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1, 0])
 # Returns: "sysDescr.0"
 
-# Multiple reverse lookups
+# Multiple reverse lookups (lookup each individually)
 oids = [[1, 3, 6, 1, 2, 1, 1, 1, 0], [1, 3, 6, 1, 2, 1, 1, 3, 0]]
-{:ok, names} = SnmpKit.MIB.reverse_lookup_many(oids)
+names = Enum.map(oids, &SnmpKit.MIB.reverse_lookup/1)
 
 # Get the longest matching name
 {:ok, partial_name} = SnmpKit.MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1, 5])
@@ -112,12 +112,8 @@ SnmpKit comes with standard MIBs pre-compiled:
 # Standard MIBs are loaded automatically
 {:ok, oid} = SnmpKit.MIB.resolve("sysDescr.0")  # Works immediately
 
-# Check what MIBs are loaded
-{:ok, loaded_mibs} = SnmpKit.MIB.list_loaded()
-IO.inspect(loaded_mibs)
-
-# Reload standard MIBs if needed
-{:ok, _} = SnmpKit.MIB.reload_standard()
+# Load standard MIBs explicitly if needed
+:ok = SnmpKit.MIB.load_standard_mibs()
 ```
 
 ### Compiling Custom MIBs
@@ -134,12 +130,14 @@ For most use cases, use the high-level compilation API:
 # Compile multiple MIBs with dependencies
 mib_files = [
   "CISCO-SMI.mib",
-  "CISCO-TC.mib", 
+  "CISCO-TC.mib",
   "CISCO-CABLE-MODEM-MIB.mib"
 ]
 
-{:ok, compiled_mibs} = SnmpKit.MIB.compile_many(mib_files)
-{:ok, _} = SnmpKit.MIB.load_many(compiled_mibs)
+# Use compile_all for batch compilation
+{:ok, compiled_mibs} = SnmpKit.MIB.compile_all(mib_files)
+# Load each compiled MIB
+Enum.each(compiled_mibs, fn {_file, {:ok, path}} -> SnmpKit.MIB.load(path) end)
 ```
 
 #### Low-Level Compilation
@@ -197,20 +195,12 @@ end
 ### Loading Additional Standard MIBs
 
 ```elixir
-# Load specific standard MIBs
-standard_mibs = [
-  "BRIDGE-MIB",
-  "ENTITY-MIB", 
-  "DISMAN-EVENT-MIB",
-  "NOTIFICATION-LOG-MIB"
-]
+# Load standard MIBs that are built into the library
+:ok = SnmpKit.MIB.load_standard_mibs()
 
-for mib <- standard_mibs do
-  case SnmpKit.MIB.load_standard(mib) do
-    {:ok, _} -> IO.puts("Loaded #{mib}")
-    {:error, reason} -> IO.puts("Failed to load #{mib}: #{reason}")
-  end
-end
+# For additional MIBs, compile and load them individually
+{:ok, compiled} = SnmpKit.MIB.compile("path/to/BRIDGE-MIB.mib")
+{:ok, _} = SnmpKit.MIB.load(compiled)
 ```
 
 ## Custom MIBs
@@ -228,8 +218,11 @@ cisco_mibs = [
   "CISCO-DOCS-EXT-MIB.mib"
 ]
 
-# Load Cisco MIBs in dependency order
-{:ok, _} = SnmpKit.MIB.compile_and_load_many(cisco_mibs)
+# Compile and load Cisco MIBs in dependency order
+for mib <- cisco_mibs do
+  {:ok, compiled} = SnmpKit.MIB.compile(mib)
+  {:ok, _} = SnmpKit.MIB.load(compiled)
+end
 
 # Now Cisco-specific OIDs work
 {:ok, oid} = SnmpKit.MIB.resolve("cdxCmtsCmStatusValue")
@@ -248,30 +241,26 @@ docsis_mibs = [
   "DOCS-SUBMGT-MIB.mib"
 ]
 
-{:ok, _} = SnmpKit.MIB.compile_and_load_many(docsis_mibs)
+# Compile and load each MIB in order
+for mib <- docsis_mibs do
+  {:ok, compiled} = SnmpKit.MIB.compile(mib)
+  {:ok, _} = SnmpKit.MIB.load(compiled)
+end
 
 # DOCSIS-specific operations
 {:ok, status} = SnmpKit.SNMP.get("10.1.1.100", "docsIfCmStatusValue.1")
 {:ok, signal} = SnmpKit.SNMP.get("10.1.1.100", "docsIfSigQSignalNoise.1")
 ```
 
-### Creating Custom MIB Definitions
+### Loading Custom MIB Data
+
+Custom MIB definitions can be loaded by compiling and integrating MIB files:
 
 ```elixir
-# Define custom objects programmatically
-custom_objects = [
-  %{
-    name: "myCustomObject",
-    oid: [1, 3, 6, 1, 4, 1, 12345, 1, 1, 1],
-    syntax: :integer,
-    access: :read_only,
-    description: "My custom SNMP object"
-  }
-]
+# Compile and integrate a custom MIB file
+{:ok, _} = SnmpKit.MIB.load_and_integrate_mib("path/to/MY-CUSTOM-MIB.mib")
 
-{:ok, _} = SnmpKit.MIB.define_objects(custom_objects)
-
-# Now the custom object can be resolved
+# Now the custom objects can be resolved
 {:ok, oid} = SnmpKit.MIB.resolve("myCustomObject.0")
 ```
 
@@ -288,9 +277,6 @@ custom_objects = [
 {:ok, parent} = SnmpKit.MIB.parent([1, 3, 6, 1, 2, 1, 1, 1, 0])
 # Returns: [1, 3, 6, 1, 2, 1, 1, 1]
 
-# Get siblings
-{:ok, siblings} = SnmpKit.MIB.siblings([1, 3, 6, 1, 2, 1, 1, 1, 0])
-
 # Walk the tree from a starting point
 {:ok, tree} = SnmpKit.MIB.walk_tree([1, 3, 6, 1, 2, 1, 1])
 ```
@@ -298,77 +284,48 @@ custom_objects = [
 ### Querying Object Information
 
 ```elixir
-# Get detailed object information
-{:ok, info} = SnmpKit.MIB.object_info("sysDescr.0")
-# Returns: %{name: "sysDescr", oid: [...], syntax: :octet_string, ...}
+# Get detailed object information using object_info
+# Available via SnmpKit.SnmpMgr.MIB.object_info/1
+{:ok, info} = SnmpKit.SnmpMgr.MIB.object_info("sysDescr.0")
+# Returns: %{name: "sysDescr", oid: [...], syntax: %{base: :octet_string, ...}, ...}
 
-# Check if an OID exists
-true = SnmpKit.MIB.exists?("sysDescr.0")
-false = SnmpKit.MIB.exists?("nonExistentObject.0")
-
-# Get object syntax information
-{:ok, syntax} = SnmpKit.MIB.get_syntax("sysDescr.0")
-# Returns: :octet_string
-
-# Get access level
-{:ok, access} = SnmpKit.MIB.get_access("sysDescr.0") 
-# Returns: :read_only
+# Check if an OID can be resolved
+case SnmpKit.MIB.resolve("sysDescr.0") do
+  {:ok, _oid} -> IO.puts("OID exists")
+  {:error, :not_found} -> IO.puts("OID not found")
+end
 ```
 
 ## Advanced Features
 
-### MIB Validation
+### MIB Parsing and Analysis
 
 ```elixir
-# Validate MIB files before compilation
-case SnmpKit.MIB.validate("MY-MIB.mib") do
-  {:ok, _} -> IO.puts("MIB is valid")
-  {:error, {:validation_failed, errors}} ->
-    IO.puts("MIB validation failed:")
-    for error <- errors, do: IO.puts("  #{error}")
-end
+# Parse a MIB file to extract object definitions
+{:ok, parsed} = SnmpKit.MIB.parse_mib_file("MY-MIB.mib")
+IO.inspect(parsed.parsed_objects)
 
-# Validate loaded MIB consistency
-{:ok, report} = SnmpKit.MIB.validate_loaded()
-if report.inconsistencies != [] do
-  IO.puts "Found inconsistencies:"
-  for issue <- report.inconsistencies, do: IO.puts("  #{issue}")
-end
+# Parse MIB content from a string
+{:ok, parsed} = SnmpKit.MIB.parse_mib_content(mib_content_string)
 ```
 
-### MIB Caching and Performance
+### Enhanced Resolution
 
 ```elixir
-# Enable aggressive caching for better performance
-SnmpKit.MIB.configure_cache(
-  size: 10_000,
-  ttl: :infinity,
-  strategy: :lru
-)
-
-# Preload commonly used OIDs
-common_oids = [
-  "sysDescr.0", "sysUpTime.0", "sysName.0",
-  "ifInOctets", "ifOutOctets", "ifOperStatus"
-]
-
-{:ok, _} = SnmpKit.MIB.preload(common_oids)
-
-# Get cache statistics
-{:ok, stats} = SnmpKit.MIB.cache_stats()
-IO.inspect(stats)
+# Use enhanced resolution that includes loaded MIB data
+{:ok, oid} = SnmpKit.MIB.resolve_enhanced("customObject.0")
 ```
 
 ### Bulk OID Operations
 
 ```elixir
-# Resolve many OIDs efficiently
+# Resolve many OIDs using Enum.map
 oids_to_resolve = [
   "sysDescr.0", "sysUpTime.0", "sysName.0",
   "ifInOctets.1", "ifOutOctets.1", "ifOperStatus.1"
 ]
 
-{:ok, resolved} = SnmpKit.MIB.resolve_many(oids_to_resolve)
+resolved = Enum.map(oids_to_resolve, &SnmpKit.MIB.resolve/1)
 
 # Reverse lookup many OIDs
 numeric_oids = [
@@ -377,7 +334,7 @@ numeric_oids = [
   [1, 3, 6, 1, 2, 1, 1, 5, 0]
 ]
 
-{:ok, names} = SnmpKit.MIB.reverse_lookup_many(numeric_oids)
+names = Enum.map(numeric_oids, &SnmpKit.MIB.reverse_lookup/1)
 ```
 
 ## Troubleshooting
@@ -405,15 +362,12 @@ end
 ```elixir
 # Debug OID resolution
 case SnmpKit.MIB.resolve("unknownOid.0") do
+  {:ok, oid} ->
+    IO.puts("Resolved to: #{inspect(oid)}")
   {:error, :not_found} ->
-    # Try partial matches
-    case SnmpKit.MIB.search("unknownOid") do
-      {:ok, matches} ->
-        IO.puts("Did you mean one of these?")
-        for match <- matches, do: IO.puts("  #{match}")
-      {:error, :no_matches} ->
-        IO.puts("No similar OIDs found")
-    end
+    IO.puts("OID not found - check MIB is loaded")
+  {:error, :invalid_name} ->
+    IO.puts("Invalid OID name format")
 end
 ```
 
@@ -435,11 +389,9 @@ SnmpKit.MIB.resolve("sysDescr.0")  # Will show detailed logs
 ### Best Practices
 
 1. **Load MIBs in dependency order** - Load base MIBs before dependent ones
-2. **Use preloading** - Preload commonly used OIDs for better performance  
-3. **Cache aggressively** - Enable caching for production deployments
-4. **Validate before loading** - Always validate MIBs before compilation
-5. **Handle errors gracefully** - Always pattern match on MIB operation results
-6. **Use bulk operations** - Resolve multiple OIDs at once when possible
+2. **Handle errors gracefully** - Always pattern match on MIB operation results
+3. **Use bulk operations** - Resolve multiple OIDs at once using Enum.map when possible
+4. **Integrate MIBs properly** - Use load_and_integrate_mib for full MIB support
 
 ### Getting Help
 
@@ -447,13 +399,12 @@ SnmpKit.MIB.resolve("sysDescr.0")  # Will show detailed logs
 # Get help on available MIB functions
 h SnmpKit.MIB
 
-# List all loaded MIBs
-{:ok, mibs} = SnmpKit.MIB.list_loaded()
-IO.inspect(mibs)
+# Load standard MIBs
+:ok = SnmpKit.MIB.load_standard_mibs()
 
-# Get detailed system information
-{:ok, info} = SnmpKit.MIB.system_info()
-IO.inspect(info)
+# Test resolution
+{:ok, oid} = SnmpKit.MIB.resolve("sysDescr.0")
+IO.inspect(oid)
 ```
 
 For more examples and advanced usage, see the [API documentation](https://hexdocs.pm/snmpkit/SnmpKit.MIB.html).

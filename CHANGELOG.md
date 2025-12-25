@@ -5,6 +5,75 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.5] - 2025-12-25
+
+### Fixed
+- **ExDoc Warnings**: Fixed relative path warnings in ExDoc generation for cleaner documentation builds
+
+## [1.3.4] - 2025-12-25
+
+### Fixed
+- **Documentation References**: Fixed docs references to renamed livebooks after tutorial reorganization
+
+## [1.3.3] - 2025-12-25
+
+### Changed
+- **Livebook Reorganization**: Reorganized livebooks into 5 focused tutorials for better learning experience
+
+## [1.3.2] - 2025-12-12
+
+### Fixed
+- **Per-Request Timeout**: Fixed per-request timeout being ignored in `walk_multi` and other multi-target operations
+  - Per-request options were properly merged into request.opts but never read
+  - Now extracts timeout from request.opts with fallback to global timeout
+  - Different requests can have different timeout values in the same call
+  - Works for all operation types: GET, GETBULK, WALK, and mixed operations
+
+### Added
+- **Timeout Documentation**: Added comprehensive timeout documentation to address missing documentation
+  - New `TIMEOUT_DOCUMENTATION.md` with complete timeout reference guide
+  - Documents PDU timeout vs task timeout distinction
+  - Clarifies per-request timeout overrides
+  - Explains walk operation timeout behavior
+  - Added timeout documentation to `MultiV2`, `Core`, and main `SnmpKit` modules
+
+## [1.3.1] - 2025-12-11
+
+### Fixed
+- **Task.async_stream Timeout**: Fixed Task.async_stream timeout killing `walk_multi` operations prematurely
+  - Problem: `walk_multi` failed with `{:task_failed, :timeout}` for large SNMP tables
+  - Root cause: Task.async_stream timeout of 'pdu_timeout + 1000ms' killed entire walks even when individual PDUs responded successfully
+  - Solution: Use 20-minute maximum timeout for walk operations; non-walk operations keep short timeout + 1000ms safeguard
+  - Impact: `walk_multi` now works reliably for large interface/routing tables in enterprise environments
+
+## [1.3.0] - 2025-12-11
+
+### Fixed
+- **Counter64 Decoding**: Fixed Counter64 decoding for values that use fewer than 8 bytes
+  - SNMP Counter64 values with fewer bytes were incorrectly decoded
+  - Now properly handles variable-length Counter64 encoding
+
+## [1.2.1] - 2025-12-04
+
+### Fixed
+- **Long Octet String Support**: Support for longer octet strings with multi-byte length encoding
+  - PDU decoder now properly handles ASN.1 long-form length encoding
+  - Fixes decoding of SNMP values with lengths > 127 bytes
+
+## [1.2.0] - 2025-09-23
+
+### Added
+- **Extended OID Lookup Support**: Major enhancements to MIB module for OID lookups
+  - Expanded `SnmpKit.SnmpMgr.Mib` with comprehensive lookup capabilities
+  - Added MIB context feature for scoped lookups
+  - Enhanced MIB registry with improved OID resolution
+
+## [1.1.0] - 2025-09-18
+
+### Changed
+- **API Consistency**: Made enrichment idempotent; unified API outputs across walk/bulk/stream operations
+- **Test Improvements**: Hardened test cleanup for more reliable test runs
+
 ## [1.0.0] - 2025-09-07
 
 - API: Multi-target operations now default to Concurrent Multi (high-throughput) behavior. The legacy path remains available via `strategy: :simple`.
