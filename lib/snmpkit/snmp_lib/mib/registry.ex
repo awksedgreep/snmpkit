@@ -52,6 +52,14 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
     "ipInHdrErrors" => [1, 3, 6, 1, 2, 1, 4, 4],
     "ipInAddrErrors" => [1, 3, 6, 1, 2, 1, 4, 5],
 
+    # ipNetToMediaTable (1.3.6.1.2.1.4.22) - ARP cache
+    "ipNetToMediaTable" => [1, 3, 6, 1, 2, 1, 4, 22],
+    "ipNetToMediaEntry" => [1, 3, 6, 1, 2, 1, 4, 22, 1],
+    "ipNetToMediaIfIndex" => [1, 3, 6, 1, 2, 1, 4, 22, 1, 1],
+    "ipNetToMediaPhysAddress" => [1, 3, 6, 1, 2, 1, 4, 22, 1, 2],
+    "ipNetToMediaNetAddress" => [1, 3, 6, 1, 2, 1, 4, 22, 1, 3],
+    "ipNetToMediaType" => [1, 3, 6, 1, 2, 1, 4, 22, 1, 4],
+
     # SNMP group (1.3.6.1.2.1.11)
     "snmpInPkts" => [1, 3, 6, 1, 2, 1, 11, 1],
     "snmpOutPkts" => [1, 3, 6, 1, 2, 1, 11, 2],
