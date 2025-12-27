@@ -212,7 +212,7 @@ IO.puts("Multi-target results:")
 Enum.zip(requests, results)
 |> Enum.each(fn {{target, oid}, result} ->
   case result do
-    {:ok, %{formatted: value}} ->
+    {:ok, [%{formatted: value} | _]} ->
       IO.puts("  #{target} #{oid}: #{value}")
     {:error, reason} ->
       IO.puts("  #{target} #{oid}: ERROR - #{inspect(reason)}")

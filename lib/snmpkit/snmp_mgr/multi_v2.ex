@@ -444,25 +444,41 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
     community = Keyword.get(request.opts, :community, "public")
     version = Keyword.get(request.opts, :version, :v2c)
 
-    case request.type do
-      :get ->
-        pdu = SnmpKit.SnmpLib.PDU.build_get_request(request.oid, request_id)
-        message = SnmpKit.SnmpLib.PDU.build_message(pdu, community, version)
-        SnmpKit.SnmpLib.PDU.encode_message(message)
+    # Resolve OID (handles symbolic names like "sysDescr.0")
+    case resolve_oid(request.oid) do
+      {:ok, oid_list} ->
+        case request.type do
+          :get ->
+            pdu = SnmpKit.SnmpLib.PDU.build_get_request(oid_list, request_id)
+            message = SnmpKit.SnmpLib.PDU.build_message(pdu, community, version)
+            SnmpKit.SnmpLib.PDU.encode_message(message)
 
-      :get_bulk ->
-        max_rep = Keyword.get(request.opts, :max_repetitions, 30)
-        pdu = SnmpKit.SnmpLib.PDU.build_get_bulk_request(request.oid, request_id, 0, max_rep)
-        message = SnmpKit.SnmpLib.PDU.build_message(pdu, community, version)
-        SnmpKit.SnmpLib.PDU.encode_message(message)
+          :get_bulk ->
+            max_rep = Keyword.get(request.opts, :max_repetitions, 30)
+            pdu = SnmpKit.SnmpLib.PDU.build_get_bulk_request(oid_list, request_id, 0, max_rep)
+            message = SnmpKit.SnmpLib.PDU.build_message(pdu, community, version)
+            SnmpKit.SnmpLib.PDU.encode_message(message)
 
-      # NOTE: :walk and :walk_table operations are handled by V2Walk module
-      # and should not reach this function. They are delegated in execute_single_operation.
+          # NOTE: :walk and :walk_table operations are handled by V2Walk module
+          # and should not reach this function. They are delegated in execute_single_operation.
 
-      _ ->
-        {:error, {:unsupported_request_type, request.type}}
+          _ ->
+            {:error, {:unsupported_request_type, request.type}}
+        end
+
+      {:error, reason} ->
+        {:error, {:oid_resolution_failed, reason}}
     end
   end
+
+  # Resolve OID from string (symbolic or numeric) to list format
+  defp resolve_oid(oid) when is_list(oid) and is_integer(hd(oid)), do: {:ok, oid}
+
+  defp resolve_oid(oid) when is_binary(oid) do
+    SnmpKit.SnmpMgr.Core.parse_oid(oid)
+  end
+
+  defp resolve_oid(oid), do: {:error, {:invalid_oid, oid}}
 
   defp resolve_target(target) when is_binary(target) do
     case SnmpKit.SnmpMgr.Target.parse(target) do
