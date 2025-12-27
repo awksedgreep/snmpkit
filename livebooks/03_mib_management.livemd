@@ -149,14 +149,14 @@ SnmpKit includes these standard MIBs:
 |-------|-----|-------------|
 | system | 1.3.6.1.2.1.1 | Basic device info |
 | interfaces | 1.3.6.1.2.1.2 | Network interfaces |
-| ip | 1.3.6.1.2.1.4 | IP statistics (partial) |
+| ip | 1.3.6.1.2.1.4 | IP statistics, ipAddrTable, ipRouteTable, ipNetToMediaTable |
 | tcp | 1.3.6.1.2.1.6 | TCP statistics |
 | udp | 1.3.6.1.2.1.7 | UDP statistics |
 | snmp | 1.3.6.1.2.1.11 | SNMP statistics |
-| host | 1.3.6.1.2.1.25 | Host resources (partial) |
+| host | 1.3.6.1.2.1.25 | Host resources (storage, device, processor, SW tables) |
+| docsis | 1.3.6.1.2.1.10.127 | DOCSIS IF-MIB (downstream, upstream, signal quality, CM status) |
 
 Note: The deprecated AT group (1.3.6.1.2.1.3) and ICMP group are not included.
-Load custom MIBs for ipNetToMediaTable or other specialized tables.
 
 ```elixir
 groups = ["system", "interfaces", "ip", "tcp", "udp", "snmp"]
