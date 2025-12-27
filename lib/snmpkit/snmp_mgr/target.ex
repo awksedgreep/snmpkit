@@ -55,6 +55,41 @@ defmodule SnmpKit.SnmpMgr.Target do
   end
 
   @doc """
+  Resolves a target to a parsed struct, with fallback for unparseable targets.
+
+  Unlike `parse/1` which returns `{:ok, target}` or `{:error, reason}`,
+  this function always returns a target struct, using the raw input as
+  the host with default port 161 if parsing fails.
+
+  This is the canonical function for target resolution across all modules.
+
+  ## Examples
+
+      iex> SnmpKit.SnmpMgr.Target.resolve("192.168.1.1:161")
+      %{host: {192, 168, 1, 1}, port: 161}
+
+      iex> SnmpKit.SnmpMgr.Target.resolve("device.local")
+      %{host: "device.local", port: 161}
+
+      iex> SnmpKit.SnmpMgr.Target.resolve(%{host: {127, 0, 0, 1}, port: 162})
+      %{host: {127, 0, 0, 1}, port: 162}
+  """
+  def resolve(target) when is_binary(target) do
+    case parse(target) do
+      {:ok, parsed} -> parsed
+      {:error, _} -> %{host: target, port: @default_port}
+    end
+  end
+
+  def resolve(%{host: _, port: _} = target), do: target
+
+  def resolve(target) when is_tuple(target) and tuple_size(target) == 4 do
+    %{host: target, port: @default_port}
+  end
+
+  def resolve(target), do: %{host: target, port: @default_port}
+
+  @doc """
   Resolves a hostname to an IP address if needed.
 
   If the host is already an IP tuple, returns it unchanged.

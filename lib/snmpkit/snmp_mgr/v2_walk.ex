@@ -156,12 +156,6 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
 
   # --- Helper functions ---
 
-  defp resolve_target(target) when is_binary(target) do
-    case SnmpKit.SnmpMgr.Target.parse(target) do
-      {:ok, parsed} -> parsed
-      {:error, _} -> %{host: target, port: 161}
-    end
-  end
-
-  defp resolve_target(target), do: target
+  # Target resolution helper - delegates to canonical Target.resolve
+  defp resolve_target(target), do: SnmpKit.SnmpMgr.Target.resolve(target)
 end

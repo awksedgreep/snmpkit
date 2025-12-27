@@ -543,14 +543,8 @@ defmodule SnmpKit.SnmpMgr.Engine do
     end
   end
 
-  defp resolve_target(target) when is_binary(target) do
-    case SnmpKit.SnmpMgr.Target.parse(target) do
-      {:ok, parsed} -> parsed
-      {:error, _} -> %{host: target, port: 161}
-    end
-  end
-
-  defp resolve_target(target), do: target
+  # Target resolution helper - delegates to canonical Target.resolve
+  defp resolve_target(target), do: SnmpKit.SnmpMgr.Target.resolve(target)
 
   defp schedule_request_timeout(ref, timeout) do
     Process.send_after(self(), {:request_timeout, ref}, timeout)
