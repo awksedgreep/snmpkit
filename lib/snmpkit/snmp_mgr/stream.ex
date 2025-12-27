@@ -526,21 +526,7 @@ defmodule SnmpKit.SnmpMgr.Stream do
 
   defp execute_stream_operation(_, _, _, _), do: {:error, :unsupported_operation}
 
-  defp resolve_oid(oid) when is_binary(oid) do
-    case SnmpKit.SnmpLib.OID.string_to_list(oid) do
-      {:ok, oid_list} ->
-        {:ok, oid_list}
-
-      {:error, _} ->
-        case SnmpKit.SnmpMgr.MIB.resolve(oid) do
-          {:ok, resolved_oid} -> {:ok, resolved_oid}
-          error -> error
-        end
-    end
-  end
-
-  defp resolve_oid(oid) when is_list(oid), do: {:ok, oid}
-  defp resolve_oid(_), do: {:error, :invalid_oid_format}
+  defp resolve_oid(oid), do: SnmpKit.SnmpMgr.Core.parse_oid(oid)
 
   # Helper functions
 

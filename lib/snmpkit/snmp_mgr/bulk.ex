@@ -356,7 +356,7 @@ defmodule SnmpKit.SnmpMgr.Bulk do
   defp resolve_oids(oids) do
     resolved =
       oids
-      |> Enum.map(&resolve_oid/1)
+      |> Enum.map(&SnmpKit.SnmpMgr.Core.parse_oid/1)
       |> Enum.reduce_while({:ok, []}, fn
         {:ok, oid}, {:ok, acc} -> {:cont, {:ok, [oid | acc]}}
         error, _acc -> {:halt, error}
@@ -368,41 +368,7 @@ defmodule SnmpKit.SnmpMgr.Bulk do
     end
   end
 
-  defp resolve_oid(oid) when is_binary(oid) do
-    case String.trim(oid) do
-      "" ->
-        # Empty string fallback
-        {:ok, [1, 3]}
-
-      trimmed ->
-        case SnmpKit.SnmpLib.OID.string_to_list(trimmed) do
-          {:ok, oid_list} when oid_list != [] ->
-            {:ok, oid_list}
-
-          {:ok, []} ->
-            # Empty result fallback
-            {:ok, [1, 3]}
-
-          {:error, _} ->
-            # Try as symbolic name
-            case SnmpKit.SnmpMgr.MIB.resolve(trimmed) do
-              {:ok, resolved_oid} when is_list(resolved_oid) -> {:ok, resolved_oid}
-              error -> error
-            end
-        end
-    end
-  end
-
-  defp resolve_oid(oid) when is_list(oid) do
-    # Validate list format before returning
-    case SnmpKit.SnmpLib.OID.valid_oid?(oid) do
-      :ok -> {:ok, oid}
-      {:error, :empty_oid} -> {:ok, [1, 3]}
-      error -> error
-    end
-  end
-
-  defp resolve_oid(_), do: {:error, :invalid_oid_format}
+  defp resolve_oid(oid), do: SnmpKit.SnmpMgr.Core.parse_oid(oid)
 
   # Type information must never be inferred - it must be preserved from SNMP responses
   # Removing type inference functions to prevent loss of critical type information

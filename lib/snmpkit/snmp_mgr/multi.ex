@@ -730,14 +730,6 @@ defmodule SnmpKit.SnmpMgr.Multi do
     {in_scope_results, next_oid}
   end
 
-  # OID resolution helper
-  defp resolve_oid(oid) when is_binary(oid) do
-    SnmpKit.SnmpLib.OID.string_to_list(oid)
-  end
-
-  defp resolve_oid(oid) when is_list(oid) do
-    {:ok, oid}
-  end
-
-  defp resolve_oid(_), do: {:error, :invalid_oid}
+  # OID resolution helper - delegates to canonical Core.parse_oid
+  defp resolve_oid(oid), do: SnmpKit.SnmpMgr.Core.parse_oid(oid)
 end
