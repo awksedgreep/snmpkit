@@ -226,7 +226,7 @@ IO.puts("\nDevice names:")
 Enum.zip(2011..2015, results)
 |> Enum.each(fn {port, result} ->
   case result do
-    {:ok, %{formatted: name}} -> IO.puts("  Port #{port}: #{name}")
+    {:ok, [%{formatted: name} | _]} -> IO.puts("  Port #{port}: #{name}")
     {:error, reason} -> IO.puts("  Port #{port}: Error - #{inspect(reason)}")
   end
 end)

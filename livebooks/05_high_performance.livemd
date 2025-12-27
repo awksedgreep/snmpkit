@@ -252,7 +252,7 @@ IO.puts("Return format comparison:\n")
 results_list = SNMP.get_multi(requests, return_format: :list)
 IO.puts("  :list format:")
 Enum.each(results_list, fn
-  {:ok, %{formatted: v}} -> IO.puts("    #{v}")
+  {:ok, [%{formatted: v} | _]} -> IO.puts("    #{v}")
   {:error, e} -> IO.puts("    Error: #{inspect(e)}")
 end)
 
@@ -262,8 +262,8 @@ IO.puts("")
 results_with = SNMP.get_multi(requests, return_format: :with_targets)
 IO.puts("  :with_targets format:")
 Enum.each(results_with, fn
-  {target, oid, {:ok, %{formatted: v}}} -> IO.puts("    #{target} #{oid}: #{v}")
-  {target, oid, {:error, e}} -> IO.puts("    #{target} #{oid}: Error")
+  {target, oid, {:ok, [%{formatted: v} | _]}} -> IO.puts("    #{target} #{oid}: #{v}")
+  {target, oid, {:error, _e}} -> IO.puts("    #{target} #{oid}: Error")
 end)
 
 IO.puts("")
@@ -272,7 +272,7 @@ IO.puts("")
 results_map = SNMP.get_multi(requests, return_format: :map)
 IO.puts("  :map format:")
 Enum.each(results_map, fn
-  {{target, oid}, {:ok, %{formatted: v}}} -> IO.puts("    {#{target}, #{oid}} => #{v}")
+  {{target, oid}, {:ok, [%{formatted: v} | _]}} -> IO.puts("    {#{target}, #{oid}} => #{v}")
   {{target, oid}, {:error, _}} -> IO.puts("    {#{target}, #{oid}} => Error")
 end)
 ```
