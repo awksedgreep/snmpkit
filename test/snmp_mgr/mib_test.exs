@@ -146,5 +146,43 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
     end
   end
 
+  describe "reverse_lookup/1 index suffix handling" do
+    test "includes .0 suffix for scalar OIDs" do
+      # sysDescr.0
+      assert {:ok, "sysDescr.0"} = MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1, 0])
+      # sysUpTime.0
+      assert {:ok, "sysUpTime.0"} = MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 3, 0])
+      # sysName.0
+      assert {:ok, "sysName.0"} = MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 5, 0])
+    end
+
+    test "includes row index for table OIDs" do
+      # ifDescr.1
+      assert {:ok, "ifDescr.1"} = MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 1])
+      # ifDescr.2
+      assert {:ok, "ifDescr.2"} = MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 2])
+      # ifType.42
+      assert {:ok, "ifType.42"} = MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 2, 2, 1, 3, 42])
+    end
+
+    test "handles multi-component indices" do
+      # Some tables have compound indices (e.g., IP address tables)
+      # sysDescr with arbitrary suffix
+      assert {:ok, "sysDescr.1.2.3"} = MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1, 1, 2, 3])
+    end
+
+    test "returns base name without suffix for exact OID match" do
+      # sysDescr (no instance)
+      assert {:ok, "sysDescr"} = MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1])
+      # ifDescr (column, no row index)
+      assert {:ok, "ifDescr"} = MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 2, 2, 1, 2])
+    end
+
+    test "works with string OID input" do
+      assert {:ok, "sysDescr.0"} = MIB.reverse_lookup("1.3.6.1.2.1.1.1.0")
+      assert {:ok, "ifDescr.1"} = MIB.reverse_lookup("1.3.6.1.2.1.2.2.1.2.1")
+    end
+  end
+
   # Helper functions
 end
