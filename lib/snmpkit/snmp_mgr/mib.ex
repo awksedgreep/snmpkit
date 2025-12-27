@@ -433,21 +433,20 @@ defmodule SnmpKit.SnmpMgr.MIB do
   @doc """
   Enhanced MIB object resolution with parsed MIB data integration.
 
-  Leverages both standard MIBs and any loaded/parsed MIB files for comprehensive name resolution.
+  Returns enriched object information including OID, syntax, module, and more.
+  Leverages both standard MIBs and any loaded/parsed MIB files for comprehensive resolution.
+
+  ## Examples
+
+      iex> SnmpKit.SnmpMgr.MIB.resolve_enhanced("sysDescr")
+      {:ok, %{name: "sysDescr", oid: [1, 3, 6, 1, 2, 1, 1, 1], module: "SNMPv2-MIB", syntax: %{...}}}
+
+      iex> SnmpKit.SnmpMgr.MIB.resolve_enhanced("sysDescr.0")
+      {:ok, %{name: "sysDescr", oid: [1, 3, 6, 1, 2, 1, 1, 1], instance_oid: [1, 3, 6, 1, 2, 1, 1, 1, 0], ...}}
   """
-  def resolve_enhanced(name, opts \\ []) do
-    # First try standard resolution
-    case resolve(name) do
-      {:ok, oid} ->
-        {:ok, oid}
-
-      {:error, :not_found} ->
-        # Try enhanced resolution with loaded MIB data
-        GenServer.call(__MODULE__, {:resolve_enhanced, name, opts})
-
-      error ->
-        error
-    end
+  def resolve_enhanced(name, _opts \\ []) do
+    # Use object_info for enriched resolution
+    object_info(name)
   end
 
   @doc """
@@ -1047,7 +1046,10 @@ defmodule SnmpKit.SnmpMgr.MIB do
 
   defp base_name_and_index(oid_list) do
     case reverse_lookup(oid_list) do
-      {:ok, base_name} ->
+      {:ok, name_with_index} ->
+        # Strip instance suffix to get the true base name (e.g., "sysDescr.0" -> "sysDescr")
+        base_name = strip_instance_suffix(name_with_index)
+
         case name_to_oid(base_name) do
           {:ok, base_oid} ->
             base_len = length(base_oid)
