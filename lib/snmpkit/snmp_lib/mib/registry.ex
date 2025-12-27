@@ -51,6 +51,46 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
     "ipInReceives" => [1, 3, 6, 1, 2, 1, 4, 3],
     "ipInHdrErrors" => [1, 3, 6, 1, 2, 1, 4, 4],
     "ipInAddrErrors" => [1, 3, 6, 1, 2, 1, 4, 5],
+    "ipForwDatagrams" => [1, 3, 6, 1, 2, 1, 4, 6],
+    "ipInUnknownProtos" => [1, 3, 6, 1, 2, 1, 4, 7],
+    "ipInDiscards" => [1, 3, 6, 1, 2, 1, 4, 8],
+    "ipInDelivers" => [1, 3, 6, 1, 2, 1, 4, 9],
+    "ipOutRequests" => [1, 3, 6, 1, 2, 1, 4, 10],
+    "ipOutDiscards" => [1, 3, 6, 1, 2, 1, 4, 11],
+    "ipOutNoRoutes" => [1, 3, 6, 1, 2, 1, 4, 12],
+    "ipReasmTimeout" => [1, 3, 6, 1, 2, 1, 4, 13],
+    "ipReasmReqds" => [1, 3, 6, 1, 2, 1, 4, 14],
+    "ipReasmOKs" => [1, 3, 6, 1, 2, 1, 4, 15],
+    "ipReasmFails" => [1, 3, 6, 1, 2, 1, 4, 16],
+    "ipFragOKs" => [1, 3, 6, 1, 2, 1, 4, 17],
+    "ipFragFails" => [1, 3, 6, 1, 2, 1, 4, 18],
+    "ipFragCreates" => [1, 3, 6, 1, 2, 1, 4, 19],
+
+    # ipAddrTable (1.3.6.1.2.1.4.20) - interface IP addresses
+    "ipAddrTable" => [1, 3, 6, 1, 2, 1, 4, 20],
+    "ipAddrEntry" => [1, 3, 6, 1, 2, 1, 4, 20, 1],
+    "ipAdEntAddr" => [1, 3, 6, 1, 2, 1, 4, 20, 1, 1],
+    "ipAdEntIfIndex" => [1, 3, 6, 1, 2, 1, 4, 20, 1, 2],
+    "ipAdEntNetMask" => [1, 3, 6, 1, 2, 1, 4, 20, 1, 3],
+    "ipAdEntBcastAddr" => [1, 3, 6, 1, 2, 1, 4, 20, 1, 4],
+    "ipAdEntReasmMaxSize" => [1, 3, 6, 1, 2, 1, 4, 20, 1, 5],
+
+    # ipRouteTable (1.3.6.1.2.1.4.21) - routing table (deprecated but widely used)
+    "ipRouteTable" => [1, 3, 6, 1, 2, 1, 4, 21],
+    "ipRouteEntry" => [1, 3, 6, 1, 2, 1, 4, 21, 1],
+    "ipRouteDest" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 1],
+    "ipRouteIfIndex" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 2],
+    "ipRouteMetric1" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 3],
+    "ipRouteMetric2" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 4],
+    "ipRouteMetric3" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 5],
+    "ipRouteMetric4" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 6],
+    "ipRouteNextHop" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 7],
+    "ipRouteType" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 8],
+    "ipRouteProto" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 9],
+    "ipRouteAge" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 10],
+    "ipRouteMask" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 11],
+    "ipRouteMetric5" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 12],
+    "ipRouteInfo" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 13],
 
     # ipNetToMediaTable (1.3.6.1.2.1.4.22) - ARP cache
     "ipNetToMediaTable" => [1, 3, 6, 1, 2, 1, 4, 22],
@@ -59,6 +99,8 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
     "ipNetToMediaPhysAddress" => [1, 3, 6, 1, 2, 1, 4, 22, 1, 2],
     "ipNetToMediaNetAddress" => [1, 3, 6, 1, 2, 1, 4, 22, 1, 3],
     "ipNetToMediaType" => [1, 3, 6, 1, 2, 1, 4, 22, 1, 4],
+
+    "ipRoutingDiscards" => [1, 3, 6, 1, 2, 1, 4, 23],
 
     # SNMP group (1.3.6.1.2.1.11)
     "snmpInPkts" => [1, 3, 6, 1, 2, 1, 11, 1],
@@ -115,6 +157,7 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
     "udpTable" => [1, 3, 6, 1, 2, 1, 7, 5],
 
     # Host Resources MIB (1.3.6.1.2.1.25)
+    # hrSystem group (1.3.6.1.2.1.25.1)
     "hrSystemUptime" => [1, 3, 6, 1, 2, 1, 25, 1, 1],
     "hrSystemDate" => [1, 3, 6, 1, 2, 1, 25, 1, 2],
     "hrSystemInitialLoadDevice" => [1, 3, 6, 1, 2, 1, 25, 1, 3],
@@ -122,13 +165,82 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
     "hrSystemNumUsers" => [1, 3, 6, 1, 2, 1, 25, 1, 5],
     "hrSystemProcesses" => [1, 3, 6, 1, 2, 1, 25, 1, 6],
     "hrSystemMaxProcesses" => [1, 3, 6, 1, 2, 1, 25, 1, 7],
+
+    # hrStorage group (1.3.6.1.2.1.25.2)
     "hrMemorySize" => [1, 3, 6, 1, 2, 1, 25, 2, 2],
     "hrStorageTable" => [1, 3, 6, 1, 2, 1, 25, 2, 3],
+    "hrStorageEntry" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1],
+    "hrStorageIndex" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 1],
+    "hrStorageType" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 2],
+    "hrStorageDescr" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 3],
+    "hrStorageAllocationUnits" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 4],
+    "hrStorageSize" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 5],
+    "hrStorageUsed" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 6],
+    "hrStorageAllocationFailures" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 7],
+
+    # hrDevice group (1.3.6.1.2.1.25.3)
     "hrDeviceTable" => [1, 3, 6, 1, 2, 1, 25, 3, 2],
+    "hrDeviceEntry" => [1, 3, 6, 1, 2, 1, 25, 3, 2, 1],
+    "hrDeviceIndex" => [1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 1],
+    "hrDeviceType" => [1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 2],
+    "hrDeviceDescr" => [1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 3],
+    "hrDeviceID" => [1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 4],
+    "hrDeviceStatus" => [1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 5],
+    "hrDeviceErrors" => [1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 6],
+
+    # hrProcessorTable (1.3.6.1.2.1.25.3.3)
     "hrProcessorTable" => [1, 3, 6, 1, 2, 1, 25, 3, 3],
+    "hrProcessorEntry" => [1, 3, 6, 1, 2, 1, 25, 3, 3, 1],
+    "hrProcessorFrwID" => [1, 3, 6, 1, 2, 1, 25, 3, 3, 1, 1],
+    "hrProcessorLoad" => [1, 3, 6, 1, 2, 1, 25, 3, 3, 1, 2],
+
+    # hrNetworkTable (1.3.6.1.2.1.25.3.4)
     "hrNetworkTable" => [1, 3, 6, 1, 2, 1, 25, 3, 4],
+    "hrNetworkEntry" => [1, 3, 6, 1, 2, 1, 25, 3, 4, 1],
+    "hrNetworkIfIndex" => [1, 3, 6, 1, 2, 1, 25, 3, 4, 1, 1],
+
+    # hrPrinterTable (1.3.6.1.2.1.25.3.5)
     "hrPrinterTable" => [1, 3, 6, 1, 2, 1, 25, 3, 5],
+    "hrPrinterEntry" => [1, 3, 6, 1, 2, 1, 25, 3, 5, 1],
+    "hrPrinterStatus" => [1, 3, 6, 1, 2, 1, 25, 3, 5, 1, 1],
+    "hrPrinterDetectedErrorState" => [1, 3, 6, 1, 2, 1, 25, 3, 5, 1, 2],
+
+    # hrDiskStorageTable (1.3.6.1.2.1.25.3.6)
     "hrDiskStorageTable" => [1, 3, 6, 1, 2, 1, 25, 3, 6],
+    "hrDiskStorageEntry" => [1, 3, 6, 1, 2, 1, 25, 3, 6, 1],
+    "hrDiskStorageAccess" => [1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 1],
+    "hrDiskStorageMedia" => [1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 2],
+    "hrDiskStorageRemoveble" => [1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 3],
+    "hrDiskStorageCapacity" => [1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 4],
+
+    # hrSWRun group (1.3.6.1.2.1.25.4) - running processes
+    "hrSWOSIndex" => [1, 3, 6, 1, 2, 1, 25, 4, 1],
+    "hrSWRunTable" => [1, 3, 6, 1, 2, 1, 25, 4, 2],
+    "hrSWRunEntry" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1],
+    "hrSWRunIndex" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 1],
+    "hrSWRunName" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 2],
+    "hrSWRunID" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 3],
+    "hrSWRunPath" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 4],
+    "hrSWRunParameters" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 5],
+    "hrSWRunType" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 6],
+    "hrSWRunStatus" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 7],
+
+    # hrSWRunPerf group (1.3.6.1.2.1.25.5) - process performance
+    "hrSWRunPerfTable" => [1, 3, 6, 1, 2, 1, 25, 5, 1],
+    "hrSWRunPerfEntry" => [1, 3, 6, 1, 2, 1, 25, 5, 1, 1],
+    "hrSWRunPerfCPU" => [1, 3, 6, 1, 2, 1, 25, 5, 1, 1, 1],
+    "hrSWRunPerfMem" => [1, 3, 6, 1, 2, 1, 25, 5, 1, 1, 2],
+
+    # hrSWInstalled group (1.3.6.1.2.1.25.6) - installed software
+    "hrSWInstalledLastChange" => [1, 3, 6, 1, 2, 1, 25, 6, 1],
+    "hrSWInstalledLastUpdateTime" => [1, 3, 6, 1, 2, 1, 25, 6, 2],
+    "hrSWInstalledTable" => [1, 3, 6, 1, 2, 1, 25, 6, 3],
+    "hrSWInstalledEntry" => [1, 3, 6, 1, 2, 1, 25, 6, 3, 1],
+    "hrSWInstalledIndex" => [1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 1],
+    "hrSWInstalledName" => [1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 2],
+    "hrSWInstalledID" => [1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 3],
+    "hrSWInstalledType" => [1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 4],
+    "hrSWInstalledDate" => [1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 5],
 
     # Common Enterprise OIDs
     "enterprises" => [1, 3, 6, 1, 4, 1],
