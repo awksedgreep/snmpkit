@@ -876,7 +876,8 @@ defmodule SnmpKit.SnmpMgr.MIB do
         find_partial_reverse_match(oid, oid_to_name_map)
 
       name ->
-        {:ok, strip_instance_suffix(name)}
+        # Exact match - return as-is (already includes any suffix in the map)
+        {:ok, name}
     end
   end
 
@@ -905,8 +906,14 @@ defmodule SnmpKit.SnmpMgr.MIB do
         find_partial_match(oid, oid_to_name_map, length - 1)
 
       base_name ->
-        # Always normalize to the base symbol (no instance suffix)
-        {:ok, strip_instance_suffix(base_name)}
+        # Found a base match - append the remaining OID elements as the index suffix
+        base = strip_instance_suffix(base_name)
+        suffix = Enum.drop(oid, length)
+
+        case suffix do
+          [] -> {:ok, base}
+          _ -> {:ok, base <> "." <> Enum.join(suffix, ".")}
+        end
     end
   end
 
