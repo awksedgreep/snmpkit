@@ -11,7 +11,7 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
   require Logger
 
   alias SnmpKit.SnmpMgr.{EngineV2, RequestIdGenerator, SocketManager}
-  alias SnmpKit.SnmpLib.{OID, PDU, Transport}
+  alias SnmpKit.SnmpLib.{PDU, Transport}
 
   @doc """
   Performs a full SNMP walk for a given target and root OID.
@@ -29,7 +29,8 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
   - `{:error, reason}` - An error tuple if the walk fails.
   """
   def walk(request, timeout) do
-    case OID.string_to_list(request.oid) do
+    # Use Core.parse_oid to handle both symbolic names (e.g., "system") and numeric OIDs
+    case SnmpKit.SnmpMgr.Core.parse_oid(request.oid) do
       {:ok, root_oid_list} ->
         initial_state = %{
           request: request,

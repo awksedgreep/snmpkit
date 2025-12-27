@@ -517,7 +517,7 @@ defmodule SnmpKit.SnmpMgr.Core do
             {:ok, oid_list}
 
           {:error, _} ->
-            # Fall back to numeric string parsing
+            # Try numeric string parsing
             case SnmpKit.SnmpLib.OID.string_to_list(trimmed) do
               {:ok, oid_list} when is_list(oid_list) and length(oid_list) > 0 ->
                 {:ok, oid_list}
@@ -526,8 +526,12 @@ defmodule SnmpKit.SnmpMgr.Core do
                 # Empty result fallback
                 {:ok, [1, 3]}
 
-              {:error, reason} ->
-                {:error, reason}
+              {:error, _} ->
+                # Fall back to MIB GenServer for container OIDs like "system", "interfaces"
+                case SnmpKit.SnmpMgr.MIB.resolve(trimmed) do
+                  {:ok, oid_list} when is_list(oid_list) -> {:ok, oid_list}
+                  error -> error
+                end
             end
         end
     end
