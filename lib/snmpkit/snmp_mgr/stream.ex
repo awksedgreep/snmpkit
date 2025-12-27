@@ -566,30 +566,47 @@ defmodule SnmpKit.SnmpMgr.Stream do
     in_scope_results =
       results
       |> Enum.filter(fn
-        # Handle 3-tuple format (preferred)
-        {oid_string, _type, _value} ->
+        # Handle 3-tuple with OID as list (current format from send_get_bulk_request)
+        {oid_list, _type, _value} when is_list(oid_list) ->
+          List.starts_with?(oid_list, root_oid)
+
+        # Handle 3-tuple with OID as string (backward compatibility)
+        {oid_string, _type, _value} when is_binary(oid_string) ->
           case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
             {:ok, oid_list} -> List.starts_with?(oid_list, root_oid)
             _ -> false
           end
 
-        # Handle 2-tuple format (backward compatibility)
-        {oid_string, _value} ->
+        # Handle 2-tuple with OID as list
+        {oid_list, _value} when is_list(oid_list) ->
+          List.starts_with?(oid_list, root_oid)
+
+        # Handle 2-tuple with OID as string (backward compatibility)
+        {oid_string, _value} when is_binary(oid_string) ->
           case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
             {:ok, oid_list} -> List.starts_with?(oid_list, root_oid)
             _ -> false
           end
+
+        _ ->
+          false
       end)
 
     next_oid =
       case List.last(results) do
-        {oid_string, _type, _value} ->
+        {oid_list, _type, _value} when is_list(oid_list) ->
+          oid_list
+
+        {oid_string, _type, _value} when is_binary(oid_string) ->
           case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
             {:ok, oid_list} -> oid_list
             _ -> nil
           end
 
-        {oid_string, _value} ->
+        {oid_list, _value} when is_list(oid_list) ->
+          oid_list
+
+        {oid_string, _value} when is_binary(oid_string) ->
           case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
             {:ok, oid_list} -> oid_list
             _ -> nil

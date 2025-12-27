@@ -257,8 +257,8 @@ stream = SNMP.walk_stream(router_target, "interfaces")
 IO.puts("Streaming interface data:")
 stream
 |> Stream.take(5)
-|> Enum.each(fn {oid, type, value} ->
-  IO.puts("  #{inspect(oid)} (#{type}) = #{inspect(value)}")
+|> Enum.each(fn %{oid: oid, type: type, formatted: value} ->
+  IO.puts("  #{oid} (#{type}) = #{value}")
 end)
 ```
 
