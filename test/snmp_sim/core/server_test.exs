@@ -46,6 +46,7 @@ defmodule SnmpKit.SnmpSim.Core.ServerTest do
       GenServer.stop(server)
     end
 
+    @tag :performance
     test "processes 100+ requests per second" do
       port = find_free_port()
 
