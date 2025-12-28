@@ -24,7 +24,7 @@ defmodule SnmpKit.SnmpSim.Core.Server do
   ]
 
   @default_community "public"
-  @socket_opts [:binary, {:active, true}, {:reuseaddr, true}, {:ip, {0, 0, 0, 0}}]
+  @socket_opts [:binary, {:active, true}, {:reuseaddr, false}, {:ip, {0, 0, 0, 0}}]
 
   @doc """
   Start an SNMP UDP server on the specified port.
