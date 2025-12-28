@@ -12,6 +12,7 @@ IMPORTANT: Breaking changes in 1.0
 [![Hex.pm](https://img.shields.io/hexpm/v/snmpkit.svg)](https://hex.pm/packages/snmpkit)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/snmpkit)
 [![License](https://img.shields.io/github/license/awksedgreep/snmpkit.svg)](LICENSE)
+[![Elixir CI](https://github.com/awksedgreep/snmpkit/actions/workflows/elixir.yml/badge.svg)](https://github.com/awksedgreep/snmpkit/actions/workflows/elixir.yml)
 
 **A modern, comprehensive SNMP toolkit for Elixir - featuring a unified API, pure Elixir implementation, and powerful device simulation.**
 
