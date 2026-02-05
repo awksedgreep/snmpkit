@@ -93,7 +93,7 @@ device_profile = %{
 
 ## 🏗️ Architecture
 
-- **`SnmpKit.SNMP`** - Complete SNMP protocol operations
+- **`SnmpKit.SNMP`** - Complete SNMP manager protocol operations
 - **`SnmpKit.MIB`** - Comprehensive MIB management  
 - **`SnmpKit.Sim`** - Realistic device simulation
 - **`SnmpKit`** - Direct access for convenience

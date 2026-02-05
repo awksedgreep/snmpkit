@@ -204,24 +204,39 @@ defmodule SnmpKit.SnmpMgr.SocketManager do
   end
   
   @impl true
+  def handle_info({:udp, _socket, {:unspec, _}, _port, _data}, state) do
+    # Drop ICMP error responses (unreachable hosts return these)
+    # These have :unspec as the source and would flood the Engine's mailbox
+    updated_stats = update_stats(state.stats, :icmp_errors_dropped, 1)
+    {:noreply, %{state | stats: updated_stats}}
+  end
+
+  @impl true
+  def handle_info({:udp, _socket, _ip, _port, ""}, state) do
+    # Drop empty UDP packets - these are invalid SNMP responses
+    updated_stats = update_stats(state.stats, :empty_packets_dropped, 1)
+    {:noreply, %{state | stats: updated_stats}}
+  end
+
+  @impl true
   def handle_info({:udp, socket, ip, port, data}, state) do
     # Forward UDP messages to the Engine for response correlation
     # This ensures all UDP responses go through the Engine
     # Try both EngineV2 (new) and Engine (old) for compatibility
     engine_pid = Process.whereis(SnmpKit.SnmpMgr.EngineV2) || Process.whereis(SnmpKit.SnmpMgr.Engine)
-    
+
     case engine_pid do
       nil ->
         Logger.warning("Engine not found, dropping UDP response from #{:inet.ntoa(ip)}:#{port}")
-        
+
       pid ->
         send(pid, {:udp, socket, ip, port, data})
     end
-    
+
     # Update stats
     updated_stats = update_stats(state.stats, :responses_received, 1)
     new_state = %{state | stats: updated_stats}
-    
+
     {:noreply, new_state}
   end
   
@@ -269,6 +284,8 @@ defmodule SnmpKit.SnmpMgr.SocketManager do
   defp initialize_stats() do
     %{
       responses_received: 0,
+      icmp_errors_dropped: 0,
+      empty_packets_dropped: 0,
       last_reset: System.monotonic_time(:second)
     }
   end

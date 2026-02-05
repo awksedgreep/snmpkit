@@ -140,4 +140,141 @@ defmodule SnmpKit.SnmpMgr.SocketManagerTest do
 
     Process.exit(mock_engine, :normal)
   end
+
+  describe "ICMP error filtering" do
+    test "drops ICMP error responses with :unspec source", %{manager: manager} do
+      # Start a mock engine that should NOT receive the message
+      test_pid = self()
+
+      mock_engine =
+        spawn(fn ->
+          receive do
+            {:udp, _socket, _ip, _port, _data} ->
+              send(test_pid, :message_received)
+          after
+            100 -> :ok
+          end
+        end)
+
+      Process.register(mock_engine, SnmpKit.SnmpMgr.Engine)
+
+      # Get initial stats
+      initial_stats = SocketManager.get_stats(manager)
+      initial_dropped = initial_stats.custom_stats[:icmp_errors_dropped] || 0
+
+      # Simulate an ICMP error response by sending the message directly
+      socket = SocketManager.get_socket(manager)
+      send(manager, {:udp, socket, {:unspec, ""}, 0, ""})
+
+      # Give it time to process
+      Process.sleep(50)
+
+      # Verify the message was NOT forwarded to the engine
+      refute_receive :message_received, 100
+
+      # Verify stats were updated
+      stats = SocketManager.get_stats(manager)
+      assert stats.custom_stats.icmp_errors_dropped == initial_dropped + 1
+
+      # Clean up
+      if Process.whereis(SnmpKit.SnmpMgr.Engine) do
+        Process.unregister(SnmpKit.SnmpMgr.Engine)
+      end
+
+      Process.exit(mock_engine, :normal)
+    end
+
+    test "drops empty UDP packets", %{manager: manager} do
+      # Start a mock engine that should NOT receive the message
+      test_pid = self()
+
+      mock_engine =
+        spawn(fn ->
+          receive do
+            {:udp, _socket, _ip, _port, _data} ->
+              send(test_pid, :message_received)
+          after
+            100 -> :ok
+          end
+        end)
+
+      Process.register(mock_engine, SnmpKit.SnmpMgr.Engine)
+
+      # Get initial stats
+      initial_stats = SocketManager.get_stats(manager)
+      initial_dropped = initial_stats.custom_stats[:empty_packets_dropped] || 0
+
+      # Simulate an empty UDP packet
+      socket = SocketManager.get_socket(manager)
+      send(manager, {:udp, socket, {127, 0, 0, 1}, 161, ""})
+
+      # Give it time to process
+      Process.sleep(50)
+
+      # Verify the message was NOT forwarded to the engine
+      refute_receive :message_received, 100
+
+      # Verify stats were updated
+      stats = SocketManager.get_stats(manager)
+      assert stats.custom_stats.empty_packets_dropped == initial_dropped + 1
+
+      # Clean up
+      if Process.whereis(SnmpKit.SnmpMgr.Engine) do
+        Process.unregister(SnmpKit.SnmpMgr.Engine)
+      end
+
+      Process.exit(mock_engine, :normal)
+    end
+
+    test "forwards valid SNMP responses", %{manager: manager} do
+      # Start a mock engine that SHOULD receive the message
+      test_pid = self()
+
+      mock_engine =
+        spawn(fn ->
+          receive do
+            {:udp, _socket, _ip, _port, data} when data != "" ->
+              send(test_pid, {:message_received, data})
+          after
+            500 -> :ok
+          end
+        end)
+
+      Process.register(mock_engine, SnmpKit.SnmpMgr.Engine)
+
+      # Get initial stats
+      initial_stats = SocketManager.get_stats(manager)
+      initial_received = initial_stats.custom_stats[:responses_received] || 0
+
+      # Simulate a valid SNMP response
+      socket = SocketManager.get_socket(manager)
+      send(manager, {:udp, socket, {192, 168, 1, 1}, 161, "valid snmp data"})
+
+      # Give it time to process
+      Process.sleep(50)
+
+      # Verify the message WAS forwarded to the engine
+      assert_receive {:message_received, "valid snmp data"}, 500
+
+      # Verify stats were updated
+      stats = SocketManager.get_stats(manager)
+      assert stats.custom_stats.responses_received == initial_received + 1
+
+      # Clean up
+      if Process.whereis(SnmpKit.SnmpMgr.Engine) do
+        Process.unregister(SnmpKit.SnmpMgr.Engine)
+      end
+
+      Process.exit(mock_engine, :normal)
+    end
+
+    test "tracks all dropped packet statistics", %{manager: manager} do
+      stats = SocketManager.get_stats(manager)
+
+      # Verify the new stats fields exist
+      assert Map.has_key?(stats.custom_stats, :icmp_errors_dropped)
+      assert Map.has_key?(stats.custom_stats, :empty_packets_dropped)
+      assert Map.has_key?(stats.custom_stats, :responses_received)
+    end
+  end
 end
