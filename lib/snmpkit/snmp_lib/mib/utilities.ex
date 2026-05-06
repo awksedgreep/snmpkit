@@ -182,6 +182,7 @@ defmodule SnmpKit.SnmpLib.MIB.Utilities do
       message = :io_lib.format(format, args) |> IO.iodata_to_binary()
       Logger.debug("[#{module}:#{function}] #{message}")
     end
+
     :ok
   end
 

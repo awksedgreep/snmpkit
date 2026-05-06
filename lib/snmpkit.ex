@@ -69,11 +69,15 @@ defmodule SnmpKit do
   defdelegate walk_table(target, table_oid), to: SnmpKit.SnmpMgr
   defdelegate walk_table(target, table_oid, opts), to: SnmpKit.SnmpMgr
 
-  # Multi-target bulk helpers
+  # Multi-target helpers
+  defdelegate get_multi(targets_and_oids), to: SnmpKit.SnmpMgr
+  defdelegate get_multi(targets_and_oids, opts), to: SnmpKit.SnmpMgr
   defdelegate get_bulk_multi(targets_and_oids), to: SnmpKit.SnmpMgr
   defdelegate get_bulk_multi(targets_and_oids, opts), to: SnmpKit.SnmpMgr
   defdelegate walk_multi(targets_and_oids), to: SnmpKit.SnmpMgr
   defdelegate walk_multi(targets_and_oids, opts), to: SnmpKit.SnmpMgr
+  defdelegate walk_table_multi(targets_and_tables), to: SnmpKit.SnmpMgr
+  defdelegate walk_table_multi(targets_and_tables, opts), to: SnmpKit.SnmpMgr
 
   defmodule SNMP do
     @moduledoc """
@@ -149,6 +153,8 @@ defmodule SnmpKit do
     defdelegate get_bulk_multi(targets_and_oids, opts), to: SnmpKit.SnmpMgr
     defdelegate walk_multi(targets_and_oids), to: SnmpKit.SnmpMgr
     defdelegate walk_multi(targets_and_oids, opts), to: SnmpKit.SnmpMgr
+    defdelegate walk_table_multi(targets_and_tables), to: SnmpKit.SnmpMgr
+    defdelegate walk_table_multi(targets_and_tables, opts), to: SnmpKit.SnmpMgr
 
     # Streaming Operations
     defdelegate walk_stream(target, root_oid), to: SnmpKit.SnmpMgr

@@ -717,18 +717,4 @@ defmodule SnmpKit.SnmpLib.Transport do
       _ -> {:error, :stats_unavailable}
     end
   end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 end

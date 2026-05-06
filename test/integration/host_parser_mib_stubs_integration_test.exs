@@ -13,6 +13,7 @@ defmodule SnmpKit.Integration.HostParserMibStubsIntegrationTest do
       nil ->
         {:ok, _pid} = SnmpKit.SnmpMgr.MIB.start_link()
         :ok
+
       _pid ->
         :ok
     end
@@ -47,13 +48,15 @@ defmodule SnmpKit.Integration.HostParserMibStubsIntegrationTest do
         assert port >= 1 and port <= 65535
 
         # Verify IP tuple format is compatible with :gen_udp
-        assert tuple_size(ip_tuple) in [4, 8]  # IPv4 or IPv6
+        # IPv4 or IPv6
+        assert tuple_size(ip_tuple) in [4, 8]
 
         for object <- objects_to_test do
           # Resolve MIB object
           assert {:ok, oid_list} = MIB.resolve(object)
           assert is_list(oid_list)
-          assert length(oid_list) >= 8  # At least 1.3.6.1.2.1.X.Y.instance
+          # At least 1.3.6.1.2.1.X.Y.instance
+          assert length(oid_list) >= 8
 
           # Convert to string format that SNMP operations expect
           oid_string = Enum.join(oid_list, ".")
@@ -96,10 +99,11 @@ defmodule SnmpKit.Integration.HostParserMibStubsIntegrationTest do
         assert {:ok, {ip_tuple, port}} = HostParser.parse(host_input)
 
         # Resolve all objects
-        resolved_objects = Enum.map(objects, fn object ->
-          assert {:ok, oid_list} = MIB.resolve(object)
-          {object, oid_list, Enum.join(oid_list, ".")}
-        end)
+        resolved_objects =
+          Enum.map(objects, fn object ->
+            assert {:ok, oid_list} = MIB.resolve(object)
+            {object, oid_list, Enum.join(oid_list, ".")}
+          end)
 
         # Verify we got valid resolutions
         assert length(resolved_objects) == length(objects)
@@ -134,7 +138,8 @@ defmodule SnmpKit.Integration.HostParserMibStubsIntegrationTest do
         # Verify group resolves to valid OID prefix
         assert {:ok, oid_prefix} = MIB.resolve(group)
         assert is_list(oid_prefix)
-        assert length(oid_prefix) >= 7  # At least 1.3.6.1.2.1.X
+        # At least 1.3.6.1.2.1.X
+        assert length(oid_prefix) >= 7
 
         for host_input <- host_formats do
           # Verify host parses correctly
@@ -225,8 +230,14 @@ defmodule SnmpKit.Integration.HostParserMibStubsIntegrationTest do
       ]
 
       mib_objects = [
-        "system", "if", "ifX", "sysDescr", "ifName",
-        "cisco", "mikrotik", "snmpInPkts"
+        "system",
+        "if",
+        "ifX",
+        "sysDescr",
+        "ifName",
+        "cisco",
+        "mikrotik",
+        "snmpInPkts"
       ]
 
       # Measure time for typical batch operations
@@ -297,19 +308,35 @@ defmodule SnmpKit.Integration.HostParserMibStubsIntegrationTest do
       # Categories of objects that should be available for basic SNMP monitoring
       essential_categories = %{
         "System Information" => [
-          "sysDescr.0", "sysUpTime.0", "sysName.0", "sysLocation.0", "sysContact.0"
+          "sysDescr.0",
+          "sysUpTime.0",
+          "sysName.0",
+          "sysLocation.0",
+          "sysContact.0"
         ],
         "Interface Basics" => [
-          "ifNumber.0", "ifDescr.1", "ifType.1", "ifOperStatus.1", "ifAdminStatus.1"
+          "ifNumber.0",
+          "ifDescr.1",
+          "ifType.1",
+          "ifOperStatus.1",
+          "ifAdminStatus.1"
         ],
         "Interface Counters" => [
-          "ifInOctets.1", "ifOutOctets.1", "ifInUcastPkts.1", "ifOutUcastPkts.1"
+          "ifInOctets.1",
+          "ifOutOctets.1",
+          "ifInUcastPkts.1",
+          "ifOutUcastPkts.1"
         ],
         "High-Capacity Counters" => [
-          "ifName.1", "ifHCInOctets.1", "ifHCOutOctets.1", "ifHighSpeed.1"
+          "ifName.1",
+          "ifHCInOctets.1",
+          "ifHCOutOctets.1",
+          "ifHighSpeed.1"
         ],
         "SNMP Statistics" => [
-          "snmpInPkts.0", "snmpOutPkts.0", "snmpInBadVersions.0"
+          "snmpInPkts.0",
+          "snmpOutPkts.0",
+          "snmpInBadVersions.0"
         ]
       }
 

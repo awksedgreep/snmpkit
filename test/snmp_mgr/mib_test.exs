@@ -34,7 +34,6 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
 
   describe "MIB Integration with snmp_lib Operations" do
     test "MIB name resolution works with SNMP operations", %{device: device} do
-
       # Test MIB name resolution for standard names
       standard_names = ["sysDescr", "sysUpTime", "sysName"]
 
@@ -44,7 +43,9 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
             # Use resolved OID in SNMP operation
             oid_string = oid |> Enum.join(".") |> then(&"#{&1}.0")
             target = SNMPSimulator.device_target(device)
-            result = SnmpKit.SnmpMgr.get(target, oid_string, community: device.community, timeout: 200)
+
+            result =
+              SnmpKit.SnmpMgr.get(target, oid_string, community: device.community, timeout: 200)
 
             assert {:ok, _} = result
 
@@ -56,11 +57,13 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
     end
 
     test "MIB reverse lookup integration", %{device: device} do
-
       # Get a value first
       target = SNMPSimulator.device_target(device)
 
-      case SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: device.community, timeout: 200) do
+      case SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0",
+             community: device.community,
+             timeout: 200
+           ) do
         {:ok, _value} ->
           # Try reverse lookup on the OID we requested
           case MIB.reverse_lookup("1.3.6.1.2.1.1.1.0") do
@@ -82,7 +85,6 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
 
   describe "Enhanced MIB with SnmpKit.SnmpLib.MIB Integration" do
     test "integrates with SnmpKit.SnmpLib.MIB for enhanced functionality", %{device: device} do
-
       # Test basic MIB functionality
       standard_oids = [
         # sysDescr
@@ -114,7 +116,6 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
     end
 
     test "MIB tree walking integration", %{device: device} do
-
       # Test MIB tree functionality with SNMP data
       # System group
       root_oid = "1.3.6.1.2.1.1"

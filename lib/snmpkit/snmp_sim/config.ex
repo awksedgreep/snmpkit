@@ -57,20 +57,22 @@ defmodule SnmpKit.SnmpSim.Config do
       {:yaml_elixir, "~> 2.9"}
   """
   def load_yaml(file_path) when is_binary(file_path) do
-    if Code.ensure_loaded?(YamlElixir) do
-      case YamlElixir.read_from_file(file_path) do
-        {:ok, config} ->
-          # Convert string keys to atoms for consistency
-          atomized_config = atomize_keys(config)
-          validate_and_normalize_config(atomized_config)
+    case yaml_module() do
+      {:ok, yaml_module} ->
+        case apply(yaml_module, :read_from_file, [file_path]) do
+          {:ok, config} ->
+            # Convert string keys to atoms for consistency
+            atomized_config = atomize_keys(config)
+            validate_and_normalize_config(atomized_config)
 
-        {:error, error} ->
-          {:error, {:yaml_read_error, error}}
-      end
-    else
-      {:error,
-       {:missing_dependency,
-        "yaml_elixir package not found. Add {:yaml_elixir, \"~> 2.9\"} to your deps."}}
+          {:error, error} ->
+            {:error, {:yaml_read_error, error}}
+        end
+
+      :error ->
+        {:error,
+         {:missing_dependency,
+          "yaml_elixir package not found. Add {:yaml_elixir, \"~> 2.9\"} to your deps."}}
     end
   end
 
@@ -219,13 +221,14 @@ defmodule SnmpKit.SnmpSim.Config do
         File.write(file_path, json_content)
 
       :yaml ->
-        if Code.ensure_loaded?(YamlElixir) do
-          case Jason.encode!(config) |> then(&File.write(file_path, &1)) do
-            :ok -> :ok
-            error -> error
-          end
-        else
-          {:error, "yaml_elixir package not available"}
+        case yaml_module() do
+          {:ok, _yaml_module} ->
+            config
+            |> to_yaml_document()
+            |> then(&File.write(file_path, &1))
+
+          :error ->
+            {:error, "yaml_elixir package not available"}
         end
 
       _ ->
@@ -247,6 +250,91 @@ defmodule SnmpKit.SnmpSim.Config do
         {:error, "Configuration must contain a 'snmp_sim' key"}
     end
   end
+
+  defp to_yaml_document(data) do
+    yaml_lines(data, 0)
+    |> Enum.join("\n")
+    |> Kernel.<>("\n")
+  end
+
+  defp yaml_lines(map, indent) when is_map(map) do
+    map
+    |> Enum.flat_map(fn {key, value} ->
+      key_value_lines(key_to_string(key), value, indent, indent + 2)
+    end)
+  end
+
+  defp yaml_lines(list, indent) when is_list(list) do
+    Enum.flat_map(list, &list_item_lines(&1, indent))
+  end
+
+  defp key_value_lines(key, value, indent, child_indent) do
+    prefix = String.duplicate(" ", indent)
+
+    case value do
+      nested when is_map(nested) and map_size(nested) == 0 ->
+        ["#{prefix}#{key}: {}"]
+
+      nested when is_map(nested) ->
+        ["#{prefix}#{key}:"] ++ yaml_lines(nested, child_indent)
+
+      list when is_list(list) and list == [] ->
+        ["#{prefix}#{key}: []"]
+
+      list when is_list(list) ->
+        ["#{prefix}#{key}:"] ++ yaml_lines(list, child_indent)
+
+      scalar ->
+        ["#{prefix}#{key}: #{yaml_scalar(scalar)}"]
+    end
+  end
+
+  defp list_item_lines(value, indent) do
+    prefix = String.duplicate(" ", indent)
+
+    case value do
+      nested when is_map(nested) and map_size(nested) == 0 ->
+        ["#{prefix}- {}"]
+
+      nested when is_map(nested) ->
+        [{first_key, first_value} | rest] = Map.to_list(nested)
+
+        [first_line | first_tail] =
+          key_value_lines("- #{key_to_string(first_key)}", first_value, indent, indent + 2)
+
+        rest_lines =
+          Enum.flat_map(rest, fn {key, nested_value} ->
+            key_value_lines(key_to_string(key), nested_value, indent + 2, indent + 4)
+          end)
+
+        [first_line] ++ first_tail ++ rest_lines
+
+      list when is_list(list) and list == [] ->
+        ["#{prefix}- []"]
+
+      list when is_list(list) ->
+        ["#{prefix}-"] ++ yaml_lines(list, indent + 2)
+
+      scalar ->
+        ["#{prefix}- #{yaml_scalar(scalar)}"]
+    end
+  end
+
+  defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
+  defp key_to_string(key), do: to_string(key)
+
+  defp yaml_scalar(value) when is_binary(value) do
+    if value == "" or String.contains?(value, [":", "#", "\n", "\"", "'"]) do
+      inspect(value)
+    else
+      value
+    end
+  end
+
+  defp yaml_scalar(value) when is_boolean(value), do: if(value, do: "true", else: "false")
+  defp yaml_scalar(value) when is_integer(value) or is_float(value), do: to_string(value)
+  defp yaml_scalar(nil), do: "null"
+  defp yaml_scalar(value), do: inspect(value)
 
   defp validate_snmp_config(config) when is_map(config) do
     # Validate global settings
@@ -517,6 +605,16 @@ defmodule SnmpKit.SnmpSim.Config do
   end
 
   defp atomize_keys(value), do: value
+
+  defp yaml_module do
+    module = Module.concat([YamlElixir])
+
+    if Code.ensure_loaded?(module) do
+      {:ok, module}
+    else
+      :error
+    end
+  end
 
   defp atomize_key(key) when is_binary(key), do: String.to_atom(key)
   defp atomize_key(key), do: key

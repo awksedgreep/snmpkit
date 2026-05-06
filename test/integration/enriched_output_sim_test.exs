@@ -9,8 +9,10 @@ defmodule SnmpKit.EnrichedOutputSimTest do
     profile = %{
       name: "Test Device",
       objects: %{
-        [1, 3, 6, 1, 2, 1, 1, 1, 0] => "Simulated Device",         # sysDescr.0
-        [1, 3, 6, 1, 2, 1, 1, 3, 0] => 12_345_600                   # sysUpTime.0 (hundredths)
+        # sysDescr.0
+        [1, 3, 6, 1, 2, 1, 1, 1, 0] => "Simulated Device",
+        # sysUpTime.0 (hundredths)
+        [1, 3, 6, 1, 2, 1, 1, 3, 0] => 12_345_600
       }
     }
 
@@ -26,7 +28,7 @@ defmodule SnmpKit.EnrichedOutputSimTest do
     assert Map.has_key?(result, :formatted)
 
     # GET pretty uptime
-assert {:ok, up} = SnmpKit.SNMP.get_pretty(target, "sysUpTime.0")
+    assert {:ok, up} = SnmpKit.SNMP.get_pretty(target, "sysUpTime.0")
     assert %{oid: _oid_uptime, type: :timeticks, value: _, formatted: fmt} = up
     assert is_binary(fmt)
   end
@@ -46,12 +48,18 @@ assert {:ok, up} = SnmpKit.SNMP.get_pretty(target, "sysUpTime.0")
     # Pretty walk system
     assert {:ok, items} = SnmpKit.SNMP.walk_pretty(target, "system")
     assert is_list(items)
-    assert Enum.all?(items, fn m -> is_map(m) and Map.has_key?(m, :formatted) and Map.has_key?(m, :type) end)
+
+    assert Enum.all?(items, fn m ->
+             is_map(m) and Map.has_key?(m, :formatted) and Map.has_key?(m, :type)
+           end)
 
     # Pretty bulk on interfaces/system
     assert {:ok, bulk_items} = SnmpKit.SNMP.bulk_pretty(target, "system")
     assert is_list(bulk_items)
-    assert Enum.all?(bulk_items, fn m -> is_map(m) and Map.has_key?(m, :formatted) and Map.has_key?(m, :type) end)
+
+    assert Enum.all?(bulk_items, fn m ->
+             is_map(m) and Map.has_key?(m, :formatted) and Map.has_key?(m, :type)
+           end)
   end
 
   test "multi-target :with_targets returns enriched inner results" do
@@ -73,6 +81,7 @@ assert {:ok, up} = SnmpKit.SNMP.get_pretty(target, "sysUpTime.0")
     results = SnmpKit.SNMP.get_multi(reqs, return_format: :with_targets)
 
     assert is_list(results)
+
     for {target, oid, {:ok, inner}} <- results do
       assert is_binary(target)
       assert is_binary(oid)
@@ -99,12 +108,17 @@ assert {:ok, up} = SnmpKit.SNMP.get_pretty(target, "sysUpTime.0")
     # :list format
     list_results = SnmpKit.SNMP.get_multi(reqs, return_format: :list)
     assert is_list(list_results)
-    assert Enum.all?(list_results, fn {:ok, %{oid: _, type: _, value: _}} -> true; _ -> false end)
+
+    assert Enum.all?(list_results, fn
+             {:ok, %{oid: _, type: _, value: _}} -> true
+             _ -> false
+           end)
 
     # :map format
     map_results = SnmpKit.SNMP.get_multi(reqs, return_format: :map)
     assert is_map(map_results)
     assert map_size(map_results) == 2
+
     for {{t, o}, {:ok, inner}} <- map_results do
       assert is_binary(t) and is_binary(o)
       assert %{oid: _, type: _, value: _} = inner
@@ -124,10 +138,14 @@ assert {:ok, up} = SnmpKit.SNMP.get_pretty(target, "sysUpTime.0")
     target = "127.0.0.1:31166"
 
     # Both off
-    assert {:ok, res} = SnmpKit.SNMP.get(target, "sysUpTime.0", include_names: false, include_formatted: false)
+    assert {:ok, res} =
+             SnmpKit.SNMP.get(target, "sysUpTime.0",
+               include_names: false,
+               include_formatted: false
+             )
+
     refute Map.has_key?(res, :name)
     refute Map.has_key?(res, :formatted)
     assert Map.has_key?(res, :oid) and Map.has_key?(res, :type) and Map.has_key?(res, :value)
   end
 end
-

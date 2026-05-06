@@ -361,16 +361,16 @@ defmodule SnmpKit.SnmpLib.HostParser do
 
   # Validate that a charlist contains only valid characters (0-255 for bytes, but more restrictively for reasonable text)
   defp valid_charlist?(charlist) do
+    # Additional check: ensure it would create valid UTF-8 when converted to string
     Enum.all?(charlist, fn char ->
       is_integer(char) and char >= 0 and char <= 255
     end) and
-    # Additional check: ensure it would create valid UTF-8 when converted to string
-    try do
-      _string = List.to_string(charlist)
-      true
-    rescue
-      _ -> false
-    end
+      try do
+        _string = List.to_string(charlist)
+        true
+      rescue
+        _ -> false
+      end
   end
 
   @doc """

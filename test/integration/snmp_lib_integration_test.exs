@@ -7,8 +7,6 @@ defmodule SnmpKit.SnmpLib.Integration.Phase2Test do
   @moduletag :protocol
   @moduletag :phase_2
 
-
-
   describe "PDU + OID Integration" do
     test "builds PDU with OID operations" do
       # Use OID module to build OID, then PDU module to create request

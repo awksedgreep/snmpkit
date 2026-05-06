@@ -102,7 +102,7 @@ defmodule SnmpKit.WalkUnitTest do
       bulk_source = File.read!("lib/snmpkit/snmp_mgr/bulk.ex")
 
       assert String.contains?(bulk_source, "type_information_lost") or
-             String.contains?(bulk_source, "Reject 2-tuple format"),
+               String.contains?(bulk_source, "Reject 2-tuple format"),
              "Bulk module should reject responses without type information"
 
       refute String.contains?(bulk_source, "infer_snmp_type"),
@@ -123,7 +123,7 @@ defmodule SnmpKit.WalkUnitTest do
       walker_source = File.read!("lib/snmpkit/snmp_lib/walker.ex")
 
       assert String.contains?(walker_source, "Reject 2-tuple format") or
-             String.contains?(walker_source, "false"),
+               String.contains?(walker_source, "false"),
              "Walker module should reject 2-tuple varbinds"
 
       refute String.contains?(walker_source, "infer_snmp_type"),
@@ -202,8 +202,8 @@ defmodule SnmpKit.WalkUnitTest do
   describe "Version Handling Unit Tests" do
     test "walk_table routes to correct implementation" do
       # Test that walk_table function exists and accepts version parameter
-      result = SnmpKit.SnmpMgr.Walk.walk_table("127.0.0.1", "1.3.6.1.2.1.1",
-                                               version: :v1, timeout: 100)
+      result =
+        SnmpKit.SnmpMgr.Walk.walk_table("127.0.0.1", "1.3.6.1.2.1.1", version: :v1, timeout: 100)
 
       # Should not crash with version parameter
       assert match?({:ok, _}, result) or match?({:error, _}, result)
@@ -211,11 +211,11 @@ defmodule SnmpKit.WalkUnitTest do
 
     test "walk routes v1 and v2c differently" do
       # Test that different versions don't crash
-      v1_result = SnmpKit.SnmpMgr.Walk.walk("127.0.0.1", "1.3.6.1.2.1.1",
-                                            version: :v1, timeout: 100)
+      v1_result =
+        SnmpKit.SnmpMgr.Walk.walk("127.0.0.1", "1.3.6.1.2.1.1", version: :v1, timeout: 100)
 
-      v2c_result = SnmpKit.SnmpMgr.Walk.walk("127.0.0.1", "1.3.6.1.2.1.1",
-                                             version: :v2c, timeout: 100)
+      v2c_result =
+        SnmpKit.SnmpMgr.Walk.walk("127.0.0.1", "1.3.6.1.2.1.1", version: :v2c, timeout: 100)
 
       # Both should handle gracefully (not crash)
       assert match?({:ok, _}, v1_result) or match?({:error, _}, v1_result)
@@ -232,16 +232,16 @@ defmodule SnmpKit.WalkUnitTest do
     end
 
     test "walk validates max_repetitions parameter" do
-      result = SnmpKit.SnmpMgr.Walk.walk("127.0.0.1", "1.3.6.1.2.1.1",
-                                         max_repetitions: 0, timeout: 100)
+      result =
+        SnmpKit.SnmpMgr.Walk.walk("127.0.0.1", "1.3.6.1.2.1.1", max_repetitions: 0, timeout: 100)
 
       # Should handle invalid max_repetitions gracefully
       assert match?({:ok, _}, result) or match?({:error, _}, result)
     end
 
     test "walk validates community parameter" do
-      result = SnmpKit.SnmpMgr.Walk.walk("127.0.0.1", "1.3.6.1.2.1.1",
-                                         community: "", timeout: 100)
+      result =
+        SnmpKit.SnmpMgr.Walk.walk("127.0.0.1", "1.3.6.1.2.1.1", community: "", timeout: 100)
 
       # Should handle empty community gracefully
       assert match?({:ok, _}, result) or match?({:error, _}, result)
@@ -258,7 +258,7 @@ defmodule SnmpKit.WalkUnitTest do
              "Walk source should not pattern match 2-tuples as valid"
 
       refute String.contains?(walk_source, "{_, _} ->") and
-             String.contains?(walk_source, "infer"),
+               String.contains?(walk_source, "infer"),
              "Walk source should not infer types from 2-tuples"
     end
 
@@ -328,7 +328,7 @@ defmodule SnmpKit.WalkUnitTest do
 
       # Should explicitly reject type-less responses
       assert String.contains?(walk_source, "type_information_lost") or
-             String.contains?(walk_source, "Got 2-tuple instead"),
+               String.contains?(walk_source, "Got 2-tuple instead"),
              "Walk should explicitly reject type-less responses"
     end
 
@@ -341,7 +341,7 @@ defmodule SnmpKit.WalkUnitTest do
 
       # Should reject 2-tuple format
       assert String.contains?(bulk_source, "false") and
-             String.contains?(bulk_source, "2-tuple"),
+               String.contains?(bulk_source, "2-tuple"),
              "Bulk should reject 2-tuple format in filtering"
     end
 
@@ -350,7 +350,7 @@ defmodule SnmpKit.WalkUnitTest do
 
       # Should not strip type information
       refute String.contains?(core_source, "{:ok, value}") and
-             String.contains?(core_source, "get(host, oid"),
+               String.contains?(core_source, "get(host, oid"),
              "Core should not strip type information from responses"
 
       # Should preserve type information

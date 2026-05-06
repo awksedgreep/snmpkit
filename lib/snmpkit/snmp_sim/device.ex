@@ -276,36 +276,43 @@ defmodule SnmpKit.SnmpSim.Device do
         {oid_map, has_walk_data} =
           case Map.get(device_config, :profile) do
             %{oid_map: oid_map} when is_map(oid_map) and map_size(oid_map) > 0 ->
-              Logger.info("Device #{device_id} loading #{map_size(oid_map)} OIDs from manual profile")
+              Logger.info(
+                "Device #{device_id} loading #{map_size(oid_map)} OIDs from manual profile"
+              )
+
               {oid_map, true}
 
             _ ->
               # Load walk file if provided and set flag
-              walk_data_loaded = case Map.get(device_config, :walk_file) do
-                nil ->
-                  false
+              walk_data_loaded =
+                case Map.get(device_config, :walk_file) do
+                  nil ->
+                    false
 
-                walk_file ->
-                  Logger.info(
-                    "Loading walk file #{walk_file} for device type #{inspect(device_type)}"
-                  )
+                  walk_file ->
+                    Logger.info(
+                      "Loading walk file #{walk_file} for device type #{inspect(device_type)}"
+                    )
 
-                  case SnmpKit.SnmpSim.MIB.SharedProfiles.load_walk_profile(device_type, walk_file) do
-                    :ok ->
-                      Logger.info(
-                        "Successfully loaded walk file #{walk_file} for device type #{inspect(device_type)}"
-                      )
+                    case SnmpKit.SnmpSim.MIB.SharedProfiles.load_walk_profile(
+                           device_type,
+                           walk_file
+                         ) do
+                      :ok ->
+                        Logger.info(
+                          "Successfully loaded walk file #{walk_file} for device type #{inspect(device_type)}"
+                        )
 
-                      true
+                        true
 
-                    {:error, reason} ->
-                      Logger.warning(
-                        "Failed to load walk file #{walk_file} for device type #{inspect(device_type)}: #{inspect(reason)}"
-                      )
+                      {:error, reason} ->
+                        Logger.warning(
+                          "Failed to load walk file #{walk_file} for device type #{inspect(device_type)}: #{inspect(reason)}"
+                        )
 
-                      false
-                  end
-              end
+                        false
+                    end
+                end
 
               {%{}, walk_data_loaded}
           end
@@ -669,7 +676,9 @@ defmodule SnmpKit.SnmpSim.Device do
 
   @impl true
   def handle_info({:modem_upgrade, {:phase, phase}}, state) do
-    {maybe_msgs, new_upgrade} = SnmpKit.SnmpSim.Device.ModemUpgrade.advance_phase(state.upgrade, phase)
+    {maybe_msgs, new_upgrade} =
+      SnmpKit.SnmpSim.Device.ModemUpgrade.advance_phase(state.upgrade, phase)
+
     Enum.each(maybe_msgs, fn {delay_ms, msg} -> Process.send_after(self(), msg, delay_ms) end)
     {:noreply, %{state | upgrade: new_upgrade}}
   end

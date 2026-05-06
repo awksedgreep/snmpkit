@@ -57,7 +57,6 @@ defmodule SnmpKit.SnmpMgr.TypesIntegrationTest do
 
   describe "Integration with SNMP Operations" do
     test "type encoding works with SET operations", %{device: device} do
-
       # Test that encoded values work with snmp_lib SET operations
       # Note: SET operations often fail on read-only OIDs, but we test the encoding integration
       case Types.encode_value("test_value") do

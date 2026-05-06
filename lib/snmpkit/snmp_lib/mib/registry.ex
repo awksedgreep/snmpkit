@@ -99,7 +99,6 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
     "ipNetToMediaPhysAddress" => [1, 3, 6, 1, 2, 1, 4, 22, 1, 2],
     "ipNetToMediaNetAddress" => [1, 3, 6, 1, 2, 1, 4, 22, 1, 3],
     "ipNetToMediaType" => [1, 3, 6, 1, 2, 1, 4, 22, 1, 4],
-
     "ipRoutingDiscards" => [1, 3, 6, 1, 2, 1, 4, 23],
 
     # SNMP group (1.3.6.1.2.1.11)
@@ -487,7 +486,9 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
         instance = Enum.drop(oid, length)
 
         case instance do
-          [] -> {:ok, base_name}
+          [] ->
+            {:ok, base_name}
+
           _ ->
             suffix = instance |> Enum.map(&Integer.to_string/1) |> Enum.join(".")
             {:ok, base_name <> "." <> suffix}
@@ -567,5 +568,4 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
     |> Enum.map(fn {name, oid} -> {oid, name} end)
     |> Enum.into(%{})
   end
-
 end

@@ -27,7 +27,11 @@ defmodule SnmpKit.SnmpSim.Device.ModemUpgrade do
           post_upgrade_version: String.t() | nil,
           default_version: String.t() | nil,
           invalid_server_regex: Regex.t() | nil,
-          delay_ms: %{name_check: non_neg_integer(), download: non_neg_integer(), apply: non_neg_integer()}
+          delay_ms: %{
+            name_check: non_neg_integer(),
+            download: non_neg_integer(),
+            apply: non_neg_integer()
+          }
         }
 
   # RFC 2669 enums for DOCSIS software upgrade
@@ -95,10 +99,15 @@ defmodule SnmpKit.SnmpSim.Device.ModemUpgrade do
     else
       # Require server and filename per RFC 2669 semantics
       cond do
-        state.server == "0.0.0.0" -> {[], state}
-        state.filename in ["", "(unknown)"] -> {[], state}
+        state.server == "0.0.0.0" ->
+          {[], state}
+
+        state.filename in ["", "(unknown)"] ->
+          {[], state}
+
         invalid?(state) ->
           {[], %{state | oper_status: @oper_failed, progress: 0}}
+
         true ->
           now = System.monotonic_time(:millisecond)
 
@@ -131,9 +140,10 @@ defmodule SnmpKit.SnmpSim.Device.ModemUpgrade do
   end
 
   defp invalid?(%{invalid_server_regex: nil}), do: false
+
   defp invalid?(%{server: server, invalid_server_regex: regex}) when is_binary(server) do
     Regex.match?(regex, server)
   end
+
   defp invalid?(_), do: false
 end
-

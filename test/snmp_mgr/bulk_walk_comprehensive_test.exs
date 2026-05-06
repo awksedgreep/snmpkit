@@ -252,7 +252,6 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
                    ]
           end
 
-
         {{:ok, bulk_results}, {:error, _}} ->
           # Bulk succeeded where traditional failed - this is acceptable
           assert length(bulk_results) >= 0
@@ -496,25 +495,25 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
         case result_pretty do
           {:ok, results} when is_list(results) ->
             assert length(results) >= 0
-          # Verify enriched map format with formatted field
-          if length(results) > 0 do
-            Enum.each(results, fn %{oid: oid_string, type: type, formatted: formatted_value} ->
-              assert is_binary(oid_string),
-                     "OID should be string for #{description}, got: #{inspect(oid_string)}"
+            # Verify enriched map format with formatted field
+            if length(results) > 0 do
+              Enum.each(results, fn %{oid: oid_string, type: type, formatted: formatted_value} ->
+                assert is_binary(oid_string),
+                       "OID should be string for #{description}, got: #{inspect(oid_string)}"
 
-              assert is_atom(type),
-                     "Type should be atom for #{description}, got: #{inspect(type)}"
+                assert is_atom(type),
+                       "Type should be atom for #{description}, got: #{inspect(type)}"
 
-              assert is_binary(formatted_value),
-                     "Formatted value should be string for #{description}, got: #{inspect(formatted_value)}"
-            end)
+                assert is_binary(formatted_value),
+                       "Formatted value should be string for #{description}, got: #{inspect(formatted_value)}"
+              end)
 
-            # Verify OIDs are properly scoped
-            first_oid = hd(results).oid
+              # Verify OIDs are properly scoped
+              first_oid = hd(results).oid
 
-            assert String.starts_with?(first_oid, "1.3"),
-                   "#{description} should return OIDs starting with 1.3, got: #{first_oid}"
-          end
+              assert String.starts_with?(first_oid, "1.3"),
+                     "#{description} should return OIDs starting with 1.3, got: #{first_oid}"
+            end
 
           {:error, reason} when reason in [:timeout, :no_such_name, :gen_err] ->
             # Acceptable in test environment

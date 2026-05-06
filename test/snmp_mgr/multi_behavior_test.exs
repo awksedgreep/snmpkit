@@ -4,6 +4,19 @@ defmodule SnmpKit.SnmpMgr.MultiBehaviorTest do
   @moduletag :unit
 
   describe "Concurrent Multi defaults and auto-ensure" do
+    test "top-level SnmpKit.get_multi delegates to manager API" do
+      results = SnmpKit.get_multi([{"invalid.host.test", "sysDescr.0"}], timeout: 50)
+
+      assert is_list(results)
+      assert length(results) == 1
+
+      case hd(results) do
+        {:ok, %{oid: _oid, type: _type, value: _value}} -> :ok
+        {:error, _reason} -> :ok
+        other -> flunk("unexpected result: #{inspect(other)}")
+      end
+    end
+
     test "default multi auto-ensures concurrent engine components" do
       # Trigger a simple multi call; components should be ensured automatically
       _ = SnmpKit.SnmpMgr.get_multi([{"invalid.host.test", "sysDescr.0"}], timeout: 50)
@@ -64,9 +77,10 @@ defmodule SnmpKit.SnmpMgr.MultiBehaviorTest do
 
       map_res = SnmpKit.SnmpMgr.get_multi(reqs, timeout: 50, return_format: :map)
       assert is_map(map_res)
-      [{ {host2, oid2}, res2 }] = Map.to_list(map_res)
+      [{{host2, oid2}, res2}] = Map.to_list(map_res)
       assert is_binary(host2)
       assert is_binary(oid2) or is_list(oid2)
+
       case res2 do
         {:ok, %{oid: _oid, type: _type, value: _value}} -> :ok
         {:error, _reason} -> :ok
@@ -94,10 +108,30 @@ defmodule SnmpKit.SnmpMgr.MultiBehaviorTest do
       assert Process.whereis(SnmpKit.SnmpMgr.EngineV2)
       assert is_list(results)
       assert length(results) == 1
+
       case hd(results) do
         {:ok, _} -> :ok
         {:error, _} -> :ok
         other -> flunk("unexpected get_bulk_multi result: #{inspect(other)}")
+      end
+    end
+
+    test "get_bulk_multi with strategy: :simple still returns ordered results" do
+      results =
+        SnmpKit.SnmpMgr.get_bulk_multi([{"invalid.host.test", "ifTable"}],
+          timeout: 50,
+          max_repetitions: 5,
+          strategy: :simple
+        )
+
+      assert Process.whereis(SnmpKit.SnmpMgr.Engine)
+      assert is_list(results)
+      assert length(results) == 1
+
+      case hd(results) do
+        {:ok, _} -> :ok
+        {:error, _} -> :ok
+        other -> flunk("unexpected get_bulk_multi simple result: #{inspect(other)}")
       end
     end
 
@@ -107,12 +141,29 @@ defmodule SnmpKit.SnmpMgr.MultiBehaviorTest do
       assert Process.whereis(SnmpKit.SnmpMgr.EngineV2)
       assert is_list(results)
       assert length(results) == 1
+
       case hd(results) do
         {:ok, _} -> :ok
         {:error, _} -> :ok
         other -> flunk("unexpected walk_multi result: #{inspect(other)}")
       end
     end
+
+    test "walk_table_multi with strategy: :simple still returns one result per target" do
+      results =
+        SnmpKit.SnmpMgr.walk_table_multi([{"invalid.host.test", "ifTable"}],
+          timeout: 50,
+          strategy: :simple
+        )
+
+      assert is_list(results)
+      assert length(results) == 1
+
+      case hd(results) do
+        {:ok, _} -> :ok
+        {:error, _} -> :ok
+        other -> flunk("unexpected walk_table_multi simple result: #{inspect(other)}")
+      end
+    end
   end
 end
-

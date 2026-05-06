@@ -238,6 +238,7 @@ defmodule SnmpKit.SnmpMgr.Format do
 
         true ->
           str = to_string(oid_any)
+
           case SnmpKit.SnmpLib.OID.string_to_list(str) do
             {:ok, list} -> {str, list}
             _ -> {str, []}

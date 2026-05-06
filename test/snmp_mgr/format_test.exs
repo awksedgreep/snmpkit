@@ -177,7 +177,7 @@ defmodule SnmpKit.SnmpMgr.FormatTest do
       assert result == "00:1b:21:3c:4d:5e"
     end
 
-  test "formats non-printable octet strings as spaced hex with hex: prefix" do
+    test "formats non-printable octet strings as spaced hex with hex: prefix" do
       short_binary = <<0x00, 0x1B>>
       result = SnmpKit.SnmpMgr.Format.format_by_type(:octet_string, short_binary)
       assert result == "hex:00 1B"

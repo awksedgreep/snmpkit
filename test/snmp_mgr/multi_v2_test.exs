@@ -27,6 +27,14 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
   end
 
   describe "get_multi/2" do
+    test "returns empty results for empty request lists" do
+      assert [] = MultiV2.get_multi([], timeout: 1000)
+      assert [] = MultiV2.get_bulk_multi([], timeout: 1000)
+      assert [] = MultiV2.walk_multi([], timeout: 1000)
+      assert [] = MultiV2.walk_table_multi([], timeout: 1000)
+      assert [] = MultiV2.execute_mixed([], timeout: 1000)
+    end
+
     test "handles single request" do
       # Mock the Core module to return a simple response
       mock_core_get()
@@ -114,6 +122,15 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
       elapsed = end_time - start_time
       assert elapsed >= 0
     end
+
+    test "accepts adaptive max repetition tuning options" do
+      requests = [
+        {"192.0.2.1", "1.3.6.1.2.1.1",
+         [adaptive_max_repetitions: true, min_max_repetitions: 4, max_max_repetitions: 64]}
+      ]
+
+      assert [{:error, _reason}] = MultiV2.walk_multi(requests, timeout: 100)
+    end
   end
 
   describe "execute_mixed/2" do
@@ -132,6 +149,20 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
                {:error, _} -> true
                _ -> false
              end)
+    end
+
+    test "preserves original ordering across walk and non-walk subsets" do
+      operations = [
+        {:get, "invalid.host.test", "1.3.6.1.2.1.1.1.0", []},
+        {:get, "127.0.0.1", "invalid.oid", []},
+        {:walk, "192.0.2.1", "1.3.6.1.2.1.1", []}
+      ]
+
+      [first, second, third] = MultiV2.execute_mixed(operations, timeout: 100)
+
+      assert match?({:error, _}, first)
+      assert second == {:error, {:oid_resolution_failed, :not_found}}
+      assert match?({:error, _}, third)
     end
   end
 

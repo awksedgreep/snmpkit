@@ -38,10 +38,13 @@ defmodule SnmpKit.WalkComprehensiveTest do
 
     # Verify simulator is responding
     case SnmpKit.SNMP.get_with_type(@simulator_host, "1.3.6.1.2.1.1.1.0",
-                                    port: @simulator_port, timeout: 5000) do
+           port: @simulator_port,
+           timeout: 5000
+         ) do
       {:ok, _} ->
         Logger.info("Walk test simulator ready on port #{@simulator_port}")
         :ok
+
       {:error, reason} ->
         Logger.error("Walk test simulator not responding: #{inspect(reason)}")
         raise "Cannot start walk tests - simulator not responding"
@@ -58,25 +61,36 @@ defmodule SnmpKit.WalkComprehensiveTest do
 
   describe "Basic Walk Functionality" do
     test "walk returns non-empty results for system group" do
-      {:ok, results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                         port: @simulator_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       assert is_list(results)
       assert length(results) > 0, "Walk should return at least one result for system group"
-      assert length(results) >= 4, "System group should have at least 4 OIDs (sysDescr, sysObjectID, sysUpTime, sysContact)"
+
+      assert length(results) >= 4,
+             "System group should have at least 4 OIDs (sysDescr, sysObjectID, sysUpTime, sysContact)"
     end
 
     test "walk returns non-empty results for interfaces group" do
-      {:ok, results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.2",
-                                         port: @simulator_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.2",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       assert is_list(results)
       assert length(results) > 0, "Walk should return at least one result for interfaces group"
     end
 
     test "walk returns results in proper 3-tuple format" do
-      {:ok, results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                         port: @simulator_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       assert is_list(results)
       assert length(results) > 0
@@ -94,8 +108,11 @@ defmodule SnmpKit.WalkComprehensiveTest do
     end
 
     test "walk results are properly ordered" do
-      {:ok, results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                         port: @simulator_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       oids = Enum.map(results, fn {oid, _type, _value} -> oid end)
       sorted_oids = Enum.sort(oids, &oid_compare/2)
@@ -104,8 +121,11 @@ defmodule SnmpKit.WalkComprehensiveTest do
     end
 
     test "walk stops at proper boundaries" do
-      {:ok, results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                         port: @simulator_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       # All results must be within the requested subtree
       Enum.each(results, fn {oid, _type, _value} ->
@@ -117,8 +137,12 @@ defmodule SnmpKit.WalkComprehensiveTest do
 
   describe "Version-Specific Walk Tests" do
     test "walk with explicit v2c version returns results" do
-      {:ok, results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                         version: :v2c, port: @simulator_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          version: :v2c,
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       assert is_list(results)
       assert length(results) > 0, "v2c walk should return results"
@@ -132,8 +156,12 @@ defmodule SnmpKit.WalkComprehensiveTest do
     end
 
     test "walk with explicit v1 version returns results" do
-      {:ok, results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                         version: :v1, port: @simulator_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          version: :v1,
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       assert is_list(results)
       assert length(results) > 0, "v1 walk should return results"
@@ -147,8 +175,11 @@ defmodule SnmpKit.WalkComprehensiveTest do
     end
 
     test "walk with default version returns results" do
-      {:ok, results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                         port: @simulator_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       assert is_list(results)
       assert length(results) > 0, "Default version walk should return results"
@@ -158,11 +189,19 @@ defmodule SnmpKit.WalkComprehensiveTest do
     end
 
     test "v1 and v2c walks return consistent types for same OIDs" do
-      {:ok, v1_results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                            version: :v1, port: @simulator_port, timeout: @test_timeout)
+      {:ok, v1_results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          version: :v1,
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
-      {:ok, v2c_results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                             version: :v2c, port: @simulator_port, timeout: @test_timeout)
+      {:ok, v2c_results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          version: :v2c,
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       # Both should return results
       assert length(v1_results) > 0
@@ -190,8 +229,11 @@ defmodule SnmpKit.WalkComprehensiveTest do
 
   describe "Type Preservation in Walks" do
     test "walk never returns 2-tuple responses" do
-      {:ok, results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                         port: @simulator_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       # Check every single result
       Enum.each(results, fn result ->
@@ -204,14 +246,18 @@ defmodule SnmpKit.WalkComprehensiveTest do
     end
 
     test "walk preserves all SNMP types correctly" do
-      {:ok, results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1",
-                                         port: @simulator_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       # Should find various SNMP types in a full MIB-II walk
-      found_types = results
-                   |> Enum.map(fn {_oid, type, _value} -> type end)
-                   |> Enum.uniq()
-                   |> Enum.sort()
+      found_types =
+        results
+        |> Enum.map(fn {_oid, type, _value} -> type end)
+        |> Enum.uniq()
+        |> Enum.sort()
 
       # Must find at least basic types
       required_types = [:integer, :octet_string, :object_identifier, :timeticks]
@@ -245,8 +291,11 @@ defmodule SnmpKit.WalkComprehensiveTest do
     test "walk completes within reasonable time" do
       start_time = System.monotonic_time(:millisecond)
 
-      {:ok, results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                         port: @simulator_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       end_time = System.monotonic_time(:millisecond)
       duration = end_time - start_time
@@ -256,8 +305,11 @@ defmodule SnmpKit.WalkComprehensiveTest do
     end
 
     test "large walk returns substantial results" do
-      {:ok, results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1",
-                                         port: @simulator_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       assert is_list(results)
       assert length(results) >= 20, "Large walk should return at least 20 results"
@@ -272,16 +324,25 @@ defmodule SnmpKit.WalkComprehensiveTest do
 
     test "walk handles max_repetitions parameter" do
       # Test with small max_repetitions
-      {:ok, small_results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                               max_repetitions: 2, port: @simulator_port, timeout: @test_timeout)
+      {:ok, small_results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          max_repetitions: 2,
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       # Test with larger max_repetitions
-      {:ok, large_results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                               max_repetitions: 20, port: @simulator_port, timeout: @test_timeout)
+      {:ok, large_results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          max_repetitions: 20,
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       # Both should return the same results (just different performance)
       assert length(small_results) > 0
       assert length(large_results) > 0
+
       assert length(small_results) == length(large_results),
              "Different max_repetitions should return same results"
     end
@@ -290,16 +351,21 @@ defmodule SnmpKit.WalkComprehensiveTest do
   describe "Walk Error Handling" do
     test "walk handles non-existent OID gracefully" do
       case SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.99.99.99",
-                             port: @simulator_port, timeout: @test_timeout) do
+             port: @simulator_port,
+             timeout: @test_timeout
+           ) do
         {:ok, []} ->
           # Empty results are acceptable for non-existent OIDs
           :ok
+
         {:error, _reason} ->
           # Errors are also acceptable for non-existent OIDs
           :ok
+
         {:ok, results} ->
           # If results are returned, they should be properly formatted
           assert is_list(results)
+
           Enum.each(results, fn {oid, type, _value} ->
             assert is_binary(oid)
             assert is_atom(type)
@@ -308,14 +374,15 @@ defmodule SnmpKit.WalkComprehensiveTest do
     end
 
     test "walk handles timeout gracefully" do
-      case SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                             port: @simulator_port, timeout: 1) do
+      case SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1", port: @simulator_port, timeout: 1) do
         {:ok, results} ->
           # If it completes quickly, results should be properly formatted
           assert is_list(results)
+
         {:error, :timeout} ->
           # Timeout error is expected and acceptable
           :ok
+
         {:error, reason} ->
           # Other errors should be reasonable
           assert is_atom(reason) or is_tuple(reason)
@@ -331,6 +398,7 @@ defmodule SnmpKit.WalkComprehensiveTest do
 
       # Check that walk module source contains type preservation errors
       walk_source = File.read!("lib/snmpkit/snmp_mgr/walk.ex")
+
       assert String.contains?(walk_source, "type_information_lost"),
              "Walk module should contain type preservation error handling"
     end
@@ -348,32 +416,45 @@ defmodule SnmpKit.WalkComprehensiveTest do
         "1.3.6.1.2.1.1.6.0"
       ]
 
-      individual_results = Enum.reduce(individual_oids, [], fn oid, acc ->
-        case SnmpKit.SNMP.get_with_type(@simulator_host, oid,
-                                        port: @simulator_port, timeout: @test_timeout) do
-          {:ok, result} -> [result | acc]
-          {:error, _} -> acc
-        end
-      end)
+      individual_results =
+        Enum.reduce(individual_oids, [], fn oid, acc ->
+          case SnmpKit.SNMP.get_with_type(@simulator_host, oid,
+                 port: @simulator_port,
+                 timeout: @test_timeout
+               ) do
+            {:ok, result} -> [result | acc]
+            {:error, _} -> acc
+          end
+        end)
 
       # Walk the system group
-      {:ok, walk_results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                              port: @simulator_port, timeout: @test_timeout)
+      {:ok, walk_results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       individual_count = length(individual_results)
       walk_count = length(walk_results)
 
       assert individual_count > 0, "Should get some individual results"
+
       assert walk_count >= individual_count,
              "Walk should return at least as many results as individual GETs (walk: #{walk_count}, individual: #{individual_count})"
     end
 
     test "walk and bulk_walk return consistent results" do
-      {:ok, walk_results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                              port: @simulator_port, timeout: @test_timeout)
+      {:ok, walk_results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
-      {:ok, bulk_results} = SnmpKit.SnmpMgr.bulk_walk(@simulator_host, "1.3.6.1.2.1.1",
-                                                      port: @simulator_port, timeout: @test_timeout)
+      {:ok, bulk_results} =
+        SnmpKit.SnmpMgr.bulk_walk(@simulator_host, "1.3.6.1.2.1.1",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       # Both should return results
       assert length(walk_results) > 0
@@ -404,8 +485,11 @@ defmodule SnmpKit.WalkComprehensiveTest do
   describe "Walk Regression Tests" do
     test "walk does not return zero results for system group" do
       # This specific test addresses the bug report issue
-      {:ok, results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                         port: @simulator_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       refute length(results) == 0,
              "Walk MUST NOT return zero results for system group - this was the main bug!"
@@ -415,8 +499,11 @@ defmodule SnmpKit.WalkComprehensiveTest do
     end
 
     test "walk does not return single result for multi-object subtree" do
-      {:ok, results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                         port: @simulator_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       refute length(results) == 1,
              "Walk should not return only single result for system group"
@@ -426,21 +513,28 @@ defmodule SnmpKit.WalkComprehensiveTest do
     end
 
     test "walk iteration continues until end of subtree" do
-      {:ok, results} = SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
-                                         port: @simulator_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@simulator_host, "1.3.6.1.2.1.1",
+          port: @simulator_port,
+          timeout: @test_timeout
+        )
 
       # Verify we get the expected system OIDs
       oids = Enum.map(results, fn {oid, _type, _value} -> oid end)
 
       # Should find standard system OIDs
       expected_prefixes = [
-        "1.3.6.1.2.1.1.1.",  # sysDescr
-        "1.3.6.1.2.1.1.2.",  # sysObjectID
-        "1.3.6.1.2.1.1.3.",  # sysUpTime
+        # sysDescr
+        "1.3.6.1.2.1.1.1.",
+        # sysObjectID
+        "1.3.6.1.2.1.1.2.",
+        # sysUpTime
+        "1.3.6.1.2.1.1.3."
       ]
 
       Enum.each(expected_prefixes, fn prefix ->
         matching_oids = Enum.filter(oids, &String.starts_with?(&1, prefix))
+
         assert length(matching_oids) > 0,
                "Should find OIDs starting with #{prefix}"
       end)
@@ -459,10 +553,23 @@ defmodule SnmpKit.WalkComprehensiveTest do
 
   defp valid_snmp_types do
     [
-      :integer, :octet_string, :null, :object_identifier, :oid, :boolean,
-      :counter32, :counter64, :gauge32, :unsigned32, :timeticks,
-      :ip_address, :opaque, :string,
-      :no_such_object, :no_such_instance, :end_of_mib_view
+      :integer,
+      :octet_string,
+      :null,
+      :object_identifier,
+      :oid,
+      :boolean,
+      :counter32,
+      :counter64,
+      :gauge32,
+      :unsigned32,
+      :timeticks,
+      :ip_address,
+      :opaque,
+      :string,
+      :no_such_object,
+      :no_such_instance,
+      :end_of_mib_view
     ]
   end
 

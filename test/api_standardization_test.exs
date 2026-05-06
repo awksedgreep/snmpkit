@@ -27,7 +27,9 @@ defmodule SnmpKit.ApiStandardizationTest do
 
     enriched = Format.enrich_varbinds(list, include_names: false, include_formatted: false)
     assert is_list(enriched)
-    assert Enum.all?(enriched, fn m -> is_map(m) and Map.has_key?(m, :oid) and Map.has_key?(m, :type) end)
+
+    assert Enum.all?(enriched, fn m ->
+             is_map(m) and Map.has_key?(m, :oid) and Map.has_key?(m, :type)
+           end)
   end
 end
-

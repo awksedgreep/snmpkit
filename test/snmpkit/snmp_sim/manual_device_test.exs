@@ -12,6 +12,7 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
         {:ok, socket} ->
           :gen_tcp.close(socket)
           true
+
         {:error, _} ->
           false
       end
@@ -24,10 +25,12 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
     |> String.split(".")
     |> Enum.map(&String.to_integer/1)
   end
+
   defp parse_oid(oid_list) when is_list(oid_list), do: oid_list
 
   # Helper to normalize OID format for comparison
   defp normalize_oid(oid) when is_binary(oid), do: oid
+
   defp normalize_oid(oid) when is_list(oid) do
     oid |> Enum.map(&to_string/1) |> Enum.join(".")
   end
@@ -47,7 +50,9 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
       assert map_size(profile.oid_map) == 3
 
       # Verify values are converted to proper format
-      assert %{type: "STRING", value: "Test Device Description"} = profile.oid_map["1.3.6.1.2.1.1.1.0"]
+      assert %{type: "STRING", value: "Test Device Description"} =
+               profile.oid_map["1.3.6.1.2.1.1.1.0"]
+
       assert %{type: "STRING", value: "admin@test.com"} = profile.oid_map["1.3.6.1.2.1.1.4.0"]
       assert %{type: "STRING", value: "test-device-01"} = profile.oid_map["1.3.6.1.2.1.1.5.0"]
     end
@@ -56,7 +61,7 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
       oid_map = %{
         "1.3.6.1.2.1.1.1.0" => "String value",
         "1.3.6.1.2.1.1.2.0" => 12345,
-        "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 567890},
+        "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 567_890},
         "1.3.6.1.2.1.2.1.0" => %{type: "Counter32", value: 1000}
       }
 
@@ -65,7 +70,7 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
       assert map_size(profile.oid_map) == 4
       assert %{type: "STRING", value: "String value"} = profile.oid_map["1.3.6.1.2.1.1.1.0"]
       assert %{type: "INTEGER", value: 12345} = profile.oid_map["1.3.6.1.2.1.1.2.0"]
-      assert %{type: "TimeTicks", value: 567890} = profile.oid_map["1.3.6.1.2.1.1.3.0"]
+      assert %{type: "TimeTicks", value: 567_890} = profile.oid_map["1.3.6.1.2.1.1.3.0"]
       assert %{type: "Counter32", value: 1000} = profile.oid_map["1.3.6.1.2.1.2.1.0"]
     end
 
@@ -82,13 +87,14 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
         # System group
         "1.3.6.1.2.1.1.1.0" => "Complex Test Device",
         "1.3.6.1.2.1.1.2.0" => %{type: "ObjectID", value: "1.3.6.1.4.1.12345"},
-        "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 123456},
+        "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 123_456},
 
         # Interface group with table entries
         "1.3.6.1.2.1.2.1.0" => 3,
         "1.3.6.1.2.1.2.2.1.1.1" => 1,
         "1.3.6.1.2.1.2.2.1.1.2" => 2,
-        "1.3.6.1.2.1.2.2.1.1.10" => 10, # Test lexicographic ordering
+        # Test lexicographic ordering
+        "1.3.6.1.2.1.2.2.1.1.10" => 10,
         "1.3.6.1.2.1.2.2.1.2.1" => "eth0",
         "1.3.6.1.2.1.2.2.1.2.2" => "eth1",
         "1.3.6.1.2.1.2.2.1.2.10" => "eth10"
@@ -164,6 +170,7 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
         {:ok, %{oid: next_oid, value: value}} ->
           assert next_oid == "1.3.6.1.2.1.1.3.0"
           assert value == 0
+
         {:error, reason} ->
           flunk("GET_NEXT failed: #{inspect(reason)}")
       end
@@ -173,6 +180,7 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
         {:ok, %{oid: next_oid, value: value}} ->
           assert next_oid == "1.3.6.1.2.1.1.1.0"
           assert value == "ARRIS SURFboard SB8200 DOCSIS 3.1 Cable Modem"
+
         {:error, reason} ->
           flunk("GET_NEXT with partial OID failed: #{inspect(reason)}")
       end
@@ -196,7 +204,9 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
       assert oids == sorted_oids
 
       # Verify specific values
-      system_results = Enum.map(results, fn {oid, _type, value} -> {normalize_oid(oid), value} end)
+      system_results =
+        Enum.map(results, fn {oid, _type, value} -> {normalize_oid(oid), value} end)
+
       system_map = Map.new(system_results)
 
       assert system_map["1.3.6.1.2.1.1.1.0"] == "ARRIS SURFboard SB8200 DOCSIS 3.1 Cable Modem"
@@ -210,7 +220,8 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
       {:ok, device} = Sim.start_device(profile, port: port)
 
       # Test device-level get_next calls
-      {:ok, {next_oid, type, value}} = GenServer.call(device, {:get_next_oid, "1.3.6.1.2.1.1.1.0"})
+      {:ok, {next_oid, type, value}} =
+        GenServer.call(device, {:get_next_oid, "1.3.6.1.2.1.1.1.0"})
 
       # The result format might be string or list - normalize for comparison
       next_oid_normalized = normalize_oid(next_oid)
@@ -243,7 +254,8 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
 
       # Device-level walk should work even with gaps in the OID tree
       {:ok, results} = GenServer.call(device, {:walk_oid, "1.3.6.1.2.1.1"})
-      assert length(results) == 3  # Should find all 3 system OIDs despite gaps
+      # Should find all 3 system OIDs despite gaps
+      assert length(results) == 3
 
       # Verify lexicographic ordering is maintained
       oids = Enum.map(results, fn {oid, _, _} -> normalize_oid(oid) end)
@@ -263,9 +275,12 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
 
       # Test GET_NEXT at potential end of MIB
       case SNMP.get_next(target, "1.3.6.1.2.1.2.2.1.2.2") do
-        {:error, :end_of_mib_view} -> :ok # Expected for end of our OID map
-        {:error, :no_such_object} -> :ok  # Also acceptable
-        {:ok, _} -> :ok # Might find another OID, that's fine too
+        # Expected for end of our OID map
+        {:error, :end_of_mib_view} -> :ok
+        # Also acceptable
+        {:error, :no_such_object} -> :ok
+        # Might find another OID, that's fine too
+        {:ok, _} -> :ok
       end
 
       Device.stop(device)
@@ -276,29 +291,34 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
     test "manual OID map uses proper lexicographic sorting" do
       # This test verifies the core fix - proper OID sorting
       test_oids = [
-        "1.3.6.1.2.1.1.10.0",  # Would come last in string sort
-        "1.3.6.1.2.1.1.2.0",   # Would come after .10 in string sort
+        # Would come last in string sort
+        "1.3.6.1.2.1.1.10.0",
+        # Would come after .10 in string sort
+        "1.3.6.1.2.1.1.2.0",
         "1.3.6.1.2.1.1.1.0",
-        "1.3.6.1.2.1.1.11.0"   # Would come before .2 in string sort
+        # Would come before .2 in string sort
+        "1.3.6.1.2.1.1.11.0"
       ]
 
       # String sorting (wrong)
       string_sorted = Enum.sort(test_oids)
+
       assert string_sorted == [
-        "1.3.6.1.2.1.1.1.0",
-        "1.3.6.1.2.1.1.10.0",
-        "1.3.6.1.2.1.1.11.0",
-        "1.3.6.1.2.1.1.2.0"
-      ]
+               "1.3.6.1.2.1.1.1.0",
+               "1.3.6.1.2.1.1.10.0",
+               "1.3.6.1.2.1.1.11.0",
+               "1.3.6.1.2.1.1.2.0"
+             ]
 
       # Lexicographic sorting (correct)
       numeric_sorted = Enum.sort_by(test_oids, &parse_oid/1)
+
       assert numeric_sorted == [
-        "1.3.6.1.2.1.1.1.0",
-        "1.3.6.1.2.1.1.2.0",
-        "1.3.6.1.2.1.1.10.0",
-        "1.3.6.1.2.1.1.11.0"
-      ]
+               "1.3.6.1.2.1.1.1.0",
+               "1.3.6.1.2.1.1.2.0",
+               "1.3.6.1.2.1.1.10.0",
+               "1.3.6.1.2.1.1.11.0"
+             ]
 
       # Test with device to ensure get_next operations return proper order
       oid_map = test_oids |> Enum.with_index() |> Map.new(fn {oid, i} -> {oid, "Value #{i}"} end)
@@ -344,10 +364,10 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
 
       # Should be: .1.1, .1.2, .1.10 (not .1.1, .1.10, .1.2)
       assert ifindex_oids == [
-        "1.3.6.1.2.1.2.2.1.1.1",
-        "1.3.6.1.2.1.2.2.1.1.2",
-        "1.3.6.1.2.1.2.2.1.1.10"
-      ]
+               "1.3.6.1.2.1.2.2.1.1.1",
+               "1.3.6.1.2.1.2.2.1.1.2",
+               "1.3.6.1.2.1.2.2.1.1.10"
+             ]
 
       Device.stop(device)
     end
@@ -383,11 +403,11 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
       typed_oids = %{
         "1.3.6.1.2.1.1.1.0" => %{type: "OCTET STRING", value: "String value"},
         "1.3.6.1.2.1.1.2.0" => %{type: "OBJECT IDENTIFIER", value: "1.3.6.1.4.1.12345"},
-        "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 123456},
+        "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 123_456},
         "1.3.6.1.2.1.1.4.0" => %{type: "INTEGER", value: 42},
         "1.3.6.1.2.1.1.5.0" => %{type: "Counter32", value: 1000},
         "1.3.6.1.2.1.1.6.0" => %{type: "Gauge32", value: 85},
-        "1.3.6.1.2.1.1.7.0" => %{type: "Counter64", value: 9876543210}
+        "1.3.6.1.2.1.1.7.0" => %{type: "Counter64", value: 9_876_543_210}
       }
 
       {:ok, profile} = ProfileLoader.load_profile(:typed_device, {:manual, typed_oids})
@@ -452,11 +472,12 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
       }
 
       # Load profile with behavior configurations
-      {:ok, profile} = ProfileLoader.load_profile(
-        :behavior_test,
-        {:manual, oid_map},
-        behaviors: [{:increment_counters, rate: 100}]
-      )
+      {:ok, profile} =
+        ProfileLoader.load_profile(
+          :behavior_test,
+          {:manual, oid_map},
+          behaviors: [{:increment_counters, rate: 100}]
+        )
 
       port = find_available_port()
       {:ok, device} = Sim.start_device(profile, port: port)
@@ -475,6 +496,7 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
         {:ok, %{oid: next_oid, value: next_value}} ->
           assert next_oid == "1.3.6.1.2.1.2.2.1.10.2"
           assert is_integer(next_value)
+
         {:error, _} ->
           flunk("get_next should work on counter OIDs")
       end
@@ -518,21 +540,25 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
       port = find_available_port()
 
       # Measure device startup time
-      {startup_time, {:ok, device}} = :timer.tc(fn ->
-        Sim.start_device(profile, port: port)
-      end)
+      {startup_time, {:ok, device}} =
+        :timer.tc(fn ->
+          Sim.start_device(profile, port: port)
+        end)
 
       # Should start reasonably quickly (under 1 second)
-      assert startup_time < 1_000_000 # microseconds
+      # microseconds
+      assert startup_time < 1_000_000
 
       target = "127.0.0.1:#{port}"
 
       # Test operations are still fast
-      {get_time, {:ok, _}} = :timer.tc(fn ->
-        SNMP.get(target, "1.3.6.1.4.1.12345.1.500.0")
-      end)
+      {get_time, {:ok, _}} =
+        :timer.tc(fn ->
+          SNMP.get(target, "1.3.6.1.4.1.12345.1.500.0")
+        end)
 
-      assert get_time < 100_000 # Should be under 100ms
+      # Should be under 100ms
+      assert get_time < 100_000
 
       Device.stop(device)
     end

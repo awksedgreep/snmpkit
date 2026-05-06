@@ -12,6 +12,7 @@ defmodule SnmpKit.SnmpMgr.MIBStubsTest do
       nil ->
         {:ok, _pid} = SnmpKit.SnmpMgr.MIB.start_link()
         :ok
+
       _pid ->
         :ok
     end
@@ -231,30 +232,46 @@ defmodule SnmpKit.SnmpMgr.MIBStubsTest do
     end
 
     test "handles large instance numbers" do
-      assert {:ok, [1, 3, 6, 1, 2, 1, 1, 1, 4294967295]} = MIB.resolve("sysDescr.4294967295")
+      assert {:ok, [1, 3, 6, 1, 2, 1, 1, 1, 4_294_967_295]} = MIB.resolve("sysDescr.4294967295")
     end
   end
 
   describe "comprehensive object coverage" do
     test "all system group objects are available" do
       system_objects = [
-        "sysDescr", "sysObjectID", "sysUpTime", "sysContact",
-        "sysName", "sysLocation", "sysServices"
+        "sysDescr",
+        "sysObjectID",
+        "sysUpTime",
+        "sysContact",
+        "sysName",
+        "sysLocation",
+        "sysServices"
       ]
 
       for object <- system_objects do
         assert {:ok, oid} = MIB.resolve(object)
         assert is_list(oid)
-        assert length(oid) >= 8  # At least 1.3.6.1.2.1.1.X
+        # At least 1.3.6.1.2.1.1.X
+        assert length(oid) >= 8
         assert Enum.take(oid, 7) == [1, 3, 6, 1, 2, 1, 1]
       end
     end
 
     test "essential interface objects are available" do
       interface_objects = [
-        "ifNumber", "ifTable", "ifEntry", "ifIndex", "ifDescr", "ifType",
-        "ifMtu", "ifSpeed", "ifPhysAddress", "ifAdminStatus", "ifOperStatus",
-        "ifInOctets", "ifOutOctets"
+        "ifNumber",
+        "ifTable",
+        "ifEntry",
+        "ifIndex",
+        "ifDescr",
+        "ifType",
+        "ifMtu",
+        "ifSpeed",
+        "ifPhysAddress",
+        "ifAdminStatus",
+        "ifOperStatus",
+        "ifInOctets",
+        "ifOutOctets"
       ]
 
       for object <- interface_objects do
@@ -266,8 +283,13 @@ defmodule SnmpKit.SnmpMgr.MIBStubsTest do
 
     test "essential ifX objects are available" do
       ifx_objects = [
-        "ifXTable", "ifXEntry", "ifName", "ifHCInOctets", "ifHCOutOctets",
-        "ifHighSpeed", "ifAlias"
+        "ifXTable",
+        "ifXEntry",
+        "ifName",
+        "ifHCInOctets",
+        "ifHCOutOctets",
+        "ifHighSpeed",
+        "ifAlias"
       ]
 
       for object <- ifx_objects do
@@ -286,7 +308,8 @@ defmodule SnmpKit.SnmpMgr.MIBStubsTest do
       for group <- bulk_groups do
         assert {:ok, oid} = MIB.resolve(group)
         assert is_list(oid)
-        assert length(oid) >= 7  # At least 1.3.6.1.2.1.X
+        # At least 1.3.6.1.2.1.X
+        assert length(oid) >= 7
         assert Enum.take(oid, 6) == [1, 3, 6, 1, 2, 1]
       end
     end
@@ -306,8 +329,16 @@ defmodule SnmpKit.SnmpMgr.MIBStubsTest do
     test "resolution is fast for all stub objects" do
       # Test a sample of objects to ensure reasonable performance
       test_objects = [
-        "sysDescr", "ifDescr", "ifName", "snmpInPkts", "ipForwarding",
-        "system", "if", "ifX", "cisco", "mikrotik"
+        "sysDescr",
+        "ifDescr",
+        "ifName",
+        "snmpInPkts",
+        "ipForwarding",
+        "system",
+        "if",
+        "ifX",
+        "cisco",
+        "mikrotik"
       ]
 
       # Measure time for multiple resolutions

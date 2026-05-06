@@ -39,7 +39,8 @@ defmodule SnmpKit.SnmpMgr.Table do
         {oid_string, _type, value} ->
           case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
             {:ok, oid_list} ->
-              if List.starts_with?(oid_list, table_oid) and length(oid_list) > table_oid_length + 2 do
+              if List.starts_with?(oid_list, table_oid) and
+                   length(oid_list) > table_oid_length + 2 do
                 # Extract: table_oid + [1] + column + index_parts
                 rest = Enum.drop(oid_list, table_oid_length)
 
@@ -68,7 +69,8 @@ defmodule SnmpKit.SnmpMgr.Table do
         %{oid: oid_string, type: _type, value: value} ->
           case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
             {:ok, oid_list} ->
-              if List.starts_with?(oid_list, table_oid) and length(oid_list) > table_oid_length + 2 do
+              if List.starts_with?(oid_list, table_oid) and
+                   length(oid_list) > table_oid_length + 2 do
                 rest = Enum.drop(oid_list, table_oid_length)
 
                 case rest do

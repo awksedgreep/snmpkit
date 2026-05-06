@@ -33,7 +33,11 @@ Examples
 ```
 
 Multi-target defaults (1.0)
-- Concurrent Multi is the default for multi-target operations (get_multi, get_bulk_multi, walk_multi)
+- Concurrent Multi is the default for multi-target operations (get_multi, get_bulk_multi, walk_multi, walk_table_multi)
+- Default concurrent multi operations use a shared UDP socket and centralized response correlation rather than one task per request
+- `walk_multi` and `walk_table_multi` keep one in-flight GETBULK per target and enforce bounded total walk time via `walk_timeout:`
+- `execute_mixed` preserves input ordering while routing walk and non-walk work through the same shared-socket coordinators
+- Opt-in walk tuning is available with `adaptive_max_repetitions: true` plus optional `min_max_repetitions:` and `max_max_repetitions:` bounds
 - Default SNMP version for multi-target operations is :v2c (override with version: :v1 if needed)
 - No manual engine/service start is required — components are ensured at call time
 - Legacy/simple behavior is still available via `strategy: :simple`
@@ -45,6 +49,9 @@ Multi-target defaults (1.0)
 
 # Legacy/simple path (opt-in)
 {:ok, results} = SnmpKit.get_multi([{"h1", "sysDescr.0"}, {"h2", "sysUpTime.0"}], strategy: :simple)
+
+# Multi-target table walk
+{:ok, results} = SnmpKit.walk_table_multi([{"h1", "ifTable"}, {"h2", "ifTable"}])
 ```
 
 - 🎯 **Unified API** - Clean, context-based modules (`SnmpKit.SNMP`, `SnmpKit.MIB`, `SnmpKit.Sim`)

@@ -236,16 +236,9 @@ defmodule SnmpKit.SnmpMgr.Multi do
   def walk_table_multi(targets_and_tables, opts \\ []) do
     # Table walks take longer
     timeout = Keyword.get(opts, :timeout, @default_timeout * 5)
-    _max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
-
-    # Use Engine for shared socket operations
-    engine = get_or_start_engine(opts)
-
-    # Convert to engine request format
-    requests = normalize_requests_for_engine(targets_and_tables, :walk_table, opts)
-
-    # Submit batch to engine
-    results = submit_batch_to_engine(engine, requests, timeout)
+    max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
+    requests = normalize_walk_requests(targets_and_tables, opts)
+    results = submit_walk_batch(requests, timeout, max_concurrent)
 
     format_results(targets_and_tables, results, opts)
   end
@@ -401,40 +394,19 @@ defmodule SnmpKit.SnmpMgr.Multi do
   end
 
   defp submit_batch_to_engine(engine, requests, timeout) do
-    # Submit batch to engine and collect results
     Logger.debug("Submitting batch of #{length(requests)} requests to engine #{inspect(engine)}")
 
-    tasks =
-      requests
-      |> Enum.with_index()
-      |> Enum.map(fn {request, index} ->
-        Task.async(fn ->
-          Logger.debug("Task #{index}: Calling submit_request with #{inspect(request)}")
-          result = SnmpKit.SnmpMgr.Engine.submit_request(engine, request, timeout: :infinity)
-          Logger.debug("Task #{index}: submit_request returned #{inspect(result)}")
-          result
-        end)
-      end)
+    case SnmpKit.SnmpMgr.Engine.submit_batch(engine, requests,
+           timeout: timeout,
+           call_timeout: timeout + 1_000
+         ) do
+      {:ok, results} ->
+        Logger.debug("Batch completed with results: #{inspect(results)}")
+        results
 
-    # Collect all results
-    Logger.debug(
-      "Waiting for #{length(tasks)} tasks to complete with timeout #{timeout + 1000}ms"
-    )
-
-    results =
-      tasks
-      # Add buffer to engine timeout
-      |> Task.yield_many(timeout + 1000)
-      |> Enum.map(fn {_task, result} ->
-        case result do
-          {:ok, value} -> value
-          nil -> {:error, :timeout}
-          {:exit, reason} -> {:error, {:task_failed, reason}}
-        end
-      end)
-
-    Logger.debug("Batch completed with results: #{inspect(results)}")
-    results
+      {:error, reason} ->
+        List.duplicate({:error, reason}, length(requests))
+    end
   end
 
   # Legacy function - now handled by normalize_mixed_operations_for_engine
@@ -565,41 +537,22 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
   # Submit walk requests using proper iterative walk logic
   defp submit_walk_batch(requests, timeout, max_concurrent) do
-    # Use Task.async_stream for concurrent walks with proper iterative walk execution
+    SnmpKit.SnmpMgr.ensure_started()
+
+    task_timeout =
+      requests
+      |> Enum.map(fn request -> Keyword.get(request.opts, :timeout, timeout) end)
+      |> Enum.max(fn -> timeout end)
+      |> Kernel.+(1000)
+
     requests
     |> Task.async_stream(
       fn request ->
-        # Use the bulk walk function directly for proper iterative behavior
-        case resolve_oid(request.oid) do
-          {:ok, start_oid} ->
-            # Call the iterative bulk walk function that handles multiple GETBULK requests
-            case bulk_walk_subtree_iterative(
-                   request.target,
-                   start_oid,
-                   start_oid,
-                   [],
-                   1000,
-                   request.opts
-                 ) do
-              {:ok, results} ->
-                # Convert OID lists to strings for final output (matching single walk format)
-                formatted_results =
-                  Enum.map(results, fn
-                    {oid_list, type, value} -> {Enum.join(oid_list, "."), type, value}
-                  end)
-
-                {:ok, formatted_results}
-
-              error ->
-                error
-            end
-
-          error ->
-            error
-        end
+        request_timeout = Keyword.get(request.opts, :timeout, timeout)
+        SnmpKit.SnmpMgr.V2Walk.walk(request, request_timeout)
       end,
       max_concurrency: max_concurrent,
-      timeout: timeout + 1000,
+      timeout: task_timeout,
       on_timeout: :kill_task
     )
     |> Enum.map(fn
@@ -608,128 +561,4 @@ defmodule SnmpKit.SnmpMgr.Multi do
       {:exit, reason} -> {:error, {:task_failed, reason}}
     end)
   end
-
-  # Proper iterative bulk walk that continues until end of subtree
-  defp bulk_walk_subtree_iterative(target, current_oid, root_oid, acc, remaining, opts)
-       when remaining > 0 do
-    require Logger
-
-    max_repetitions =
-      min(remaining, Keyword.get(opts, :max_repetitions, 10))
-
-    bulk_opts =
-      opts
-      |> Keyword.put(:max_repetitions, max_repetitions)
-      |> Keyword.put(:version, :v2c)
-
-    Logger.debug(
-      "walk_multi_iterative: target=#{target}, current_oid=#{inspect(current_oid)}, remaining=#{remaining}, max_rep=#{max_repetitions}"
-    )
-
-    case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, current_oid, bulk_opts) do
-      {:ok, results} ->
-        Logger.debug("walk_multi_iterative: got #{length(results)} raw results from GETBULK")
-
-        # Log first few results for debugging
-        results
-        |> Enum.take(3)
-        |> Enum.with_index()
-        |> Enum.each(fn {{oid, type, value}, idx} ->
-          Logger.debug(
-            "walk_multi_iterative: result[#{idx}] = #{inspect(oid)} (#{type}) = #{inspect(String.slice(to_string(value), 0, 20))}"
-          )
-        end)
-
-        # Filter results that are still within the subtree scope
-        {in_scope, next_oid} = filter_subtree_results_iterative(results, root_oid)
-
-        Logger.debug(
-          "walk_multi_iterative: #{length(in_scope)} results in scope, next_oid=#{inspect(next_oid)}"
-        )
-
-        Logger.debug("walk_multi_iterative: root_oid=#{inspect(root_oid)}")
-
-        # Log in-scope OIDs
-        in_scope
-        |> Enum.take(3)
-        |> Enum.with_index()
-        |> Enum.each(fn {{oid, _type, _value}, idx} ->
-          Logger.debug("walk_multi_iterative: in_scope[#{idx}] = #{inspect(oid)}")
-        end)
-
-        if Enum.empty?(in_scope) or next_oid == nil do
-          Logger.debug(
-            "walk_multi_iterative: STOPPING - empty_in_scope=#{Enum.empty?(in_scope)}, next_oid_nil=#{next_oid == nil}"
-          )
-
-          Logger.debug("walk_multi_iterative: final result count = #{length(acc)}")
-          {:ok, Enum.reverse(acc)}
-        else
-          new_acc = Enum.reverse(in_scope) ++ acc
-
-          Logger.debug(
-            "walk_multi_iterative: CONTINUING - total results so far = #{length(new_acc)}"
-          )
-
-          # Continue walking from the next OID
-          bulk_walk_subtree_iterative(
-            target,
-            next_oid,
-            root_oid,
-            new_acc,
-            remaining - length(in_scope),
-            opts
-          )
-        end
-
-      {:error, error} ->
-        Logger.debug("walk_multi_iterative: ERROR - #{inspect(error)}")
-        {:error, error}
-    end
-  end
-
-  defp bulk_walk_subtree_iterative(_target, _current_oid, _root_oid, acc, 0, _opts) do
-    {:ok, Enum.reverse(acc)}
-  end
-
-  # Proper filtering for iterative walks
-  defp filter_subtree_results_iterative(results, root_oid) do
-    require Logger
-
-    in_scope_results =
-      results
-      |> Enum.filter(fn
-        {oid_list, _type, _value} ->
-          starts_with = List.starts_with?(oid_list, root_oid)
-
-          Logger.debug(
-            "walk_multi_filter: checking #{inspect(oid_list)} starts_with #{inspect(root_oid)} = #{starts_with}"
-          )
-
-          starts_with
-
-        {_oid_list, _value} ->
-          Logger.debug("walk_multi_filter: rejecting 2-tuple format")
-          false
-      end)
-
-    Logger.debug("walk_multi_filter: #{length(in_scope_results)} results passed filtering")
-
-    # Next OID should be from the last in-scope result for continuing the walk
-    next_oid =
-      case List.last(in_scope_results) do
-        {oid_list, _type, _value} ->
-          Logger.debug("walk_multi_filter: next_oid = #{inspect(oid_list)}")
-          oid_list
-
-        _ ->
-          Logger.debug("walk_multi_filter: next_oid = nil (no in_scope results)")
-          nil
-      end
-
-    {in_scope_results, next_oid}
-  end
-
-  # OID resolution helper - delegates to canonical Core.parse_oid
-  defp resolve_oid(oid), do: SnmpKit.SnmpMgr.Core.parse_oid(oid)
 end

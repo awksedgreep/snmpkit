@@ -182,6 +182,7 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
     if all_ok? do
       # No error; when admin trigger is set, send trigger message
       maybe_trigger = Enum.any?(pdu.varbinds, &admin_trigger?/1)
+
       if maybe_trigger do
         send(self(), {:modem_upgrade, :trigger})
       end
@@ -203,6 +204,7 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
   end
 
   defp admin_trigger?({oid, _type, value}), do: admin_trigger?({oid, value})
+
   defp admin_trigger?({oid, value}) do
     oid_str = oid_to_string(oid)
     oid_str == "1.3.6.1.2.1.69.1.3.1.0" and is_integer(value) and value == 1
@@ -210,6 +212,7 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
 
   # Handle a single SET varbind for DOCSIS upgrade OIDs; others are read-only
   defp handle_set_varbind({oid, _type, value}, state), do: handle_set_varbind({oid, value}, state)
+
   defp handle_set_varbind({oid, value}, state) do
     oid_str = oid_to_string(oid)
 
@@ -224,6 +227,7 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
             else
               {:error, :wrongValue}
             end
+
           _ ->
             {:error, :wrongType}
         end
@@ -234,8 +238,10 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
           v when is_binary(v) and byte_size(v) <= 64 ->
             send(self(), {:modem_upgrade, {:set, :filename, v}})
             {:ok, state}
+
           v when is_binary(v) ->
             {:error, :wrongLength}
+
           _ ->
             {:error, :wrongType}
         end
@@ -245,18 +251,27 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
         case value do
           v when is_integer(v) and v in [1, 2, 3] ->
             cond do
-              state.upgrade_enabled == false -> {:error, :notWritable}
+              state.upgrade_enabled == false ->
+                {:error, :notWritable}
+
               # Already in-progress and trying to trigger again
-              v == 1 and Map.get(state.upgrade, :oper_status) == 1 -> {:error, :inconsistentValue}
+              v == 1 and Map.get(state.upgrade, :oper_status) == 1 ->
+                {:error, :inconsistentValue}
+
               # Trigger requires valid server/filename
-              v == 1 and (state.upgrade.server == "0.0.0.0" or state.upgrade.filename in ["", "(unknown)"]) ->
+              v == 1 and
+                  (state.upgrade.server == "0.0.0.0" or
+                     state.upgrade.filename in ["", "(unknown)"]) ->
                 {:error, :wrongValue}
+
               true ->
                 send(self(), {:modem_upgrade, {:set, :admin_status, v}})
                 {:ok, state}
             end
+
           v when is_integer(v) ->
             {:error, :wrongValue}
+
           _ ->
             {:error, :wrongType}
         end
@@ -285,16 +300,22 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
 
   defp ip_string_valid?(str) when is_binary(str) do
     case String.split(str, ".") do
-      [a,b,c,d] ->
-        with {ai, ""} <- Integer.parse(a), true <- ai >= 0 and ai <= 255,
-             {bi, ""} <- Integer.parse(b), true <- bi >= 0 and bi <= 255,
-             {ci, ""} <- Integer.parse(c), true <- ci >= 0 and ci <= 255,
-             {di, ""} <- Integer.parse(d), true <- di >= 0 and di <= 255 do
+      [a, b, c, d] ->
+        with {ai, ""} <- Integer.parse(a),
+             true <- ai >= 0 and ai <= 255,
+             {bi, ""} <- Integer.parse(b),
+             true <- bi >= 0 and bi <= 255,
+             {ci, ""} <- Integer.parse(c),
+             true <- ci >= 0 and ci <= 255,
+             {di, ""} <- Integer.parse(d),
+             true <- di >= 0 and di <= 255 do
           true
         else
           _ -> false
         end
-      _ -> false
+
+      _ ->
+        false
     end
   end
 
@@ -306,13 +327,14 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
     )
 
     # First get the next OID - check manual oid_map first
-    next_oid_result = cond do
-      Map.has_key?(state, :oid_map) and map_size(state.oid_map) > 0 ->
-        get_next_oid_from_manual_map(oid_string, state.oid_map)
+    next_oid_result =
+      cond do
+        Map.has_key?(state, :oid_map) and map_size(state.oid_map) > 0 ->
+          get_next_oid_from_manual_map(oid_string, state.oid_map)
 
-      true ->
-        SharedProfiles.get_next_oid(state.device_type, oid_string)
-    end
+        true ->
+          SharedProfiles.get_next_oid(state.device_type, oid_string)
+      end
 
     case next_oid_result do
       {:ok, next_oid_string} ->
@@ -365,10 +387,13 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
           %{type: type_str, value: value} ->
             atom_type = convert_snmp_type(type_str)
             {:ok, {atom_type, value}}
+
           value when is_binary(value) ->
             {:ok, {:octet_string, value}}
+
           value when is_integer(value) ->
             {:ok, {:integer, value}}
+
           value ->
             {:ok, {:octet_string, to_string(value)}}
         end
@@ -406,57 +431,57 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
       _ ->
         # Check for dynamic values first
         cond do
-      # Dynamic counters
-      Map.has_key?(state.counters, oid_string) ->
-        {oid_list, :counter32, Map.get(state.counters, oid_string)}
+          # Dynamic counters
+          Map.has_key?(state.counters, oid_string) ->
+            {oid_list, :counter32, Map.get(state.counters, oid_string)}
 
-      # Dynamic gauges
-      Map.has_key?(state.gauges, oid_string) ->
-        {oid_list, :gauge32, Map.get(state.gauges, oid_string)}
+          # Dynamic gauges
+          Map.has_key?(state.gauges, oid_string) ->
+            {oid_list, :gauge32, Map.get(state.gauges, oid_string)}
 
-      # Special case for uptime
-      oid_string == "1.3.6.1.2.1.1.3.0" ->
-        uptime_ticks = calculate_uptime_ticks(state)
-        {oid_list, :timeticks, uptime_ticks}
+          # Special case for uptime
+          oid_string == "1.3.6.1.2.1.1.3.0" ->
+            uptime_ticks = calculate_uptime_ticks(state)
+            {oid_list, :timeticks, uptime_ticks}
 
-      # Check manual OID map
-      Map.has_key?(state, :oid_map) and Map.has_key?(state.oid_map, oid_string) ->
-        case Map.get(state.oid_map, oid_string) do
-          %{type: type, value: value} ->
-            atom_type = convert_snmp_type(type)
-            {oid_list, atom_type, value}
+          # Check manual OID map
+          Map.has_key?(state, :oid_map) and Map.has_key?(state.oid_map, oid_string) ->
+            case Map.get(state.oid_map, oid_string) do
+              %{type: type, value: value} ->
+                atom_type = convert_snmp_type(type)
+                {oid_list, atom_type, value}
 
-          # Handle simple string values
-          value when is_binary(value) ->
-            {oid_list, :octet_string, value}
+              # Handle simple string values
+              value when is_binary(value) ->
+                {oid_list, :octet_string, value}
 
-          # Handle simple integer values
-          value when is_integer(value) ->
-            {oid_list, :integer, value}
+              # Handle simple integer values
+              value when is_integer(value) ->
+                {oid_list, :integer, value}
 
-          # Handle other simple values
-          value ->
-            {oid_list, :octet_string, to_string(value)}
-        end
+              # Handle other simple values
+              value ->
+                {oid_list, :octet_string, to_string(value)}
+            end
 
-      # Default: get from walk file
-      true ->
-        case SharedProfiles.get_oid_value(state.device_type, oid_string, state) do
-          {:ok, {type, value}} ->
-            {oid_list, type, value}
+          # Default: get from walk file
+          true ->
+            case SharedProfiles.get_oid_value(state.device_type, oid_string, state) do
+              {:ok, {type, value}} ->
+                {oid_list, type, value}
 
-          :not_found ->
-            {oid_list, :no_such_object, {:no_such_object, nil}}
+              :not_found ->
+                {oid_list, :no_such_object, {:no_such_object, nil}}
 
-          {:error, :no_such_name} ->
-            {oid_list, :no_such_object, {:no_such_object, nil}}
+              {:error, :no_such_name} ->
+                {oid_list, :no_such_object, {:no_such_object, nil}}
 
-          {:error, :device_type_not_found} ->
-            {oid_list, :no_such_object, {:no_such_object, nil}}
+              {:error, :device_type_not_found} ->
+                {oid_list, :no_such_object, {:no_such_object, nil}}
+            end
         end
     end
   end
-end
 
   defp get_next_varbind_value(oid, state, pdu_version) do
     oid_string = oid_to_string(oid)
@@ -466,13 +491,14 @@ end
     )
 
     # First get the next OID - check manual oid_map first
-    next_oid_result = cond do
-      Map.has_key?(state, :oid_map) and map_size(state.oid_map) > 0 ->
-        get_next_oid_from_manual_map(oid_string, state.oid_map)
+    next_oid_result =
+      cond do
+        Map.has_key?(state, :oid_map) and map_size(state.oid_map) > 0 ->
+          get_next_oid_from_manual_map(oid_string, state.oid_map)
 
-      true ->
-        SharedProfiles.get_next_oid(state.device_type, oid_string)
-    end
+        true ->
+          SharedProfiles.get_next_oid(state.device_type, oid_string)
+      end
 
     case next_oid_result do
       {:ok, next_oid_string} ->
@@ -499,10 +525,13 @@ end
               %{type: type_str, value: value} ->
                 atom_type = convert_snmp_type(type_str)
                 {next_oid, atom_type, value}
+
               value when is_binary(value) ->
                 {next_oid, :octet_string, value}
+
               value when is_integer(value) ->
                 {next_oid, :integer, value}
+
               value ->
                 {next_oid, :octet_string, to_string(value)}
             end
@@ -525,6 +554,7 @@ end
                 Logger.debug(
                   "WalkPduProcessor: Failed to get value for #{next_oid_string}: #{inspect(reason)}"
                 )
+
                 {next_oid, :no_such_object, {:no_such_object, nil}}
             end
         end
@@ -621,10 +651,13 @@ end
                 %{type: type_str, value: value} ->
                   atom_type = convert_snmp_type(type_str)
                   {next_oid, atom_type, value}
+
                 value when is_binary(value) ->
                   {next_oid, :octet_string, value}
+
                 value when is_integer(value) ->
                   {next_oid, :integer, value}
+
                 value ->
                   {next_oid, :octet_string, to_string(value)}
               end
@@ -672,13 +705,14 @@ end
 
   defp collect_bulk_oids(current_oid, remaining, state, acc) do
     # Use manual oid_map if available, otherwise use SharedProfiles
-    next_oid_result = cond do
-      Map.has_key?(state, :oid_map) and map_size(state.oid_map) > 0 ->
-        get_next_oid_from_manual_map(current_oid, state.oid_map)
+    next_oid_result =
+      cond do
+        Map.has_key?(state, :oid_map) and map_size(state.oid_map) > 0 ->
+          get_next_oid_from_manual_map(current_oid, state.oid_map)
 
-      true ->
-        SharedProfiles.get_next_oid(state.device_type, current_oid)
-    end
+        true ->
+          SharedProfiles.get_next_oid(state.device_type, current_oid)
+      end
 
     case next_oid_result do
       {:ok, next_oid} ->
@@ -748,13 +782,14 @@ end
     alias SnmpKit.SnmpLib.OID
 
     # Convert string OID to list format for validation
-    current_oid_parts = try do
-      oid_string
-      |> String.split(".")
-      |> Enum.map(&String.to_integer/1)
-    rescue
-      _ -> nil
-    end
+    current_oid_parts =
+      try do
+        oid_string
+        |> String.split(".")
+        |> Enum.map(&String.to_integer/1)
+      rescue
+        _ -> nil
+      end
 
     if current_oid_parts == nil do
       {:error, :invalid_oid}
@@ -767,23 +802,30 @@ end
             oid_key
             |> String.split(".")
             |> Enum.map(&String.to_integer/1)
+
             true
           rescue
             _ -> false
           end
         end)
         |> Enum.map(fn oid_key ->
-          oid_parts = oid_key
-                     |> String.split(".")
-                     |> Enum.map(&String.to_integer/1)
+          oid_parts =
+            oid_key
+            |> String.split(".")
+            |> Enum.map(&String.to_integer/1)
+
           {oid_key, oid_parts}
         end)
-        |> Enum.sort_by(fn {_oid_string, oid_parts} -> oid_parts end, &(OID.compare(&1, &2) != :gt))
+        |> Enum.sort_by(
+          fn {_oid_string, oid_parts} -> oid_parts end,
+          &(OID.compare(&1, &2) != :gt)
+        )
 
       # Find the next OID lexicographically
-      next_oid = Enum.find(valid_oids, fn {_oid_string, candidate_parts} ->
-        OID.compare(candidate_parts, current_oid_parts) == :gt
-      end)
+      next_oid =
+        Enum.find(valid_oids, fn {_oid_string, candidate_parts} ->
+          OID.compare(candidate_parts, current_oid_parts) == :gt
+        end)
 
       case next_oid do
         {oid_string, _parts} -> {:ok, oid_string}
@@ -794,6 +836,7 @@ end
 
   # Helper function to convert SNMP type strings to proper atoms
   defp convert_snmp_type(type) when is_atom(type), do: type
+
   defp convert_snmp_type(type) when is_binary(type) do
     case String.upcase(type) do
       "OCTET STRING" -> :octet_string
@@ -812,5 +855,6 @@ end
       _ -> String.to_atom(String.downcase(type))
     end
   end
+
   defp convert_snmp_type(_), do: :octet_string
 end

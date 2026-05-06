@@ -36,7 +36,6 @@ defmodule SnmpKit.SnmpMgr.MetricsIntegrationTest do
       device: device,
       metrics: metrics
     } do
-
       # Perform SNMP GET with metrics collection
       target = SNMPSimulator.device_target(device)
 
@@ -66,7 +65,6 @@ defmodule SnmpKit.SnmpMgr.MetricsIntegrationTest do
     end
 
     test "records metrics during failed SNMP operations", %{device: device, metrics: metrics} do
-
       # Perform SNMP GET to invalid OID with short timeout
       target = SNMPSimulator.device_target(device)
 
@@ -98,13 +96,16 @@ defmodule SnmpKit.SnmpMgr.MetricsIntegrationTest do
 
   describe "SNMP Operation Metrics Collection" do
     test "tracks response times for SNMP operations", %{device: device, metrics: metrics} do
-
       # Perform multiple operations to collect timing data
       target = SNMPSimulator.device_target(device)
       oids = ["1.3.6.1.2.1.1.1.0", "1.3.6.1.2.1.1.2.0", "1.3.6.1.2.1.1.3.0"]
 
       Enum.each(oids, fn oid ->
-        SnmpKit.SnmpMgr.get(target, oid, community: device.community, timeout: 200, metrics: metrics)
+        SnmpKit.SnmpMgr.get(target, oid,
+          community: device.community,
+          timeout: 200,
+          metrics: metrics
+        )
       end)
 
       current_metrics = Metrics.get_metrics(metrics)
@@ -128,7 +129,6 @@ defmodule SnmpKit.SnmpMgr.MetricsIntegrationTest do
     end
 
     test "differentiates metrics by operation type", %{device: device, metrics: metrics} do
-
       # Perform different SNMP operations
       target = SNMPSimulator.device_target(device)
 
@@ -172,7 +172,6 @@ defmodule SnmpKit.SnmpMgr.MetricsIntegrationTest do
 
   describe "Bulk Operations Metrics" do
     test "tracks bulk operation performance", %{device: device, metrics: metrics} do
-
       # Perform bulk operation with metrics collection
       target = SNMPSimulator.device_target(device)
 
@@ -223,7 +222,6 @@ defmodule SnmpKit.SnmpMgr.MetricsIntegrationTest do
 
   describe "Multi-target Metrics" do
     test "aggregates metrics across multiple targets", %{device: device, metrics: metrics} do
-
       target = SNMPSimulator.device_target(device)
       # Simulate multiple targets using same device
       targets = [target, target]

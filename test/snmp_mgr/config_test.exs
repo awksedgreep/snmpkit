@@ -47,7 +47,6 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
 
   describe "Configuration Integration with snmp_lib Operations" do
     test "config defaults are used in SNMP operations", %{device: device} do
-
       # Set config defaults
       Config.set_default_community(device.community)
       Config.set_default_timeout(200)
@@ -55,7 +54,12 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
 
       # Perform operation without explicit options (should use config defaults)
       target = SNMPSimulator.device_target(device)
-      result = SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: device.community, timeout: 200)
+
+      result =
+        SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0",
+          community: device.community,
+          timeout: 200
+        )
 
       assert {:ok, _value} = result
 
@@ -65,14 +69,18 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
     end
 
     test "explicit options override config defaults", %{device: device} do
-
       # Set different config defaults
       Config.set_default_community("wrong_community")
       Config.set_default_timeout(10000)
 
       # Perform operation with explicit options (should override config)
       target = SNMPSimulator.device_target(device)
-      result = SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: device.community, timeout: 200)
+
+      result =
+        SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0",
+          community: device.community,
+          timeout: 200
+        )
 
       assert {:ok, _value} = result
 
@@ -138,7 +146,6 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
 
   describe "MIB Path Integration" do
     test "MIB paths are used for OID resolution", %{device: device} do
-
       # Add some MIB paths
       Config.add_mib_path("/usr/share/snmp/mibs")
       Config.add_mib_path("./test/mibs")
@@ -150,7 +157,12 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
 
       # Test SNMP operation (should work with or without MIB resolution)
       target = SNMPSimulator.device_target(device)
-      result = SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0", community: device.community, timeout: 200)
+
+      result =
+        SnmpKit.SnmpMgr.get(target, "1.3.6.1.2.1.1.1.0",
+          community: device.community,
+          timeout: 200
+        )
 
       assert {:ok, _value} = result
     end
@@ -158,7 +170,6 @@ defmodule SnmpKit.SnmpMgr.ConfigIntegrationTest do
 
   describe "Configuration Merge Integration" do
     test "Config.merge_opts works with snmp_lib operations", %{device: device} do
-
       # Set config defaults
       Config.set_default_community(device.community)
       Config.set_default_timeout(300)

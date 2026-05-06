@@ -197,11 +197,14 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
     case {device_struct.device_type, oid} do
       {:cable_modem, "1.3.6.1.2.1.69.1.3.1.0"} ->
         {:ok, {oid, :integer, Map.get(device_struct.upgrade, :admin_status, 2)}}
+
       {:cable_modem, "1.3.6.1.2.1.69.1.3.3.0"} ->
         server_str = Map.get(device_struct.upgrade, :server, "0.0.0.0")
         {:ok, {oid, :ip_address, ip_string_to_binary(server_str)}}
+
       {:cable_modem, "1.3.6.1.2.1.69.1.3.4.0"} ->
         {:ok, {oid, :octet_string, Map.get(device_struct.upgrade, :filename, "")}}
+
       _ ->
         # Check if device has walk data loaded in SharedProfiles
         if Map.get(device_struct, :has_walk_data, false) do
@@ -211,7 +214,11 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
               do: String.to_atom(device_struct.device_type),
               else: device_struct.device_type
 
-          case SnmpKit.SnmpSim.MIB.SharedProfiles.get_oid_value(device_type_atom, oid, device_struct) do
+          case SnmpKit.SnmpSim.MIB.SharedProfiles.get_oid_value(
+                 device_type_atom,
+                 oid,
+                 device_struct
+               ) do
             {:ok, {type, value}} -> {:ok, {oid, type, value}}
             {:error, reason} -> {:error, reason}
           end
@@ -470,13 +477,18 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
 
     # Check for manual OID map first (only if non-empty)
     cond do
-      (Map.has_key?(state, :oid_map) and is_map(state.oid_map) and map_size(state.oid_map) > 0) ->
+      Map.has_key?(state, :oid_map) and is_map(state.oid_map) and map_size(state.oid_map) > 0 ->
         Logger.debug("Device has manual oid_map, checking for OID: #{oid_string}")
+
         case get_oid_value_from_map(oid_string, state.oid_map) do
           {:ok, {type, value}} ->
-            Logger.debug("Found in manual oid_map: type=#{inspect(type)}, value=#{inspect(value)}")
+            Logger.debug(
+              "Found in manual oid_map: type=#{inspect(type)}, value=#{inspect(value)}"
+            )
+
             atom_type = convert_snmp_type(type)
             {:ok, {oid_string, atom_type, value}}
+
           {:error, :no_such_name} ->
             Logger.debug("Not found in manual oid_map")
             {:error, :no_such_name}
@@ -487,7 +499,10 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
 
         case SharedProfiles.get_oid_value(state.device_type, oid_string, state) do
           {:ok, {type, value}} ->
-            Logger.debug("Found in SharedProfiles: type=#{inspect(type)}, value=#{inspect(value)}")
+            Logger.debug(
+              "Found in SharedProfiles: type=#{inspect(type)}, value=#{inspect(value)}"
+            )
+
             {:ok, {oid_string, convert_snmp_type(type), value}}
 
           _ ->
@@ -517,7 +532,8 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
             {:ok, {oid_string, :integer, Map.get(state.upgrade, :admin_status, 2)}}
 
           # If profile was provided but empty, suppress system defaults
-          Map.get(state, :profile_provided, false) and map_size(Map.get(state, :oid_map, %{})) == 0 and
+          Map.get(state, :profile_provided, false) and
+            map_size(Map.get(state, :oid_map, %{})) == 0 and
               String.starts_with?(oid_string, "1.3.6.1.2.1.1.") ->
             {:error, :no_such_name}
 
@@ -646,8 +662,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
           case get_oid_value(oid_list, state) do
             {:ok, {type, value}} when is_binary(type) ->
               result =
-                {:ok,
-                 {string_to_oid_list(next_oid), convert_snmp_type(type), value}}
+                {:ok, {string_to_oid_list(next_oid), convert_snmp_type(type), value}}
 
               result
 
@@ -690,8 +705,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
       {:ok, next_oid_string} ->
         case Map.get(oid_map, next_oid_string) do
           %{type: type, value: value} ->
-            {:ok,
-             {string_to_oid_list(next_oid_string), convert_snmp_type(type), value}}
+            {:ok, {string_to_oid_list(next_oid_string), convert_snmp_type(type), value}}
 
           # Handle simple string values
           value when is_binary(value) ->
@@ -1807,6 +1821,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
 
   # Helper function to convert SNMP type strings to proper atoms
   defp convert_snmp_type(type) when is_atom(type), do: type
+
   defp convert_snmp_type(type) when is_binary(type) do
     case String.upcase(type) do
       "OCTET STRING" -> :octet_string
@@ -1825,20 +1840,27 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
       _ -> String.to_atom(String.downcase(type))
     end
   end
+
   defp convert_snmp_type(_), do: :octet_string
 
   defp ip_string_to_binary(str) when is_binary(str) do
     case String.split(str, ".") do
-      [a,b,c,d] ->
-        with {ai, ""} <- Integer.parse(a), true <- ai >= 0 and ai <= 255,
-             {bi, ""} <- Integer.parse(b), true <- bi >= 0 and bi <= 255,
-             {ci, ""} <- Integer.parse(c), true <- ci >= 0 and ci <= 255,
-             {di, ""} <- Integer.parse(d), true <- di >= 0 and di <= 255 do
+      [a, b, c, d] ->
+        with {ai, ""} <- Integer.parse(a),
+             true <- ai >= 0 and ai <= 255,
+             {bi, ""} <- Integer.parse(b),
+             true <- bi >= 0 and bi <= 255,
+             {ci, ""} <- Integer.parse(c),
+             true <- ci >= 0 and ci <= 255,
+             {di, ""} <- Integer.parse(d),
+             true <- di >= 0 and di <= 255 do
           <<ai, bi, ci, di>>
         else
-          _ -> <<0,0,0,0>>
+          _ -> <<0, 0, 0, 0>>
         end
-      _ -> <<0,0,0,0>>
+
+      _ ->
+        <<0, 0, 0, 0>>
     end
   end
 end

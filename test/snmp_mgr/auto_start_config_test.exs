@@ -9,7 +9,11 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
   setup do
     # Ensure a clean slate for each test
     # Stop services if running
-    for name <- [SnmpKit.SnmpMgr.EngineV2, SnmpKit.SnmpMgr.SocketManager, SnmpKit.SnmpMgr.RequestIdGenerator] do
+    for name <- [
+          SnmpKit.SnmpMgr.EngineV2,
+          SnmpKit.SnmpMgr.SocketManager,
+          SnmpKit.SnmpMgr.RequestIdGenerator
+        ] do
       case Process.whereis(name) do
         nil -> :ok
         pid -> if Process.alive?(pid), do: GenServer.stop(pid), else: :ok
@@ -25,7 +29,12 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
     on_exit(fn ->
       # Reset defaults after each test
       Config.reset()
-      for name <- [SnmpKit.SnmpMgr.EngineV2, SnmpKit.SnmpMgr.SocketManager, SnmpKit.SnmpMgr.RequestIdGenerator] do
+
+      for name <- [
+            SnmpKit.SnmpMgr.EngineV2,
+            SnmpKit.SnmpMgr.SocketManager,
+            SnmpKit.SnmpMgr.RequestIdGenerator
+          ] do
         case Process.whereis(name) do
           nil -> :ok
           pid -> if Process.alive?(pid), do: GenServer.stop(pid), else: :ok
@@ -69,7 +78,11 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
     Config.set_default_auto_start_services(true)
 
     # Ensure stopped first
-    for name <- [SnmpKit.SnmpMgr.EngineV2, SnmpKit.SnmpMgr.SocketManager, SnmpKit.SnmpMgr.RequestIdGenerator] do
+    for name <- [
+          SnmpKit.SnmpMgr.EngineV2,
+          SnmpKit.SnmpMgr.SocketManager,
+          SnmpKit.SnmpMgr.RequestIdGenerator
+        ] do
       case Process.whereis(name) do
         nil -> :ok
         pid -> if Process.alive?(pid), do: GenServer.stop(pid), else: :ok

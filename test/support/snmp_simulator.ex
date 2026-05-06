@@ -250,7 +250,8 @@ defmodule SnmpKit.TestSupport.SNMPSimulator do
            device_type: :cable_modem
          }}
 
-      error -> error
+      error ->
+        error
     end
   end
 

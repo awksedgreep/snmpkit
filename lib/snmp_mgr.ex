@@ -60,10 +60,10 @@ defmodule SnmpKit.SnmpMgr do
       {:ok, {oid_str, type, value}} ->
         {:ok, SnmpKit.SnmpMgr.Format.enrich_varbind({oid_str, type, value}, merged_opts)}
 
-      {:error, reason} -> {:error, reason}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
-
 
   @doc """
   Performs an SNMP GETNEXT request.
@@ -89,10 +89,10 @@ defmodule SnmpKit.SnmpMgr do
       {:ok, {oid_string, type, value}} ->
         {:ok, SnmpKit.SnmpMgr.Format.enrich_varbind({oid_string, type, value}, merged_opts)}
 
-      {:error, reason} -> {:error, reason}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
-
 
   @doc """
   Performs an SNMP SET request.
@@ -361,7 +361,7 @@ defmodule SnmpKit.SnmpMgr do
       iex> SnmpMgr.get_multi([{"device1", [1,3,6,1,2,1,1,1,0]}, {"device2", [1,3,6,1,2,1,1,3,0]}])
       [{:error, {:network_error, :hostname_resolution_failed}}, {:error, {:network_error, :hostname_resolution_failed}}]
   """
-def get_multi(targets_and_oids, opts \\ []) do
+  def get_multi(targets_and_oids, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
     strategy = Keyword.get(merged_opts, :strategy, :concurrent)
 
@@ -378,7 +378,7 @@ def get_multi(targets_and_oids, opts \\ []) do
   - `targets_and_oids` - List of {target, oid} tuples
   - `opts` - Options applied to all requests including :max_repetitions
   """
-def get_bulk_multi(targets_and_oids, opts \\ []) do
+  def get_bulk_multi(targets_and_oids, opts \\ []) do
     merged_opts =
       opts
       |> Keyword.put(:version, :v2c)
@@ -399,13 +399,30 @@ def get_bulk_multi(targets_and_oids, opts \\ []) do
   - `targets_and_oids` - List of {target, root_oid} tuples
   - `opts` - Options applied to all requests
   """
-def walk_multi(targets_and_oids, opts \\ []) do
+  def walk_multi(targets_and_oids, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
     strategy = Keyword.get(merged_opts, :strategy, :concurrent)
 
     case strategy do
       :simple -> SnmpKit.SnmpMgr.Multi.walk_multi(targets_and_oids, merged_opts)
       _ -> SnmpKit.SnmpMgr.MultiV2.walk_multi(targets_and_oids, merged_opts)
+    end
+  end
+
+  @doc """
+  Performs concurrent table walk operations against multiple targets.
+
+  ## Parameters
+  - `targets_and_tables` - List of {target, table_oid} tuples
+  - `opts` - Options applied to all requests
+  """
+  def walk_table_multi(targets_and_tables, opts \\ []) do
+    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+    strategy = Keyword.get(merged_opts, :strategy, :concurrent)
+
+    case strategy do
+      :simple -> SnmpKit.SnmpMgr.Multi.walk_table_multi(targets_and_tables, merged_opts)
+      _ -> SnmpKit.SnmpMgr.MultiV2.walk_table_multi(targets_and_tables, merged_opts)
     end
   end
 

@@ -35,18 +35,22 @@ defmodule SnmpKit.WalkRegressionTest do
         case verify_regression_simulator() do
           :ok ->
             Logger.info("Regression test simulator ready on port #{@regression_port}")
+
             on_exit(fn ->
               if Process.alive?(sim_pid) do
                 Process.exit(sim_pid, :normal)
               end
             end)
+
             {:ok, simulator_pid: sim_pid}
 
           {:error, reason} ->
             Logger.warning("Regression simulator not ready: #{inspect(reason)}")
+
             if Process.alive?(sim_pid) do
               Process.exit(sim_pid, :normal)
             end
+
             {:skip, "Regression simulator not responding"}
         end
 
@@ -64,8 +68,11 @@ defmodule SnmpKit.WalkRegressionTest do
       #             ✅ SNMP.walk(1.3.6.1.2.1.1) returned 0 results:"
       # FIXED: Walk operations now properly iterate through responses
 
-      {:ok, results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
-                                         port: @regression_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       # This was the primary bug - walk returning 0 results
       refute length(results) == 0,
@@ -78,7 +85,9 @@ defmodule SnmpKit.WalkRegressionTest do
       if length(results) == 0 do
         Logger.error("REGRESSION DETECTED: Zero results returned for system group walk!")
       else
-        Logger.info("Regression test passed: #{length(results)} results returned for system group")
+        Logger.info(
+          "Regression test passed: #{length(results)} results returned for system group"
+        )
       end
     end
 
@@ -88,8 +97,11 @@ defmodule SnmpKit.WalkRegressionTest do
       # BUG REPORT: "✅ SNMP.walk(1.3.6.1.2.1.2) returned 0 results:"
       # FIXED: Walk operations now properly handle different MIB subtrees
 
-      {:ok, results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.2",
-                                         port: @regression_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.2",
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       refute length(results) == 0,
              "CRITICAL REGRESSION: Walk returned 0 results for interfaces group!"
@@ -104,8 +116,11 @@ defmodule SnmpKit.WalkRegressionTest do
       # BUG REPORT: "✅ SNMP.walk(system) returned 0 results:"
       # FIXED: Symbolic OID resolution now works properly
 
-      {:ok, results} = SnmpKit.SNMP.walk(@regression_host, "system",
-                                         port: @regression_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@regression_host, "system",
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       refute length(results) == 0,
              "CRITICAL REGRESSION: Walk returned 0 results for symbolic 'system' OID!"
@@ -122,8 +137,11 @@ defmodule SnmpKit.WalkRegressionTest do
       # BUG REPORT: Walk stopping after first result instead of continuing
       # FIXED: Walk iteration logic now continues until end of subtree
 
-      {:ok, results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
-                                         port: @regression_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       refute length(results) == 1,
              "CRITICAL REGRESSION: Walk stopped after single result - iteration bug is back!"
@@ -133,9 +151,11 @@ defmodule SnmpKit.WalkRegressionTest do
 
       # Verify we get different OID branches
       oids = Enum.map(results, fn {oid, _type, _value} -> oid end)
-      unique_prefixes = oids
-                       |> Enum.map(fn oid -> oid |> String.split(".") |> Enum.take(8) |> Enum.join(".") end)
-                       |> Enum.uniq()
+
+      unique_prefixes =
+        oids
+        |> Enum.map(fn oid -> oid |> String.split(".") |> Enum.take(8) |> Enum.join(".") end)
+        |> Enum.uniq()
 
       assert length(unique_prefixes) > 1,
              "Walk should traverse multiple OID branches, only found: #{inspect(unique_prefixes)}"
@@ -147,22 +167,29 @@ defmodule SnmpKit.WalkRegressionTest do
       # BUG REPORT: "Fails to iterate through multiple GET_BULK responses"
       # FIXED: Walk now properly processes all responses until end_of_mib_view
 
-      {:ok, results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
-                                         port: @regression_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       # Should find standard system OIDs
       oids = Enum.map(results, fn {oid, _type, _value} -> oid end)
 
       # Must find multiple different system objects
       expected_patterns = [
-        "1.3.6.1.2.1.1.1.", # sysDescr
-        "1.3.6.1.2.1.1.2.", # sysObjectID
-        "1.3.6.1.2.1.1.3."  # sysUpTime
+        # sysDescr
+        "1.3.6.1.2.1.1.1.",
+        # sysObjectID
+        "1.3.6.1.2.1.1.2.",
+        # sysUpTime
+        "1.3.6.1.2.1.1.3."
       ]
 
-      found_patterns = Enum.filter(expected_patterns, fn pattern ->
-        Enum.any?(oids, &String.starts_with?(&1, pattern))
-      end)
+      found_patterns =
+        Enum.filter(expected_patterns, fn pattern ->
+          Enum.any?(oids, &String.starts_with?(&1, pattern))
+        end)
 
       assert length(found_patterns) >= 2,
              "REGRESSION: Walk did not find multiple system objects, only found: #{inspect(found_patterns)}"
@@ -176,8 +203,11 @@ defmodule SnmpKit.WalkRegressionTest do
       # BUG REPORT: Type information being lost in walk operations
       # FIXED: All operations now enforce 3-tuple {oid, type, value} format
 
-      {:ok, results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
-                                         port: @regression_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       # Check every single result
       Enum.each(results, fn result ->
@@ -189,9 +219,10 @@ defmodule SnmpKit.WalkRegressionTest do
       end)
 
       # Additional verification
-      type_violations = Enum.filter(results, fn result ->
-        not match?({_oid, type, _value}, result) when is_atom(type)
-      end)
+      type_violations =
+        Enum.filter(results, fn result ->
+          not match?({_oid, type, _value}, result) when is_atom(type)
+        end)
 
       assert Enum.empty?(type_violations),
              "CRITICAL REGRESSION: Type information violations found: #{inspect(type_violations)}"
@@ -203,14 +234,30 @@ defmodule SnmpKit.WalkRegressionTest do
       # BUG REPORT: Type inference causing incorrect type information
       # FIXED: No type inference - only preserve actual SNMP types
 
-      {:ok, results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
-                                         port: @regression_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       valid_types = [
-        :integer, :octet_string, :null, :object_identifier, :oid, :boolean,
-        :counter32, :counter64, :gauge32, :unsigned32, :timeticks,
-        :ip_address, :opaque, :string,
-        :no_such_object, :no_such_instance, :end_of_mib_view
+        :integer,
+        :octet_string,
+        :null,
+        :object_identifier,
+        :oid,
+        :boolean,
+        :counter32,
+        :counter64,
+        :gauge32,
+        :unsigned32,
+        :timeticks,
+        :ip_address,
+        :opaque,
+        :string,
+        :no_such_object,
+        :no_such_instance,
+        :end_of_mib_view
       ]
 
       invalid_types = []
@@ -264,9 +311,13 @@ defmodule SnmpKit.WalkRegressionTest do
       # BUG REPORT: "v1 path tries to use max_repetitions parameter (WRONG - v1 doesn't support this)"
       # FIXED: v1 operations now properly remove max_repetitions parameter
 
-      {:ok, results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
-                                         version: :v1, max_repetitions: 25,
-                                         port: @regression_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
+          version: :v1,
+          max_repetitions: 25,
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       assert length(results) > 0,
              "REGRESSION: v1 walk failed due to parameter conflicts!"
@@ -287,8 +338,11 @@ defmodule SnmpKit.WalkRegressionTest do
       # Test that default walk uses v2c behavior (should return more results faster)
       start_time = System.monotonic_time(:millisecond)
 
-      {:ok, results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
-                                         port: @regression_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       end_time = System.monotonic_time(:millisecond)
       duration = end_time - start_time
@@ -306,11 +360,19 @@ defmodule SnmpKit.WalkRegressionTest do
       # BUG REPORT: "Type information handling - Inconsistent preservation across operation types"
       # FIXED: Both versions now preserve consistent type information
 
-      {:ok, v1_results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
-                                            version: :v1, port: @regression_port, timeout: @test_timeout)
+      {:ok, v1_results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
+          version: :v1,
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
-      {:ok, v2c_results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
-                                             version: :v2c, port: @regression_port, timeout: @test_timeout)
+      {:ok, v2c_results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
+          version: :v2c,
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       assert length(v1_results) > 0, "v1 walk should return results"
       assert length(v2c_results) > 0, "v2c walk should return results"
@@ -348,9 +410,13 @@ defmodule SnmpKit.WalkRegressionTest do
       # BUG REPORT: "SNMP.walk collection logic - Fails to iterate through multiple GET_BULK responses"
       # FIXED: Collection logic now properly processes all bulk responses
 
-      {:ok, results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1",
-                                         version: :v2c, max_repetitions: 5,
-                                         port: @regression_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1",
+          version: :v2c,
+          max_repetitions: 5,
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       # Should get substantial results from bulk operations
       assert length(results) >= 10,
@@ -358,9 +424,11 @@ defmodule SnmpKit.WalkRegressionTest do
 
       # Should span multiple subtrees (system, interfaces, etc.)
       oids = Enum.map(results, fn {oid, _type, _value} -> oid end)
-      subtrees = oids
-                |> Enum.map(fn oid -> oid |> String.split(".") |> Enum.take(7) |> Enum.join(".") end)
-                |> Enum.uniq()
+
+      subtrees =
+        oids
+        |> Enum.map(fn oid -> oid |> String.split(".") |> Enum.take(7) |> Enum.join(".") end)
+        |> Enum.uniq()
 
       assert length(subtrees) >= 2,
              "REGRESSION: Bulk collection didn't traverse subtrees, only found: #{inspect(subtrees)}"
@@ -372,25 +440,35 @@ defmodule SnmpKit.WalkRegressionTest do
       # BUG REPORT: "Stops after first response instead of continuing until end_of_mib_view"
       # FIXED: Walk now continues until proper termination condition
 
-      {:ok, results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
-                                         port: @regression_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       # Should find all system objects, not just the first one
       oids = Enum.map(results, fn {oid, _type, _value} -> oid end)
 
       # Check that we traverse the entire system subtree
       system_objects = [
-        "1.3.6.1.2.1.1.1", # sysDescr
-        "1.3.6.1.2.1.1.2", # sysObjectID
-        "1.3.6.1.2.1.1.3", # sysUpTime
-        "1.3.6.1.2.1.1.4", # sysContact
-        "1.3.6.1.2.1.1.5", # sysName
-        "1.3.6.1.2.1.1.6"  # sysLocation
+        # sysDescr
+        "1.3.6.1.2.1.1.1",
+        # sysObjectID
+        "1.3.6.1.2.1.1.2",
+        # sysUpTime
+        "1.3.6.1.2.1.1.3",
+        # sysContact
+        "1.3.6.1.2.1.1.4",
+        # sysName
+        "1.3.6.1.2.1.1.5",
+        # sysLocation
+        "1.3.6.1.2.1.1.6"
       ]
 
-      found_objects = Enum.filter(system_objects, fn obj ->
-        Enum.any?(oids, &String.starts_with?(&1, obj))
-      end)
+      found_objects =
+        Enum.filter(system_objects, fn obj ->
+          Enum.any?(oids, &String.starts_with?(&1, obj))
+        end)
 
       assert length(found_objects) >= 3,
              "REGRESSION: Walk didn't continue to end - only found: #{inspect(found_objects)}"
@@ -402,8 +480,11 @@ defmodule SnmpKit.WalkRegressionTest do
       # BUG REPORT: Walk not detecting when it has moved outside the requested subtree
       # FIXED: Boundary detection now properly filters results
 
-      {:ok, results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
-                                         port: @regression_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       # All results must be within the system subtree
       boundary_violations = []
@@ -428,18 +509,25 @@ defmodule SnmpKit.WalkRegressionTest do
 
       start_time = System.monotonic_time(:millisecond)
 
-      {:ok, results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
-                                         port: @regression_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       end_time = System.monotonic_time(:millisecond)
       duration = end_time - start_time
 
       assert length(results) > 0, "Walk should return results"
-      assert duration < 15_000, "REGRESSION: Walk took too long (#{duration}ms) - performance degraded!"
+
+      assert duration < 15_000,
+             "REGRESSION: Walk took too long (#{duration}ms) - performance degraded!"
 
       # Calculate throughput
       throughput = length(results) / (duration / 1000)
-      assert throughput > 1, "REGRESSION: Walk throughput too low (#{Float.round(throughput, 2)} results/sec)"
+
+      assert throughput > 1,
+             "REGRESSION: Walk throughput too low (#{Float.round(throughput, 2)} results/sec)"
     end
   end
 
@@ -450,8 +538,11 @@ defmodule SnmpKit.WalkRegressionTest do
       # BUG REPORT: Walk results not properly ordered
       # FIXED: Results are now properly sorted
 
-      {:ok, results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
-                                         port: @regression_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       oids = Enum.map(results, fn {oid, _type, _value} -> oid end)
       sorted_oids = Enum.sort(oids, &oid_compare/2)
@@ -466,13 +557,18 @@ defmodule SnmpKit.WalkRegressionTest do
       # BUG REPORT: OID format inconsistencies between operations
       # FIXED: Consistent string format for all OIDs
 
-      {:ok, results} = SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
-                                         port: @regression_port, timeout: @test_timeout)
+      {:ok, results} =
+        SnmpKit.SNMP.walk(@regression_host, "1.3.6.1.2.1.1",
+          port: @regression_port,
+          timeout: @test_timeout
+        )
 
       Enum.each(results, fn {oid, _type, _value} ->
         assert is_binary(oid), "REGRESSION: OID must be string, got: #{inspect(oid)}"
+
         assert String.match?(oid, ~r/^\d+(\.\d+)*$/),
                "REGRESSION: OID format invalid: #{oid}"
+
         assert String.starts_with?(oid, "1.3.6.1.2.1.1."),
                "REGRESSION: OID outside expected range: #{oid}"
       end)
@@ -496,7 +592,9 @@ defmodule SnmpKit.WalkRegressionTest do
   defp verify_regression_simulator do
     try do
       case SnmpKit.SNMP.get_with_type(@regression_host, "1.3.6.1.2.1.1.1.0",
-                                      port: @regression_port, timeout: 5000) do
+             port: @regression_port,
+             timeout: 5000
+           ) do
         {:ok, _} -> :ok
         {:error, reason} -> {:error, reason}
       end

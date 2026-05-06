@@ -462,8 +462,9 @@ defmodule SnmpKit.SnmpSim.Core.Server do
 
         # Handle 2-tuple ip tuple -> IpAddress (4-octet binary)
         {oid, {a, b, c, d} = ip}
-            when is_integer(a) and is_integer(b) and is_integer(c) and is_integer(d) ->
+        when is_integer(a) and is_integer(b) and is_integer(c) and is_integer(d) ->
           normalized_oid = normalize_oid(oid)
+
           case validate_ip_tuple(ip) do
             :ok -> {normalized_oid, :ip_address, <<a, b, c, d>>}
             {:error, _} -> {normalized_oid, :ip_address, <<0, 0, 0, 0>>}
@@ -500,17 +501,24 @@ defmodule SnmpKit.SnmpSim.Core.Server do
   # Normalize IpAddress value from string or tuple to 4-octet binary
   defp normalize_varbind_value(:ip_address, value) when is_binary(value) do
     parts = String.split(value, ".")
+
     case parts do
       [a, b, c, d] ->
-        with {ai, ""} <- Integer.parse(a), true <- ai in 0..255,
-             {bi, ""} <- Integer.parse(b), true <- bi in 0..255,
-             {ci, ""} <- Integer.parse(c), true <- ci in 0..255,
-             {di, ""} <- Integer.parse(d), true <- di in 0..255 do
+        with {ai, ""} <- Integer.parse(a),
+             true <- ai in 0..255,
+             {bi, ""} <- Integer.parse(b),
+             true <- bi in 0..255,
+             {ci, ""} <- Integer.parse(c),
+             true <- ci in 0..255,
+             {di, ""} <- Integer.parse(d),
+             true <- di in 0..255 do
           <<ai, bi, ci, di>>
         else
           _ -> <<0, 0, 0, 0>>
         end
-      _ -> <<0, 0, 0, 0>>
+
+      _ ->
+        <<0, 0, 0, 0>>
     end
   end
 

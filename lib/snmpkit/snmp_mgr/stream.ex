@@ -519,7 +519,8 @@ defmodule SnmpKit.SnmpMgr.Stream do
   defp execute_stream_operation(:walk_table, target, oid, opts),
     do: SnmpKit.SnmpMgr.walk_table(target, oid, opts)
 
-  defp execute_stream_operation(:get, target, oid, opts), do: SnmpKit.SnmpMgr.get(target, oid, opts)
+  defp execute_stream_operation(:get, target, oid, opts),
+    do: SnmpKit.SnmpMgr.get(target, oid, opts)
 
   defp execute_stream_operation(:get_bulk, target, oid, opts),
     do: SnmpKit.SnmpMgr.get_bulk(target, oid, opts)

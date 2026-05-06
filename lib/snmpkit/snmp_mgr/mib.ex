@@ -150,12 +150,24 @@ defmodule SnmpKit.SnmpMgr.MIB do
   # Curated minimal metadata for high-value IF-MIB objects (stopgap until full compiler integration)
   @curated_syntax %{
     # SNMPv2-MIB system group
-    "sysDescr" => %{base: :octet_string, textual_convention: "DisplayString", display_hint: "255a"},
+    "sysDescr" => %{
+      base: :octet_string,
+      textual_convention: "DisplayString",
+      display_hint: "255a"
+    },
     "sysObjectID" => %{base: :object_identifier, textual_convention: nil, display_hint: nil},
     "sysUpTime" => %{base: :timeticks, textual_convention: nil, display_hint: nil},
-    "sysContact" => %{base: :octet_string, textual_convention: "DisplayString", display_hint: "255a"},
+    "sysContact" => %{
+      base: :octet_string,
+      textual_convention: "DisplayString",
+      display_hint: "255a"
+    },
     "sysName" => %{base: :octet_string, textual_convention: "DisplayString", display_hint: "255a"},
-    "sysLocation" => %{base: :octet_string, textual_convention: "DisplayString", display_hint: "255a"},
+    "sysLocation" => %{
+      base: :octet_string,
+      textual_convention: "DisplayString",
+      display_hint: "255a"
+    },
     "sysServices" => %{base: :integer, textual_convention: nil, display_hint: nil},
 
     # IF-MIB ifTable (1.3.6.1.2.1.2.2.1)
@@ -164,7 +176,11 @@ defmodule SnmpKit.SnmpMgr.MIB do
     "ifType" => %{base: :integer, textual_convention: "IANAifType", display_hint: nil},
     "ifMtu" => %{base: :integer, textual_convention: nil, display_hint: nil},
     "ifSpeed" => %{base: :gauge32, textual_convention: nil, display_hint: nil},
-    "ifPhysAddress" => %{base: :octet_string, textual_convention: "PhysAddress", display_hint: nil},
+    "ifPhysAddress" => %{
+      base: :octet_string,
+      textual_convention: "PhysAddress",
+      display_hint: nil
+    },
     "ifAdminStatus" => %{base: :integer, textual_convention: nil, display_hint: nil},
     "ifOperStatus" => %{base: :integer, textual_convention: nil, display_hint: nil},
     "ifLastChange" => %{base: :timeticks, textual_convention: nil, display_hint: nil},
@@ -201,32 +217,68 @@ defmodule SnmpKit.SnmpMgr.MIB do
     "ifPromiscuousMode" => %{base: :boolean, textual_convention: "TruthValue", display_hint: nil},
     "ifConnectorPresent" => %{base: :boolean, textual_convention: "TruthValue", display_hint: nil},
     "ifAlias" => %{base: :octet_string, textual_convention: "DisplayString", display_hint: "255a"},
-    "ifCounterDiscontinuityTime" => %{base: :timeticks, textual_convention: "TimeStamp", display_hint: nil},
+    "ifCounterDiscontinuityTime" => %{
+      base: :timeticks,
+      textual_convention: "TimeStamp",
+      display_hint: nil
+    },
 
     # IP-MIB (ARP table: ipNetToMediaTable 1.3.6.1.2.1.4.22)
     "ipNetToMediaIfIndex" => %{base: :integer, textual_convention: nil, display_hint: nil},
-    "ipNetToMediaPhysAddress" => %{base: :octet_string, textual_convention: "PhysAddress", display_hint: nil},
-    "ipNetToMediaNetAddress" => %{base: :ip_address, textual_convention: "IpAddress", display_hint: nil},
+    "ipNetToMediaPhysAddress" => %{
+      base: :octet_string,
+      textual_convention: "PhysAddress",
+      display_hint: nil
+    },
+    "ipNetToMediaNetAddress" => %{
+      base: :ip_address,
+      textual_convention: "IpAddress",
+      display_hint: nil
+    },
     "ipNetToMediaType" => %{base: :integer, textual_convention: nil, display_hint: nil},
 
     # BRIDGE-MIB (dot1dTpFdbTable and base)
-    "dot1dBaseBridgeAddress" => %{base: :octet_string, textual_convention: "MacAddress", display_hint: nil},
+    "dot1dBaseBridgeAddress" => %{
+      base: :octet_string,
+      textual_convention: "MacAddress",
+      display_hint: nil
+    },
     "dot1dBaseNumPorts" => %{base: :integer, textual_convention: nil, display_hint: nil},
     "dot1dBasePortIfIndex" => %{base: :integer, textual_convention: nil, display_hint: nil},
-    "dot1dTpFdbAddress" => %{base: :octet_string, textual_convention: "MacAddress", display_hint: nil},
+    "dot1dTpFdbAddress" => %{
+      base: :octet_string,
+      textual_convention: "MacAddress",
+      display_hint: nil
+    },
     "dot1dTpFdbPort" => %{base: :integer, textual_convention: nil, display_hint: nil},
     "dot1dTpFdbStatus" => %{base: :integer, textual_convention: nil, display_hint: nil},
 
     # IP-MIB (RFC 4293) modern ARP replacement: ipNetToPhysicalTable
     # Prefer these over ipNetToMedia*
     "ipNetToPhysicalIfIndex" => %{base: :integer, textual_convention: nil, display_hint: nil},
-    "ipNetToPhysicalPhysAddress" => %{base: :octet_string, textual_convention: "PhysAddress", display_hint: nil},
-    "ipNetToPhysicalNetAddress" => %{base: :octet_string, textual_convention: "InetAddress", display_hint: nil},
+    "ipNetToPhysicalPhysAddress" => %{
+      base: :octet_string,
+      textual_convention: "PhysAddress",
+      display_hint: nil
+    },
+    "ipNetToPhysicalNetAddress" => %{
+      base: :octet_string,
+      textual_convention: "InetAddress",
+      display_hint: nil
+    },
     "ipNetToPhysicalType" => %{base: :integer, textual_convention: nil, display_hint: nil},
-    "ipNetToPhysicalLastUpdated" => %{base: :timeticks, textual_convention: "TimeStamp", display_hint: nil},
+    "ipNetToPhysicalLastUpdated" => %{
+      base: :timeticks,
+      textual_convention: "TimeStamp",
+      display_hint: nil
+    },
 
     # Q-BRIDGE-MIB (VLAN-aware FDB)
-    "dot1qTpFdbAddress" => %{base: :octet_string, textual_convention: "MacAddress", display_hint: nil},
+    "dot1qTpFdbAddress" => %{
+      base: :octet_string,
+      textual_convention: "MacAddress",
+      display_hint: nil
+    },
     "dot1qTpFdbPort" => %{base: :integer, textual_convention: nil, display_hint: nil},
     "dot1qTpFdbStatus" => %{base: :integer, textual_convention: nil, display_hint: nil}
   }
@@ -313,8 +365,14 @@ defmodule SnmpKit.SnmpMgr.MIB do
       syntax =
         case compiled_meta do
           %{syntax_base: base} = m ->
-            %{base: base, textual_convention: Map.get(m, :textual_convention), display_hint: Map.get(m, :display_hint)}
-          _ -> syntax_for(base_name)
+            %{
+              base: base,
+              textual_convention: Map.get(m, :textual_convention),
+              display_hint: Map.get(m, :display_hint)
+            }
+
+          _ ->
+            syntax_for(base_name)
         end
 
       base_map = %{
@@ -329,7 +387,9 @@ defmodule SnmpKit.SnmpMgr.MIB do
       # Optionally add access/status/description if we have compiled metadata
       enriched =
         case compiled_meta do
-          nil -> enriched
+          nil ->
+            enriched
+
           m ->
             enriched
             |> maybe_put(:access, Map.get(m, :access))
@@ -664,14 +724,18 @@ defmodule SnmpKit.SnmpMgr.MIB do
       case defn do
         %{} ->
           case Map.get(defn, :oid) do
-            nil -> acc
+            nil ->
+              acc
+
             oid_any ->
               case normalize_parsed_oid(oid_any) do
                 {:ok, oid_list} -> Map.put(acc, name, oid_list)
                 _ -> acc
               end
           end
-        _ -> acc
+
+        _ ->
+          acc
       end
     end)
   end
@@ -699,9 +763,12 @@ defmodule SnmpKit.SnmpMgr.MIB do
 
               Map.put(acc, name, meta)
 
-            _ -> acc
+            _ ->
+              acc
           end
-        _ -> acc
+
+        _ ->
+          acc
       end
     end)
   end
@@ -758,24 +825,48 @@ defmodule SnmpKit.SnmpMgr.MIB do
   # Derive base syntax from parsed syntax term
   defp syntax_base_from(syntax) do
     case syntax do
-      :integer -> :integer
-      :octet_string -> :octet_string
-      :object_identifier -> :object_identifier
-      :timeticks -> :timeticks
-      :counter32 -> :counter32
-      :counter64 -> :counter64
-      :gauge32 -> :gauge32
-      :ip_address -> :ip_address
-      {:integer, _} -> :integer
-      {:octet_string, _} -> :octet_string
-      {:object_identifier, _} -> :object_identifier
+      :integer ->
+        :integer
+
+      :octet_string ->
+        :octet_string
+
+      :object_identifier ->
+        :object_identifier
+
+      :timeticks ->
+        :timeticks
+
+      :counter32 ->
+        :counter32
+
+      :counter64 ->
+        :counter64
+
+      :gauge32 ->
+        :gauge32
+
+      :ip_address ->
+        :ip_address
+
+      {:integer, _} ->
+        :integer
+
+      {:octet_string, _} ->
+        :octet_string
+
+      {:object_identifier, _} ->
+        :object_identifier
+
       {:type, t} when is_atom(t) ->
         case t do
           :"octet string" -> :octet_string
           :"object identifier" -> :object_identifier
           other -> other
         end
-      _ -> nil
+
+      _ ->
+        nil
     end
   end
 
@@ -801,7 +892,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
           {normalize_name_to_oid(raw), meta}
 
         true ->
-          {%{}, %{} }
+          {%{}, %{}}
       end
 
     merged_name_to_oid = Map.merge(state.name_to_oid, add_map)
@@ -822,7 +913,9 @@ defmodule SnmpKit.SnmpMgr.MIB do
           nil -> {:error, :not_found}
           oid -> {:ok, oid}
         end
-      _ -> {:error, :not_found}
+
+      _ ->
+        {:error, :not_found}
     end
   end
 
@@ -1037,7 +1130,14 @@ defmodule SnmpKit.SnmpMgr.MIB do
     parts = String.split(instance_str, ".")
 
     try do
-      ints = Enum.map(parts, fn p -> case Integer.parse(p) do {i, ""} -> i; _ -> throw(:bad) end end)
+      ints =
+        Enum.map(parts, fn p ->
+          case Integer.parse(p) do
+            {i, ""} -> i
+            _ -> throw(:bad)
+          end
+        end)
+
       {:ok, ints}
     catch
       :bad -> {:error, :invalid_instance}
@@ -1053,16 +1153,19 @@ defmodule SnmpKit.SnmpMgr.MIB do
         case name_to_oid(base_name) do
           {:ok, base_oid} ->
             base_len = length(base_oid)
+
             if length(oid_list) > base_len do
               {:ok, base_name, Enum.drop(oid_list, base_len)}
             else
               {:ok, base_name, nil}
             end
 
-          {:error, _} = err -> err
+          {:error, _} = err ->
+            err
         end
 
-      {:error, reason} -> {:error, reason}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -1075,12 +1178,15 @@ defmodule SnmpKit.SnmpMgr.MIB do
 
   defp maybe_put_instance(map, input_oid, base_oid) do
     base_len = length(base_oid)
+
     if length(input_oid) > base_len do
       instance = Enum.drop(input_oid, base_len)
-      instance_index = case instance do
-        [i] -> i
-        list -> list
-      end
+
+      instance_index =
+        case instance do
+          [i] -> i
+          list -> list
+        end
 
       map
       |> Map.put(:instance_index, instance_index)
@@ -1126,19 +1232,27 @@ defmodule SnmpKit.SnmpMgr.MIB do
   # Convert parsed OID representation to a flat integer list when possible
   defp normalize_parsed_oid(oid) when is_list(oid) do
     cond do
-      Enum.all?(oid, &is_integer/1) -> {:ok, oid}
+      Enum.all?(oid, &is_integer/1) ->
+        {:ok, oid}
+
       true ->
         # Handle lists like [%{value: 1}, %{value: 3}, ...] possibly with names
         vals =
           Enum.map(oid, fn
-            %{value: v} when is_integer(v) -> {:ok, v}
+            %{value: v} when is_integer(v) ->
+              {:ok, v}
+
             %{value: v} when is_binary(v) ->
               case Integer.parse(v) do
                 {i, ""} -> {:ok, i}
                 _ -> :error
               end
-            v when is_integer(v) -> {:ok, v}
-            _ -> :error
+
+            v when is_integer(v) ->
+              {:ok, v}
+
+            _ ->
+              :error
           end)
 
         if Enum.any?(vals, &(&1 == :error)) do
@@ -1176,6 +1290,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
         tc_name = Map.get(tc, :name)
         tc_syntax = Map.get(tc, :syntax)
         display_hint = Map.get(tc, :display_hint)
+
         acc
         |> Map.put(tc_name, %{
           syntax_base: syntax_base_from(tc_syntax),
@@ -1183,7 +1298,17 @@ defmodule SnmpKit.SnmpMgr.MIB do
         })
       end)
 
-    primitives = MapSet.new([:integer, :octet_string, :object_identifier, :timeticks, :counter32, :counter64, :gauge32, :ip_address])
+    primitives =
+      MapSet.new([
+        :integer,
+        :octet_string,
+        :object_identifier,
+        :timeticks,
+        :counter32,
+        :counter64,
+        :gauge32,
+        :ip_address
+      ])
 
     {name_to_oid_map, name_to_meta} =
       definitions
@@ -1211,12 +1336,18 @@ defmodule SnmpKit.SnmpMgr.MIB do
                     {syntax_base_from(syntax_any), textual_convention_from(syntax_any), nil}
                   else
                     tc_key = Atom.to_string(t)
+
                     case Map.get(tc_map, tc_key) do
-                      %{syntax_base: base, display_hint: hint} -> {base, tc_key, hint}
-                      _ -> {syntax_base_from(syntax_any), textual_convention_from(syntax_any), nil}
+                      %{syntax_base: base, display_hint: hint} ->
+                        {base, tc_key, hint}
+
+                      _ ->
+                        {syntax_base_from(syntax_any), textual_convention_from(syntax_any), nil}
                     end
                   end
-                _ -> {syntax_base_from(syntax_any), textual_convention_from(syntax_any), nil}
+
+                _ ->
+                  {syntax_base_from(syntax_any), textual_convention_from(syntax_any), nil}
               end
 
             meta = %{
@@ -1230,7 +1361,8 @@ defmodule SnmpKit.SnmpMgr.MIB do
 
             {oid_acc2, Map.put(meta_acc, name, meta)}
 
-          _ -> {oid_acc, meta_acc}
+          _ ->
+            {oid_acc, meta_acc}
         end
       end)
 

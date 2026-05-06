@@ -54,7 +54,7 @@ defmodule SnmpKit.SnmpLib.HostParserTest do
       ipv6_max = {65535, 65535, 65535, 65535, 65535, 65535, 65535, 65535}
       assert {:ok, {^ipv6_max, 161}} = HostParser.parse(ipv6_max)
 
-      ipv6_full = {0x2001, 0x0db8, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0001}
+      ipv6_full = {0x2001, 0x0DB8, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0001}
       assert {:ok, {^ipv6_full, 161}} = HostParser.parse(ipv6_full)
     end
 
@@ -92,7 +92,8 @@ defmodule SnmpKit.SnmpLib.HostParserTest do
 
     test "rejects invalid IPv4 strings" do
       assert {:error, :invalid_ipv4} = HostParser.parse("256.256.256.256")
-      assert {:ok, {{192, 168, 0, 1}, 161}} = HostParser.parse("192.168.1")  # Actually resolves as hostname
+      # Actually resolves as hostname
+      assert {:ok, {{192, 168, 0, 1}, 161}} = HostParser.parse("192.168.1")
       assert {:error, :invalid_ipv4} = HostParser.parse("192.168.1.1.1")
       assert {:error, :invalid_ipv4} = HostParser.parse("192.168.1.256")
     end
@@ -109,20 +110,23 @@ defmodule SnmpKit.SnmpLib.HostParserTest do
     test "parses basic IPv6 strings" do
       assert {:ok, {{0, 0, 0, 0, 0, 0, 0, 1}, 161}} = HostParser.parse("::1")
       assert {:ok, {{0, 0, 0, 0, 0, 0, 0, 0}, 161}} = HostParser.parse("::")
-      assert {:ok, {{0x2001, 0x0db8, 0, 0, 0, 0, 0, 1}, 161}} = HostParser.parse("2001:db8::1")
+      assert {:ok, {{0x2001, 0x0DB8, 0, 0, 0, 0, 0, 1}, 161}} = HostParser.parse("2001:db8::1")
     end
 
     test "parses IPv6 strings with port (bracket notation)" do
       assert {:ok, {{0, 0, 0, 0, 0, 0, 0, 1}, 8161}} = HostParser.parse("[::1]:8161")
       assert {:ok, {{0, 0, 0, 0, 0, 0, 0, 0}, 8161}} = HostParser.parse("[::]:8161")
-      assert {:ok, {{0x2001, 0x0db8, 0, 0, 0, 0, 0, 1}, 8161}} = HostParser.parse("[2001:db8::1]:8161")
+
+      assert {:ok, {{0x2001, 0x0DB8, 0, 0, 0, 0, 0, 1}, 8161}} =
+               HostParser.parse("[2001:db8::1]:8161")
     end
 
     test "parses IPv4-mapped IPv6 addresses" do
       # IPv4-mapped IPv6 parsing might not be supported in current implementation
       case HostParser.parse("::ffff:192.168.1.1") do
         {:ok, _} -> :ok
-        {:error, _} -> :ok  # Either result is acceptable for this complex case
+        # Either result is acceptable for this complex case
+        {:error, _} -> :ok
       end
     end
 
@@ -146,7 +150,7 @@ defmodule SnmpKit.SnmpLib.HostParserTest do
 
     test "parses IPv6 charlists" do
       assert {:ok, {{0, 0, 0, 0, 0, 0, 0, 1}, 161}} = HostParser.parse(~c"::1")
-      assert {:ok, {{0x2001, 0x0db8, 0, 0, 0, 0, 0, 1}, 161}} = HostParser.parse(~c"2001:db8::1")
+      assert {:ok, {{0x2001, 0x0DB8, 0, 0, 0, 0, 0, 1}, 161}} = HostParser.parse(~c"2001:db8::1")
     end
 
     test "parses IPv6 charlists with port" do
@@ -172,7 +176,8 @@ defmodule SnmpKit.SnmpLib.HostParserTest do
     test "resolves localhost" do
       case HostParser.parse("localhost") do
         {:ok, {{127, 0, 0, 1}, 161}} -> :ok
-        {:ok, {{0, 0, 0, 0, 0, 0, 0, 1}, 161}} -> :ok  # IPv6 localhost
+        # IPv6 localhost
+        {:ok, {{0, 0, 0, 0, 0, 0, 0, 1}, 161}} -> :ok
         other -> flunk("Unexpected localhost resolution: #{inspect(other)}")
       end
     end
@@ -180,8 +185,10 @@ defmodule SnmpKit.SnmpLib.HostParserTest do
     test "resolves localhost with port" do
       case HostParser.parse("localhost:8161") do
         {:ok, {{127, 0, 0, 1}, 8161}} -> :ok
-        {:ok, {{0, 0, 0, 0, 0, 0, 0, 1}, 8161}} -> :ok  # IPv6 localhost
-        {:error, :invalid_ipv4} -> :ok  # May not parse port correctly in some cases
+        # IPv6 localhost
+        {:ok, {{0, 0, 0, 0, 0, 0, 0, 1}, 8161}} -> :ok
+        # May not parse port correctly in some cases
+        {:error, :invalid_ipv4} -> :ok
         other -> flunk("Unexpected localhost:8161 resolution: #{inspect(other)}")
       end
     end
@@ -193,8 +200,11 @@ defmodule SnmpKit.SnmpLib.HostParserTest do
 
   describe "map and keyword list parsing" do
     test "parses map format" do
-      assert {:ok, {{192, 168, 1, 1}, 8161}} = HostParser.parse(%{host: "192.168.1.1", port: 8161})
-      assert {:ok, {{192, 168, 1, 1}, 8161}} = HostParser.parse(%{host: {192, 168, 1, 1}, port: 8161})
+      assert {:ok, {{192, 168, 1, 1}, 8161}} =
+               HostParser.parse(%{host: "192.168.1.1", port: 8161})
+
+      assert {:ok, {{192, 168, 1, 1}, 8161}} =
+               HostParser.parse(%{host: {192, 168, 1, 1}, port: 8161})
     end
 
     test "parses map without port (uses default)" do
@@ -204,45 +214,51 @@ defmodule SnmpKit.SnmpLib.HostParserTest do
 
     test "parses keyword list format" do
       # Keyword lists may be treated as charlists in current implementation
-      case HostParser.parse([host: "192.168.1.1", port: 8161]) do
+      case HostParser.parse(host: "192.168.1.1", port: 8161) do
         {:ok, {{192, 168, 1, 1}, 8161}} -> :ok
-        {:error, :invalid_charlist} -> :ok  # Expected in current implementation
+        # Expected in current implementation
+        {:error, :invalid_charlist} -> :ok
       end
 
-      case HostParser.parse([host: {192, 168, 1, 1}, port: 8161]) do
+      case HostParser.parse(host: {192, 168, 1, 1}, port: 8161) do
         {:ok, {{192, 168, 1, 1}, 8161}} -> :ok
-        {:error, :invalid_charlist} -> :ok  # Expected in current implementation
+        # Expected in current implementation
+        {:error, :invalid_charlist} -> :ok
       end
     end
 
     test "parses keyword list without port" do
       # Keyword lists may be treated as charlists in current implementation
-      case HostParser.parse([host: "192.168.1.1"]) do
+      case HostParser.parse(host: "192.168.1.1") do
         {:ok, {{192, 168, 1, 1}, 161}} -> :ok
-        {:error, :invalid_charlist} -> :ok  # Expected in current implementation
+        # Expected in current implementation
+        {:error, :invalid_charlist} -> :ok
       end
 
-      case HostParser.parse([host: {192, 168, 1, 1}]) do
+      case HostParser.parse(host: {192, 168, 1, 1}) do
         {:ok, {{192, 168, 1, 1}, 161}} -> :ok
-        {:error, :invalid_charlist} -> :ok  # Expected in current implementation
+        # Expected in current implementation
+        {:error, :invalid_charlist} -> :ok
       end
     end
 
     test "rejects map/keyword without host" do
       assert {:error, :unsupported_format} = HostParser.parse(%{port: 161})
       # Keyword list handled as charlist
-      case HostParser.parse([port: 161]) do
+      case HostParser.parse(port: 161) do
         {:error, :missing_host} -> :ok
-        {:error, :invalid_charlist} -> :ok  # Expected in current implementation
+        # Expected in current implementation
+        {:error, :invalid_charlist} -> :ok
       end
     end
 
     test "rejects map/keyword with invalid host" do
       assert {:error, :hostname_resolution_failed} = HostParser.parse(%{host: "invalid"})
       # Keyword list handled as charlist
-      case HostParser.parse([host: "invalid"]) do
+      case HostParser.parse(host: "invalid") do
         {:error, :invalid_host} -> :ok
-        {:error, :invalid_charlist} -> :ok  # Expected in current implementation
+        # Expected in current implementation
+        {:error, :invalid_charlist} -> :ok
       end
     end
   end
@@ -251,7 +267,8 @@ defmodule SnmpKit.SnmpLib.HostParserTest do
     test "parses atom hostnames" do
       case HostParser.parse(:localhost) do
         {:ok, {{127, 0, 0, 1}, 161}} -> :ok
-        {:ok, {{0, 0, 0, 0, 0, 0, 0, 1}, 161}} -> :ok  # IPv6 localhost
+        # IPv6 localhost
+        {:ok, {{0, 0, 0, 0, 0, 0, 0, 1}, 161}} -> :ok
         other -> flunk("Unexpected atom localhost resolution: #{inspect(other)}")
       end
     end

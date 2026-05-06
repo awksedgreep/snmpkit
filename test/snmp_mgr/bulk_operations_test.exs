@@ -609,7 +609,9 @@ defmodule SnmpKit.SnmpMgr.BulkOperationsTest do
             %{oid: oid, type: type, value: value} = _map ->
               assert is_binary(oid) or is_list(oid)
               assert is_atom(type)
-              assert is_binary(value) or is_integer(value) or is_atom(value) or is_list(value) or is_nil(value)
+
+              assert is_binary(value) or is_integer(value) or is_atom(value) or is_list(value) or
+                       is_nil(value)
 
             other ->
               flunk("Inconsistent result format: #{inspect(other)}")

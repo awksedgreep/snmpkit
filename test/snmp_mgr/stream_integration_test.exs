@@ -68,7 +68,7 @@ defmodule SnmpKit.SnmpMgr.StreamIntegrationTest do
       # All results should be under system (1.3.6.1.2.1.1)
       Enum.each(results, fn result ->
         assert String.starts_with?(result.oid, "1.3.6.1.2.1.1"),
-          "OID #{result.oid} should be under system subtree"
+               "OID #{result.oid} should be under system subtree"
       end)
     end
 

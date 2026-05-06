@@ -25,7 +25,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
   describe "SnmpMgr Full Integration" do
     test "get/3 complete integration flow", %{device: device} do
-
       # Test complete flow through all layers: API -> Core -> SnmpKit.SnmpLib.Manager
       result =
         SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
@@ -53,7 +52,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "set/4 complete integration flow", %{device: device} do
-
       # Test SET operation through snmp_lib
       result =
         SnmpKit.SnmpMgr.set("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.6.0", "test_location",
@@ -69,12 +67,18 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
         {:error, reason} ->
           # Accept valid SNMP errors (many objects are read-only)
-          assert reason in [:not_writable, :read_only, :no_access, :timeout, :noSuchObject, :gen_err]
+          assert reason in [
+                   :not_writable,
+                   :read_only,
+                   :no_access,
+                   :timeout,
+                   :noSuchObject,
+                   :gen_err
+                 ]
       end
     end
 
     test "get_bulk/3 complete integration flow", %{device: device} do
-
       # Test GET-BULK operation through SnmpKit.SnmpLib.Manager
       result =
         SnmpKit.SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
@@ -97,7 +101,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "walk/3 complete integration flow", %{device: device} do
-
       # Test WALK operation through snmp_lib integration
       result =
         SnmpKit.SnmpMgr.walk("#{device.host}:#{device.port}", "1.3.6.1.2.1.1",
@@ -127,7 +130,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "get_next/3 complete integration flow", %{device: device} do
-
       # Test GET-NEXT operation through SnmpKit.SnmpLib.Manager
       result =
         SnmpKit.SnmpMgr.get_next("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1",
@@ -151,7 +153,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
   describe "SnmpMgr Multi-Operation Integration" do
     test "get_multi/1 processes multiple requests", %{device: device} do
-
       # Use same device with different OIDs for multi-operation testing
       requests = [
         {"#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
@@ -181,7 +182,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "get_bulk_multi/1 processes multiple bulk requests", %{device: device} do
-
       # Use same device with different OID trees for bulk testing
       requests = [
         {"#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
@@ -207,11 +207,79 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
         end
       end)
     end
+
+    test "walk_multi/1 processes multiple walk requests across published APIs", %{device: device} do
+      target = "#{device.host}:#{device.port}"
+
+      requests = [
+        {target, "1.3.6.1.2.1.1", [community: device.community, timeout: 500]},
+        {target, "1.3.6.1.2.1.2", [community: device.community, timeout: 500]}
+      ]
+
+      for api <- [
+            &SnmpKit.SnmpMgr.walk_multi/1,
+            &SnmpKit.walk_multi/1,
+            &SnmpKit.SNMP.walk_multi/1
+          ] do
+        results = api.(requests)
+
+        assert is_list(results)
+        assert length(results) == 2
+
+        [{:ok, system_rows}, {:ok, interface_rows}] = results
+        assert_walk_rows(system_rows, "1.3.6.1.2.1.1")
+        assert_walk_rows(interface_rows, "1.3.6.1.2.1.2")
+      end
+    end
+
+    test "walk_multi supports published return formats with simulator-backed results", %{
+      device: device
+    } do
+      target = "#{device.host}:#{device.port}"
+
+      requests = [
+        {target, "1.3.6.1.2.1.1", [community: device.community, timeout: 500]},
+        {target, "1.3.6.1.2.1.2", [community: device.community, timeout: 500]}
+      ]
+
+      with_targets = SnmpKit.SnmpMgr.walk_multi(requests, return_format: :with_targets)
+
+      assert [
+               {^target, "1.3.6.1.2.1.1", {:ok, system_rows}},
+               {^target, "1.3.6.1.2.1.2", {:ok, interface_rows}}
+             ] = with_targets
+
+      assert_walk_rows(system_rows, "1.3.6.1.2.1.1")
+      assert_walk_rows(interface_rows, "1.3.6.1.2.1.2")
+
+      map_results = SnmpKit.SnmpMgr.walk_multi(requests, return_format: :map)
+
+      assert %{
+               {^target, "1.3.6.1.2.1.1"} => {:ok, map_system_rows},
+               {^target, "1.3.6.1.2.1.2"} => {:ok, map_interface_rows}
+             } = map_results
+
+      assert_walk_rows(map_system_rows, "1.3.6.1.2.1.1")
+      assert_walk_rows(map_interface_rows, "1.3.6.1.2.1.2")
+    end
+
+    test "walk_table_multi/1 returns table entries through published APIs", %{device: device} do
+      target = "#{device.host}:#{device.port}"
+      requests = [{target, "1.3.6.1.2.1.2.2", [community: device.community, timeout: 500]}]
+
+      for api <- [
+            &SnmpKit.SnmpMgr.walk_table_multi/1,
+            &SnmpKit.walk_table_multi/1,
+            &SnmpKit.SNMP.walk_table_multi/1
+          ] do
+        assert [{:ok, rows}] = api.(requests)
+        assert_walk_rows(rows, "1.3.6.1.2.1.2.2")
+      end
+    end
   end
 
   describe "SnmpMgr Configuration Integration" do
     test "global configuration affects operations", %{device: device} do
-
       # Set custom defaults using simulator community
       SnmpKit.SnmpMgr.Config.set_default_community(device.community)
       SnmpKit.SnmpMgr.Config.set_default_timeout(200)
@@ -228,7 +296,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "request options override configuration", %{device: device} do
-
       # Set one default
       SnmpKit.SnmpMgr.Config.set_default_timeout(200)
 
@@ -262,11 +329,22 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
       SnmpKit.SnmpMgr.Config.reset()
     end
+
+    defp assert_walk_rows(rows, prefix) when is_list(rows) do
+      assert rows != []
+
+      Enum.each(rows, fn row ->
+        assert %{oid: oid, type: type} = row
+        assert is_binary(oid)
+        assert String.starts_with?(oid, prefix)
+        assert is_atom(type)
+        assert Map.has_key?(row, :value)
+      end)
+    end
   end
 
   describe "SnmpMgr OID Processing Integration" do
     test "string OIDs processed through SnmpKit.SnmpLib.OID", %{device: device} do
-
       # Test various OID formats through SnmpKit.SnmpLib.OID integration
       oid_formats = [
         "1.3.6.1.2.1.1.1.0",
@@ -287,7 +365,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "list OIDs processed through SnmpKit.SnmpLib.OID", %{device: device} do
-
       # Test list format OIDs
       list_oids = [
         [1, 3, 6, 1, 2, 1, 1, 1, 0],
@@ -308,7 +385,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "symbolic OIDs through MIB integration", %{device: device} do
-
       # Test symbolic OIDs that should resolve through MIB integration
       symbolic_oids = [
         "sysDescr.0",
@@ -329,7 +405,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "invalid OIDs handled properly", %{device: device} do
-
       invalid_oids = [
         "invalid.oid.format",
         "1.3.6.1.2.1.999.999.999.0",
@@ -394,7 +469,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "timeout handling through snmp_lib", %{device: device} do
-
       # Test timeout behavior through snmp_lib with simulator
       timeouts = [1, 10, 50, 200]
 
@@ -437,7 +511,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "community string validation", %{device: device} do
-
       # Test community string handling through snmp_lib
       communities = [device.community, "wrong_community", ""]
 
@@ -466,7 +539,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
   describe "SnmpMgr Version Compatibility Integration" do
     test "SNMPv1 operations through snmp_lib", %{device: device} do
-
       # Test SNMPv1 operations
       result =
         SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
@@ -480,7 +552,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "SNMPv2c operations through snmp_lib", %{device: device} do
-
       # Test SNMPv2c operations
       result =
         SnmpKit.SnmpMgr.get("#{device.host}:#{device.port}", "1.3.6.1.2.1.1.1.0",
@@ -505,7 +576,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "bulk operations require v2c", %{device: device} do
-
       # Bulk operations should work with v2c
       result_v2c =
         SnmpKit.SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
@@ -531,7 +601,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "walk adapts to version", %{device: device} do
-
       # Walk should adapt behavior based on version
       result_v1 =
         SnmpKit.SnmpMgr.walk("#{device.host}:#{device.port}", "1.3.6.1.2.1.1",
@@ -578,7 +647,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
   describe "SnmpMgr Performance Integration" do
     test "concurrent operations through snmp_lib", %{device: device} do
-
       # Test concurrent operations to validate snmp_lib integration
       tasks =
         Enum.map(1..5, fn _i ->
@@ -601,7 +669,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "rapid sequential operations", %{device: device} do
-
       # Test rapid operations to ensure snmp_lib handles them properly
       start_time = System.monotonic_time(:millisecond)
 
@@ -628,7 +695,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
     end
 
     test "memory usage with many operations", %{device: device} do
-
       # Test memory usage during many operations
       initial_memory = :erlang.memory(:total)
 
@@ -656,7 +722,6 @@ defmodule SnmpKit.SnmpMgr.IntegrationTest do
 
   describe "SnmpMgr Components Integration Test" do
     test "all components work together", %{device: device} do
-
       # Test that all SnmpMgr components integrate properly with snmp_lib
 
       # 1. Configuration

@@ -31,6 +31,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
     :routes,
     :shared_socket,
     :pending_requests,
+    :pending_batches,
     :request_counter
   ]
 
@@ -99,7 +100,8 @@ defmodule SnmpKit.SnmpMgr.Engine do
       {:ok, batch_ref} = SnmpKit.SnmpMgr.Engine.submit_batch(engine, requests)
   """
   def submit_batch(engine, requests, opts \\ []) do
-    GenServer.call(engine, {:submit_batch, requests, opts})
+    call_timeout = Keyword.get(opts, :call_timeout, Keyword.get(opts, :timeout, :infinity))
+    GenServer.call(engine, {:submit_batch, requests, opts}, call_timeout)
   end
 
   @doc """
@@ -138,7 +140,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
     # Initialize shared socket
     {:ok, shared_socket} = SnmpKit.SnmpLib.Transport.create_client_socket([{:active, true}])
     # Shared socket created: #{inspect(shared_socket)}
-    
+
     state = %__MODULE__{
       name: Keyword.get(opts, :name, __MODULE__),
       pool_size: pool_size,
@@ -154,6 +156,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
       routes: %{},
       shared_socket: shared_socket,
       pending_requests: %{},
+      pending_batches: %{},
       request_counter: 0
     }
 
@@ -180,18 +183,15 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
     # Add to pending requests for correlation
     pending_requests = Map.put(state.pending_requests, request_id, enriched_request)
-    
+
     # Send request immediately using shared socket
     send_snmp_request_shared(state.shared_socket, enriched_request)
-    
+
     # Schedule timeout
     schedule_request_timeout(ref, state.request_timeout)
-    
+
     # Update state
-    new_state = %{state | 
-      pending_requests: pending_requests,
-      request_counter: new_counter
-    }
+    new_state = %{state | pending_requests: pending_requests, request_counter: new_counter}
 
     # Update metrics
     metrics = update_metrics(state.metrics, :requests_submitted, 1)
@@ -202,39 +202,64 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
   @impl true
   def handle_call({:submit_batch, requests, opts}, from, state) do
-    batch_ref = make_ref()
+    if requests == [] do
+      {:reply, {:ok, []}, state}
+    else
+      batch_ref = make_ref()
+      submitted_at = System.monotonic_time(:millisecond)
 
-    enriched_requests =
-      requests
-      |> Enum.with_index()
-      |> Enum.map(fn {request, index} ->
-        Map.merge(request, %{
-          request_id: generate_request_id(),
-          ref: make_ref(),
-          batch_ref: batch_ref,
-          batch_index: index,
+      {enriched_requests, new_counter} =
+        requests
+        |> Enum.with_index()
+        |> Enum.map_reduce(state.request_counter, fn {request, index}, counter ->
+          {request_id, next_counter} = next_request_id(counter)
+
+          enriched_request =
+            Map.merge(request, %{
+              request_id: request_id,
+              ref: make_ref(),
+              batch_ref: batch_ref,
+              batch_index: index,
+              from: from,
+              submitted_at: submitted_at,
+              opts: opts
+            })
+
+          {enriched_request, next_counter}
+        end)
+
+      new_queue =
+        Enum.reduce(enriched_requests, state.request_queue, fn req, queue ->
+          :queue.in(req, queue)
+        end)
+
+      pending_requests =
+        Enum.reduce(enriched_requests, state.pending_requests, fn req, acc ->
+          Map.put(acc, req.request_id, req)
+        end)
+
+      pending_batches =
+        Map.put(state.pending_batches, batch_ref, %{
           from: from,
-          submitted_at: System.monotonic_time(:millisecond),
-          opts: opts
+          total: length(enriched_requests),
+          results: %{}
         })
-      end)
 
-    new_queue =
-      Enum.reduce(enriched_requests, state.request_queue, fn req, queue ->
-        :queue.in(req, queue)
-      end)
+      new_state = %{
+        state
+        | request_queue: new_queue,
+          pending_requests: pending_requests,
+          pending_batches: pending_batches,
+          request_counter: new_counter
+      }
 
-    new_state = %{state | request_queue: new_queue}
+      metrics = update_metrics(state.metrics, :requests_submitted, length(requests))
+      metrics = update_metrics(metrics, :batches_submitted, 1)
+      new_state = %{new_state | metrics: metrics}
+      new_state = maybe_start_batch_timer(new_state)
 
-    # Update metrics
-    metrics = update_metrics(state.metrics, :requests_submitted, length(requests))
-    metrics = update_metrics(metrics, :batches_submitted, 1)
-    new_state = %{new_state | metrics: metrics}
-
-    # Start batch timer if not already running
-    new_state = maybe_start_batch_timer(new_state)
-
-    {:noreply, new_state}
+      {:noreply, new_state}
+    end
   end
 
   @impl true
@@ -289,7 +314,10 @@ defmodule SnmpKit.SnmpMgr.Engine do
   @impl true
   def handle_info({:udp, socket, ip, port, data}, state) do
     # Handle incoming UDP responses on shared socket
-    Logger.debug("Engine received UDP response from #{:inet.ntoa(ip)}:#{port}, #{byte_size(data)} bytes")
+    Logger.debug(
+      "Engine received UDP response from #{:inet.ntoa(ip)}:#{port}, #{byte_size(data)} bytes"
+    )
+
     new_state = handle_udp_response_shared(state, socket, ip, port, data)
     {:noreply, new_state}
   end
@@ -299,6 +327,11 @@ defmodule SnmpKit.SnmpMgr.Engine do
     # Handle request timeouts for shared socket
     new_state = handle_request_timeout_shared(state, ref)
     {:noreply, new_state}
+  end
+
+  @impl true
+  def handle_info({:mock_response, request_id, response_data}, state) do
+    {:noreply, complete_request(state, request_id, {:ok, response_data})}
   end
 
   # Private functions
@@ -485,11 +518,12 @@ defmodule SnmpKit.SnmpMgr.Engine do
       {:ok, message} ->
         host_str = format_host(target.host)
         Logger.debug("Built SNMP message successfully, sending to #{host_str}:#{target.port}")
+
         case SnmpKit.SnmpLib.Transport.send_packet(socket, target.host, target.port, message) do
           :ok ->
             Logger.debug("Sent SNMP request #{request.request_id} to #{host_str}:#{target.port}")
             :ok
-          
+
           {:error, reason} ->
             Logger.error("Failed to send SNMP request: #{inspect(reason)}")
             GenServer.reply(request.from, {:error, reason})
@@ -509,7 +543,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
   defp build_snmp_message(request) do
     # Extract community from opts or use default
     community = Keyword.get(request.opts, :community, "public")
-    
+
     # Use existing PDU building functionality
     case request.type do
       :get ->
@@ -561,76 +595,40 @@ defmodule SnmpKit.SnmpMgr.Engine do
     end
   end
 
-
   defp handle_snmp_response_shared(state, _socket, message) do
     request_id = message.pdu.request_id
 
-    # Find the pending request
     case Map.get(state.pending_requests, request_id) do
       nil ->
         Logger.warning("Received response for unknown request ID: #{request_id}")
         state
-      
-      request ->
-        # Send response to caller
-        response_data = extract_response_data(message.pdu, request.type)
-        GenServer.reply(request.from, {:ok, response_data})
 
-        # Remove from pending requests
-        pending_requests = Map.delete(state.pending_requests, request_id)
-        
-        # Update metrics
-        response_time = System.monotonic_time(:millisecond) - request.submitted_at
-        metrics = update_metrics(state.metrics, :requests_completed, 1)
-        metrics = update_avg_response_time(metrics, response_time)
-        
-        %{state | pending_requests: pending_requests, metrics: metrics}
+      request ->
+        response_data = extract_response_data(message.pdu, request.type)
+        complete_request(state, request_id, {:ok, response_data})
     end
   end
 
-
-
-
   defp handle_request_timeout_shared(state, ref) do
-    # Find timed out request by ref
     case find_request_by_ref(state.pending_requests, ref) do
-      {request_id, request} ->
-        # Send timeout response to caller
-        GenServer.reply(request.from, {:error, :timeout})
+      {request_id, _request} ->
+        complete_request(state, request_id, {:error, :timeout})
 
-        # Remove from pending requests
-        pending_requests = Map.delete(state.pending_requests, request_id)
-        
-        # Update metrics
-        metrics = update_metrics(state.metrics, :requests_timeout, 1)
-        
-        %{state | pending_requests: pending_requests, metrics: metrics}
-        
       nil ->
         state
     end
   end
 
-
   defp handle_no_connections(state, requests) do
-    # Fail all requests due to no available connections
-    Enum.each(requests, fn request ->
-      GenServer.reply(request.from, {:error, :no_available_connections})
+    Enum.reduce(requests, state, fn request, acc ->
+      complete_request(acc, request.request_id, {:error, :no_available_connections})
     end)
-
-    # Update metrics
-    metrics = update_metrics(state.metrics, :requests_failed, length(requests))
-    %{state | metrics: metrics}
   end
 
   defp fail_requests(state, requests, error) do
-    Enum.each(requests, fn request ->
-      GenServer.reply(request.from, error)
+    Enum.reduce(requests, state, fn request, acc ->
+      complete_request(acc, request.request_id, error)
     end)
-
-    # Update metrics
-    metrics = update_metrics(state.metrics, :requests_failed, length(requests))
-    %{state | metrics: metrics}
   end
 
   defp circuit_breaker_allows?(_circuit_breakers, _target) do
@@ -647,11 +645,6 @@ defmodule SnmpKit.SnmpMgr.Engine do
     # Generate sequential request IDs for better correlation
     new_counter = rem(counter + 1, 1_000_000)
     {new_counter, new_counter}
-  end
-
-  defp generate_request_id() do
-    # Generate a random integer request ID similar to Core module
-    :rand.uniform(1_000_000)
   end
 
   defp update_metrics(metrics, key, value) do
@@ -682,6 +675,63 @@ defmodule SnmpKit.SnmpMgr.Engine do
     end)
   end
 
+  defp complete_request(state, request_id, result) do
+    case Map.get(state.pending_requests, request_id) do
+      nil ->
+        state
+
+      request ->
+        pending_requests = Map.delete(state.pending_requests, request_id)
+
+        state =
+          %{state | pending_requests: pending_requests}
+          |> update_completion_metrics(request, result)
+
+        if Map.has_key?(request, :batch_ref) do
+          complete_batch_member(state, request, result)
+        else
+          GenServer.reply(request.from, result)
+          state
+        end
+    end
+  end
+
+  defp complete_batch_member(state, request, result) do
+    batch = Map.fetch!(state.pending_batches, request.batch_ref)
+    results = Map.put(batch.results, request.batch_index, result)
+
+    if map_size(results) == batch.total do
+      ordered_results =
+        0..(batch.total - 1)
+        |> Enum.map(fn index -> Map.fetch!(results, index) end)
+
+      GenServer.reply(batch.from, {:ok, ordered_results})
+      %{state | pending_batches: Map.delete(state.pending_batches, request.batch_ref)}
+    else
+      pending_batches =
+        Map.put(state.pending_batches, request.batch_ref, %{batch | results: results})
+
+      %{state | pending_batches: pending_batches}
+    end
+  end
+
+  defp update_completion_metrics(state, request, {:ok, _result}) do
+    response_time = System.monotonic_time(:millisecond) - request.submitted_at
+    metrics = update_metrics(state.metrics, :requests_completed, 1)
+    metrics = update_avg_response_time(metrics, response_time)
+    %{state | metrics: metrics}
+  end
+
+  defp update_completion_metrics(state, _request, {:error, :timeout}) do
+    metrics = update_metrics(state.metrics, :requests_timeout, 1)
+    %{state | metrics: metrics}
+  end
+
+  defp update_completion_metrics(state, _request, {:error, _reason}) do
+    metrics = update_metrics(state.metrics, :requests_failed, 1)
+    %{state | metrics: metrics}
+  end
+
   defp extract_response_data(response_data, request_type) do
     # Extract and format response data based on request type
     case request_type do
@@ -692,7 +742,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
           %{"varbinds" => [varbind | _]} -> format_varbind(varbind)
           _ -> response_data
         end
-      
+
       :get_bulk ->
         # For GET_BULK requests, extract all varbinds
         case response_data do
@@ -700,7 +750,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
           %{"varbinds" => varbinds} -> Enum.map(varbinds, &format_varbind/1)
           _ -> response_data
         end
-      
+
       :walk ->
         # For WALK requests, format as walk results
         case response_data do
@@ -708,7 +758,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
           %{"varbinds" => varbinds} -> Enum.map(varbinds, &format_varbind/1)
           _ -> response_data
         end
-      
+
       _ ->
         response_data
     end
@@ -726,8 +776,10 @@ defmodule SnmpKit.SnmpMgr.Engine do
     case host do
       {a, b, c, d} when is_integer(a) and is_integer(b) and is_integer(c) and is_integer(d) ->
         "#{a}.#{b}.#{c}.#{d}"
+
       host when is_binary(host) ->
         host
+
       _ ->
         to_string(host)
     end

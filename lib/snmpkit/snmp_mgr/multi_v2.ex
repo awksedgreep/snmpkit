@@ -211,55 +211,216 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
     # Normalize mixed operations to standard format
     normalized_operations = normalize_mixed_operations(operations, opts)
 
-    # Execute using Task.async_stream for concurrency control
-    results =
-      normalized_operations
-      |> Task.async_stream(
-        fn operation -> execute_single_operation(operation, timeout) end,
-        max_concurrency: max_concurrent,
-        timeout:
-          if(Enum.any?(normalized_operations, fn op -> op.type in [:walk, :walk_table] end),
-            do: 1_200_000,
-            else: timeout + 1000
-          ),
-        on_timeout: :kill_task
-      )
-      |> Enum.map(fn
-        {:ok, result} -> result
-        {:exit, reason} -> {:error, {:task_failed, reason}}
-      end)
-
-    results
+    execute_mixed_without_tasks(normalized_operations, timeout, max_concurrent)
   end
 
   # Private functions
 
   defp execute_multi_operation(targets_and_data, operation_type, opts) do
-    # Ensure required components are running (idempotent)
-    ensure_components_started()
+    if targets_and_data == [] do
+      ensure_components_started()
+      format_results(targets_and_data, [], opts)
+    else
+      # Ensure required components are running (idempotent)
+      ensure_components_started()
 
-    timeout = Keyword.get(opts, :timeout, @default_timeout)
-    max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
+      timeout = Keyword.get(opts, :timeout, @default_timeout)
+      max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
 
-    # Normalize requests to standard format
-    normalized_requests = normalize_requests(targets_and_data, operation_type, opts)
+      # Normalize requests to standard format
+      normalized_requests = normalize_requests(targets_and_data, operation_type, opts)
 
-    # Execute using Task.async_stream for proper concurrency control
-    results =
-      normalized_requests
-      |> Task.async_stream(
-        fn request -> execute_single_operation(request, timeout) end,
-        max_concurrency: max_concurrent,
-        timeout: if(operation_type in [:walk, :walk_table], do: 1_200_000, else: timeout + 1000),
-        on_timeout: :kill_task
-      )
-      |> Enum.map(fn
-        {:ok, result} -> result
-        {:exit, reason} -> {:error, {:task_failed, reason}}
+      results =
+        if operation_type in [:walk, :walk_table] do
+          SnmpKit.SnmpMgr.V2Walk.walk_multi(normalized_requests,
+            timeout: timeout,
+            max_concurrent: max_concurrent
+          )
+        else
+          execute_non_walk_requests(normalized_requests, timeout, max_concurrent)
+        end
+
+      # Format results according to return_format option
+      format_results(targets_and_data, results, opts)
+    end
+  end
+
+  defp execute_mixed_without_tasks(requests, timeout, max_concurrent) do
+    indexed_requests = Enum.with_index(requests)
+
+    {walk_requests, non_walk_requests} =
+      Enum.split_with(indexed_requests, fn {request, _index} ->
+        request.type in [:walk, :walk_table]
       end)
 
-    # Format results according to return_format option
-    format_results(targets_and_data, results, opts)
+    non_walk_results =
+      non_walk_requests
+      |> Enum.map(&elem(&1, 0))
+      |> execute_non_walk_requests(timeout, max_concurrent)
+
+    walk_results =
+      walk_requests
+      |> Enum.map(&elem(&1, 0))
+      |> SnmpKit.SnmpMgr.V2Walk.walk_multi(timeout: timeout, max_concurrent: max_concurrent)
+
+    result_map =
+      indexed_result_map(non_walk_requests, non_walk_results)
+      |> Map.merge(indexed_result_map(walk_requests, walk_results))
+
+    ordered_results(requests, result_map)
+  end
+
+  defp indexed_result_map(indexed_requests, results) do
+    indexed_requests
+    |> Enum.zip(results)
+    |> Enum.into(%{}, fn {{_request, original_index}, result} -> {original_index, result} end)
+  end
+
+  defp ordered_results([], _result_map), do: []
+
+  defp ordered_results(requests, result_map) do
+    0..(length(requests) - 1)
+    |> Enum.map(fn index -> Map.get(result_map, index, {:error, :timeout}) end)
+  end
+
+  # For high-throughput get/get_bulk paths, keep one caller process and one shared UDP socket.
+  # Requests are launched up to max_concurrent and correlated back through EngineV2.
+  defp execute_non_walk_requests(requests, global_timeout, max_concurrent) do
+    socket = SnmpKit.SnmpMgr.SocketManager.get_socket()
+    queue = :queue.from_list(Enum.with_index(requests))
+
+    state = %{
+      socket: socket,
+      queue: queue,
+      pending: %{},
+      results: %{},
+      total: length(requests),
+      global_timeout: global_timeout,
+      max_concurrent: max(1, max_concurrent)
+    }
+
+    state
+    |> launch_pending_requests()
+    |> await_pending_requests()
+    |> build_ordered_results()
+  end
+
+  defp launch_pending_requests(state) do
+    if map_size(state.pending) >= state.max_concurrent or :queue.is_empty(state.queue) do
+      state
+    else
+      {{:value, {request, index}}, queue} = :queue.out(state.queue)
+      timeout = request_timeout(request, state.global_timeout)
+      request_id = SnmpKit.SnmpMgr.RequestIdGenerator.next_id()
+
+      pending_entry = %{index: index, timeout: timeout}
+
+      case dispatch_request(state.socket, request, request_id, timeout) do
+        :ok ->
+          launch_pending_requests(%{
+            state
+            | queue: queue,
+              pending: Map.put(state.pending, request_id, pending_entry)
+          })
+
+        {:error, reason} ->
+          launch_pending_requests(%{
+            state
+            | queue: queue,
+              results: Map.put(state.results, index, {:error, reason})
+          })
+      end
+    end
+  end
+
+  defp await_pending_requests(state) do
+    cond do
+      map_size(state.results) == state.total ->
+        state
+
+      map_size(state.pending) == 0 ->
+        state
+
+      true ->
+        receive_timeout = pending_receive_timeout(state.pending)
+
+        receive do
+          {:snmp_response, request_id, response_data} ->
+            state
+            |> complete_pending_request(request_id, {:ok, response_data})
+            |> launch_pending_requests()
+            |> await_pending_requests()
+
+          {:snmp_timeout, request_id} ->
+            state
+            |> complete_pending_request(request_id, {:error, :timeout})
+            |> launch_pending_requests()
+            |> await_pending_requests()
+        after
+          receive_timeout ->
+            state
+            |> fail_stuck_pending_requests()
+            |> launch_pending_requests()
+            |> await_pending_requests()
+        end
+    end
+  end
+
+  defp complete_pending_request(state, request_id, result) do
+    case Map.pop(state.pending, request_id) do
+      {nil, pending} ->
+        %{state | pending: pending}
+
+      {%{index: index}, pending} ->
+        %{state | pending: pending, results: Map.put(state.results, index, result)}
+    end
+  end
+
+  defp fail_stuck_pending_requests(state) do
+    Enum.reduce(state.pending, %{state | pending: %{}}, fn {request_id, %{index: index}}, acc ->
+      SnmpKit.SnmpMgr.EngineV2.unregister_request(SnmpKit.SnmpMgr.EngineV2, request_id)
+      %{acc | results: Map.put(acc.results, index, {:error, :timeout})}
+    end)
+  end
+
+  defp build_ordered_results(state) do
+    if state.total == 0 do
+      []
+    else
+      0..(state.total - 1)
+      |> Enum.map(fn index -> Map.get(state.results, index, {:error, :timeout}) end)
+    end
+  end
+
+  defp pending_receive_timeout(pending) do
+    pending
+    |> Map.values()
+    |> Enum.map(& &1.timeout)
+    |> Enum.max(fn -> @default_timeout end)
+    |> Kernel.+(1000)
+  end
+
+  defp dispatch_request(socket, request, request_id, timeout) do
+    SnmpKit.SnmpMgr.EngineV2.register_request(
+      SnmpKit.SnmpMgr.EngineV2,
+      request_id,
+      self(),
+      timeout
+    )
+
+    case build_and_send_packet(socket, request, request_id) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        SnmpKit.SnmpMgr.EngineV2.unregister_request(SnmpKit.SnmpMgr.EngineV2, request_id)
+        {:error, reason}
+    end
+  end
+
+  defp request_timeout(request, global_timeout) do
+    timeout = Keyword.get(request.opts, :timeout, global_timeout)
+    if is_integer(timeout) and timeout > 0, do: timeout, else: global_timeout
   end
 
   defp normalize_requests(targets_and_data, operation_type, global_opts) do
@@ -326,85 +487,6 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
           opts: global_opts
         }
     end)
-  end
-
-  defp execute_single_operation(request, global_timeout) do
-    # Use per-request timeout if specified, otherwise use global timeout
-    timeout = Keyword.get(request.opts, :timeout, global_timeout)
-
-    # Validate timeout is a positive integer
-    timeout = if is_integer(timeout) and timeout > 0, do: timeout, else: global_timeout
-
-    try do
-      case request.type do
-        :walk ->
-          # Use the proper walk implementation for walk operations
-          SnmpKit.SnmpMgr.V2Walk.walk(request, timeout)
-
-        :walk_table ->
-          # Use the proper walk implementation for table walks
-          SnmpKit.SnmpMgr.V2Walk.walk(request, timeout)
-
-        _ ->
-          # Handle single-request operations (get, get_bulk)
-          execute_single_request(request, timeout)
-      end
-    rescue
-      error ->
-        Logger.error("Error in execute_single_operation: #{inspect(error)}")
-        {:error, {:exception, error}}
-    end
-  end
-
-  defp execute_single_request(request, global_timeout) do
-    # Use per-request timeout if specified, otherwise use global timeout
-    timeout = Keyword.get(request.opts, :timeout, global_timeout)
-
-    # Validate timeout is a positive integer
-    timeout = if is_integer(timeout) and timeout > 0, do: timeout, else: global_timeout
-
-    try do
-      # Generate unique request ID
-      request_id = SnmpKit.SnmpMgr.RequestIdGenerator.next_id()
-
-      # Get shared socket
-      socket = SnmpKit.SnmpMgr.SocketManager.get_socket()
-
-      # Register for response correlation
-      SnmpKit.SnmpMgr.EngineV2.register_request(
-        SnmpKit.SnmpMgr.EngineV2,
-        request_id,
-        self(),
-        timeout
-      )
-
-      # Build and send SNMP packet
-      case build_and_send_packet(socket, request, request_id) do
-        :ok ->
-          # Wait for response
-          receive do
-            {:snmp_response, ^request_id, response_data} ->
-              {:ok, response_data}
-
-            {:snmp_timeout, ^request_id} ->
-              {:error, :timeout}
-          after
-            timeout ->
-              # Unregister if we timeout locally
-              SnmpKit.SnmpMgr.EngineV2.unregister_request(SnmpKit.SnmpMgr.EngineV2, request_id)
-              {:error, :timeout}
-          end
-
-        {:error, reason} ->
-          # Unregister if send fails
-          SnmpKit.SnmpMgr.EngineV2.unregister_request(SnmpKit.SnmpMgr.EngineV2, request_id)
-          {:error, reason}
-      end
-    rescue
-      error ->
-        Logger.error("Error in execute_single_request: #{inspect(error)}")
-        {:error, {:exception, error}}
-    end
   end
 
   defp build_and_send_packet(socket, request, request_id) do

@@ -91,7 +91,6 @@ defmodule SnmpKit.SnmpMgr.RouterIntegrationTest do
 
   describe "Router Strategy Configuration" do
     test "router supports different routing strategies", %{device: _device} do
-
       strategies = [:round_robin, :least_connections, :weighted]
 
       Enum.each(strategies, fn strategy ->
