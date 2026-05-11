@@ -45,13 +45,28 @@ defmodule SnmpKit.SnmpLib.ManagerTest do
     test "handles timeout options" do
       # Short timeout should fail quickly
       start_time = System.monotonic_time(:millisecond)
-      {:error, _} = Manager.get("192.0.2.1", [1, 3, 6, 1, 2, 1, 1, 1, 0], timeout: 50)
+
+      {:error, _} =
+        Manager.get("192.0.2.1", [1, 3, 6, 1, 2, 1, 1, 1, 0], timeout: 50, retries: 0)
+
       end_time = System.monotonic_time(:millisecond)
 
       # Should complete within reasonable time of timeout
       # Allow for overhead: socket creation, encoding, etc. can add ~25ms
       # Using 200ms threshold to avoid flaky tests under load
       assert end_time - start_time < 200
+    end
+
+    test "retries apply per timeout attempt" do
+      start_time = System.monotonic_time(:millisecond)
+
+      {:error, _} =
+        Manager.get("192.0.2.1", [1, 3, 6, 1, 2, 1, 1, 1, 0], timeout: 50, retries: 1)
+
+      duration = System.monotonic_time(:millisecond) - start_time
+
+      assert duration >= 100
+      assert duration < 300
     end
 
     test "normalizes OID formats correctly" do
@@ -597,13 +612,34 @@ defmodule SnmpKit.SnmpLib.ManagerTest do
     test "handles timeout options" do
       # Short timeout should fail quickly
       start_time = System.monotonic_time(:millisecond)
-      {:error, _} = Manager.get_next("192.0.2.1", [1, 3, 6, 1, 2, 1, 1, 1, 0], timeout: 50)
+
+      {:error, _} =
+        Manager.get_next("192.0.2.1", [1, 3, 6, 1, 2, 1, 1, 1, 0],
+          timeout: 50,
+          retries: 0
+        )
+
       end_time = System.monotonic_time(:millisecond)
 
       # Should complete within reasonable time of timeout
       # Allow for overhead: socket creation, encoding, etc. can add ~25ms
       # Using 200ms threshold to avoid flaky tests under load
       assert end_time - start_time < 200
+    end
+
+    test "get_next retries apply per timeout attempt" do
+      start_time = System.monotonic_time(:millisecond)
+
+      {:error, _} =
+        Manager.get_next("192.0.2.1", [1, 3, 6, 1, 2, 1, 1, 1, 0],
+          timeout: 50,
+          retries: 1
+        )
+
+      duration = System.monotonic_time(:millisecond) - start_time
+
+      assert duration >= 100
+      assert duration < 300
     end
 
     test "normalizes OID formats correctly" do

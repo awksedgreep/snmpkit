@@ -519,7 +519,12 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
       assert value == "Community Test Device"
 
       # Should fail with wrong community
-      assert {:error, _} = SNMP.get(target, "1.3.6.1.2.1.1.1.0", community: "wrong-community")
+      assert {:error, _} =
+               SNMP.get(target, "1.3.6.1.2.1.1.1.0",
+                 community: "wrong-community",
+                 timeout: 100,
+                 retries: 0
+               )
 
       Device.stop(device)
     end

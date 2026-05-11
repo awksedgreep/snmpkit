@@ -17,17 +17,19 @@ defmodule SnmpKit do
   - Controls how long to wait for each individual SNMP PDU response
   - Default: 10 seconds for GET/GETBULK, 30 seconds for walks
   - Applied per SNMP packet, not per operation
+  - Retries, when configured, are additional attempts for the same PDU
 
-  ### Task Timeout (internal)
+  ### Walk Timeout (`:walk_timeout` parameter)
   - Prevents operations from hanging indefinitely
-  - GET/GETBULK: PDU timeout + 1 second (safeguard)
-  - Walk operations: 20 minutes maximum (allows large table walks)
+  - Applies to the whole walk, while `:timeout` still applies to each PDU
+  - Defaults to a bounded long-running timeout for large table walks
 
   ### Walk Operations
   Walk operations may send many GETBULK PDUs to retrieve all data:
   - Each PDU has its own timeout (PDU timeout)
+  - A single-target regular walk reuses one private UDP socket for the walk
   - Large tables may need 50-200+ PDUs
-  - Total time = N_pdus × PDU_timeout (up to 20 minute maximum)
+  - Total time is bounded by `:walk_timeout`
 
   ## Quick Examples
 

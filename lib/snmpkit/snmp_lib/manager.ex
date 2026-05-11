@@ -124,18 +124,20 @@ defmodule SnmpKit.SnmpLib.Manager do
     with {:ok, socket} <- create_socket(opts) do
       Logger.debug("Socket created successfully")
 
-      case perform_get_operation(socket, host, normalized_oid, opts) do
-        {:ok, response} ->
-          Logger.debug("GET operation completed, extracting result")
-          :ok = close_socket(socket)
-          result = extract_get_result(response)
-          Logger.debug("Final GET result: #{inspect(result)}")
-          result
+      try do
+        case perform_get_operation(socket, host, normalized_oid, opts) do
+          {:ok, response} ->
+            Logger.debug("GET operation completed, extracting result")
+            result = extract_get_result(response)
+            Logger.debug("Final GET result: #{inspect(result)}")
+            result
 
-        {:error, reason} ->
-          Logger.debug("GET operation failed: #{inspect(reason)}")
-          :ok = close_socket(socket)
-          {:error, reason}
+          {:error, reason} ->
+            Logger.debug("GET operation failed: #{inspect(reason)}")
+            {:error, reason}
+        end
+      after
+        :ok = close_socket(socket)
       end
     else
       {:error, reason} ->
@@ -235,17 +237,29 @@ defmodule SnmpKit.SnmpLib.Manager do
   @spec get_bulk(host(), oid(), bulk_opts()) :: bulk_result()
   def get_bulk(host, base_oid, opts \\ []) do
     opts = merge_bulk_opts(opts)
+
+    with {:ok, socket} <- create_socket(opts) do
+      try do
+        get_bulk_with_socket(socket, host, base_oid, opts)
+      after
+        :ok = close_socket(socket)
+      end
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc false
+  def get_bulk_with_socket(socket, host, base_oid, opts \\ []) do
+    opts = merge_bulk_opts(opts)
     normalized_oid = normalize_oid(base_oid)
 
     # GETBULK requires SNMPv2c or higher
     if opts[:version] == :v1 do
       {:error, :getbulk_requires_v2c}
     else
-      with {:ok, socket} <- create_socket(opts),
-           {:ok, response} <- perform_bulk_operation(socket, host, normalized_oid, opts),
-           :ok <- close_socket(socket) do
-        extract_bulk_result(response)
-      else
+      case perform_bulk_operation(socket, host, normalized_oid, opts) do
+        {:ok, response} -> extract_bulk_result(response)
         {:error, reason} -> {:error, reason}
       end
     end
@@ -286,11 +300,15 @@ defmodule SnmpKit.SnmpLib.Manager do
     opts = merge_default_opts(opts)
     normalized_oid = normalize_oid(oid)
 
-    with {:ok, socket} <- create_socket(opts),
-         {:ok, response} <-
-           perform_set_operation(socket, host, normalized_oid, {type, value}, opts),
-         :ok <- close_socket(socket) do
-      extract_set_result(response)
+    with {:ok, socket} <- create_socket(opts) do
+      try do
+        case perform_set_operation(socket, host, normalized_oid, {type, value}, opts) do
+          {:ok, response} -> extract_set_result(response)
+          {:error, reason} -> {:error, reason}
+        end
+      after
+        :ok = close_socket(socket)
+      end
     else
       {:error, reason} -> {:error, reason}
     end
@@ -469,6 +487,7 @@ defmodule SnmpKit.SnmpLib.Manager do
     community = opts[:community] || @default_community
     version = opts[:version] || @default_version
     timeout = opts[:timeout] || @default_timeout
+    retries = normalize_retries(opts[:retries] || @default_retries)
     port_option = opts[:port] || @default_port
 
     # Parse target to handle both host:port strings and :port option
@@ -495,7 +514,14 @@ defmodule SnmpKit.SnmpLib.Manager do
     with {:ok, packet} <- SnmpKit.SnmpLib.PDU.encode_message(message) do
       Logger.debug("Encoded PDU packet for transmission")
 
-      case send_and_receive(socket, parsed_host, parsed_port, packet, timeout) do
+      case send_and_receive_with_retries(
+             socket,
+             parsed_host,
+             parsed_port,
+             packet,
+             timeout,
+             retries
+           ) do
         {:ok, response_packet} ->
           Logger.debug("Received response packet from network")
 
@@ -517,6 +543,28 @@ defmodule SnmpKit.SnmpLib.Manager do
       {:error, encode_reason} = encode_error ->
         Logger.error("PDU encode failed: #{inspect(encode_reason)}")
         encode_error
+    end
+  end
+
+  defp send_and_receive_with_retries(socket, host, port, packet, timeout, retries) do
+    max_attempts = max(1, retries + 1)
+    send_and_receive_attempt(socket, host, port, packet, timeout, max_attempts, 1)
+  end
+
+  defp normalize_retries(retries) when is_integer(retries) and retries >= 0, do: retries
+  defp normalize_retries(_), do: @default_retries
+
+  defp send_and_receive_attempt(socket, host, port, packet, timeout, max_attempts, attempt) do
+    case send_and_receive(socket, host, port, packet, timeout) do
+      {:error, :timeout} when attempt < max_attempts ->
+        Logger.debug(
+          "Timeout waiting for response on attempt #{attempt}/#{max_attempts}; retrying"
+        )
+
+        send_and_receive_attempt(socket, host, port, packet, timeout, max_attempts, attempt + 1)
+
+      result ->
+        result
     end
   end
 
@@ -713,18 +761,20 @@ defmodule SnmpKit.SnmpLib.Manager do
     with {:ok, socket} <- create_socket(opts) do
       Logger.debug("Socket created successfully for GETNEXT v1")
 
-      case perform_get_next_operation(socket, host, oid, opts) do
-        {:ok, response} ->
-          Logger.debug("GETNEXT v1 operation completed, extracting result")
-          :ok = close_socket(socket)
-          result = extract_get_next_result(response)
-          Logger.debug("Final GETNEXT v1 result: #{inspect(result)}")
-          result
+      try do
+        case perform_get_next_operation(socket, host, oid, opts) do
+          {:ok, response} ->
+            Logger.debug("GETNEXT v1 operation completed, extracting result")
+            result = extract_get_next_result(response)
+            Logger.debug("Final GETNEXT v1 result: #{inspect(result)}")
+            result
 
-        {:error, reason} ->
-          Logger.debug("GETNEXT v1 operation failed: #{inspect(reason)}")
-          :ok = close_socket(socket)
-          {:error, reason}
+          {:error, reason} ->
+            Logger.debug("GETNEXT v1 operation failed: #{inspect(reason)}")
+            {:error, reason}
+        end
+      after
+        :ok = close_socket(socket)
       end
     else
       {:error, reason} ->

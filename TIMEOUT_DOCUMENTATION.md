@@ -2,10 +2,10 @@
 
 ## Overview
 
-SnmpKit uses two distinct types of timeouts to handle SNMP operations safely and efficiently:
+SnmpKit uses separate per-PDU and whole-walk timeouts to handle SNMP operations safely and efficiently:
 
 1. **PDU Timeout** - How long to wait for each individual SNMP packet response
-2. **Task Timeout** - Maximum time allowed for entire operations to prevent hangs
+2. **Walk Timeout** - Maximum time allowed for an entire walk operation
 
 ## PDU Timeout (`:timeout` parameter)
 
@@ -20,6 +20,7 @@ The `:timeout` parameter controls how long to wait for each individual SNMP PDU 
 - Applied to each individual SNMP packet sent to the device
 - If a device doesn't respond within this time, that specific PDU times out
 - For multi-PDU operations (walks), each PDU gets its own timeout
+- In multi-target APIs, top-level `timeout:` is the default per-PDU timeout for each request
 
 ### Examples
 ```elixir
@@ -30,25 +31,21 @@ SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0", timeout: 5_000)
 SnmpKit.SNMP.walk("192.168.1.1", "ifTable", timeout: 15_000)
 ```
 
-## Task Timeout (internal protection)
+## Retries (`:retries` parameter)
 
-Task timeouts protect against operations hanging indefinitely due to bugs or network issues.
+`retries:` controls how many additional attempts are made after a per-PDU timeout. A request with `timeout: 10_000, retries: 2` can wait up to about 30 seconds for that one PDU before returning `{:error, :timeout}`.
 
-### Behavior by Operation Type
+Retries are per PDU, not per walk. If a walk sends 100 GETBULK PDUs, each PDU gets its own timeout and retry budget.
 
-#### GET/GETBULK Operations
-- **Task timeout**: `PDU_timeout + 1000ms`
-- **Purpose**: Quick safeguard against runaway single-PDU operations
-- **Example**: 10s PDU timeout → 11s task timeout
+## Walk Timeout (`:walk_timeout` parameter)
 
-#### Walk Operations  
-- **Task timeout**: 20 minutes (1,200,000 ms)
-- **Purpose**: Allow large table walks while preventing infinite hangs
-- **Rationale**: Large tables may need 100+ PDUs × 30s each = substantial time
+Walk timeouts protect against operations hanging indefinitely due to bugs, loops, or a device that stops making progress.
 
-#### Mixed Operations
-- **Task timeout**: 20 minutes if any walks present, otherwise `PDU_timeout + 1000ms`
-- **Purpose**: Apply appropriate timeout based on operation mix
+### Behavior
+- `timeout:` applies to each individual GETBULK PDU during the walk
+- `walk_timeout:` applies to the whole walk
+- Defaults allow long-running table walks while still preventing infinite hangs
+- User-specified `walk_timeout:` is capped internally to prevent runaway calls
 
 ## Walk Operations: Multi-PDU Behavior
 
@@ -65,20 +62,20 @@ PDU 2: Get OIDs 31-60   → 10s timeout → Success
 PDU 3: Get OIDs 61-90   → 10s timeout → Success
 ...
 Total time: ~50-100 seconds (varies by device response time)
-Task timeout: 20 minutes (allows operation to complete)
+Walk timeout: defaults to a long-running safety cap
 ```
 
 ### Why This Matters
-- **Before timeout fixes**: Operations failed after ~11 seconds regardless of PDU success
-- **After timeout fixes**: Operations can run up to 20 minutes as long as individual PDUs respond
+- **Per-PDU timeout**: Fails a single request when the device does not answer
+- **Walk timeout**: Fails the whole walk when the complete operation exceeds its safety cap
 
 ## Per-Request Timeout Override
 
-Individual requests can override the global timeout:
+Individual requests can override the default per-PDU timeout:
 
 ### Single Target Examples
 ```elixir
-# Global 10s timeout, but this device gets 30s
+# This walk gets 30s per GETBULK PDU
 SnmpKit.SNMP.walk("slow-device", "ifTable", timeout: 30_000)
 ```
 
@@ -86,10 +83,10 @@ SnmpKit.SNMP.walk("slow-device", "ifTable", timeout: 30_000)
 ```elixir
 # Different timeouts per device
 MultiV2.walk_multi([
-  {"fast-switch", "ifTable", [timeout: 5_000]},    # 5s per PDU
-  {"slow-router", "ifTable", [timeout: 30_000]},   # 30s per PDU  
-  {"normal-device", "ifTable"}                     # Uses global timeout
-], timeout: 15_000)  # Global: 15s per PDU
+  {"fast-switch", "ifTable", [timeout: 5_000]},    # 5s per PDU for this target
+  {"slow-router", "ifTable", [timeout: 30_000]},   # 30s per PDU for this target
+  {"normal-device", "ifTable"}                     # Uses the call default
+], timeout: 15_000)  # Default per-PDU timeout for requests without an override
 ```
 
 ## Common Timeout Scenarios
@@ -110,7 +107,7 @@ opts = [timeout: 30_000]  # 30 seconds
 ```elixir
 # Large routing/interface tables need longer per-PDU timeouts
 opts = [timeout: 45_000]  # 45 seconds per PDU
-# Task timeout automatically allows up to 20 minutes total
+# walk_timeout bounds the total walk separately
 ```
 
 ### Scenario 4: Mixed Network Performance
@@ -130,9 +127,9 @@ MultiV2.walk_multi([
 {:error, :timeout}  # Individual PDU timed out
 ```
 
-### Task Timeout Errors (should be rare after fixes)
+### Walk Timeout Errors
 ```elixir
-{:error, {:task_failed, :timeout}}  # Task killed by internal timeout
+{:error, :timeout}  # Whole walk exceeded walk_timeout
 ```
 
 ### Network Errors
@@ -151,9 +148,9 @@ SnmpKit.SNMP.walk(target, oid, timeout: 30_000)
 ```
 
 ### Problem: Large table walks failing  
-**Check**: Are you getting `{:task_failed, :timeout}` or `:timeout`?
-- `{:task_failed, :timeout}`: Internal task timeout (should be fixed)
-- `:timeout`: Individual PDU timeout (increase PDU timeout)
+**Check**: Is one PDU timing out, or is the whole walk exceeding `walk_timeout`?
+- Single PDU timeout: increase `timeout:` or lower `max_repetitions:`
+- Whole walk timeout: increase `walk_timeout:` or narrow the subtree
 
 ### Problem: Mixed performance in multi-target operations
 **Solution**: Use per-request timeout overrides
@@ -172,15 +169,15 @@ MultiV2.walk_multi([
 - `SnmpKit.SNMP.get_bulk(target, oid, opts)` - `:timeout` = PDU timeout
 
 ### Multi-Target Functions
-- `MultiV2.get_multi(targets, opts)` - Global PDU timeout
-- `MultiV2.walk_multi(targets, opts)` - Global per-PDU timeout
+- `MultiV2.get_multi(targets, opts)` - Top-level `timeout:` is the default per-PDU timeout
+- `MultiV2.walk_multi(targets, opts)` - Top-level `timeout:` is the default per-PDU timeout; `walk_timeout:` bounds each complete walk
 - Per-request: `{target, oid, [timeout: ms]}` - Override for specific request
 
 ### Timeout Parameters
-- **Global**: `timeout: milliseconds` in function options
+- **Call default**: `timeout: milliseconds` in function options
 - **Per-request**: `timeout: milliseconds` in individual request options
-- **Validation**: Non-positive values fall back to global timeout
-- **Task protection**: Automatic, no user configuration needed
+- **Walk cap**: `walk_timeout: milliseconds` in function or request options
+- **Validation**: Non-positive values fall back to the call default
 
 ## Migration Notes
 

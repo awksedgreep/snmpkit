@@ -99,14 +99,16 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
     case resolve_oid(table_oid) do
       {:ok, start_oid} ->
-        case bulk_walk_table(target, start_oid, start_oid, [], max_entries, opts) do
-          {:ok, results} ->
-            merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-            {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
+        with_private_socket(fn socket ->
+          case bulk_walk_table(socket, target, start_oid, start_oid, [], max_entries, opts) do
+            {:ok, results} ->
+              merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+              {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
 
-          error ->
-            error
-        end
+            error ->
+              error
+          end
+        end)
 
       error ->
         error
@@ -139,14 +141,16 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
     case resolve_oid(root_oid) do
       {:ok, start_oid} ->
-        case bulk_walk_subtree(target, start_oid, start_oid, [], max_entries, opts) do
-          {:ok, results} ->
-            merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-            {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
+        with_private_socket(fn socket ->
+          case bulk_walk_subtree(socket, target, start_oid, start_oid, [], max_entries, opts) do
+            {:ok, results} ->
+              merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+              {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
 
-          error ->
-            error
-        end
+            error ->
+              error
+          end
+        end)
 
       error ->
         error
@@ -198,7 +202,22 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
   # Private functions
 
-  defp bulk_walk_table(target, current_oid, root_oid, acc, remaining, opts) when remaining > 0 do
+  defp with_private_socket(fun) do
+    case SnmpKit.SnmpLib.Transport.create_client_socket() do
+      {:ok, socket} ->
+        try do
+          fun.(socket)
+        after
+          :ok = SnmpKit.SnmpLib.Transport.close_socket(socket)
+        end
+
+      {:error, reason} ->
+        {:error, {:socket_error, reason}}
+    end
+  end
+
+  defp bulk_walk_table(socket, target, current_oid, root_oid, acc, remaining, opts)
+       when remaining > 0 do
     max_repetitions =
       min(remaining, Keyword.get(opts, :max_repetitions, @default_max_repetitions))
 
@@ -207,7 +226,7 @@ defmodule SnmpKit.SnmpMgr.Bulk do
       |> Keyword.put(:max_repetitions, max_repetitions)
       |> Keyword.put(:version, :v2c)
 
-    case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, current_oid, bulk_opts) do
+    case SnmpKit.SnmpLib.Manager.get_bulk_with_socket(socket, target, current_oid, bulk_opts) do
       {:ok, results} ->
         # Filter results that are still within the table scope
         {in_scope, next_oid} = filter_table_results(results, root_oid)
@@ -216,7 +235,16 @@ defmodule SnmpKit.SnmpMgr.Bulk do
           {:ok, Enum.reverse(acc)}
         else
           new_acc = Enum.reverse(in_scope) ++ acc
-          bulk_walk_table(target, next_oid, root_oid, new_acc, remaining - length(in_scope), opts)
+
+          bulk_walk_table(
+            socket,
+            target,
+            next_oid,
+            root_oid,
+            new_acc,
+            remaining - length(in_scope),
+            opts
+          )
         end
 
       {:error, _} = error ->
@@ -224,11 +252,11 @@ defmodule SnmpKit.SnmpMgr.Bulk do
     end
   end
 
-  defp bulk_walk_table(_target, _current_oid, _root_oid, acc, 0, _opts) do
+  defp bulk_walk_table(_socket, _target, _current_oid, _root_oid, acc, 0, _opts) do
     {:ok, Enum.reverse(acc)}
   end
 
-  defp bulk_walk_subtree(target, current_oid, root_oid, acc, remaining, opts)
+  defp bulk_walk_subtree(socket, target, current_oid, root_oid, acc, remaining, opts)
        when remaining > 0 do
     max_repetitions =
       min(remaining, Keyword.get(opts, :max_repetitions, @default_max_repetitions))
@@ -245,7 +273,7 @@ defmodule SnmpKit.SnmpMgr.Bulk do
       "bulk_walk_subtree: current_oid=#{inspect(current_oid)}, remaining=#{remaining}, max_rep=#{max_repetitions}"
     )
 
-    case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, current_oid, bulk_opts) do
+    case SnmpKit.SnmpLib.Manager.get_bulk_with_socket(socket, target, current_oid, bulk_opts) do
       {:ok, results} ->
         Logger.debug("bulk_walk_subtree: got #{length(results)} raw results")
 
@@ -274,6 +302,7 @@ defmodule SnmpKit.SnmpMgr.Bulk do
           )
 
           bulk_walk_subtree(
+            socket,
             target,
             next_oid,
             root_oid,
@@ -289,7 +318,7 @@ defmodule SnmpKit.SnmpMgr.Bulk do
     end
   end
 
-  defp bulk_walk_subtree(_target, _current_oid, _root_oid, acc, 0, _opts) do
+  defp bulk_walk_subtree(_socket, _target, _current_oid, _root_oid, acc, 0, _opts) do
     {:ok, Enum.reverse(acc)}
   end
 

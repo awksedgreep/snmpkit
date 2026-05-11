@@ -541,7 +541,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
     task_timeout =
       requests
-      |> Enum.map(fn request -> Keyword.get(request.opts, :timeout, timeout) end)
+      |> Enum.map(fn request -> walk_timeout(request, timeout) end)
       |> Enum.max(fn -> timeout end)
       |> Kernel.+(1000)
 
@@ -561,4 +561,18 @@ defmodule SnmpKit.SnmpMgr.Multi do
       {:exit, reason} -> {:error, {:task_failed, reason}}
     end)
   end
+
+  defp walk_timeout(request, global_timeout) do
+    default_timeout = max(global_timeout * 10, 1_200_000)
+
+    request.opts
+    |> Keyword.get(:walk_timeout, default_timeout)
+    |> normalize_walk_timeout(default_timeout)
+  end
+
+  defp normalize_walk_timeout(timeout, _fallback) when is_integer(timeout) and timeout > 0 do
+    min(timeout, 1_800_000)
+  end
+
+  defp normalize_walk_timeout(_, fallback), do: min(fallback, 1_800_000)
 end
