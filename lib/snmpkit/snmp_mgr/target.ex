@@ -115,20 +115,15 @@ defmodule SnmpKit.SnmpMgr.Target do
   end
 
   @doc """
-  Validates that a target is reachable (basic connectivity check).
+  Validates that a target responds to an SNMP probe.
   """
   def validate_connectivity(%{host: host, port: port}, timeout \\ 5000) do
-    case :gen_tcp.connect(host, port, [], timeout) do
-      {:ok, socket} ->
-        :gen_tcp.close(socket)
-        :ok
-
-      {:error, :econnrefused} ->
-        # This is actually good - the port responded (even if it refused)
+    case SnmpKit.SnmpLib.Manager.ping(host, port: port, timeout: timeout, retries: 0) do
+      {:ok, :reachable} ->
         :ok
 
       {:error, reason} ->
-        {:error, {:connectivity_check_failed, reason}}
+        {:error, {:snmp_connectivity_check_failed, reason}}
     end
   end
 

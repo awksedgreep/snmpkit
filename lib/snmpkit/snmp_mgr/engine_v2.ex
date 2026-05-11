@@ -42,7 +42,7 @@ defmodule SnmpKit.SnmpMgr.EngineV2 do
       SnmpKit.SnmpMgr.EngineV2.register_request(engine, 12345, self(), 5000)
   """
   def register_request(engine, request_id, caller_pid, timeout_ms \\ 5000) do
-    GenServer.cast(engine, {:register_request, request_id, caller_pid, timeout_ms})
+    GenServer.call(engine, {:register_request, request_id, caller_pid, timeout_ms})
   end
 
   @doc """
@@ -95,7 +95,7 @@ defmodule SnmpKit.SnmpMgr.EngineV2 do
   end
 
   @impl true
-  def handle_cast({:register_request, request_id, caller_pid, timeout_ms}, state) do
+  def handle_call({:register_request, request_id, caller_pid, timeout_ms}, _from, state) do
     # Register the request for correlation
     pending_requests =
       Map.put(state.pending_requests, request_id, %{
@@ -117,13 +117,7 @@ defmodule SnmpKit.SnmpMgr.EngineV2 do
         metrics: metrics
     }
 
-    {:noreply, new_state}
-  end
-
-  @impl true
-  def handle_cast({:unregister_request, request_id}, state) do
-    new_state = remove_request(state, request_id)
-    {:noreply, new_state}
+    {:reply, :ok, new_state}
   end
 
   @impl true
@@ -150,6 +144,12 @@ defmodule SnmpKit.SnmpMgr.EngineV2 do
     end)
 
     {:stop, :normal, :ok, state}
+  end
+
+  @impl true
+  def handle_cast({:unregister_request, request_id}, state) do
+    new_state = remove_request(state, request_id)
+    {:noreply, new_state}
   end
 
   @impl true

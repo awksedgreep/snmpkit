@@ -36,6 +36,18 @@ defmodule SnmpKit.SnmpLib.TransportTest do
       :ok = Transport.close_socket(socket)
     end
 
+    test "creates client socket on explicit local port" do
+      {:ok, probe_socket} = Transport.create_server_socket(0, "127.0.0.1")
+      {:ok, {_address, local_port}} = Transport.get_socket_address(probe_socket)
+      :ok = Transport.close_socket(probe_socket)
+
+      {:ok, socket} =
+        Transport.create_client_socket(local_port: local_port, bind_address: "127.0.0.1")
+
+      {:ok, {{127, 0, 0, 1}, ^local_port}} = Transport.get_socket_address(socket)
+      :ok = Transport.close_socket(socket)
+    end
+
     test "rejects invalid port numbers" do
       assert {:error, :invalid_port} = Transport.create_socket("0.0.0.0", 0)
       assert {:error, :invalid_port} = Transport.create_socket("0.0.0.0", 65536)

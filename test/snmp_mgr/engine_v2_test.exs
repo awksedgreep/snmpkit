@@ -23,10 +23,7 @@ defmodule SnmpKit.SnmpMgr.EngineV2Test do
 
   test "registers and tracks requests", %{engine: engine} do
     # Register a request
-    EngineV2.register_request(engine, 12345, self(), 5000)
-
-    # Give it time to process
-    Process.sleep(1)
+    assert :ok = EngineV2.register_request(engine, 12345, self(), 5000)
 
     # Check it's tracked
     assert EngineV2.pending_count(engine) == 1
@@ -75,7 +72,7 @@ defmodule SnmpKit.SnmpMgr.EngineV2Test do
     send(engine, {:mock_response, 12345, mock_response_data})
 
     # Should receive the response
-    assert_receive {:snmp_response, 12345, response_data}, 100
+    assert_receive {:snmp_response, 12345, _response_data}, 100
 
     # Should be removed from pending
     assert EngineV2.pending_count(engine) == 0
@@ -134,30 +131,5 @@ defmodule SnmpKit.SnmpMgr.EngineV2Test do
 
     stats = EngineV2.get_stats(engine)
     assert stats.metrics.requests_completed == 3
-  end
-
-  # Helper function to build mock SNMP response
-  defp build_mock_snmp_response(request_id, value) do
-    # Build a minimal SNMP response that can be decoded
-    # This is a simplified version - in practice would use proper PDU building
-    varbind = {[1, 3, 6, 1, 2, 1, 1, 1, 0], :octet_string, value}
-
-    pdu = %{
-      request_id: request_id,
-      varbinds: [varbind]
-    }
-
-    message = %{
-      version: :v2c,
-      community: "public",
-      pdu: pdu
-    }
-
-    # This would normally be encoded properly, but for testing we'll
-    # mock the decode process by sending a pre-structured message
-    case SnmpKit.SnmpLib.PDU.encode_message(message) do
-      {:ok, encoded} -> encoded
-      _ -> "mock_response_#{request_id}"
-    end
   end
 end

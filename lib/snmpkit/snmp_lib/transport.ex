@@ -109,8 +109,10 @@ defmodule SnmpKit.SnmpLib.Transport do
   """
   @spec create_client_socket(socket_options()) :: {:ok, socket()} | {:error, atom()}
   def create_client_socket(options \\ []) do
-    # Use ephemeral port (0) for client connections - bypass validation for ephemeral ports
-    bind_address = "0.0.0.0"
+    # Use ephemeral port (0) for client connections unless a source port is requested.
+    bind_address = Keyword.get(options, :bind_address, "0.0.0.0")
+    local_port = Keyword.get(options, :local_port, 0)
+    socket_options = Keyword.drop(options, [:bind_address, :local_port])
 
     case resolve_address(bind_address) do
       {:ok, resolved_address} ->
@@ -123,7 +125,7 @@ defmodule SnmpKit.SnmpLib.Transport do
               {:recbuf, 65536},
               # Smaller send buffer for requests
               {:sndbuf, 8192}
-            ] ++ options
+            ] ++ socket_options
           )
 
         # Add IP binding if not 0.0.0.0
@@ -134,9 +136,9 @@ defmodule SnmpKit.SnmpLib.Transport do
             client_options
           end
 
-        case :gen_udp.open(0, [:binary | final_options]) do
+        case :gen_udp.open(local_port, [:binary | final_options]) do
           {:ok, socket} ->
-            Logger.debug("Created UDP socket bound to #{inspect(resolved_address)}:0")
+            Logger.debug("Created UDP socket bound to #{inspect(resolved_address)}:#{local_port}")
             {:ok, socket}
 
           {:error, reason} ->

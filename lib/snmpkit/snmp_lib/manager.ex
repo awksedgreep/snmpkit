@@ -351,13 +351,16 @@ defmodule SnmpKit.SnmpLib.Manager do
         normalized_oids = Enum.map(oids, &normalize_oid/1)
 
         with {:ok, socket} <- create_socket(opts) do
-          results = get_multi_with_socket(socket, host, normalized_oids, opts)
-          :ok = close_socket(socket)
+          try do
+            results = get_multi_with_socket(socket, host, normalized_oids, opts)
 
-          # Check if all operations failed due to network issues
-          case check_for_global_failure(results) do
-            {:global_failure, reason} -> {:error, reason}
-            :mixed_results -> {:ok, results}
+            # Check if all operations failed due to network issues
+            case check_for_global_failure(results) do
+              {:global_failure, reason} -> {:error, reason}
+              :mixed_results -> {:ok, results}
+            end
+          after
+            :ok = close_socket(socket)
           end
         else
           {:error, reason} -> {:error, reason}
@@ -450,8 +453,13 @@ defmodule SnmpKit.SnmpLib.Manager do
   ## Private Implementation
 
   # Socket management
-  defp create_socket(_opts) do
-    case SnmpKit.SnmpLib.Transport.create_client_socket() do
+  defp create_socket(opts) do
+    socket_opts =
+      opts
+      |> Keyword.take([:local_port, :bind_address, :recbuf, :sndbuf])
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+
+    case SnmpKit.SnmpLib.Transport.create_client_socket(socket_opts) do
       {:ok, socket} -> {:ok, socket}
       {:error, reason} -> {:error, {:socket_error, reason}}
     end
@@ -511,84 +519,135 @@ defmodule SnmpKit.SnmpLib.Manager do
     message = SnmpKit.SnmpLib.PDU.build_message(pdu, community, version)
     Logger.debug("Built SNMP message: #{inspect(message)}")
 
-    with {:ok, packet} <- SnmpKit.SnmpLib.PDU.encode_message(message) do
+    with {:ok, target_address} <- SnmpKit.SnmpLib.Transport.resolve_address(parsed_host),
+         {:ok, packet} <- SnmpKit.SnmpLib.PDU.encode_message(message) do
       Logger.debug("Encoded PDU packet for transmission")
 
       case send_and_receive_with_retries(
              socket,
-             parsed_host,
+             target_address,
              parsed_port,
              packet,
+             pdu.request_id,
              timeout,
              retries
            ) do
-        {:ok, response_packet} ->
+        {:ok, response_message} ->
           Logger.debug("Received response packet from network")
-
-          case SnmpKit.SnmpLib.PDU.decode_message(response_packet) do
-            {:ok, response_message} ->
-              Logger.debug("Decoded response message: #{inspect(response_message)}")
-              {:ok, response_message}
-
-            {:error, decode_reason} = decode_error ->
-              Logger.error("PDU decode failed: #{inspect(decode_reason)}")
-              decode_error
-          end
+          Logger.debug("Decoded response message: #{inspect(response_message)}")
+          {:ok, response_message}
 
         {:error, network_reason} = network_error ->
           Logger.error("Network operation failed: #{inspect(network_reason)}")
           network_error
       end
     else
-      {:error, encode_reason} = encode_error ->
-        Logger.error("PDU encode failed: #{inspect(encode_reason)}")
-        encode_error
+      {:error, reason} = error ->
+        Logger.error("PDU preparation failed: #{inspect(reason)}")
+        error
     end
   end
 
-  defp send_and_receive_with_retries(socket, host, port, packet, timeout, retries) do
+  defp send_and_receive_with_retries(socket, host, port, packet, request_id, timeout, retries) do
     max_attempts = max(1, retries + 1)
-    send_and_receive_attempt(socket, host, port, packet, timeout, max_attempts, 1)
+    send_and_receive_attempt(socket, host, port, packet, request_id, timeout, max_attempts, 1)
   end
 
   defp normalize_retries(retries) when is_integer(retries) and retries >= 0, do: retries
   defp normalize_retries(_), do: @default_retries
 
-  defp send_and_receive_attempt(socket, host, port, packet, timeout, max_attempts, attempt) do
-    case send_and_receive(socket, host, port, packet, timeout) do
+  defp send_and_receive_attempt(
+         socket,
+         host,
+         port,
+         packet,
+         request_id,
+         timeout,
+         max_attempts,
+         attempt
+       ) do
+    case send_and_receive(socket, host, port, packet, request_id, timeout) do
       {:error, :timeout} when attempt < max_attempts ->
         Logger.debug(
           "Timeout waiting for response on attempt #{attempt}/#{max_attempts}; retrying"
         )
 
-        send_and_receive_attempt(socket, host, port, packet, timeout, max_attempts, attempt + 1)
+        send_and_receive_attempt(
+          socket,
+          host,
+          port,
+          packet,
+          request_id,
+          timeout,
+          max_attempts,
+          attempt + 1
+        )
 
       result ->
         result
     end
   end
 
-  defp send_and_receive(socket, host, port, packet, timeout) do
+  defp send_and_receive(socket, host, port, packet, request_id, timeout) do
     # Normal send-and-receive flow
     with :ok <- SnmpKit.SnmpLib.Transport.send_packet(socket, host, port, packet) do
       Logger.debug("Packet sent successfully, waiting for response (timeout: #{timeout}ms)")
-
-      case SnmpKit.SnmpLib.Transport.receive_packet(socket, timeout) do
-        {:ok, {response_packet, _from_addr, _from_port}} ->
-          Logger.debug("Received response packet: #{byte_size(response_packet)} bytes")
-          {:ok, response_packet}
-
-        {:error, :timeout} = timeout_error ->
-          Logger.debug("Timeout waiting for response after #{timeout}ms")
-          timeout_error
-
-        {:error, reason} ->
-          Logger.debug("Error receiving response: #{inspect(reason)}")
-          {:error, {:network_error, reason}}
-      end
+      receive_matching_response(socket, host, port, request_id, timeout)
     else
       {:error, reason} ->
         Logger.debug("Error sending packet: #{inspect(reason)}")
+        {:error, {:network_error, reason}}
+    end
+  end
+
+  defp receive_matching_response(socket, host, port, request_id, timeout) do
+    deadline = System.monotonic_time(:millisecond) + timeout
+    receive_matching_response_loop(socket, host, port, request_id, deadline)
+  end
+
+  defp receive_matching_response_loop(socket, host, port, request_id, deadline) do
+    remaining = max(deadline - System.monotonic_time(:millisecond), 0)
+
+    case SnmpKit.SnmpLib.Transport.receive_packet(socket, remaining) do
+      {:ok, {response_packet, ^host, ^port}} ->
+        Logger.debug("Received response packet: #{byte_size(response_packet)} bytes")
+
+        case SnmpKit.SnmpLib.PDU.decode_message(response_packet) do
+          {:ok, %{pdu: %{request_id: ^request_id}} = response_message} ->
+            {:ok, response_message}
+
+          {:ok, %{pdu: %{request_id: other_request_id}}} ->
+            Logger.debug(
+              "Ignoring SNMP response for request_id=#{inspect(other_request_id)} while waiting for #{inspect(request_id)}"
+            )
+
+            receive_matching_response_loop(socket, host, port, request_id, deadline)
+
+          {:ok, response_message} ->
+            Logger.debug(
+              "Ignoring SNMP response without request_id: #{inspect(response_message)}"
+            )
+
+            receive_matching_response_loop(socket, host, port, request_id, deadline)
+
+          {:error, decode_reason} ->
+            Logger.debug("Ignoring undecodable SNMP packet: #{inspect(decode_reason)}")
+            receive_matching_response_loop(socket, host, port, request_id, deadline)
+        end
+
+      {:ok, {_response_packet, from_addr, from_port}} ->
+        Logger.debug(
+          "Ignoring UDP packet from #{inspect(from_addr)}:#{from_port} while waiting for #{inspect(host)}:#{port}"
+        )
+
+        receive_matching_response_loop(socket, host, port, request_id, deadline)
+
+      {:error, :timeout} = timeout_error ->
+        Logger.debug("Timeout waiting for matching response")
+        timeout_error
+
+      {:error, reason} ->
+        Logger.debug("Error receiving response: #{inspect(reason)}")
         {:error, {:network_error, reason}}
     end
   end
@@ -998,8 +1057,7 @@ defmodule SnmpKit.SnmpLib.Manager do
         # All operations failed, check if it's a consistent network error
         network_errors =
           Enum.filter(errors, fn
-            {_oid, {:error, {:network_error, _}}} -> true
-            _ -> false
+            {_oid, {:error, reason}} -> network_failure_reason?(reason)
           end)
 
         case length(network_errors) do
@@ -1016,4 +1074,18 @@ defmodule SnmpKit.SnmpLib.Manager do
         :mixed_results
     end
   end
+
+  defp network_failure_reason?({:network_error, _}), do: true
+  defp network_failure_reason?({:socket_error, _}), do: true
+
+  defp network_failure_reason?(reason)
+       when reason in [
+              :timeout,
+              :hostname_resolution_failed,
+              :invalid_address_format,
+              :invalid_ip_tuple
+            ],
+       do: true
+
+  defp network_failure_reason?(_), do: false
 end

@@ -69,6 +69,39 @@ defmodule SnmpKit.SnmpLib.ManagerTest do
       assert duration < 300
     end
 
+    test "ignores stale UDP responses with mismatched request ids" do
+      oid = [1, 3, 6, 1, 2, 1, 1, 1, 0]
+      {:ok, server_socket} = SnmpKit.SnmpLib.Transport.create_server_socket(0, "127.0.0.1")
+
+      {:ok, {_server_addr, server_port}} =
+        SnmpKit.SnmpLib.Transport.get_socket_address(server_socket)
+
+      server_task =
+        Task.async(fn ->
+          {:ok, {request_packet, from_addr, from_port}} =
+            SnmpKit.SnmpLib.Transport.receive_packet(server_socket, 500)
+
+          {:ok, request_message} = SnmpKit.SnmpLib.PDU.decode_message(request_packet)
+          request_id = request_message.pdu.request_id
+
+          stale_response = encode_response(request_id + 1, oid, "stale")
+          correct_response = encode_response(request_id, oid, "correct")
+
+          :ok = :gen_udp.send(server_socket, from_addr, from_port, stale_response)
+          :ok = :gen_udp.send(server_socket, from_addr, from_port, correct_response)
+        end)
+
+      assert {:ok, {:octet_string, "correct"}} =
+               Manager.get("127.0.0.1", oid,
+                 port: server_port,
+                 timeout: 500,
+                 retries: 0
+               )
+
+      Task.await(server_task, 500)
+      :ok = SnmpKit.SnmpLib.Transport.close_socket(server_socket)
+    end
+
     test "normalizes OID formats correctly" do
       # Both should work the same way
       list_oid = [1, 3, 6, 1, 2, 1, 1, 1, 0]
@@ -719,5 +752,16 @@ defmodule SnmpKit.SnmpLib.ManagerTest do
 
       assert {:error, _} = Manager.get_next("invalid.host.test", oid, opts_v2c)
     end
+  end
+
+  defp encode_response(request_id, oid, value) do
+    pdu =
+      SnmpKit.SnmpLib.PDU.build_response(request_id, 0, 0, [
+        {oid, :octet_string, value}
+      ])
+
+    message = SnmpKit.SnmpLib.PDU.build_message(pdu, "public", :v2c)
+    {:ok, encoded} = SnmpKit.SnmpLib.PDU.encode_message(message)
+    encoded
   end
 end

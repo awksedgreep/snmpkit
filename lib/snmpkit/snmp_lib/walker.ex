@@ -273,31 +273,37 @@ defmodule SnmpKit.SnmpLib.Walker do
 
   # Bulk walking implementation
   defp bulk_walk_table(host, table_oid, opts) do
-    initial_state = %{
-      host: host,
-      current_oid: table_oid,
-      table_prefix: table_oid,
-      accumulated: [],
-      opts: opts,
-      bulk_size: opts[:max_repetitions] || @default_max_repetitions,
-      adaptive_bulk: opts[:adaptive_bulk] || false
-    }
+    with_walk_socket(opts, fn socket ->
+      initial_state = %{
+        socket: socket,
+        host: host,
+        current_oid: table_oid,
+        table_prefix: table_oid,
+        accumulated: [],
+        opts: opts,
+        bulk_size: opts[:max_repetitions] || @default_max_repetitions,
+        adaptive_bulk: opts[:adaptive_bulk] || false
+      }
 
-    bulk_walk_loop(initial_state)
+      bulk_walk_loop(initial_state)
+    end)
   end
 
   defp bulk_walk_subtree(host, subtree_oid, opts) do
-    initial_state = %{
-      host: host,
-      current_oid: subtree_oid,
-      subtree_prefix: subtree_oid,
-      accumulated: [],
-      opts: opts,
-      bulk_size: opts[:max_repetitions] || @default_max_repetitions,
-      adaptive_bulk: opts[:adaptive_bulk] || false
-    }
+    with_walk_socket(opts, fn socket ->
+      initial_state = %{
+        socket: socket,
+        host: host,
+        current_oid: subtree_oid,
+        subtree_prefix: subtree_oid,
+        accumulated: [],
+        opts: opts,
+        bulk_size: opts[:max_repetitions] || @default_max_repetitions,
+        adaptive_bulk: opts[:adaptive_bulk] || false
+      }
 
-    bulk_walk_subtree_loop(initial_state)
+      bulk_walk_subtree_loop(initial_state)
+    end)
   end
 
   defp bulk_walk_loop(state) do
@@ -469,7 +475,8 @@ defmodule SnmpKit.SnmpLib.Walker do
 
   # Request operations
   defp perform_bulk_request(state) do
-    SnmpKit.SnmpLib.Manager.get_bulk(
+    SnmpKit.SnmpLib.Manager.get_bulk_with_socket(
+      state.socket,
       state.host,
       state.current_oid,
       merge_bulk_options(state.opts, state.bulk_size)
@@ -478,15 +485,22 @@ defmodule SnmpKit.SnmpLib.Walker do
 
   # Streaming implementation
   defp init_streaming_state(host, table_oid, opts) do
-    %{
-      host: host,
-      current_oid: table_oid,
-      table_prefix: table_oid,
-      opts: opts,
-      bulk_size: opts[:max_repetitions] || @default_max_repetitions,
-      chunk_size: opts[:chunk_size] || 25,
-      finished: false
-    }
+    case create_walk_socket(opts) do
+      {:ok, socket} ->
+        %{
+          socket: socket,
+          host: host,
+          current_oid: table_oid,
+          table_prefix: table_oid,
+          opts: opts,
+          bulk_size: opts[:max_repetitions] || @default_max_repetitions,
+          chunk_size: opts[:chunk_size] || 25,
+          finished: false
+        }
+
+      {:error, reason} ->
+        %{socket: nil, finished: true, error: reason}
+    end
   end
 
   defp get_next_chunk(%{finished: true}), do: {:halt, nil}
@@ -517,6 +531,10 @@ defmodule SnmpKit.SnmpLib.Walker do
       {:error, _reason} ->
         {:halt, nil}
     end
+  end
+
+  defp cleanup_streaming_state(%{socket: socket}) when not is_nil(socket) do
+    SnmpKit.SnmpLib.Transport.close_socket(socket)
   end
 
   defp cleanup_streaming_state(_state), do: :ok
@@ -617,5 +635,28 @@ defmodule SnmpKit.SnmpLib.Walker do
     # Ensure bulk_size is within reasonable bounds
     adjusted_bulk_size = max(@min_bulk_size, min(@max_bulk_size, bulk_size))
     Keyword.merge(opts, max_repetitions: adjusted_bulk_size)
+  end
+
+  defp with_walk_socket(opts, fun) do
+    case create_walk_socket(opts) do
+      {:ok, socket} ->
+        try do
+          fun.(socket)
+        after
+          :ok = SnmpKit.SnmpLib.Transport.close_socket(socket)
+        end
+
+      {:error, reason} ->
+        {:error, {:socket_error, reason}}
+    end
+  end
+
+  defp create_walk_socket(opts) do
+    socket_opts =
+      opts
+      |> Keyword.take([:local_port, :bind_address, :recbuf, :sndbuf])
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+
+    SnmpKit.SnmpLib.Transport.create_client_socket(socket_opts)
   end
 end
