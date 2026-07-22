@@ -14,8 +14,6 @@ defmodule SnmpKit.SnmpSim.Device.ModemUpgrade do
   - Errors map to SNMP statuses at the PDU processor layer; here we return pure state and let callers map to errors.
   """
 
-  require Logger
-
   @type t :: %{
           server: String.t(),
           filename: String.t(),

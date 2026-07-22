@@ -32,8 +32,6 @@ defmodule SnmpKit.SnmpLib.HostParser do
   `{:error, reason}` for invalid input
   """
 
-  require Logger
-
   @type ip4_tuple :: {0..255, 0..255, 0..255, 0..255}
   @type ip6_tuple ::
           {0..65535, 0..65535, 0..65535, 0..65535, 0..65535, 0..65535, 0..65535, 0..65535}

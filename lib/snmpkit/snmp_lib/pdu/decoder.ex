@@ -169,7 +169,7 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
     num_length_bytes = length_of_length - 128
 
     if num_length_bytes > 0 and num_length_bytes <= 4 and byte_size(rest) >= num_length_bytes do
-      <<length_bytes::binary-size(num_length_bytes), remaining::binary>> = rest
+      <<length_bytes::binary-size(^num_length_bytes), remaining::binary>> = rest
       actual_length = :binary.decode_unsigned(length_bytes, :big)
 
       if byte_size(remaining) >= actual_length do
@@ -237,7 +237,7 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
     num_length_bytes = length_of_length - 128
 
     if num_length_bytes > 0 and num_length_bytes <= 4 and byte_size(rest) >= num_length_bytes do
-      <<length_bytes::binary-size(num_length_bytes), remaining_with_content::binary>> = rest
+      <<length_bytes::binary-size(^num_length_bytes), remaining_with_content::binary>> = rest
       actual_length = :binary.decode_unsigned(length_bytes, :big)
 
       if byte_size(remaining_with_content) >= actual_length do

@@ -43,8 +43,6 @@ defmodule SnmpKit.SnmpLib.Walker do
                                               max_repetitions: 50, timeout: 15_000)
   """
 
-  require Logger
-
   @default_max_repetitions 30
   @default_timeout 10_000
   @default_max_retries 3

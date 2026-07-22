@@ -6,8 +6,6 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
   that can be used by any SNMP application (managers, simulators, etc.).
   """
 
-  require Logger
-
   @standard_mibs %{
     # System group (1.3.6.1.2.1.1)
     "sysDescr" => [1, 3, 6, 1, 2, 1, 1, 1],

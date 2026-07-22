@@ -479,7 +479,7 @@ defmodule SnmpKit.SnmpLib.ASN1 do
         {:error, :length_too_large}
       else
         case rest do
-          <<length_bytes::binary-size(num_octets), remaining::binary>> ->
+          <<length_bytes::binary-size(^num_octets), remaining::binary>> ->
             length = :binary.decode_unsigned(length_bytes, :big)
             {:ok, {length, remaining}}
 

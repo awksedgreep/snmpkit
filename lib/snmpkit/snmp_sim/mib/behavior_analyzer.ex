@@ -15,8 +15,6 @@ defmodule SnmpKit.SnmpSim.MIB.BehaviorAnalyzer do
   Analyze object names, descriptions, and types to infer simulation patterns.
   """
 
-  require Logger
-
   @doc """
   Analyze a MIB object and determine its simulation behavior.
 

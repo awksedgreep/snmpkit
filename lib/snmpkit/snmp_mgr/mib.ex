@@ -9,7 +9,6 @@ defmodule SnmpKit.SnmpMgr.MIB do
   """
 
   use GenServer
-  require Logger
 
   @standard_mibs %{
     # System group (1.3.6.1.2.1.1)

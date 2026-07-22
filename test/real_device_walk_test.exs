@@ -98,13 +98,19 @@ defmodule SnmpKit.RealDeviceWalkTest do
           IO.puts("Single walk results: #{length(single_data)}")
           IO.puts("Multi walk results: #{length(multi_data)}")
 
-          if length(single_data) > 1 and length(multi_data) == 1 do
-            IO.puts("🐛 BUG CONFIRMED: walk_multi only returned 1 result while single walk returned #{length(single_data)}")
-            IO.puts("This is the 'first OID only' bug!")
-          elsif length(single_data) == length(multi_data) do
-            IO.puts("✅ Both operations returned the same number of results")
-          else
-            IO.puts("⚠️  Different result counts - needs investigation")
+          cond do
+            length(single_data) > 1 and length(multi_data) == 1 ->
+              IO.puts(
+                "🐛 BUG CONFIRMED: walk_multi only returned 1 result while single walk returned #{length(single_data)}"
+              )
+
+              IO.puts("This is the 'first OID only' bug!")
+
+            length(single_data) == length(multi_data) ->
+              IO.puts("✅ Both operations returned the same number of results")
+
+            true ->
+              IO.puts("⚠️  Different result counts - needs investigation")
           end
 
         _ ->
@@ -161,7 +167,11 @@ defmodule SnmpKit.RealDeviceWalkTest do
         IO.puts("\n🐛 BUG PATTERN DETECTED!")
         IO.puts("All successful walks returned exactly 1 result.")
         IO.puts("This strongly indicates the 'first OID only' bug in walk_multi.")
-        IO.puts("Expected: Each device should return multiple OIDs from system subtree (sysDescr, sysObjectID, sysUpTime, etc.)")
+
+        IO.puts(
+          "Expected: Each device should return multiple OIDs from system subtree (sysDescr, sysObjectID, sysUpTime, etc.)"
+        )
+
         IO.puts("Actual: Each device only returns sysDescr (first OID)")
       end
     end
@@ -181,6 +191,7 @@ defmodule SnmpKit.RealDeviceWalkTest do
       case direct_walk_result do
         {:ok, data} ->
           IO.puts("   Walk.walk returned #{length(data)} results")
+
         {:error, reason} ->
           IO.puts("   Walk.walk failed: #{inspect(reason)}")
       end
@@ -193,8 +204,10 @@ defmodule SnmpKit.RealDeviceWalkTest do
       case multi_result do
         [{:ok, data}] ->
           IO.puts("   Multi.walk_multi returned #{length(data)} results")
+
         [{:error, reason}] ->
           IO.puts("   Multi.walk_multi failed: #{inspect(reason)}")
+
         other ->
           IO.puts("   Multi.walk_multi unexpected result: #{inspect(other)}")
       end
@@ -234,6 +247,7 @@ defmodule SnmpKit.RealDeviceWalkTest do
       case single_bulk do
         {:ok, data} ->
           IO.puts("Single get_bulk: #{length(data)} results")
+
         {:error, reason} ->
           IO.puts("Single get_bulk failed: #{inspect(reason)}")
       end
@@ -245,8 +259,10 @@ defmodule SnmpKit.RealDeviceWalkTest do
       case multi_bulk do
         [{:ok, data}] ->
           IO.puts("Multi get_bulk: #{length(data)} results")
+
         [{:error, reason}] ->
           IO.puts("Multi get_bulk failed: #{inspect(reason)}")
+
         other ->
           IO.puts("Multi get_bulk unexpected: #{inspect(other)}")
       end

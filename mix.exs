@@ -4,18 +4,12 @@ defmodule Snmpkit.MixProject do
   def project do
     [
       app: :snmpkit,
-      version: "1.3.23",
+      version: "1.3.24",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       test_pattern: "**/*_test.exs",
       test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.detail": :test,
-        "coveralls.post": :test,
-        "coveralls.html": :test
-      ],
       compilers: [:yecc] ++ Mix.compilers(),
       deps: deps(),
       dialyzer: dialyzer(),
@@ -24,6 +18,17 @@ defmodule Snmpkit.MixProject do
       description: description(),
       package: package(),
       docs: docs()
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ]
     ]
   end
 
@@ -75,8 +80,7 @@ defmodule Snmpkit.MixProject do
         "GitHub" => "https://github.com/awksedgreep/snmpkit",
         "Documentation" => "https://hexdocs.pm/snmpkit"
       },
-      files: ~w(lib priv src mix.exs README.md LICENSE.md),
-      exclude_patterns: ["priv/walks/*"]
+      files: ~w(lib priv/walks src mix.exs README.md LICENSE.md)
     ]
   end
 
@@ -92,6 +96,7 @@ defmodule Snmpkit.MixProject do
         "docs/unified-api-guide.md",
         "docs/enriched-output-migration.md",
         "docs/concurrent-multi.md",
+        "docs/v1.3.24-release-notes.md",
         "docs/v1.3.23-release-notes.md",
         "docs/v1.3.22-release-notes.md",
         "docs/v1.3.21-release-notes.md",

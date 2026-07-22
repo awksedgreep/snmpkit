@@ -57,8 +57,6 @@ defmodule SnmpKit.SnmpLib.Utils do
       formatted_time = SnmpKit.SnmpLib.Utils.format_response_time(time_us)
   """
 
-  require Logger
-
   @type oid :: [non_neg_integer()]
   @type snmp_value :: any()
   @type varbind :: {oid(), snmp_value()}

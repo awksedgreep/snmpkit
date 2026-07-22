@@ -13,6 +13,9 @@ ExUnit.configure(
   max_cases: System.schedulers_online() * 2,
   exclude: [
     # Optional test categories - can be included with mix test --include tag_name
+    # Tests that require explicitly configured network hardware
+    :manual,
+    :real_device,
     # Slow running tests
     # :slow,
     # Integration tests
