@@ -693,8 +693,6 @@ defmodule SnmpKit.MIB.Parser do
     end
   end
 
-  defp convert_deep_charlist(other), do: other
-
   defp is_list_of_charlists?(list) do
     Enum.all?(list, fn
       sublist when is_list(sublist) -> is_charlist?(sublist)

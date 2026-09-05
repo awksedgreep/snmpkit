@@ -116,8 +116,6 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
     end
   end
 
-  defp peek_version(_), do: {:error, :invalid_data}
-
   @doc """
   Alias for decode/1.
   """

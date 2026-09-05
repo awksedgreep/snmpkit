@@ -276,9 +276,6 @@ defmodule SnmpKit.SnmpSim.Device.BuiltinValues do
         {:ok, {_oid, type, value}} ->
           {next_oid, type, value}
 
-        {:ok, value} ->
-          {next_oid, :unknown, value}
-
         {:error, _} ->
           # If we can't get a value for this OID, try the next one recursively
           get_fallback_next_oid(next_oid, state)
@@ -297,9 +294,6 @@ defmodule SnmpKit.SnmpSim.Device.BuiltinValues do
 
           {:ok, {_oid, type, value}} ->
             {next_oid, type, value}
-
-          {:ok, value} ->
-            {next_oid, :unknown, value}
 
           {:error, _} ->
             get_fallback_next_oid(next_oid, state)

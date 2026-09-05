@@ -451,8 +451,6 @@ defmodule SnmpKit.SnmpSim.Device do
     formatted_result =
       case result do
         {:ok, {oid, type, value}} -> {:ok, {OidHandler.oid_to_string(oid), type, value}}
-        {:ok, {oid, value}} -> {:ok, {OidHandler.oid_to_string(oid), :octet_string, value}}
-        {:ok, value} -> {:ok, value}
         error -> error
       end
 
@@ -836,8 +834,6 @@ defmodule SnmpKit.SnmpSim.Device do
       |> Enum.map(fn {oid, _} ->
         case SnmpKit.SnmpSim.Device.OidHandler.get_next_oid_value(device_type, oid, device_state) do
           {:ok, {next_oid, type, value}} -> {next_oid, type, value}
-          {:ok, {next_oid, value}} -> {next_oid, :octet_string, value}
-          {:ok, value} -> {oid, :octet_string, value}
           {:error, _} -> {oid, :no_such_name, :null}
         end
       end)
@@ -859,16 +855,6 @@ defmodule SnmpKit.SnmpSim.Device do
             {:ok, {next_oid, type, value}} ->
               result = {next_oid, type, value}
               Logger.debug(fn -> "GETBULK got next_oid result: #{inspect(result)}" end)
-              {:cont, acc ++ [result]}
-
-            {:ok, {next_oid, value}} ->
-              result = {next_oid, :octet_string, value}
-              Logger.debug(fn -> "GETBULK got next_oid result (2-tuple): #{inspect(result)}" end)
-              {:cont, acc ++ [result]}
-
-            {:ok, value} ->
-              result = {current_oid, :octet_string, value}
-              Logger.debug(fn -> "GETBULK got value result: #{inspect(result)}" end)
               {:cont, acc ++ [result]}
 
             {:error, reason} ->

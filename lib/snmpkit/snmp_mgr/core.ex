@@ -450,10 +450,6 @@ defmodule SnmpKit.SnmpMgr.Core do
               {:ok, oid_list} when is_list(oid_list) and length(oid_list) > 0 ->
                 {:ok, oid_list}
 
-              {:ok, []} ->
-                # Empty result fallback
-                {:ok, [1, 3]}
-
               {:error, _} ->
                 # Fall back to MIB GenServer for container OIDs like "system", "interfaces"
                 case SnmpKit.SnmpMgr.MIB.resolve(trimmed) do

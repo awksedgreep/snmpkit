@@ -676,8 +676,6 @@ defmodule SnmpKit.SnmpLib.Utils do
       d >= 0 and d <= 255
   end
 
-  defp valid_ip_tuple?(_), do: false
-
   defp valid_ipv6_tuple?({a, b, c, d, e, f, g, h})
        when is_integer(a) and is_integer(b) and is_integer(c) and is_integer(d) and
               is_integer(e) and is_integer(f) and is_integer(g) and is_integer(h) do
@@ -690,8 +688,6 @@ defmodule SnmpKit.SnmpLib.Utils do
       g >= 0 and g <= 65535 and
       h >= 0 and h <= 65535
   end
-
-  defp valid_ipv6_tuple?(_), do: false
 
   defp is_ipv4_or_simple_hostname?(host_str) do
     # Check if it looks like IPv4 (has 3 dots and only digits/dots)

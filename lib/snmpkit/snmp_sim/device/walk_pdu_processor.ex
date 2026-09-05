@@ -353,10 +353,6 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
         )
 
         {:error, :no_such_name}
-
-      :not_found ->
-        Logger.debug("WalkPduProcessor: No next OID found for #{oid_string}")
-        {:error, :no_such_name}
     end
   end
 
@@ -467,9 +463,6 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
               {:ok, {type, value}} ->
                 {oid_list, type, value}
 
-              :not_found ->
-                {oid_list, :no_such_object, {:no_such_object, nil}}
-
               {:error, :no_such_name} ->
                 {oid_list, :no_such_object, {:no_such_object, nil}}
 
@@ -539,9 +532,6 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
               {:ok, {type, value}} ->
                 {next_oid, type, value}
 
-              :not_found ->
-                {next_oid, :no_such_object, {:no_such_object, nil}}
-
               {:error, reason} ->
                 Logger.debug(
                   "WalkPduProcessor: Failed to get value for #{next_oid_string}: #{inspect(reason)}"
@@ -562,10 +552,6 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
 
         oid_list = normalize_oid_to_list(oid)
         {oid_list, :no_such_object, {:no_such_object, nil}}
-
-      :not_found ->
-        # No successor: end of MIB view
-        {normalize_oid_to_list(oid), :end_of_mib_view, {:end_of_mib_view, nil}}
     end
   end
 

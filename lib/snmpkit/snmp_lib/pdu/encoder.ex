@@ -76,8 +76,6 @@ defmodule SnmpKit.SnmpLib.PDU.Encoder do
       case encode_pdu_fast(pdu) do
         {:ok, result} when is_binary(result) -> {:ok, result}
         {:error, reason} -> {:error, reason}
-        result when is_binary(result) -> {:ok, result}
-        other -> {:error, {:invalid_pdu_result, other}}
       end
     rescue
       error -> {:error, {:encoding_error, error}}

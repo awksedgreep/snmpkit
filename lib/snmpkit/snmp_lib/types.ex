@@ -674,8 +674,6 @@ defmodule SnmpKit.SnmpLib.Types do
   defp perform_encoding(value, :object_identifier) when is_list(value), do: {:ok, value}
   defp perform_encoding(value, :oid) when is_list(value), do: {:ok, value}
   defp perform_encoding(_value, :null), do: {:ok, nil}
-  defp perform_encoding(nil, :null), do: {:ok, nil}
-  defp perform_encoding(:null, :null), do: {:ok, nil}
   defp perform_encoding(value, :opaque) when is_binary(value), do: {:ok, value}
 
   # Handle IP address encoding
@@ -744,7 +742,6 @@ defmodule SnmpKit.SnmpLib.Types do
   defp validate_encoded_value(:boolean, value) when is_boolean(value), do: :ok
   defp validate_encoded_value(:boolean, _), do: {:error, :not_boolean}
   defp validate_encoded_value(:null, _), do: :ok
-  defp validate_encoded_value(_, _), do: :ok
 
   # Check if a string looks like an IP address
   defp ip_address_string?(value) when is_binary(value) do
@@ -773,8 +770,6 @@ defmodule SnmpKit.SnmpLib.Types do
       end) and length(list) >= 2
     end
   end
-
-  defp oid_list?(_), do: false
 
   ## Private Helper Functions
 

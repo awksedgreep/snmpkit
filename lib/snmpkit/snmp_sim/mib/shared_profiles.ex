@@ -258,11 +258,8 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
               {:error, {:mib_load_failed, %{__exception__: true} = exception}} ->
                 "MIB load failed: #{Exception.message(exception)}"
 
-              {:error, {:mib_load_failed, reason}} when is_binary(reason) or is_atom(reason) ->
-                "MIB load failed: #{reason}"
-
-              {:error, reason} when is_binary(reason) or is_atom(reason) ->
-                "Error: #{reason}"
+              {:error, {:mib_load_failed, reason}} ->
+                "MIB load failed: #{inspect(reason)}"
 
               other ->
                 "Unexpected error: #{inspect(other, pretty: true)}"
