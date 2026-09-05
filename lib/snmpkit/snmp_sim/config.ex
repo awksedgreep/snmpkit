@@ -142,6 +142,9 @@ defmodule SnmpKit.SnmpSim.Config do
     {:ok, devices}
   end
 
+  # A bare simulator config (without the :snmp_sim wrapper) is accepted too
+  def start_from_config(config) when is_map(config), do: start_from_config(%{snmp_sim: config})
+
   @doc """
   Validates a configuration map and provides helpful error messages.
   """
@@ -497,12 +500,15 @@ defmodule SnmpKit.SnmpSim.Config do
       for i <- 0..(count - 1) do
         port = start_port + i
 
-        device_config = %{
-          port: port,
-          device_type: normalize_device_type(group[:device_type] || "cable_modem"),
-          device_id: "#{group[:name]}_#{port}",
-          community: group[:community] || "public"
-        }
+        device_config =
+          %{
+            port: port,
+            device_type: normalize_device_type(group[:device_type] || "cable_modem"),
+            device_id: "#{group[:name]}_#{port}",
+            community: group[:community] || "public"
+          }
+          |> maybe_put(:walk_file, group[:walk_file])
+          |> maybe_put(:upgrade_enabled, group[:upgrade_enabled])
 
         case DynamicSupervisor.start_child(SnmpSim.DeviceSupervisor, {Device, device_config}) do
           {:ok, device} ->
@@ -529,6 +535,9 @@ defmodule SnmpKit.SnmpSim.Config do
 
     successful_devices
   end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp parse_behaviors(behaviors) when is_list(behaviors) do
     Enum.map(behaviors, fn behavior ->

@@ -1,0 +1,225 @@
+defmodule SnmpKit.SnmpSim do
+  @moduledoc """
+  Top-level API for the SNMP device simulator.
+
+  The simulator can be driven two ways:
+
+  * **Programmatically**, one device at a time, with `start_device/2` (or the
+    `SnmpKit.Sim` facade) and a profile from `SnmpKit.SnmpSim.ProfileLoader`.
+  * **From a configuration**, describing whole device groups, with `start/1`
+    or `start_link/1`. The configuration is a map (see `sample_config/0`) or
+    the path of a JSON / YAML file (see `load_config/1`).
+
+  Devices started from a configuration run under the application's device
+  supervisor (`SnmpSim.DeviceSupervisor`), so they survive the caller and can
+  be inspected with `list_devices/0` and torn down with `stop/0`.
+
+  ## Example
+
+      config = %{
+        snmp_sim: %{
+          device_groups: [
+            %{
+              name: "cable_modems",
+              device_type: "cable_modem",
+              count: 10,
+              port_range: %{start: 30_000, end: 30_009},
+              community: "public",
+              walk_file: "priv/walks/cable_modem.walk"
+            }
+          ]
+        }
+      }
+
+      {:ok, _supervisor} = SnmpKit.SnmpSim.start(config)
+      10 = SnmpKit.SnmpSim.device_count()
+      {:ok, %{value: descr}} = SnmpKit.SNMP.get("127.0.0.1", "sysDescr.0", port: 30_000)
+      :ok = SnmpKit.SnmpSim.stop()
+  """
+
+  alias SnmpKit.SnmpSim.{Config, Device}
+
+  @supervisor SnmpSim.DeviceSupervisor
+
+  @type config :: map() | Path.t()
+  @type device_info :: %{
+          pid: pid(),
+          device_id: binary() | nil,
+          device_type: atom() | binary() | nil,
+          port: non_neg_integer() | nil
+        }
+
+  ## Configuration-driven start-up
+
+  @doc """
+  Starts every device group in `config` under the device supervisor.
+
+  `config` is a configuration map (with or without the top-level `:snmp_sim`
+  key) or the path of a JSON / YAML file. Returns `{:ok, supervisor_pid}`; the
+  started devices are available through `list_devices/0`.
+  """
+  @spec start(config()) :: {:ok, pid()} | {:error, term()}
+  def start(config) do
+    with {:ok, config_map} <- resolve_config(config),
+         :ok <- Config.validate_config(config_map),
+         {:ok, _devices} <- Config.start_from_config(config_map),
+         {:ok, sup} <- supervisor() do
+      {:ok, sup}
+    end
+  end
+
+  @doc """
+  Same as `start/1`.
+
+  The name is kept for compatibility with the original draft of this module.
+  Note that the devices are supervised by the application, not linked to the
+  caller, so this is safe to call from any process.
+  """
+  @spec start_link(config()) :: {:ok, pid()} | {:error, term()}
+  def start_link(config), do: start(config)
+
+  @doc """
+  Loads a configuration file. `.json` files are decoded with Jason; `.yaml` /
+  `.yml` files require the optional `yaml_elixir` dependency.
+  """
+  @spec load_config(Path.t()) :: {:ok, map()} | {:error, term()}
+  def load_config(path) when is_binary(path) do
+    case Path.extname(path) |> String.downcase() do
+      ".json" -> Config.load_from_file(path)
+      ext when ext in [".yaml", ".yml"] -> Config.load_yaml(path)
+      ext -> {:error, {:unsupported_config_format, ext}}
+    end
+  end
+
+  @doc "Validates a configuration map without starting anything."
+  @spec validate_config(map()) :: :ok | {:error, term()}
+  def validate_config(config) when is_map(config) do
+    with {:ok, config_map} <- resolve_config(config), do: Config.validate_config(config_map)
+  end
+
+  @doc "A complete example configuration, useful as a starting point."
+  defdelegate sample_config(), to: Config
+
+  @doc "Writes `sample_config/0` to `path` as `:json` or `:yaml`."
+  defdelegate write_sample_config(path, format \\ :json), to: Config
+
+  ## Single devices
+
+  @doc """
+  Starts one device from a `SnmpKit.SnmpSim.ProfileLoader` profile.
+
+  Options: `:port` (required), `:device_id`, `:community`. The device is
+  linked to the caller; see `SnmpKit.TestSupport.start_device/2`.
+  """
+  defdelegate start_device(profile, opts \\ []), to: SnmpKit.TestSupport
+
+  @doc "Starts a mixed population of devices; see `SnmpKit.TestSupport.start_device_population/2`."
+  defdelegate start_device_population(device_configs, opts \\ []), to: SnmpKit.TestSupport
+
+  ## Inspection and shutdown
+
+  @doc "The device supervisor pid, or `{:error, :not_started}` if the application is not running."
+  @spec supervisor() :: {:ok, pid()} | {:error, :not_started}
+  def supervisor do
+    case Process.whereis(@supervisor) do
+      nil -> {:error, :not_started}
+      pid -> {:ok, pid}
+    end
+  end
+
+  @doc """
+  Lists the devices running under the device supervisor.
+
+  Each entry has `:pid`, `:device_id`, `:device_type` and `:port`; the last
+  three are `nil` if a device did not answer its info call in time.
+  """
+  @spec list_devices() :: [device_info()]
+  def list_devices do
+    case supervisor() do
+      {:error, :not_started} ->
+        []
+
+      {:ok, sup} ->
+        sup
+        |> DynamicSupervisor.which_children()
+        |> Enum.flat_map(fn
+          {_, pid, :worker, _} when is_pid(pid) -> [describe(pid)]
+          _ -> []
+        end)
+        |> Enum.sort_by(& &1.port)
+    end
+  end
+
+  @doc "Number of devices running under the device supervisor."
+  @spec device_count() :: non_neg_integer()
+  def device_count do
+    case supervisor() do
+      {:ok, sup} -> DynamicSupervisor.count_children(sup).active
+      {:error, :not_started} -> 0
+    end
+  end
+
+  @doc """
+  Stops one device, given its pid or its UDP port.
+  """
+  @spec stop_device(pid() | non_neg_integer()) :: :ok | {:error, :not_found}
+  def stop_device(pid) when is_pid(pid) do
+    case supervisor() do
+      {:ok, sup} ->
+        case DynamicSupervisor.terminate_child(sup, pid) do
+          :ok -> :ok
+          # Not one of ours (started with start_device/2): stop it directly
+          {:error, :not_found} -> Device.stop(pid)
+        end
+
+      {:error, :not_started} ->
+        Device.stop(pid)
+    end
+  end
+
+  def stop_device(port) when is_integer(port) do
+    case Enum.find(list_devices(), &(&1.port == port)) do
+      nil -> {:error, :not_found}
+      %{pid: pid} -> stop_device(pid)
+    end
+  end
+
+  @doc "Stops every device running under the device supervisor."
+  @spec stop() :: :ok
+  def stop do
+    case supervisor() do
+      {:ok, sup} ->
+        for {_, pid, _, _} <- DynamicSupervisor.which_children(sup), is_pid(pid) do
+          DynamicSupervisor.terminate_child(sup, pid)
+        end
+
+        :ok
+
+      {:error, :not_started} ->
+        :ok
+    end
+  end
+
+  ## Private
+
+  defp resolve_config(path) when is_binary(path), do: load_config(path)
+  defp resolve_config(%{snmp_sim: _} = config), do: {:ok, config}
+  defp resolve_config(config) when is_map(config), do: {:ok, %{snmp_sim: config}}
+  defp resolve_config(other), do: {:error, {:invalid_config, other}}
+
+  defp describe(pid) do
+    info =
+      try do
+        Device.get_info(pid)
+      catch
+        :exit, _ -> %{}
+      end
+
+    %{
+      pid: pid,
+      device_id: Map.get(info, :device_id),
+      device_type: Map.get(info, :device_type),
+      port: Map.get(info, :port)
+    }
+  end
+end
