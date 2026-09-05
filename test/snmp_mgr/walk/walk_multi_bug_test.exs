@@ -9,13 +9,11 @@ defmodule SnmpKit.WalkMultiBugTest do
 
   setup_all do
     # Ensure the SnmpMgr Engine is running
-    case Process.whereis(SnmpKit.SnmpMgr.Engine) do
-      nil ->
-        {:ok, _pid} = SnmpKit.SnmpMgr.Engine.start_link(name: SnmpKit.SnmpMgr.Engine)
-        :ok
-
-      _pid ->
-        :ok
+    # Several async modules start the same named Engine; a concurrent start
+    # may already have won the race.
+    case SnmpKit.SnmpMgr.Engine.start_link(name: SnmpKit.SnmpMgr.Engine) do
+      {:ok, _pid} -> :ok
+      {:error, {:already_started, _pid}} -> :ok
     end
 
     :ok

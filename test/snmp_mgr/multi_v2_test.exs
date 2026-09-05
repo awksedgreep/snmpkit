@@ -222,21 +222,19 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
 
   describe "request ID generation" do
     test "generates unique request IDs for concurrent requests" do
-      # Start with fresh counter
-      RequestIdGenerator.reset()
+      # The counter is a single shared ETS table; other suites may reset it
+      # concurrently, so assert uniqueness of a burst of ids rather than the
+      # absolute counter value.
+      ids =
+        1..50
+        |> Task.async_stream(fn _ -> RequestIdGenerator.next_id() end, max_concurrency: 10)
+        |> Enum.map(fn {:ok, id} -> id end)
 
-      # Create multiple concurrent requests
-      requests =
-        for i <- 1..5 do
-          {"127.0.0.1", "1.3.6.1.2.1.1.#{i}.0"}
-        end
+      assert length(Enum.uniq(ids)) == 50
 
-      # Execute concurrently
-      _results = MultiV2.get_multi(requests, max_concurrent: 5, timeout: 500)
-
-      # Request IDs should have been generated (we can't easily verify uniqueness
-      # without inspecting internals, but the lack of errors suggests they worked)
-      assert RequestIdGenerator.current_value() >= 5
+      requests = for i <- 1..5, do: {"127.0.0.1", "1.3.6.1.2.1.1.#{i}.0"}
+      results = MultiV2.get_multi(requests, max_concurrent: 5, timeout: 500)
+      assert length(results) == 5
     end
   end
 
