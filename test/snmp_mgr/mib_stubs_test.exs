@@ -326,6 +326,7 @@ defmodule SnmpKit.SnmpMgr.MIBStubsTest do
   end
 
   describe "performance characteristics" do
+    @tag :performance
     test "resolution is fast for all stub objects" do
       # Test a sample of objects to ensure reasonable performance
       test_objects = [

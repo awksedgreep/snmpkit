@@ -410,21 +410,24 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
 
     # DOCSIS modem upgrade scalar overrides
     case {state.device_type, oid_string} do
+      # These return bare varbind tuples like every other clause; wrapping them
+      # in {:ok, _} made the response unencodable so GETs of the upgrade OIDs on
+      # walk-data devices never got an answer.
       {:cable_modem, "1.3.6.1.2.1.69.1.3.2.0"} ->
         # docsDevSwOperStatus (INTEGER; read-only)
-        {:ok, {oid_list, :integer, Map.get(state.upgrade, :oper_status, 5)}}
+        {oid_list, :integer, Map.get(state.upgrade, :oper_status, 5)}
 
       {:cable_modem, "1.3.6.1.2.1.69.1.3.3.0"} ->
         # docsDevSwServer (IpAddress; read-write)
-        {:ok, {oid_list, :ip_address, Map.get(state.upgrade, :server, "0.0.0.0")}}
+        {oid_list, :ip_address, Map.get(state.upgrade, :server, "0.0.0.0")}
 
       {:cable_modem, "1.3.6.1.2.1.69.1.3.4.0"} ->
         # docsDevSwFilename (SnmpAdminString; read-write)
-        {:ok, {oid_list, :octet_string, Map.get(state.upgrade, :filename, "(unknown)")}}
+        {oid_list, :octet_string, Map.get(state.upgrade, :filename, "(unknown)")}
 
       {:cable_modem, "1.3.6.1.2.1.69.1.3.1.0"} ->
         # docsDevSwAdminStatus (INTEGER; read-write)
-        {:ok, {oid_list, :integer, Map.get(state.upgrade, :admin_status, 2)}}
+        {oid_list, :integer, Map.get(state.upgrade, :admin_status, 2)}
 
       _ ->
         # Check for dynamic values first

@@ -6,15 +6,15 @@ This directory contains comprehensive tests for SNMP walk operations. These test
 
 Run all walk tests:
 ```bash
-mix test test/walk_*_test.exs
+mix test test/snmp_mgr/walk/walk_*_test.exs
 ```
 
 Run specific test file:
 ```bash
-mix test test/walk_unit_test.exs
-mix test test/walk_comprehensive_test.exs
-mix test test/walk_integration_test.exs
-mix test test/walk_regression_test.exs
+mix test test/snmp_mgr/walk/walk_unit_test.exs
+mix test test/snmp_mgr/walk/walk_comprehensive_test.exs
+mix test test/snmp_mgr/walk/walk_integration_test.exs
+mix test test/snmp_mgr/walk/walk_regression_test.exs
 ```
 
 ## Test Files
@@ -49,10 +49,10 @@ These tests MUST always pass:
 
 ```bash
 # Zero results bug (main issue from bug report)
-mix test test/walk_regression_test.exs -t regression_critical
+mix test test/snmp_mgr/walk/walk_regression_test.exs -t regression_critical
 
 # Type preservation (prevents type information loss)
-mix test test/walk_comprehensive_test.exs --only type_preservation
+mix test test/snmp_mgr/walk/walk_comprehensive_test.exs --only type_preservation
 ```
 
 ## Common Issues
@@ -60,7 +60,7 @@ mix test test/walk_comprehensive_test.exs --only type_preservation
 ### Tests Timing Out
 ```bash
 # Increase timeout
-mix test test/walk_*_test.exs --timeout 60000
+mix test test/snmp_mgr/walk/walk_*_test.exs --timeout 60000
 ```
 
 ### Simulator Port Conflicts
@@ -76,10 +76,10 @@ pkill -f snmp_sim
 ### Debug Failing Tests
 ```bash
 # Run with detailed output
-mix test test/walk_regression_test.exs --trace
+mix test test/snmp_mgr/walk/walk_regression_test.exs --trace
 
 # Run single test
-mix test test/walk_regression_test.exs:67
+mix test test/snmp_mgr/walk/walk_regression_test.exs:67
 ```
 
 ## Success Criteria
@@ -95,7 +95,7 @@ All tests must pass with:
 Add to your workflow:
 ```yaml
 - name: Run Walk Tests
-  run: mix test test/walk_*_test.exs --timeout 30000
+  run: mix test test/snmp_mgr/walk/walk_*_test.exs --timeout 30000
 ```
 
 ## Manual Testing
@@ -103,7 +103,7 @@ Add to your workflow:
 For manual verification without full test suite:
 ```bash
 # Quick verification
-elixir verify_walk_fixes.exs
+# (verify_walk_fixes.exs has been removed; run the test files above)
 
 # Or test individual operations
 iex -S mix
@@ -116,7 +116,7 @@ When adding new walk functionality:
 1. Add unit tests in `walk_unit_test.exs`
 2. Add integration tests in appropriate files
 3. If fixing a bug, add regression test in `walk_regression_test.exs`
-4. Ensure all tests pass: `mix test test/walk_*_test.exs`
+4. Ensure all tests pass: `mix test test/snmp_mgr/walk/walk_*_test.exs`
 
 ## Getting Help
 

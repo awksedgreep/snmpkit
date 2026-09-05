@@ -1,5 +1,6 @@
 defmodule SnmpKit.SnmpLib.MIB.ComprehensiveMibTest do
   use ExUnit.Case, async: true
+  require Logger
   @moduletag :mib
 
   @moduledoc """
@@ -31,12 +32,12 @@ defmodule SnmpKit.SnmpLib.MIB.ComprehensiveMibTest do
               failed = Enum.filter(results, fn {status, _} -> status == :error end)
 
               # Log results for visibility
-              IO.puts(
+              Logger.info(
                 "\n#{String.upcase(unquote(dir_name))} MIBs: #{successful}/#{length(mib_files)} successful"
               )
 
               if length(failed) > 0 do
-                IO.puts("Failed files:")
+                Logger.info("Failed files:")
 
                 for {:error, {file, reason}} <- failed do
                   reason_str =
@@ -51,7 +52,7 @@ defmodule SnmpKit.SnmpLib.MIB.ComprehensiveMibTest do
                         inspect(reason)
                     end
 
-                  IO.puts("  - #{file}: #{reason_str}")
+                  Logger.info("  - #{file}: #{reason_str}")
                 end
               end
 
@@ -109,7 +110,7 @@ defmodule SnmpKit.SnmpLib.MIB.ComprehensiveMibTest do
 
             {:error, _reason} ->
               # Skip performance test for files that don't parse
-              IO.puts("Skipping performance test for #{file_path} - parsing failed")
+              Logger.info("Skipping performance test for #{file_path} - parsing failed")
           end
         end
       end

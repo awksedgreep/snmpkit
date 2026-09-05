@@ -1,5 +1,6 @@
 defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
   use ExUnit.Case, async: false
+  require Logger
 
   alias SnmpKit.SnmpMgr.MIB
   alias SnmpKit.TestSupport.SNMPSimulator
@@ -51,7 +52,7 @@ defmodule SnmpKit.SnmpMgr.MIBIntegrationTest do
 
           {:error, reason} ->
             # MIB resolution might fail if MIB not loaded, which is acceptable
-            IO.puts("MIB resolution failed for '#{name}': #{inspect(reason)}")
+            Logger.info("MIB resolution failed for '#{name}': #{inspect(reason)}")
         end
       end
     end

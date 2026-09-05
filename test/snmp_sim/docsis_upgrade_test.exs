@@ -37,8 +37,8 @@ defmodule SnmpKit.DocsisUpgradeTest do
       |> Enum.reduce_while(:unknown, fn _i, _acc ->
         Process.sleep(200)
 
-        case SnmpMgr.get_with_type(target, @oper_oid, community: community, version: :v2c) do
-          {:ok, {_oid, _type, 3}} -> {:halt, :complete}
+        case SnmpMgr.get(target, @oper_oid, community: community, version: :v2c) do
+          {:ok, %{value: 3}} -> {:halt, :complete}
           {:ok, _} -> {:cont, :waiting}
           _ -> {:cont, :waiting}
         end

@@ -269,6 +269,7 @@ defmodule SnmpKit.SnmpSim.OIDTreeTest do
       assert lookup_time < 10_000, "Lookups took #{lookup_time} microseconds, expected < 10,000"
     end
 
+    @tag :performance
     test "GETNEXT traversal is efficient on large trees" do
       # Create tree with interface table pattern
       tree = OIDTree.new()
