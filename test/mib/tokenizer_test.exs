@@ -26,14 +26,16 @@ defmodule SnmpKit.MIB.SnmpTokenizerTest do
              tokens("sysDescr DisplayString 7")
   end
 
-  test "tokenizing unseen identifiers does not grow the atom table" do
+  test "tokenizing unseen identifiers does not create atoms for them" do
     names =
       for _ <- 1..200, do: "id#{System.unique_integer([:positive])}x#{:rand.uniform(1_000_000)}"
 
-    before = :erlang.system_info(:atom_count)
     toks = tokens(Enum.join(names, " "))
     assert length(toks) == 200
-    assert :erlang.system_info(:atom_count) == before
+
+    for name <- names do
+      assert_raise ArgumentError, fn -> String.to_existing_atom(name) end
+    end
   end
 
   test "hex and binary string literals keep their radix suffix" do
