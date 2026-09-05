@@ -17,7 +17,7 @@ If your code only uses `SnmpKit`, `SnmpKit.SNMP`, `SnmpKit.MIB` and
    `[%{type, port, pid, target}]`.
 4. `SnmpKit.MIB.load/1` accepts the compiled map directly; parsed MIBs carry
    `warnings` and use binaries where 1.x used atoms.
-5. `SnmpKit.SNMP.with_circuit_breaker/3` and the other engine delegates are
+5. `SnmpKit.SNMP.with_circuit_breaker` and the other engine delegates are
    gone; use the multi-target calls.
 
 If you referenced internal modules, use the tables below: everything renamed
