@@ -356,16 +356,19 @@ objectidentifier -> objectname 'OBJECT' 'IDENTIFIER' nameassign :
 		    {Int, line_of('$2')}.
 
 % defines name, access and type for a variable.
+%% unitspart is SMIv2-only; accepted here (net-snmp does too) with a warning.
 objecttypev1 ->	objectname 'OBJECT-TYPE' 
 		'SYNTAX' syntax
+                unitspart
                	'ACCESS' accessv1
 		'STATUS' statusv1
                 'DESCRIPTION' descriptionfield
 		referpart indexpartv1 defvalpart
 		nameassign : 
-                Kind = kind('$13', '$12'),
-                OT = make_object_type('$1', '$4', '$6', '$8', '$10', 
-                                      '$11', Kind, '$14'),
+                Kind = kind('$14', '$13'),
+                Units = lenient_units('$5', line_of('$2')),
+                OT = make_object_type('$1', '$4', Units, '$7', '$9', '$11',
+                                      '$12', Kind, '$15'),
                 {OT, line_of('$2')}.
 
 newtype -> newtypename implies syntax :
@@ -393,6 +396,12 @@ syntax -> type size : {{type_with_size, cat('$1'), '$2'},line_of('$1')}.
 syntax -> usertype size : {{type_with_size,val('$1'), '$2'},line_of('$1')}.
 syntax -> 'INTEGER' '{' namedbits '}' : 
           {{type_with_enum, 'INTEGER', '$3'}, line_of('$1')}.
+%% Enumerations on Integer32/Unsigned32 are invalid SMIv2 but common in
+%% vendor MIBs; net-snmp accepts them, so do we (with a warning).
+syntax -> 'Integer32' '{' namedbits '}' : 
+          {{type_with_enum, lenient_enum_base('$1'), '$3'}, line_of('$1')}.
+syntax -> 'Unsigned32' '{' namedbits '}' : 
+          {{type_with_enum, lenient_enum_base('$1'), '$3'}, line_of('$1')}.
 syntax -> 'BITS' '{' namedbits '}' : 
           {{bits, '$3'}, line_of('$1')}.
 syntax -> usertype '{' namedbits '}' :
@@ -424,6 +433,10 @@ range_num -> quote variable  : make_range_integer(val('$1'), val('$2')) .
 namedbits -> atom '(' integer ')' : [{val('$1'), val('$3')}].
 namedbits -> namedbits ',' atom '(' integer ')' :
 		 [{val('$3'), val('$5')} | '$1'].
+%% Labels must start lowercase; tolerate uppercase with a warning (net-snmp does).
+namedbits -> variable '(' integer ')' : [{lenient_label('$1'), val('$3')}].
+namedbits -> namedbits ',' variable '(' integer ')' :
+		 [{lenient_label('$3'), val('$5')} | '$1'].
 
 usertype -> variable : '$1'.
 
@@ -772,6 +785,9 @@ accessv2 -> 'accessible-for-notify' : 'accessible-for-notify'.
 accessv2 -> 'read-only' : 'read-only'.
 accessv2 -> 'read-write' : 'read-write'.
 accessv2 -> 'read-create' : 'read-create'.
+accessv2 -> 'write-only' :
+            {lenient, 'write-only', line_of('$1'),
+             <<"MAX-ACCESS write-only is not allowed in SMIv2">>}.
 
 notification -> objectname 'NOTIFICATION-TYPE' objectspart
                 'STATUS' statusv2 'DESCRIPTION' descriptionfield referpart 
@@ -1036,6 +1052,22 @@ make_sequence(Name, Fields) ->
 
 make_internal(Name, Macro, Parent, SubIdx) ->
     {mc_internal, Name, Macro, Parent, SubIdx}.
+
+%% Lenient constructs are wrapped as {lenient, Value, Line, Message}; the
+%% Elixir parser unwraps them into warnings (see SnmpKit.MIB.Parser).
+lenient_units(undefined, _Line) -> undefined;
+lenient_units(Units, Line) ->
+    {lenient, Units, Line, <<"UNITS is not allowed in an SMIv1 OBJECT-TYPE">>}.
+
+lenient_enum_base(Tok) ->
+    {lenient, 'INTEGER', line_of(Tok),
+     list_to_binary(io_lib:format("enumeration on ~s is not allowed in SMIv2; treated as INTEGER",
+                                  [cat(Tok)]))}.
+
+lenient_label(Tok) ->
+    {lenient, val(Tok), line_of(Tok),
+     list_to_binary(io_lib:format("enumeration label '~s' must start with a lowercase letter",
+                                  [val(Tok)]))}.
 
 %% Identifier token values are binaries; map the radix letter that follows a
 %% quoted string ('FF'H, '0101'B) onto the atoms the helpers below use.

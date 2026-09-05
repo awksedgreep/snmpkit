@@ -135,7 +135,7 @@ defmodule SnmpKit.MIB.Parser do
             # Parse using the generated parser
             case apply(parser_module, :parse, [tokens]) do
               {:ok, parse_tree} ->
-                {:ok, parse_tree |> convert_to_elixir_format() |> Map.put(:warnings, warnings)}
+                {:ok, finish_parse(parse_tree, warnings)}
 
               {:error, reason} ->
                 Logger.debug("Parse failed: #{inspect(reason)}")
@@ -164,7 +164,7 @@ defmodule SnmpKit.MIB.Parser do
         # Parse using the generated parser
         case apply(parser_module, :parse, [tokens]) do
           {:ok, parse_tree} ->
-            {:ok, convert_to_elixir_format(parse_tree)}
+            {:ok, finish_parse(parse_tree, [])}
 
           {:error, reason} ->
             Logger.debug("Parse failed: #{inspect(reason)}")
@@ -185,6 +185,60 @@ defmodule SnmpKit.MIB.Parser do
     case scan_tokens(mib_content) do
       {:ok, tokens, _warnings} -> {:ok, tokens}
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # Unwrap lenient-construct markers, convert, and attach every warning
+  # (lexer, lenient grammar, timestamp) sorted by line.
+  defp finish_parse(parse_tree, lexer_warnings) do
+    {parse_tree, lenient_warnings} = resolve_lenient(parse_tree, [])
+    mib = convert_to_elixir_format(parse_tree)
+    warnings = Enum.sort(lexer_warnings ++ lenient_warnings ++ timestamp_warnings(mib))
+    Map.put(mib, :warnings, warnings)
+  end
+
+  # The grammar wraps constructs it accepts only for compatibility with
+  # net-snmp as {:lenient, value, line, message}; replace them with the
+  # value and collect the message.
+  defp resolve_lenient({:lenient, value, line, message}, acc),
+    do: {value, [{line, message} | acc]}
+
+  defp resolve_lenient(tuple, acc) when is_tuple(tuple) do
+    {list, acc} = resolve_lenient(Tuple.to_list(tuple), acc)
+    {List.to_tuple(list), acc}
+  end
+
+  defp resolve_lenient(list, acc) when is_list(list),
+    do: Enum.map_reduce(list, acc, &resolve_lenient/2)
+
+  defp resolve_lenient(other, acc), do: {other, acc}
+
+  # LAST-UPDATED / REVISION stamps are "YYMMDDHHMMZ" or "YYYYMMDDHHMMZ";
+  # net-snmp rejects bad ones outright, libsmi warns.
+  defp timestamp_warnings(%{definitions: definitions}) when is_list(definitions) do
+    Enum.flat_map(definitions, fn
+      %{__type__: :module_identity, line: line} = mi ->
+        stamps = [mi.last_updated | Enum.map(mi.revisions, & &1.date)]
+
+        for stamp <- stamps,
+            not valid_timestamp?(stamp),
+            do: {line, "invalid timestamp '#{stamp}' (expected YYYYMMDDHHMMZ)"}
+
+      _ ->
+        []
+    end)
+  end
+
+  defp timestamp_warnings(_), do: []
+
+  defp valid_timestamp?(stamp) do
+    case Regex.run(~r/^(?:\d{2}|\d{4})(\d{2})(\d{2})(\d{2})(\d{2})Z$/, stamp) do
+      [_, month, day, hour, minute] ->
+        String.to_integer(month) in 1..12 and String.to_integer(day) in 1..31 and
+          String.to_integer(hour) in 0..23 and String.to_integer(minute) in 0..59
+
+      _ ->
+        false
     end
   end
 

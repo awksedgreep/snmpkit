@@ -12,8 +12,8 @@ ExUnit.configure(
   # Increase parallelism
   max_cases: System.schedulers_online() * 2,
   exclude: [
-    # Cross-checks against libsmi's smilint; see docs/mib-parser-oracle.md
-    :smilint,
+    # Cross-checks against libsmi and net-snmp; see docs/mib-parser-oracle.md
+    :mib_oracle,
     # Optional test categories - can be included with mix test --include tag_name
     # Tests that require explicitly configured network hardware
     :manual,

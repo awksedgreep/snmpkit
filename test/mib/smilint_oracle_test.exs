@@ -1,15 +1,6 @@
-defmodule SnmpKit.MIB.SmilintOracleTest do
-  @moduledoc """
-  Cross-checks the native MIB parser against libsmi's `smilint`.
-
-  Opt in with `mix test --include smilint test/mib/smilint_oracle_test.exs`.
-  `smilint` is found on PATH or via the `SMILINT` environment variable; the
-  test passes with a notice when it is absent. See docs/mib-parser-oracle.md.
-  """
-  use ExUnit.Case, async: false
-
-  @moduletag :smilint
-  @moduletag timeout: 300_000
+defmodule SnmpKit.MIB.OracleHelper do
+  @moduledoc false
+  # Shared plumbing for the libsmi and net-snmp oracle tests.
 
   @fixture_dirs [
     "test/fixtures/mibs/working",
@@ -19,49 +10,9 @@ defmodule SnmpKit.MIB.SmilintOracleTest do
     "test/fixtures/mibs/broken"
   ]
 
-  setup_all do
-    case System.get_env("SMILINT") || System.find_executable("smilint") do
-      nil ->
-        IO.puts("\nsmilint not found; oracle comparison skipped (see docs/mib-parser-oracle.md)")
-        {:ok, results: nil}
+  def fixture_dirs, do: @fixture_dirs
 
-      smilint ->
-        {:ok, results: Enum.map(fixture_files(), &compare(smilint, &1))}
-    end
-  end
-
-  test "every MIB smilint accepts syntactically also parses natively", %{results: results} do
-    if results do
-      mismatches =
-        for %{file: f, smilint_syntax: [], ours: {:error, e}} <- results, do: "#{f}: #{e}"
-
-      assert mismatches == [],
-             "smilint accepts but SnmpKit rejects:\n" <> Enum.join(mismatches, "\n")
-    end
-  end
-
-  test "SnmpKit is never stricter than smilint on syntax", %{results: results} do
-    if results do
-      stricter =
-        for %{file: f, smilint_syntax: [], ours: {:error, _}} = r <- results,
-            r.smilint_syntax == [],
-            do: f
-
-      assert stricter == [],
-             "SnmpKit rejects files smilint parses:\n" <> Enum.join(stricter, "\n")
-
-      rejected_by_both =
-        for %{smilint_syntax: [_ | _], ours: {:error, _}} <- results, do: 1
-
-      IO.puts(
-        "\nsmilint oracle: #{length(results)} files, " <>
-          "#{Enum.count(results, &match?(%{ours: {:ok, _}}, &1))} parsed natively, " <>
-          "#{length(rejected_by_both)} rejected by both"
-      )
-    end
-  end
-
-  defp fixture_files do
+  def fixture_files do
     @fixture_dirs
     |> Enum.flat_map(&Path.wildcard(Path.join(&1, "*")))
     |> Enum.filter(&File.regular?/1)
@@ -69,29 +20,84 @@ defmodule SnmpKit.MIB.SmilintOracleTest do
     |> Enum.sort()
   end
 
+  def native_parse(file) do
+    case SnmpKit.MIB.Parser.parse(File.read!(file)) do
+      {:ok, _} -> {:ok, file}
+      {:error, e} -> {:error, e |> inspect() |> String.slice(0, 120)}
+    end
+  rescue
+    e -> {:error, "raised " <> (e |> Exception.message() |> String.slice(0, 120))}
+  end
+
+  def find_tool(env_var, name) do
+    System.get_env(env_var) || System.find_executable(name)
+  end
+
+  def report(label, results) do
+    parsed = Enum.count(results, &match?(%{ours: {:ok, _}}, &1))
+    both = Enum.count(results, &match?(%{oracle_errors: [_ | _], ours: {:error, _}}, &1))
+
+    IO.puts(
+      "\n#{label} oracle: #{length(results)} files, #{parsed} parsed natively, #{both} rejected by both"
+    )
+  end
+
+  def assert_not_stricter(results, label) do
+    stricter =
+      for %{file: f, oracle_errors: [], ours: {:error, e}} <- results, do: "#{f}: #{e}"
+
+    ExUnit.Assertions.assert(
+      stricter == [],
+      "#{label} accepts but SnmpKit rejects:\n" <> Enum.join(stricter, "\n")
+    )
+  end
+end
+
+defmodule SnmpKit.MIB.SmilintOracleTest do
+  @moduledoc """
+  Cross-checks the native MIB parser against libsmi's `smilint`.
+
+  Opt in with `mix test --include mib_oracle test/mib/smilint_oracle_test.exs`.
+  `smilint` is found on PATH or via `SMILINT`; the test passes with a notice
+  when it is absent. See docs/mib-parser-oracle.md.
+  """
+  use ExUnit.Case, async: false
+  alias SnmpKit.MIB.OracleHelper, as: H
+
+  @moduletag :mib_oracle
+  @moduletag timeout: 300_000
+
+  setup_all do
+    case H.find_tool("SMILINT", "smilint") do
+      nil ->
+        IO.puts("\nsmilint not found; libsmi oracle skipped (see docs/mib-parser-oracle.md)")
+        {:ok, results: nil}
+
+      smilint ->
+        results = Enum.map(H.fixture_files(), &compare(smilint, &1))
+        H.report("libsmi", results)
+        {:ok, results: results}
+    end
+  end
+
+  test "SnmpKit is never stricter than smilint on syntax", %{results: results} do
+    if results, do: H.assert_not_stricter(results, "smilint")
+  end
+
   defp compare(smilint, file) do
-    {out, _status} =
+    {out, _} =
       System.cmd(smilint, ["-p", mib_path(smilint), "-s", "-l", "2", file],
         stderr_to_stdout: true
       )
 
-    syntax =
+    errors =
       out
       |> String.split("\n")
-      |> Enum.filter(&String.starts_with?(&1, file <> ":"))
-      |> Enum.filter(&String.contains?(&1, "syntax error"))
+      |> Enum.filter(
+        &(String.starts_with?(&1, file <> ":") and String.contains?(&1, "syntax error"))
+      )
 
-    ours =
-      try do
-        case SnmpKit.MIB.Parser.parse(File.read!(file)) do
-          {:ok, _} -> {:ok, file}
-          {:error, e} -> {:error, inspect(e) |> String.slice(0, 120)}
-        end
-      rescue
-        e -> {:error, ("raised " <> Exception.message(e)) |> String.slice(0, 120)}
-      end
-
-    %{file: file, smilint_syntax: syntax, ours: ours}
+    %{file: file, oracle_errors: errors, ours: H.native_parse(file)}
   end
 
   # libsmi's own MIB tree (next to the binary) plus the fixture dirs, so that
@@ -99,12 +105,71 @@ defmodule SnmpKit.MIB.SmilintOracleTest do
   defp mib_path(smilint) do
     share = Path.join([Path.dirname(smilint), "..", "share", "mibs"])
 
-    libsmi_dirs =
+    dirs =
       for sub <- ["ietf", "iana", "irtf", "tubs"],
           dir = Path.join(share, sub),
           File.dir?(dir),
           do: dir
 
-    Enum.join(libsmi_dirs ++ @fixture_dirs, ":")
+    Enum.join(dirs ++ H.fixture_dirs(), ":")
+  end
+end
+
+defmodule SnmpKit.MIB.NetSnmpOracleTest do
+  @moduledoc """
+  Cross-checks the native MIB parser against net-snmp's parser via
+  `snmptranslate` (found on PATH or via `SNMPTRANSLATE`). net-snmp is the
+  most permissive parser in common use, so anything it loads we must load.
+  """
+  use ExUnit.Case, async: false
+  alias SnmpKit.MIB.OracleHelper, as: H
+
+  @moduletag :mib_oracle
+  @moduletag timeout: 300_000
+
+  setup_all do
+    case H.find_tool("SNMPTRANSLATE", "snmptranslate") do
+      nil ->
+        IO.puts(
+          "\nsnmptranslate not found; net-snmp oracle skipped (see docs/mib-parser-oracle.md)"
+        )
+
+        {:ok, results: nil}
+
+      tool ->
+        results = Enum.map(H.fixture_files(), &compare(tool, &1))
+        H.report("net-snmp", results)
+        {:ok, results: results}
+    end
+  end
+
+  test "SnmpKit is never stricter than net-snmp", %{results: results} do
+    if results, do: H.assert_not_stricter(results, "net-snmp")
+  end
+
+  defp compare(tool, file) do
+    abs = Path.expand(file)
+
+    {out, _} =
+      System.cmd(tool, ["-M", mib_path(tool), "-m", abs, "-Le", ".1.3"],
+        stderr_to_stdout: true,
+        env: [{"MIBS", ""}]
+      )
+
+    # Parse errors are reported as "<message>: At line N in <file>"; linkage
+    # problems ("Undefined identifier", "Unlinked OID") are not syntax.
+    errors =
+      out
+      |> String.split("\n")
+      |> Enum.filter(&String.ends_with?(&1, " in " <> abs))
+      |> Enum.filter(&String.contains?(&1, ": At line "))
+
+    %{file: file, oracle_errors: errors, ours: H.native_parse(file)}
+  end
+
+  defp mib_path(tool) do
+    share = Path.join([Path.dirname(tool), "..", "share", "snmp", "mibs"])
+    dirs = if File.dir?(share), do: [share], else: []
+    Enum.join(Enum.map(dirs ++ H.fixture_dirs(), &Path.expand/1), ":")
   end
 end

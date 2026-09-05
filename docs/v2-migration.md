@@ -76,6 +76,9 @@ grow the atom table. Effects visible to callers:
   directly after an identifier starts a comment instead of joining the name.
 - Tokenizer illegal-character errors are `{:illegal, char, line}` (was
   `{:illegal, char}`).
+- Four vendor constructs that were syntax errors now parse with a warning
+  (enumerations on `Integer32`/`Unsigned32`, uppercase enumeration labels,
+  `MAX-ACCESS write-only`, `UNITS` on SMIv1 objects), matching net-snmp.
 
 ## Behaviour unchanged since 1.4
 

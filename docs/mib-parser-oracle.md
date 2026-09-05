@@ -1,30 +1,32 @@
-# Checking the MIB parser against libsmi
+# Checking the MIB parser against libsmi and net-snmp
 
 `SnmpKit.MIB.Parser` is a port of OTP's `snmpc` tokenizer and grammar. To keep
-it honest against a reference implementation, `test/mib/smilint_oracle_test.exs`
-runs libsmi's `smilint` over every fixture MIB and asserts:
+it honest against reference implementations, `test/mib/smilint_oracle_test.exs`
+runs libsmi's `smilint` and net-snmp's `snmptranslate` over every fixture MIB
+and asserts that SnmpKit never rejects a file either tool parses. We may be
+more lenient than a reference, never stricter.
 
-1. every file smilint parses without a syntax error also parses natively, and
-2. SnmpKit never rejects a file that smilint accepts (we may be more lenient,
-   never stricter).
-
-Import-resolution and semantic findings from smilint (missing modules, SMIv1
-`ACCESS` in an SMIv2 module, range checks) are deliberately ignored; the
-parser does no semantic validation.
+libsmi is the strict reference (a bison grammar with a catalogue of numbered
+errors); net-snmp is the permissive one that real deployments rely on. Only
+their syntax-level findings count: import resolution and semantic checks
+(missing modules, range limits, SMI version consistency) are ignored because
+the parser does no semantic validation.
 
 ## Running it
 
-The test is tagged `:smilint` and excluded by default. It looks for `smilint`
-on `PATH` or in the `SMILINT` environment variable and passes with a notice
-when neither is set.
+The tests are tagged `:mib_oracle` and excluded by default. Each looks for its
+tool on `PATH` or in an environment variable (`SMILINT`, `SNMPTRANSLATE`) and
+passes with a notice when the tool is absent.
 
 ```sh
 SMILINT=/path/to/libsmi/bin/smilint \
-  mix test --include smilint test/mib/smilint_oracle_test.exs
+SNMPTRANSLATE=/path/to/net-snmp/bin/snmptranslate \
+  mix test --include mib_oracle test/mib/smilint_oracle_test.exs
 ```
 
-Status at the time of writing: 185 fixture MIBs, 180 parse natively, 5 are
-rejected by both tools (genuinely broken vendor files).
+Status at the time of writing: all 185 fixture MIBs parse natively. About a
+dozen carry warnings for constructs net-snmp tolerates and libsmi rejects; see
+"Constructs accepted with a warning" below.
 
 ## Building libsmi
 
@@ -43,6 +45,40 @@ make install
 The install also ships the IETF, IANA and IRTF MIB trees under
 `share/mibs`; the test adds them to smilint's search path so `IMPORTS`
 resolve and only real syntax problems are reported.
+
+## Building net-snmp
+
+Only the applications are needed (`snmptranslate` loads a MIB given as a path
+with `-m`):
+
+```sh
+curl -sSLO https://github.com/net-snmp/net-snmp/archive/refs/tags/v5.9.4.tar.gz
+tar xzf v5.9.4.tar.gz && cd net-snmp-5.9.4
+./configure --prefix="$HOME/.local/net-snmp" --with-defaults --disable-agent \
+  --disable-manuals --disable-scripts --without-perl-modules \
+  --disable-embedded-perl --disable-shared --with-mib-modules="" --with-transports=UDP
+make && make install
+```
+
+Parse errors surface as `<message>: At line N in <file>`; the test treats
+only those as rejections, not the `Undefined identifier` / `Unlinked OID`
+linkage messages.
+
+## Constructs accepted with a warning
+
+These are invalid SMIv2 but appear in shipped vendor MIBs and are loaded by
+net-snmp, so the grammar accepts them and the parser records a warning:
+
+| Construct | Treated as |
+|-----------|-----------|
+| `SYNTAX Integer32 { a(1) }` / `Unsigned32 { ... }` | `INTEGER` enumeration |
+| enumeration label starting with an uppercase letter | kept as written |
+| `MAX-ACCESS write-only` | `write-only` |
+| `UNITS` on an SMIv1 (`ACCESS`/`mandatory`) OBJECT-TYPE | kept as written |
+| `LAST-UPDATED` / `REVISION` stamp with an impossible date | kept as written |
+
+net-snmp rejects identifiers containing underscores outright; SnmpKit accepts
+them with a warning, as it always has.
 
 ## Lexer checks adopted from libsmi
 
