@@ -124,8 +124,10 @@ defmodule SnmpKit.MIB.Compiler do
           format: opts[:format],
           # Set by compile/2 if from file
           path: nil,
-          metadata: Map.get(mib, :metadata, %{}),
-          oid_tree: Map.get(mib, :oid_tree, %{}),
+          # The parser output carries no metadata or OID tree; both are
+          # populated by later passes.
+          metadata: %{},
+          oid_tree: %{},
           symbols: build_symbol_table(mib),
           dependencies: extract_dependencies(mib)
         }

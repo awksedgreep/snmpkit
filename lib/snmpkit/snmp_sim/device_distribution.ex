@@ -277,7 +277,7 @@ defmodule SnmpKit.SnmpSim.DeviceDistribution do
 
   # Private Functions
 
-  defp build_range([]), do: 0..0
+  # Only called with non-empty port lists (see build_port_assignments/2).
   defp build_range([single]), do: single..single
 
   defp build_range(ports) do

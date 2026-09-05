@@ -67,6 +67,8 @@ defmodule SnmpKit.SnmpLib.ErrorHandler do
   use GenServer
   require Logger
 
+  @quarantine_key {__MODULE__, :quarantines}
+
   @default_max_attempts 3
   @default_base_delay 1_000
   @default_max_delay 30_000
@@ -390,7 +392,9 @@ defmodule SnmpKit.SnmpLib.ErrorHandler do
   @spec quarantine_device(device_id(), pos_integer()) :: :ok
   def quarantine_device(device_id, duration_ms) do
     Logger.warning("Quarantining device #{device_id} for #{duration_ms}ms")
-    # Implementation would update device state
+    until_time = System.monotonic_time(:millisecond) + duration_ms
+    quarantines = :persistent_term.get(@quarantine_key, %{})
+    :persistent_term.put(@quarantine_key, Map.put(quarantines, device_id, until_time))
     :ok
   end
 
@@ -403,15 +407,9 @@ defmodule SnmpKit.SnmpLib.ErrorHandler do
   """
   @spec quarantined?(device_id()) :: boolean()
   def quarantined?(device_id) do
-    case get_device_stats(device_id) do
-      {:ok, stats} ->
-        case stats.quarantine_until do
-          nil -> false
-          until_time -> System.monotonic_time(:millisecond) < until_time
-        end
-
-      {:error, _} ->
-        false
+    case Map.fetch(:persistent_term.get(@quarantine_key, %{}), device_id) do
+      {:ok, until_time} -> System.monotonic_time(:millisecond) < until_time
+      :error -> false
     end
   end
 
