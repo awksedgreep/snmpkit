@@ -312,7 +312,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
       timeout = request_timeout(request, state.global_timeout)
       request_id = SnmpKit.SnmpMgr.RequestIdGenerator.next_id()
 
-      pending_entry = %{index: index, timeout: timeout}
+      pending_entry = %{index: index, timeout: timeout, launched_at: now_ms()}
 
       case dispatch_request(state.socket, request, request_id, timeout) do
         :ok ->
@@ -358,7 +358,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
         after
           receive_timeout ->
             state
-            |> fail_stuck_pending_requests()
+            |> fail_expired_pending_requests()
             |> launch_pending_requests()
             |> await_pending_requests()
         end
@@ -375,10 +375,22 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
     end
   end
 
-  defp fail_stuck_pending_requests(state) do
-    Enum.reduce(state.pending, %{state | pending: %{}}, fn {request_id, %{index: index}}, acc ->
-      SnmpKit.SnmpMgr.EngineV2.unregister_request(SnmpKit.SnmpMgr.EngineV2, request_id)
-      %{acc | results: Map.put(acc.results, index, {:error, :timeout})}
+  # Backstop for requests EngineV2 never resolves (wedged correlator, lost
+  # message). Only requests past their own deadline plus grace fail here; a
+  # single slow peer must not fail the rest of the batch.
+  @stuck_grace_ms 1000
+
+  defp fail_expired_pending_requests(state) do
+    now = now_ms()
+
+    Enum.reduce(state.pending, %{state | pending: %{}}, fn
+      {request_id, %{index: index} = entry}, acc ->
+        if now - entry.launched_at > entry.timeout + @stuck_grace_ms do
+          SnmpKit.SnmpMgr.EngineV2.unregister_request(SnmpKit.SnmpMgr.EngineV2, request_id)
+          %{acc | results: Map.put(acc.results, index, {:error, :timeout})}
+        else
+          %{acc | pending: Map.put(acc.pending, request_id, entry)}
+        end
     end)
   end
 
@@ -392,12 +404,17 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
   end
 
   defp pending_receive_timeout(pending) do
+    now = now_ms()
+
     pending
     |> Map.values()
-    |> Enum.map(& &1.timeout)
-    |> Enum.max(fn -> @default_timeout end)
-    |> Kernel.+(1000)
+    |> Enum.map(fn %{launched_at: launched_at, timeout: timeout} ->
+      max(launched_at + timeout + @stuck_grace_ms - now, 0)
+    end)
+    |> Enum.min(fn -> @default_timeout end)
   end
+
+  defp now_ms, do: System.monotonic_time(:millisecond)
 
   defp dispatch_request(socket, request, request_id, timeout) do
     SnmpKit.SnmpMgr.EngineV2.register_request(
@@ -614,7 +631,24 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
     # Honor auto_start_services toggle; if disabled, do nothing.
     case SnmpKit.SnmpMgr.Config.get(:auto_start_services) do
       false ->
-        :ok
+        # Auto-start disabled means the caller manages startup. Fail fast
+        # with a clear message instead of a confusing noproc exit downstream.
+        missing =
+          [
+            SnmpKit.SnmpMgr.RequestIdGenerator,
+            SnmpKit.SnmpMgr.SocketManager,
+            SnmpKit.SnmpMgr.EngineV2
+          ]
+          |> Enum.reject(&Process.whereis/1)
+
+        case missing do
+          [] ->
+            :ok
+
+          _ ->
+            raise "SnmpKit services not started (auto_start_services is false): " <>
+                    "#{inspect(missing)}. Start them manually or enable auto_start_services."
+        end
 
       _true ->
         # RequestIdGenerator

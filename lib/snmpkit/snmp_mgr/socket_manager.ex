@@ -187,13 +187,12 @@ defmodule SnmpKit.SnmpMgr.SocketManager do
     health =
       case :inet.getstat(state.socket, [:recv_q]) do
         {:ok, [{:recv_q, queue_length}]} ->
-          # Consider healthy if receive queue is not full
-          # (rough heuristic: less than 80% of buffer size)
-          queue_ratio = queue_length / state.buffer_size
-
+          # Heuristic on absolute queued units: recv_q units are not
+          # comparable to the byte-sized recbuf, so compare against fixed
+          # backlog thresholds instead of a buffer ratio.
           cond do
-            queue_ratio < 0.5 -> :healthy
-            queue_ratio < 0.8 -> :warning
+            queue_length < 1_000 -> :healthy
+            queue_length < 5_000 -> :warning
             true -> :critical
           end
 
@@ -237,16 +236,18 @@ defmodule SnmpKit.SnmpMgr.SocketManager do
     case engine_pid do
       nil ->
         Logger.warning("Engine not found, dropping UDP response from #{:inet.ntoa(ip)}:#{port}")
+        updated_stats = update_stats(state.stats, :responses_dropped_no_engine, 1)
+        {:noreply, %{state | stats: updated_stats}}
 
       pid ->
         send(pid, {:udp, socket, ip, port, data})
+
+        # Update stats
+        updated_stats = update_stats(state.stats, :responses_received, 1)
+        new_state = %{state | stats: updated_stats}
+
+        {:noreply, new_state}
     end
-
-    # Update stats
-    updated_stats = update_stats(state.stats, :responses_received, 1)
-    new_state = %{state | stats: updated_stats}
-
-    {:noreply, new_state}
   end
 
   @impl true
@@ -294,6 +295,7 @@ defmodule SnmpKit.SnmpMgr.SocketManager do
   defp initialize_stats() do
     %{
       responses_received: 0,
+      responses_dropped_no_engine: 0,
       icmp_errors_dropped: 0,
       empty_packets_dropped: 0,
       last_reset: System.monotonic_time(:second)
