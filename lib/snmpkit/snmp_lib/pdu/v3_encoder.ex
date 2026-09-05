@@ -98,7 +98,7 @@ defmodule SnmpKit.SnmpLib.PDU.V3Encoder do
   - AES/DES IVs are derived from `msgAuthoritativeEngineBoots`/`Time` and the
     8-octet salt in `msgPrivacyParameters` (RFC 3414 8.1.1.1, RFC 3826 3.1.2.1).
   - Decoded messages expose the received USM parameters under
-    `:security_parameters` (see `SnmpKit.SnmpLib.Security.security_params/0`)
+    `:security_parameters` (see `t:SnmpKit.SnmpLib.Security.security_params/0`)
     and the raw octets under `:msg_security_parameters`.
   """
 
@@ -245,7 +245,7 @@ defmodule SnmpKit.SnmpLib.PDU.V3Encoder do
   @doc """
   Decodes a raw `msgSecurityParameters` OCTET STRING as USM parameters.
 
-  Returns a map in the `SnmpKit.SnmpLib.Security.security_params/0` shape.
+  Returns a map in the `t:SnmpKit.SnmpLib.Security.security_params/0` shape.
   """
   @spec decode_security_parameters(binary()) :: {:ok, security_params()} | {:error, atom()}
   def decode_security_parameters(security_params) when is_binary(security_params) do
