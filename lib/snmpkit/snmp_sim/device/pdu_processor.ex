@@ -14,8 +14,6 @@ defmodule SnmpKit.SnmpSim.Device.PduProcessor do
 
   # SNMP Error Status constants
   @no_error 0
-  # Same GETBULK repetition bound as WalkPduProcessor / Device / OIDTree
-  @max_bulk_repetitions 50
   @read_only 4
   @gen_err 5
 
@@ -55,7 +53,7 @@ defmodule SnmpKit.SnmpSim.Device.PduProcessor do
         :get_bulk_request ->
           varbinds = Map.get(pdu, :varbinds, Map.get(pdu, :variable_bindings, []))
           non_repeaters = Map.get(pdu, :non_repeaters, 0)
-          max_repetitions = max(0, min(Map.get(pdu, :max_repetitions, 0), @max_bulk_repetitions))
+          max_repetitions = max(0, Map.get(pdu, :max_repetitions, 0))
           processed = process_getbulk_request(varbinds, state, non_repeaters, max_repetitions)
           response = create_getbulk_response(pdu, processed)
           response

@@ -68,10 +68,6 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
     end
   end
 
-  # Upper bound on repetitions for every bulk path (Device and OIDTree apply
-  # the same limit), keeping responses within a UDP datagram.
-  @max_bulk_repetitions 50
-
   defp process_getbulk_v2(pdu, state) do
     %{non_repeaters: non_repeaters, max_repetitions: max_repetitions, varbinds: varbinds} = pdu
 
@@ -583,7 +579,9 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
 
   defp get_bulk_varbinds(start_oid, max_repetitions, state) do
     start_oid_string = oid_to_string(start_oid)
-    limited_max_repetitions = max(0, min(max_repetitions, @max_bulk_repetitions))
+    # Honour the manager's max-repetitions as-is: operators tune it to their
+    # network (jumbo frames included) and real agents do not cap it.
+    limited_max_repetitions = max(0, max_repetitions)
 
     # Collect successors; the list ends with a single :end_of_mib_marker when
     # the MIB view is exhausted (RFC 3416 4.2.3 allows the response to stop

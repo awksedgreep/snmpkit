@@ -10,9 +10,6 @@ defmodule SnmpKit.SnmpSim.OIDTree do
   - Optimized bulk operations
   """
 
-  # Same GETBULK repetition bound as WalkPduProcessor / PduProcessor / Device
-  @max_bulk_repetitions 50
-
   defstruct [
     # Root node of the OID tree
     :root,
@@ -132,10 +129,10 @@ defmodule SnmpKit.SnmpSim.OIDTree do
     tree = ensure_sorted_oids(tree)
 
     # A single start OID is a non-repeater when non_repeaters > 0 (one
-    # successor, RFC 3416 4.2.3); otherwise it repeats up to the capped
-    # max_repetitions.
-    max_repetitions =
-      if non_repeaters > 0, do: 1, else: max(0, min(max_repetitions, @max_bulk_repetitions))
+    # successor, RFC 3416 4.2.3); otherwise it repeats up to max_repetitions.
+    # The manager decides how many repetitions it wants; the simulator does not
+    # second-guess it (real agents only stop at their message-size limit).
+    max_repetitions = if non_repeaters > 0, do: 1, else: max(0, max_repetitions)
 
     start_oid_parts = parse_oid(start_oid)
 

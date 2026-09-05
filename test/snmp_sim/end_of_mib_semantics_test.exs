@@ -123,21 +123,31 @@ defmodule SnmpKit.SnmpSim.EndOfMibSemanticsTest do
       assert response.error_status == 0
     end
 
-    test "max-repetitions is capped", %{state: state} do
+    test "max-repetitions is honoured as requested, not capped", %{state: state} do
       big = Map.new(1..200, fn i -> {"1.3.6.1.4.1.9.#{i}", %{type: "INTEGER", value: i}} end)
       :ok = SharedProfiles.store_profile(:eom_big, big, %{})
       big_state = %{state | device_type: :eom_big}
 
+      # 120 requested, 200 available: exactly 120 rows
+      response =
+        WalkPduProcessor.process_getbulk_request(getbulk(2, ["1.3.6.1.4.1.9"], 120), big_state)
+
+      assert length(response.varbinds) == 120
+      assert Enum.all?(response.varbinds, &(elem(&1, 1) == :integer))
+
+      # More requested than exist: all 200 plus one endOfMibView
       response =
         WalkPduProcessor.process_getbulk_request(getbulk(2, ["1.3.6.1.4.1.9"], 1_000), big_state)
 
-      assert length(response.varbinds) == 50
+      assert length(response.varbinds) == 201
+      assert elem(List.last(response.varbinds), 1) == :end_of_mib_view
 
-      # OIDTree applies the same cap and honours non_repeaters
+      # OIDTree behaves the same and honours non_repeaters
       tree =
         Enum.reduce(big, OIDTree.new(), fn {o, %{value: v}}, t -> OIDTree.insert(t, o, v) end)
 
-      assert length(OIDTree.bulk_walk(tree, "1.3.6.1.4.1.9", 1_000)) == 50
+      assert length(OIDTree.bulk_walk(tree, "1.3.6.1.4.1.9", 120)) == 120
+      assert length(OIDTree.bulk_walk(tree, "1.3.6.1.4.1.9", 1_000)) == 200
       assert length(OIDTree.bulk_walk(tree, "1.3.6.1.4.1.9", 1_000, 1)) == 1
     end
 

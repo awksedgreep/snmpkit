@@ -802,11 +802,6 @@ defmodule SnmpKit.SnmpSim.Device do
     }
   end
 
-  # Upper bound on GETBULK repetitions on every bulk path (see also
-  # WalkPduProcessor and OIDTree) so a large max-repetitions cannot make the
-  # device materialise an unbounded response.
-  @max_bulk_repetitions 50
-
   defp count_device_oids(state) do
     cond do
       is_map(Map.get(state, :oid_map)) and map_size(state.oid_map) > 0 ->
@@ -825,7 +820,7 @@ defmodule SnmpKit.SnmpSim.Device do
 
   defp process_get_bulk_varbinds(varbinds, non_repeaters, max_repetitions, state) do
     device_type = state.device_type
-    max_repetitions = max(0, min(max_repetitions, @max_bulk_repetitions))
+    max_repetitions = max(0, max_repetitions)
     # The device state carries the real uptime; the old per-varbind
     # %{uptime: 0} froze every traffic counter served over GETBULK.
     device_state = state
