@@ -220,8 +220,9 @@ defmodule SnmpKit.WalkRegressionTest do
 
       # Additional verification
       type_violations =
-        Enum.filter(results, fn result ->
-          not match?({_oid, type, _value}, result) when is_atom(type)
+        Enum.reject(results, fn
+          {_oid, type, _value} when is_atom(type) -> true
+          _ -> false
         end)
 
       assert Enum.empty?(type_violations),
