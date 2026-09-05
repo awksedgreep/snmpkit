@@ -129,6 +129,28 @@ defmodule SnmpKit.SnmpLib.HostParser do
     parse_string(input, default_port)
   end
 
+  # Keyword list input: [host: ..., port: ...]
+  def parse(input, default_port) when is_list(input) and length(input) > 0 do
+    case Keyword.keyword?(input) do
+      true ->
+        host = Keyword.get(input, :host)
+        port = Keyword.get(input, :port, default_port)
+
+        if host do
+          with {:ok, {ip_tuple, _}} <- parse(host, default_port),
+               :ok <- validate_port(port) do
+            {:ok, {ip_tuple, port}}
+          end
+        else
+          {:error, :missing_host}
+        end
+
+      false ->
+        # Try as charlist
+        parse_charlist(input, default_port)
+    end
+  end
+
   # Charlist input
   def parse(input, default_port) when is_list(input) do
     # Validate charlist contains only valid ASCII/UTF-8 characters
@@ -152,28 +174,6 @@ defmodule SnmpKit.SnmpLib.HostParser do
     with {:ok, {ip_tuple, _}} <- parse(host, default_port),
          :ok <- validate_port(port) do
       {:ok, {ip_tuple, port}}
-    end
-  end
-
-  # Keyword list input: [host: ..., port: ...]
-  def parse(input, default_port) when is_list(input) and length(input) > 0 do
-    case Keyword.keyword?(input) do
-      true ->
-        host = Keyword.get(input, :host)
-        port = Keyword.get(input, :port, default_port)
-
-        if host do
-          with {:ok, {ip_tuple, _}} <- parse(host, default_port),
-               :ok <- validate_port(port) do
-            {:ok, {ip_tuple, port}}
-          end
-        else
-          {:error, :missing_host}
-        end
-
-      false ->
-        # Try as charlist
-        parse_charlist(input, default_port)
     end
   end
 

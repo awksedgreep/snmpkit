@@ -676,7 +676,10 @@ defmodule SnmpKit.SnmpLib.Types do
   defp perform_encoding(_value, :null), do: {:ok, nil}
   defp perform_encoding(value, :opaque) when is_binary(value), do: {:ok, value}
 
-  # Handle IP address encoding
+  # Handle IP address encoding: a 4-octet binary is already an address,
+  # any other binary is parsed as dotted text
+  defp perform_encoding(<<a, b, c, d>>, :ip_address), do: {:ok, {a, b, c, d}}
+
   defp perform_encoding(value, :ip_address) when is_binary(value) do
     case SnmpKit.SnmpLib.Types.Format.parse_ip_address(value) do
       {:ok, ip_tuple} -> {:ok, ip_tuple}
@@ -688,8 +691,6 @@ defmodule SnmpKit.SnmpLib.Types do
        when is_integer(a) and is_integer(b) and is_integer(c) and is_integer(d) do
     {:ok, value}
   end
-
-  defp perform_encoding(<<a, b, c, d>>, :ip_address), do: {:ok, {a, b, c, d}}
 
   # Handle OID string encoding
   defp perform_encoding(value, :object_identifier) when is_binary(value) do

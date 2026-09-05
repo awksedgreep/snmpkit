@@ -260,9 +260,6 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
 
               {:error, {:mib_load_failed, reason}} ->
                 "MIB load failed: #{inspect(reason)}"
-
-              other ->
-                "Unexpected error: #{inspect(other, pretty: true)}"
             end
 
           Logger.error(error_msg)

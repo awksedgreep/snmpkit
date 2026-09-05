@@ -253,15 +253,8 @@ defmodule SnmpKit.SnmpSim.TestHelpers do
             :ok
 
           :exit, {:timeout, _} ->
-            try do
-              if is_pid(device) and Process.alive?(device) do
-                Process.exit(device, :kill)
-              end
-
-              :ok
-            catch
-              _, _ -> :ok
-            end
+            # `device` is a name here (pids are handled above); nothing to kill
+            :ok
 
           :exit, _reason ->
             :ok

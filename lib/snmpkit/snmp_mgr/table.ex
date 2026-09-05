@@ -187,19 +187,15 @@ defmodule SnmpKit.SnmpMgr.Table do
       }}
   """
   def to_map(oid_type_value_tuples, key_column) do
-    case to_rows(oid_type_value_tuples) do
-      {:ok, rows} ->
-        mapped_data =
-          rows
-          |> Enum.filter(fn row -> Map.has_key?(row, key_column) end)
-          |> Enum.map(fn row -> {Map.get(row, key_column), row} end)
-          |> Enum.into(%{})
+    {:ok, rows} = to_rows(oid_type_value_tuples)
 
-        {:ok, mapped_data}
+    mapped_data =
+      rows
+      |> Enum.filter(fn row -> Map.has_key?(row, key_column) end)
+      |> Enum.map(fn row -> {Map.get(row, key_column), row} end)
+      |> Enum.into(%{})
 
-      error ->
-        error
-    end
+    {:ok, mapped_data}
   end
 
   @doc """
