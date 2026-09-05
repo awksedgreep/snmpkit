@@ -11,7 +11,6 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
     # Stop services if running
     for name <- [
           SnmpKit.SnmpMgr.Engine,
-          SnmpKit.SnmpMgr.SocketManager,
           SnmpKit.SnmpMgr.RequestIdGenerator
         ] do
       case Process.whereis(name) do
@@ -32,7 +31,6 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
 
       for name <- [
             SnmpKit.SnmpMgr.Engine,
-            SnmpKit.SnmpMgr.SocketManager,
             SnmpKit.SnmpMgr.RequestIdGenerator
           ] do
         case Process.whereis(name) do
@@ -50,7 +48,6 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
 
     # Sanity: ensure not running
     assert Process.whereis(SnmpKit.SnmpMgr.Engine) == nil
-    assert Process.whereis(SnmpKit.SnmpMgr.SocketManager) == nil
     assert Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator) == nil
 
     # Run a no-op multi call (empty list) to avoid network, but would auto-start if enabled
@@ -58,7 +55,6 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
 
     # Should still be not running
     assert Process.whereis(SnmpKit.SnmpMgr.Engine) == nil
-    assert Process.whereis(SnmpKit.SnmpMgr.SocketManager) == nil
     assert Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator) == nil
   end
 
@@ -70,7 +66,6 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
 
     # Verify
     assert is_pid(Process.whereis(SnmpKit.SnmpMgr.Engine))
-    assert is_pid(Process.whereis(SnmpKit.SnmpMgr.SocketManager))
     assert is_pid(Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator))
   end
 
@@ -80,7 +75,6 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
     # Ensure stopped first
     for name <- [
           SnmpKit.SnmpMgr.Engine,
-          SnmpKit.SnmpMgr.SocketManager,
           SnmpKit.SnmpMgr.RequestIdGenerator
         ] do
       case Process.whereis(name) do
@@ -94,7 +88,6 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
 
     # Should be running now
     assert is_pid(Process.whereis(SnmpKit.SnmpMgr.Engine))
-    assert is_pid(Process.whereis(SnmpKit.SnmpMgr.SocketManager))
     assert is_pid(Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator))
   end
 end

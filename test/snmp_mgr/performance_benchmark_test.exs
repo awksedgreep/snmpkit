@@ -1,18 +1,13 @@
 defmodule SnmpKit.SnmpMgr.PerformanceBenchmarkTest do
   use ExUnit.Case, async: false
 
-  alias SnmpKit.SnmpMgr.{PerformanceBenchmark, RequestIdGenerator, SocketManager, Engine}
+  alias SnmpKit.SnmpMgr.{PerformanceBenchmark, RequestIdGenerator, Engine}
 
   @moduletag :performance
 
   setup do
     # Start all required services
     case RequestIdGenerator.start_link() do
-      {:ok, _} -> :ok
-      {:error, {:already_started, _}} -> :ok
-    end
-
-    case SocketManager.start_link() do
       {:ok, _} -> :ok
       {:error, {:already_started, _}} -> :ok
     end
@@ -116,9 +111,9 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmarkTest do
     assert buffer_stats.duration_ms > 0
   end
 
-  test "buffer stats from SocketManager are valid" do
+  test "buffer stats from the Engine are valid" do
     # Test the enhanced buffer stats
-    buffer_stats = SocketManager.get_buffer_stats()
+    buffer_stats = Engine.get_buffer_stats()
 
     assert Map.has_key?(buffer_stats, :buffer_size)
     assert Map.has_key?(buffer_stats, :recv_queue_length)

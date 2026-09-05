@@ -1,20 +1,40 @@
 defmodule SnmpKit.SnmpMgr.Engine do
   @moduledoc """
-  Pure response correlator for SNMP operations.
+  The manager's shared UDP socket and response correlator.
 
-  This engine focuses solely on correlating SNMP responses back to their
-  originating processes. It does not handle sending - that is done directly
-  by Tasks using the shared socket from SocketManager.
+  The engine owns one UDP socket. Callers (`SnmpKit.SnmpMgr.Multi`,
+  `SnmpKit.SnmpMgr.V2Walk`) register a request id, send their PDU themselves
+  on the socket from `get_socket/1`, and receive `{:snmp_response, id, data}`
+  or `{:snmp_timeout, id}` in their mailbox. Responses arrive straight in the
+  engine's mailbox; there is no forwarding hop.
+
+  Datagrams from `{:unspec, _}` sources (ICMP errors surfaced by the socket)
+  and empty datagrams are dropped and counted.
+
+  ## Options
+  - `:name` - process name (default: `SnmpKit.SnmpMgr.Engine`)
+  - `:port` - local UDP port (default 0, ephemeral)
+  - `:buffer_size` - socket receive buffer in bytes (default 4 MiB)
+  - `:max_queue_depth` - mailbox depth treated as 100% for `health_check/1`
   """
 
   use GenServer
   require Logger
 
+  @default_buffer_size 4 * 1024 * 1024
+  @default_port 0
+  @default_max_queue_depth 10_000
+
   defstruct [
     :name,
     :pending_requests,
     :metrics,
-    :timeout_refs
+    :timeout_refs,
+    :socket,
+    :port,
+    :buffer_size,
+    :max_queue_depth,
+    :created_at
   ]
 
   @doc """
@@ -57,10 +77,35 @@ defmodule SnmpKit.SnmpMgr.Engine do
   end
 
   @doc """
-  Gets engine statistics and metrics.
+  Gets engine statistics: pending request count, correlation metrics, socket
+  counters (`:socket_stats`), the local `:port` and `:recv_queue_length`.
   """
-  def get_stats(engine) do
+  def get_stats(engine \\ __MODULE__) do
     GenServer.call(engine, :get_stats)
+  end
+
+  @doc "The shared UDP socket. Send request PDUs on it after `register_request/4`."
+  def get_socket(engine \\ __MODULE__) do
+    GenServer.call(engine, :get_socket)
+  end
+
+  @doc "The local UDP port the shared socket is bound to."
+  def get_port(engine \\ __MODULE__) do
+    GenServer.call(engine, :get_port)
+  end
+
+  @doc "Socket buffer statistics: largest datagram seen relative to the receive buffer, mailbox depth."
+  def get_buffer_stats(engine \\ __MODULE__) do
+    GenServer.call(engine, :get_buffer_stats)
+  end
+
+  @doc """
+  Health based on how many datagrams are waiting in the engine's mailbox
+  relative to `:max_queue_depth`: `:healthy` (< 50%), `:warning` (< 80%),
+  `:critical`, or `:error` if the socket is gone.
+  """
+  def health_check(engine \\ __MODULE__) do
+    GenServer.call(engine, :health_check)
   end
 
   @doc """
@@ -81,17 +126,39 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
   @impl true
   def init(opts) do
-    Logger.info("Engine (Response Correlator) starting")
+    Process.flag(:trap_exit, true)
+    buffer_size = Keyword.get(opts, :buffer_size, @default_buffer_size)
+    port = Keyword.get(opts, :port, @default_port)
 
-    state = %__MODULE__{
-      name: Keyword.get(opts, :name, __MODULE__),
-      pending_requests: %{},
-      metrics: initialize_metrics(),
-      timeout_refs: %{}
-    }
+    case create_socket(buffer_size, port) do
+      {:ok, socket} ->
+        {:ok, actual_port} = :inet.port(socket)
+        Logger.info("Engine started on UDP port #{actual_port} (#{buffer_size} byte buffer)")
 
-    Logger.info("Engine started successfully")
-    {:ok, state}
+        {:ok,
+         %__MODULE__{
+           name: Keyword.get(opts, :name, __MODULE__),
+           pending_requests: %{},
+           metrics: initialize_metrics(),
+           timeout_refs: %{},
+           socket: socket,
+           port: actual_port,
+           buffer_size: buffer_size,
+           max_queue_depth: Keyword.get(opts, :max_queue_depth, @default_max_queue_depth),
+           created_at: System.monotonic_time(:millisecond)
+         }}
+
+      {:error, reason} ->
+        Logger.error("Failed to open engine UDP socket on port #{port}: #{inspect(reason)}")
+        {:stop, reason}
+    end
+  end
+
+  @impl true
+  def terminate(_reason, state) do
+    Enum.each(state.timeout_refs, fn {_id, ref} -> Process.cancel_timer(ref) end)
+    if state.socket, do: :gen_udp.close(state.socket)
+    :ok
   end
 
   @impl true
@@ -124,12 +191,75 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
   @impl true
   def handle_call(:get_stats, _from, state) do
+    socket_stats =
+      case :inet.getstat(state.socket, [:recv_cnt, :recv_oct, :send_cnt, :send_oct]) do
+        {:ok, stats} -> stats
+        {:error, _} -> []
+      end
+
     stats = %{
       pending_requests: map_size(state.pending_requests),
-      metrics: state.metrics
+      metrics: state.metrics,
+      socket_stats: socket_stats,
+      recv_queue_length: mailbox_depth(self()),
+      buffer_size: state.buffer_size,
+      port: state.port,
+      uptime_ms: System.monotonic_time(:millisecond) - state.created_at
     }
 
     {:reply, stats, state}
+  end
+
+  @impl true
+  def handle_call(:get_socket, _from, state), do: {:reply, state.socket, state}
+
+  @impl true
+  def handle_call(:get_port, _from, state), do: {:reply, state.port, state}
+
+  @impl true
+  def handle_call(:get_buffer_stats, _from, state) do
+    buffer_stats =
+      case :inet.getstat(state.socket, [:recv_max, :send_max, :recv_oct, :send_oct]) do
+        {:ok, stats} -> stats
+        {:error, _} -> []
+      end
+
+    recv_max = Keyword.get(buffer_stats, :recv_max, 0)
+    utilization = if state.buffer_size > 0, do: recv_max / state.buffer_size * 100, else: 0
+
+    {:reply,
+     %{
+       buffer_size: state.buffer_size,
+       recv_queue_length: mailbox_depth(self()),
+       recv_utilization_percent: utilization,
+       max_queue_depth: state.max_queue_depth,
+       buffer_stats: buffer_stats,
+       port: state.port,
+       uptime_ms: System.monotonic_time(:millisecond) - state.created_at
+     }, state}
+  end
+
+  @impl true
+  def handle_call(:health_check, _from, state) do
+    depth = mailbox_depth(self())
+    ratio = if state.max_queue_depth > 0, do: depth / state.max_queue_depth, else: 0
+
+    status =
+      cond do
+        Port.info(state.socket) == nil -> :error
+        ratio < 0.5 -> :healthy
+        ratio < 0.8 -> :warning
+        true -> :critical
+      end
+
+    {:reply,
+     %{
+       status: status,
+       port: state.port,
+       queue_depth: depth,
+       max_queue_depth: state.max_queue_depth,
+       uptime_ms: System.monotonic_time(:millisecond) - state.created_at
+     }, state}
   end
 
   @impl true
@@ -140,11 +270,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
   @impl true
   def handle_call(:stop, _from, state) do
-    # Cancel all pending timeouts
-    Enum.each(state.timeout_refs, fn {_id, ref} ->
-      Process.cancel_timer(ref)
-    end)
-
+    # terminate/2 cancels timers and closes the socket
     {:stop, :normal, :ok, state}
   end
 
@@ -155,11 +281,33 @@ defmodule SnmpKit.SnmpMgr.Engine do
   end
 
   @impl true
+  def handle_info({:udp, _socket, {:unspec, _}, _port, _data}, state) do
+    # ICMP errors (unreachable hosts) surface as datagrams from :unspec
+    {:noreply, %{state | metrics: update_metrics(state.metrics, :icmp_errors_dropped, 1)}}
+  end
+
+  @impl true
+  def handle_info({:udp, _socket, _ip, _port, ""}, state) do
+    {:noreply, %{state | metrics: update_metrics(state.metrics, :empty_packets_dropped, 1)}}
+  end
+
+  @impl true
+  def handle_info({:udp_error, _socket, reason}, state) do
+    Logger.debug("Engine socket reported #{inspect(reason)}")
+    {:noreply, %{state | metrics: update_metrics(state.metrics, :icmp_errors_dropped, 1)}}
+  end
+
+  @impl true
+  def handle_info({:EXIT, _pid, _reason}, state), do: {:noreply, state}
+
+  @impl true
   def handle_info({:udp, _socket, ip, port, data}, state) do
     # Handle incoming UDP responses
     Logger.debug(
       "Engine received UDP response from #{:inet.ntoa(ip)}:#{port}, #{byte_size(data)} bytes"
     )
+
+    state = %{state | metrics: update_metrics(state.metrics, :responses_received, 1)}
 
     case decode_snmp_response(data) do
       {:ok, request_id, response_data} ->
@@ -222,6 +370,9 @@ defmodule SnmpKit.SnmpMgr.Engine do
       requests_timeout: 0,
       decode_failures: 0,
       unknown_responses: 0,
+      responses_received: 0,
+      icmp_errors_dropped: 0,
+      empty_packets_dropped: 0,
       avg_response_time: 0,
       last_reset: System.monotonic_time(:second)
     }
@@ -302,6 +453,36 @@ defmodule SnmpKit.SnmpMgr.Engine do
       {oid, type, value} -> {oid, type, value}
       %{oid: oid, type: type, value: value} -> {oid, type, value}
       _ -> varbind
+    end
+  end
+
+  defp create_socket(buffer_size, port) do
+    case :gen_udp.open(port, [
+           :binary,
+           {:active, true},
+           {:recbuf, buffer_size},
+           {:reuseaddr, true}
+         ]) do
+      {:ok, socket} ->
+        case :inet.getopts(socket, [:recbuf]) do
+          {:ok, [{:recbuf, actual}]} when actual < buffer_size ->
+            Logger.warning("Requested UDP buffer size #{buffer_size}, got #{actual}")
+
+          _ ->
+            :ok
+        end
+
+        {:ok, socket}
+
+      error ->
+        error
+    end
+  end
+
+  defp mailbox_depth(pid) do
+    case Process.info(pid, :message_queue_len) do
+      {:message_queue_len, n} -> n
+      nil -> 0
     end
   end
 

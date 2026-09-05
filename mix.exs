@@ -184,7 +184,6 @@ defmodule Snmpkit.MixProject do
         ],
         "Manager Infrastructure": [
           SnmpKit.SnmpMgr.Engine,
-          SnmpKit.SnmpMgr.SocketManager,
           SnmpKit.SnmpMgr.RequestIdGenerator
         ],
         "Device Simulation": [

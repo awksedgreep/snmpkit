@@ -1,16 +1,11 @@
 defmodule SnmpKit.SnmpMgr.MultiTest do
   use ExUnit.Case, async: false
 
-  alias SnmpKit.SnmpMgr.{Multi, RequestIdGenerator, SocketManager, Engine}
+  alias SnmpKit.SnmpMgr.{Multi, RequestIdGenerator, Engine}
 
   setup do
     # Start all required services (or use existing ones)
     case RequestIdGenerator.start_link() do
-      {:ok, _} -> :ok
-      {:error, {:already_started, _}} -> :ok
-    end
-
-    case SocketManager.start_link() do
       {:ok, _} -> :ok
       {:error, {:already_started, _}} -> :ok
     end

@@ -8,14 +8,13 @@ defmodule SnmpKit.SnmpMgr do
 
   @concurrent_services [
     SnmpKit.SnmpMgr.RequestIdGenerator,
-    SnmpKit.SnmpMgr.SocketManager,
     SnmpKit.SnmpMgr.Engine
   ]
 
   @doc """
   Ensures internal manager services are started.
 
-  Starts RequestIdGenerator, SocketManager, and Engine if they are not running.
+  Starts RequestIdGenerator and Engine if they are not running.
   Safe to call multiple times and from concurrent callers: the services are
   started under `SnmpKit.SnmpMgr.ServiceSupervisor` (part of the application
   tree), so a start race resolves to `{:error, {:already_started, _}}` inside

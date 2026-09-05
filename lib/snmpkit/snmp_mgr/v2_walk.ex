@@ -10,7 +10,7 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
   require Logger
 
   alias SnmpKit.SnmpLib.{PDU, Transport}
-  alias SnmpKit.SnmpMgr.{Engine, RequestIdGenerator, SocketManager}
+  alias SnmpKit.SnmpMgr.{Engine, RequestIdGenerator}
 
   @default_timeout 30_000
   @default_walk_timeout 1_200_000
@@ -39,7 +39,7 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
     if requests == [] do
       []
     else
-      socket = SocketManager.get_socket()
+      socket = Engine.get_socket()
       max_concurrent = max(1, Keyword.get(opts, :max_concurrent, 10))
       global_timeout = Keyword.get(opts, :timeout, @default_timeout)
 
@@ -61,7 +61,7 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
   end
 
   defp walk_loop(state) do
-    case send_walk_request(SocketManager.get_socket(), state) do
+    case send_walk_request(Engine.get_socket(), state) do
       {:ok, state} ->
         deadline = now_ms() + min(state.timeout, remaining_walk_time(state))
         await_walk_message(state, deadline)

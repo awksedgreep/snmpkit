@@ -1,11 +1,11 @@
 defmodule SnmpKit.SnmpMgr.ResilienceTest do
   @moduledoc """
   Covers supervised, race-free start-up of the manager services and
-  SocketManager health/drop reporting.
+  Engine socket health/drop reporting.
   """
   use ExUnit.Case, async: false
 
-  alias SnmpKit.SnmpMgr.SocketManager
+  alias SnmpKit.SnmpMgr.Engine
 
   @moduletag :unit
 
@@ -23,7 +23,6 @@ defmodule SnmpKit.SnmpMgr.ResilienceTest do
     test "ensure_started is race-free and does not link services to callers" do
       services = [
         SnmpKit.SnmpMgr.RequestIdGenerator,
-        SnmpKit.SnmpMgr.SocketManager,
         SnmpKit.SnmpMgr.Engine
       ]
 
@@ -50,22 +49,22 @@ defmodule SnmpKit.SnmpMgr.ResilienceTest do
       end
     end
 
-    test "SocketManager reports queue-based health and drop counters" do
-      {:ok, manager} = SocketManager.start_link(name: unique(:sm), max_queue_depth: 100)
+    test "Engine reports queue-based health and drop counters" do
+      {:ok, manager} = Engine.start_link(name: unique(:eng), max_queue_depth: 100)
       on_exit(fn -> stop_quietly(manager) end)
 
-      health = SocketManager.health_check(manager)
+      health = Engine.health_check(manager)
       assert health.status == :healthy
       assert health.queue_depth == 0
       assert health.max_queue_depth == 100
 
-      stats = SocketManager.get_stats(manager)
-      assert stats.custom_stats.dropped_overload == 0
-      assert stats.custom_stats.dropped_no_engine == 0
+      stats = Engine.get_stats(manager)
+      assert stats.metrics.icmp_errors_dropped == 0
+      assert stats.metrics.empty_packets_dropped == 0
 
-      buffer = SocketManager.get_buffer_stats(manager)
+      buffer = Engine.get_buffer_stats(manager)
       assert buffer.recv_utilization_percent >= 0
-      assert Map.has_key?(buffer, :engine_queue_length)
+      assert Map.has_key?(buffer, :recv_queue_length)
     end
   end
 end

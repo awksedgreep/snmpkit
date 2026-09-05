@@ -22,7 +22,6 @@ defmodule SnmpKit.SnmpMgr.MultiBehaviorTest do
       _ = SnmpKit.SnmpMgr.get_multi([{"invalid.host.test", "sysDescr.0"}], timeout: 50)
 
       assert Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator)
-      assert Process.whereis(SnmpKit.SnmpMgr.SocketManager)
       assert Process.whereis(SnmpKit.SnmpMgr.Engine)
     end
 

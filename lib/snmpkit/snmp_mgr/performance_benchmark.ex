@@ -381,9 +381,9 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
     after
       100 ->
         buffer_stats =
-          case Process.whereis(SnmpKit.SnmpMgr.SocketManager) do
+          case Process.whereis(SnmpKit.SnmpMgr.Engine) do
             nil -> %{recv_utilization_percent: 0}
-            _ -> SnmpKit.SnmpMgr.SocketManager.get_buffer_stats()
+            _ -> SnmpKit.SnmpMgr.Engine.get_buffer_stats()
           end
 
         new_samples = [buffer_stats | samples]

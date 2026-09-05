@@ -225,7 +225,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
       {_, {:error, reason}} ->
         # Services are down and auto-start is disabled: say so per target
-        # instead of exiting with :noproc deep inside SocketManager.
+        # instead of exiting with :noproc deep inside the Engine.
         results = Enum.map(targets_and_data, fn _ -> {:error, reason} end)
         format_results(targets_and_data, results, opts)
 
@@ -296,7 +296,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
   # For high-throughput get/get_bulk paths, keep one caller process and one shared UDP socket.
   # Requests are launched up to max_concurrent and correlated back through Engine.
   defp execute_non_walk_requests(requests, global_timeout, max_concurrent) do
-    socket = SnmpKit.SnmpMgr.SocketManager.get_socket()
+    socket = SnmpKit.SnmpMgr.Engine.get_socket()
     queue = :queue.from_list(Enum.with_index(requests))
 
     state = %{

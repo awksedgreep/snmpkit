@@ -14,6 +14,7 @@ Breaking release. See `docs/v2-migration.md` for the rename/removal table.
 - Task-per-target `SnmpMgr.Multi` and the `strategy:` option on multi-target calls.
 - `SnmpLib.MIB` facade, `SnmpLib.Config`, `SnmpLib.Pool`, `SnmpLib.Cache`, `SnmpLib.Monitor`, `SnmpLib.Dashboard`.
 - `SnmpKit.TestSupport` (lib) and the deprecated `Keys.secure_wipe/1`.
+- `SnmpMgr.SocketManager`: the Engine owns the shared UDP socket (`Engine.get_socket/1`, `get_port/1`, `get_buffer_stats/1`, `health_check/1`); responses land in the engine directly instead of being forwarded.
 
 ### Changed
 - `SnmpMgr.EngineV2` -> `SnmpMgr.Engine`; `SnmpMgr.MultiV2` -> `SnmpMgr.Multi`.
