@@ -191,6 +191,8 @@ defmodule SnmpKit.TestSupport.SNMPSimulator do
   Stops a test device and cleans up resources.
   """
   def stop_device(%{device: device_pid}) when is_pid(device_pid) do
+    # Devices are usually linked to the test process and may already be
+    # shutting down when on_exit runs; a :noproc exit here is not an error.
     if Process.alive?(device_pid) do
       GenServer.stop(device_pid, :normal, 5000)
     else
@@ -198,6 +200,8 @@ defmodule SnmpKit.TestSupport.SNMPSimulator do
     end
   rescue
     _ -> :ok
+  catch
+    :exit, _ -> :ok
   end
 
   def stop_device(_), do: :ok
