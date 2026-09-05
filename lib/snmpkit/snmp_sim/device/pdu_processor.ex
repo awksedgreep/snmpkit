@@ -151,7 +151,7 @@ defmodule SnmpKit.SnmpSim.Device.PduProcessor do
 
               {:error, _} ->
                 # If we can't get the value, use fallback
-                SnmpKit.SnmpSim.Device.OidHandler.get_fallback_next_oid(oid, state)
+                SnmpKit.SnmpSim.Device.BuiltinValues.get_fallback_next_oid(oid, state)
             end
 
           :end_of_mib ->
