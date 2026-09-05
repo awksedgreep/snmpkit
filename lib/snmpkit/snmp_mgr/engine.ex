@@ -60,6 +60,15 @@ defmodule SnmpKit.SnmpMgr.Engine do
         batch_size: 100
       )
   """
+  @type request :: %{
+          required(:type) => atom(),
+          required(:target) => term(),
+          required(:oid) => term(),
+          optional(atom()) => term()
+        }
+  @type result :: {:ok, term()} | {:error, term()}
+
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     name = Keyword.get(opts, :name, __MODULE__)
     GenServer.start_link(__MODULE__, opts, name: name)
@@ -84,6 +93,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
       {:ok, ref} = SnmpKit.SnmpMgr.Engine.submit_request(engine, request)
   """
+  @spec submit_request(GenServer.server(), request(), keyword()) :: result()
   def submit_request(engine, request, opts \\ []) do
     GenServer.call(engine, {:submit_request, request, opts}, call_timeout(opts))
   end
@@ -105,6 +115,8 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
       {:ok, batch_ref} = SnmpKit.SnmpMgr.Engine.submit_batch(engine, requests)
   """
+  @spec submit_batch(GenServer.server(), [request()], keyword()) ::
+          {:ok, [result()]} | {:error, term()}
   def submit_batch(engine, requests, opts \\ []) do
     GenServer.call(engine, {:submit_batch, requests, opts}, call_timeout(opts))
   end
@@ -131,6 +143,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
   @doc """
   Gets engine statistics and metrics.
   """
+  @spec get_stats(GenServer.server()) :: map()
   def get_stats(engine) do
     GenServer.call(engine, :get_stats)
   end
@@ -138,6 +151,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
   @doc """
   Gets connection pool status.
   """
+  @spec get_pool_status(GenServer.server()) :: [map()]
   def get_pool_status(engine) do
     GenServer.call(engine, :get_pool_status)
   end
@@ -145,6 +159,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
   @doc """
   Gracefully shuts down the engine.
   """
+  @spec stop(GenServer.server()) :: :ok
   def stop(engine) do
     GenServer.call(engine, :stop)
   end

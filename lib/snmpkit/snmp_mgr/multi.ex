@@ -54,6 +54,12 @@ defmodule SnmpKit.SnmpMgr.Multi do
         {"device3", "ifNumber.0"} => {:error, :timeout}
       }
   """
+  @type target :: binary() | tuple() | map()
+  @type oid :: binary() | [non_neg_integer()]
+  @type request :: {target(), oid()} | {target(), oid(), keyword()}
+  @type result :: {:ok, term()} | {:error, term()}
+
+  @spec get_multi([request()], keyword()) :: [result()] | map()
   def get_multi(targets_and_oids, opts \\ []) do
     timeout = Keyword.get(opts, :timeout, @default_timeout)
     _max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
@@ -113,6 +119,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
         {"router1", "ipRouteTable"} => {:error, :timeout}
       }
   """
+  @spec get_bulk_multi([request()], keyword()) :: [result()] | map()
   def get_bulk_multi(targets_and_oids, opts \\ []) do
     # get_bulk_multi called with #{length(targets_and_oids)} targets
     timeout = Keyword.get(opts, :timeout, @default_timeout)
@@ -176,6 +183,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
         {"device3", [1, 3, 6, 1, 2, 1, 4]} => {:error, :timeout}
       }
   """
+  @spec walk_multi([request()], keyword()) :: [result()] | map()
   def walk_multi(targets_and_oids, opts \\ []) do
     # Walks take longer
     timeout = Keyword.get(opts, :timeout, @default_timeout * 3)
@@ -233,6 +241,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
         {"router1", "ipRouteTable"} => {:error, :host_unreachable}
       }
   """
+  @spec walk_table_multi([request()], keyword()) :: [result()] | map()
   def walk_table_multi(targets_and_tables, opts \\ []) do
     # Table walks take longer
     timeout = Keyword.get(opts, :timeout, @default_timeout * 5)
@@ -271,6 +280,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
       # Note: execute_mixed handles different operation types, so return_format
       # is not applicable here as operations have different target/args structures
   """
+  @spec execute_mixed([tuple()], keyword()) :: [result()]
   def execute_mixed(operations, opts \\ []) do
     timeout = Keyword.get(opts, :timeout, @default_timeout * 3)
     _max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
@@ -299,6 +309,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
       callback = fn change -> IO.inspect(change) end
       {:ok, monitor_pid} = SnmpKit.SnmpMgr.Multi.monitor(targets, callback, interval: 30_000)
   """
+  @spec monitor([request()], (term() -> any()), keyword()) :: term()
   def monitor(targets_and_oids, callback, opts \\ []) do
     interval = Keyword.get(opts, :interval, 30_000)
     initial_poll = Keyword.get(opts, :initial_poll, true)

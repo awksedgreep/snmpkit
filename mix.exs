@@ -13,6 +13,7 @@ defmodule Snmpkit.MixProject do
       compilers: [:yecc] ++ Mix.compilers(),
       deps: deps(),
       dialyzer: dialyzer(),
+      aliases: aliases(),
 
       # Hex package metadata
       description: description(),
@@ -59,6 +60,13 @@ defmodule Snmpkit.MixProject do
       {:excoveralls, "~> 0.18", only: :test},
       {:benchee, "~> 1.1", only: [:dev, :test]},
       {:stream_data, "~> 0.5", only: :test}
+    ]
+  end
+
+  defp aliases do
+    [
+      # Static checks used in CI: formatting, credo (strict), dialyzer
+      lint: ["format --check-formatted", "credo --strict", "dialyzer"]
     ]
   end
 
@@ -125,23 +133,91 @@ defmodule Snmpkit.MixProject do
         ],
         "SNMP Protocol": [
           SnmpKit.SnmpLib,
+          SnmpKit.SnmpLib.ASN1,
           SnmpKit.SnmpLib.Types,
-          SnmpKit.SnmpLib.Pdu,
-          SnmpKit.SnmpLib.Message,
-          SnmpKit.SnmpLib.Oid
+          SnmpKit.SnmpLib.PDU,
+          SnmpKit.SnmpLib.PDU.Builder,
+          SnmpKit.SnmpLib.PDU.Constants,
+          SnmpKit.SnmpLib.PDU.Decoder,
+          SnmpKit.SnmpLib.PDU.Encoder,
+          SnmpKit.SnmpLib.PDU.V3Encoder,
+          SnmpKit.SnmpLib.OID,
+          SnmpKit.SnmpLib.Transport,
+          SnmpKit.SnmpLib.Manager,
+          SnmpKit.SnmpLib.Walker,
+          SnmpKit.SnmpLib.HostParser,
+          SnmpKit.SnmpLib.Error,
+          SnmpKit.SnmpLib.ErrorHandler,
+          SnmpKit.SnmpLib.Utils
+        ],
+        "SNMPv3 Security": [
+          SnmpKit.SnmpLib.Security,
+          SnmpKit.SnmpLib.Security.Auth,
+          SnmpKit.SnmpLib.Security.Keys,
+          SnmpKit.SnmpLib.Security.Priv,
+          SnmpKit.SnmpLib.Security.USM
         ],
         "MIB Support": [
           SnmpKit.MibParser,
           SnmpKit.SnmpMgr.MIB,
-          SnmpKit.SnmpLib.MIB
+          SnmpKit.SnmpLib.MIB,
+          SnmpKit.SnmpLib.MIB.Compiler,
+          SnmpKit.SnmpLib.MIB.Parser,
+          SnmpKit.SnmpLib.MIB.Registry
+        ],
+        "Network Management": [
+          SnmpKit.SnmpMgr,
+          SnmpKit.SnmpMgr.Config,
+          SnmpKit.SnmpMgr.Core,
+          SnmpKit.SnmpMgr.Walk,
+          SnmpKit.SnmpMgr.Bulk,
+          SnmpKit.SnmpMgr.Table,
+          SnmpKit.SnmpMgr.Multi,
+          SnmpKit.SnmpMgr.MultiV2,
+          SnmpKit.SnmpMgr.Format,
+          SnmpKit.SnmpMgr.Target,
+          SnmpKit.SnmpMgr.Types,
+          SnmpKit.SnmpMgr.Stream,
+          SnmpKit.SnmpMgr.AdaptiveWalk
+        ],
+        "Manager Infrastructure": [
+          SnmpKit.SnmpMgr.Engine,
+          SnmpKit.SnmpMgr.EngineV2,
+          SnmpKit.SnmpMgr.Router,
+          SnmpKit.SnmpMgr.CircuitBreaker,
+          SnmpKit.SnmpMgr.Metrics,
+          SnmpKit.SnmpMgr.SocketManager,
+          SnmpKit.SnmpMgr.RequestIdGenerator,
+          SnmpKit.SnmpMgr.Supervisor,
+          SnmpKit.SnmpLib.Pool,
+          SnmpKit.SnmpLib.Cache,
+          SnmpKit.SnmpLib.Monitor,
+          SnmpKit.SnmpLib.Dashboard,
+          SnmpKit.SnmpLib.Config
         ],
         "Device Simulation": [
           SnmpKit.SnmpSim,
           SnmpKit.SnmpSim.Device,
-          SnmpKit.SnmpSim.ProfileLoader
+          SnmpKit.SnmpSim.ProfileLoader,
+          SnmpKit.SnmpSim.WalkParser,
+          SnmpKit.SnmpSim.Config,
+          SnmpKit.SnmpSim.SafeFile,
+          SnmpKit.SnmpSim.OIDTree,
+          SnmpKit.SnmpSim.ValueSimulator,
+          SnmpKit.SnmpSim.TimePatterns,
+          SnmpKit.SnmpSim.MIB.SharedProfiles,
+          SnmpKit.SnmpSim.MIB.BehaviorAnalyzer,
+          SnmpKit.SnmpSim.Core.Server,
+          SnmpKit.SnmpSim.Device.OidHandler,
+          SnmpKit.SnmpSim.Device.PduProcessor,
+          SnmpKit.SnmpSim.Device.WalkPduProcessor,
+          SnmpKit.SnmpSim.Device.ModemUpgrade,
+          SnmpKit.SnmpSim.ErrorInjector,
+          SnmpKit.SnmpSim.LazyDevicePool,
+          SnmpKit.SnmpSim.DeviceDistribution,
+          SnmpKit.SnmpSim.CorrelationEngine
         ],
-        "Network Management": [
-          SnmpKit.SnmpMgr,
+        "Testing Support": [
           SnmpKit.TestSupport
         ]
       ]

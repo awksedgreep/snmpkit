@@ -45,6 +45,7 @@ defmodule SnmpKit.SnmpMgr.Router do
         ]
       )
   """
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     name = Keyword.get(opts, :name, __MODULE__)
     GenServer.start_link(__MODULE__, opts, name: name)
@@ -68,6 +69,7 @@ defmodule SnmpKit.SnmpMgr.Router do
 
       {:ok, result} = SnmpKit.SnmpMgr.Router.route_request(router, request)
   """
+  @spec route_request(GenServer.server(), map(), keyword()) :: {:ok, term()} | {:error, term()}
   def route_request(router, request, opts \\ []) do
     GenServer.call(router, {:route_request, request, opts})
   end
@@ -89,6 +91,7 @@ defmodule SnmpKit.SnmpMgr.Router do
 
       {:ok, results} = SnmpKit.SnmpMgr.Router.route_batch(router, requests)
   """
+  @spec route_batch(GenServer.server(), [map()], keyword()) :: {:ok, list()} | {:error, term()}
   def route_batch(router, requests, opts \\ []) do
     GenServer.call(router, {:route_batch, requests, opts})
   end
@@ -96,6 +99,7 @@ defmodule SnmpKit.SnmpMgr.Router do
   @doc """
   Adds an engine to the routing pool.
   """
+  @spec add_engine(GenServer.server(), map() | atom()) :: :ok
   def add_engine(router, engine_spec) do
     GenServer.call(router, {:add_engine, engine_spec})
   end
@@ -103,6 +107,7 @@ defmodule SnmpKit.SnmpMgr.Router do
   @doc """
   Removes an engine from the routing pool.
   """
+  @spec remove_engine(GenServer.server(), atom()) :: :ok
   def remove_engine(router, engine_name) do
     GenServer.call(router, {:remove_engine, engine_name})
   end
@@ -110,6 +115,7 @@ defmodule SnmpKit.SnmpMgr.Router do
   @doc """
   Gets routing statistics and engine health.
   """
+  @spec get_stats(GenServer.server()) :: map()
   def get_stats(router) do
     GenServer.call(router, :get_stats)
   end
@@ -117,6 +123,7 @@ defmodule SnmpKit.SnmpMgr.Router do
   @doc """
   Updates routing strategy.
   """
+  @spec set_strategy(GenServer.server(), atom()) :: :ok
   def set_strategy(router, strategy) do
     GenServer.call(router, {:set_strategy, strategy})
   end
@@ -124,6 +131,7 @@ defmodule SnmpKit.SnmpMgr.Router do
   @doc """
   Configures engine settings.
   """
+  @spec configure_engines(GenServer.server(), keyword()) :: :ok | {:error, term()}
   def configure_engines(router, config) do
     GenServer.call(router, {:configure_engines, config})
   end
@@ -131,6 +139,7 @@ defmodule SnmpKit.SnmpMgr.Router do
   @doc """
   Configures health check settings.
   """
+  @spec configure_health_check(GenServer.server(), keyword()) :: :ok
   def configure_health_check(router, config) do
     GenServer.call(router, {:configure_health_check, config})
   end
@@ -138,6 +147,7 @@ defmodule SnmpKit.SnmpMgr.Router do
   @doc """
   Sets engine weights for weighted routing.
   """
+  @spec set_engine_weights(GenServer.server(), map() | keyword()) :: :ok | {:error, term()}
   def set_engine_weights(router, weights) do
     GenServer.call(router, {:set_engine_weights, weights})
   end
@@ -145,6 +155,7 @@ defmodule SnmpKit.SnmpMgr.Router do
   @doc """
   Gets engine health information.
   """
+  @spec get_engine_health(GenServer.server()) :: map()
   def get_engine_health(router) do
     GenServer.call(router, :get_engine_health)
   end
@@ -152,6 +163,7 @@ defmodule SnmpKit.SnmpMgr.Router do
   @doc """
   Marks an engine as unhealthy.
   """
+  @spec mark_engine_unhealthy(GenServer.server(), atom(), term()) :: :ok | {:error, term()}
   def mark_engine_unhealthy(router, engine_name, reason) do
     GenServer.call(router, {:mark_engine_unhealthy, engine_name, reason})
   end
@@ -159,6 +171,7 @@ defmodule SnmpKit.SnmpMgr.Router do
   @doc """
   Marks an engine as healthy.
   """
+  @spec mark_engine_healthy(GenServer.server(), atom()) :: :ok | {:error, term()}
   def mark_engine_healthy(router, engine_name) do
     GenServer.call(router, {:mark_engine_healthy, engine_name})
   end
@@ -166,6 +179,7 @@ defmodule SnmpKit.SnmpMgr.Router do
   @doc """
   Attempts to recover a failed engine.
   """
+  @spec attempt_engine_recovery(GenServer.server(), atom()) :: :ok | {:error, term()}
   def attempt_engine_recovery(router, engine_name) do
     GenServer.call(router, {:attempt_engine_recovery, engine_name})
   end
@@ -173,6 +187,7 @@ defmodule SnmpKit.SnmpMgr.Router do
   @doc """
   Configures batch processing strategy.
   """
+  @spec configure_batch_strategy(GenServer.server(), keyword()) :: :ok
   def configure_batch_strategy(router, strategy_config) do
     GenServer.call(router, {:configure_batch_strategy, strategy_config})
   end
