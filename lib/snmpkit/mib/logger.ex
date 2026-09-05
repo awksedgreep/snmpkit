@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpLib.MIB.Logger do
+defmodule SnmpKit.MIB.Logger do
   @moduledoc """
   Structured logging for MIB compilation with proper log levels.
 
@@ -235,7 +235,7 @@ defmodule SnmpKit.SnmpLib.MIB.Logger do
   end
 
   # Extract error type for aggregation
-  defp extract_error_type(%SnmpKit.SnmpLib.MIB.Error{type: type}), do: type
+  defp extract_error_type(%SnmpKit.MIB.Error{type: type}), do: type
   defp extract_error_type(%{type: type}), do: type
   defp extract_error_type(error) when is_atom(error), do: error
   defp extract_error_type(_), do: :unknown

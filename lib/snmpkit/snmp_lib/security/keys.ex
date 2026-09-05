@@ -373,21 +373,6 @@ defmodule SnmpKit.SnmpLib.Security.Keys do
     end
   end
 
-  @doc """
-  Securely wipes sensitive key material from memory.
-
-  Note: This provides best-effort memory clearing but cannot guarantee
-  complete removal due to Erlang VM memory management.
-  """
-  @deprecated "Erlang binaries are immutable and cannot be wiped in place; this is a no-op"
-  @spec secure_wipe(derived_key()) :: :ok
-  def secure_wipe(key) when is_binary(key) do
-    # Best effort memory clearing
-    # Erlang VM may still have copies in GC or process heap
-    Logger.debug("Securely wiping key material of size #{byte_size(key)}")
-    :ok
-  end
-
   ## Key Export and Import
 
   @doc """

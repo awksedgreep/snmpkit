@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpLib.MIB.ComprehensiveMibTest do
+defmodule SnmpKit.MIB.ComprehensiveMibTest do
   use ExUnit.Case, async: true
   require Logger
   @moduletag :mib
@@ -88,12 +88,12 @@ defmodule SnmpKit.SnmpLib.MIB.ComprehensiveMibTest do
           content = File.read!(full_path)
 
           # Warm up and verify file parses successfully
-          case SnmpKit.SnmpLib.MIB.Parser.parse(content) do
+          case SnmpKit.MIB.Parser.parse(content) do
             {:ok, _} ->
               # Performance test
               {time_us, {:ok, mib}} =
                 :timer.tc(fn ->
-                  SnmpKit.SnmpLib.MIB.Parser.parse(content)
+                  SnmpKit.MIB.Parser.parse(content)
                 end)
 
               # Calculate a rate based on definitions instead of tokens
@@ -132,7 +132,7 @@ defmodule SnmpKit.SnmpLib.MIB.ComprehensiveMibTest do
 
         # Run parsing multiple times
         for _ <- 1..100 do
-          {:ok, _mib} = SnmpKit.SnmpLib.MIB.Parser.parse(content)
+          {:ok, _mib} = SnmpKit.MIB.Parser.parse(content)
         end
 
         # Force garbage collection and check memory
@@ -170,7 +170,7 @@ defmodule SnmpKit.SnmpLib.MIB.ComprehensiveMibTest do
   defp test_single_mib_file(file_path, file_name) do
     case File.read(file_path) do
       {:ok, content} ->
-        case SnmpKit.SnmpLib.MIB.Parser.parse(content) do
+        case SnmpKit.MIB.Parser.parse(content) do
           {:ok, mib} when is_map(mib) ->
             definitions_count =
               case mib do

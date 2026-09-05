@@ -161,10 +161,9 @@ defmodule Snmpkit.MixProject do
         "MIB Support": [
           SnmpKit.MibParser,
           SnmpKit.SnmpMgr.MIB,
-          SnmpKit.SnmpLib.MIB,
-          SnmpKit.SnmpLib.MIB.Compiler,
-          SnmpKit.SnmpLib.MIB.Parser,
-          SnmpKit.SnmpLib.MIB.Registry
+          SnmpKit.MIB.Compiler,
+          SnmpKit.MIB.Parser,
+          SnmpKit.MIB.Registry
         ],
         "Network Management": [
           SnmpKit.SnmpMgr,
@@ -183,12 +182,7 @@ defmodule Snmpkit.MixProject do
         "Manager Infrastructure": [
           SnmpKit.SnmpMgr.Engine,
           SnmpKit.SnmpMgr.SocketManager,
-          SnmpKit.SnmpMgr.RequestIdGenerator,
-          SnmpKit.SnmpLib.Pool,
-          SnmpKit.SnmpLib.Cache,
-          SnmpKit.SnmpLib.Monitor,
-          SnmpKit.SnmpLib.Dashboard,
-          SnmpKit.SnmpLib.Config
+          SnmpKit.SnmpMgr.RequestIdGenerator
         ],
         "Device Simulation": [
           SnmpKit.SnmpSim,
@@ -208,12 +202,13 @@ defmodule Snmpkit.MixProject do
           SnmpKit.SnmpSim.Device.WalkPduProcessor,
           SnmpKit.SnmpSim.Device.ModemUpgrade,
           SnmpKit.SnmpSim.ErrorInjector,
+          SnmpKit.SnmpSim.Device.ErrorConditions,
           SnmpKit.SnmpSim.LazyDevicePool,
           SnmpKit.SnmpSim.DeviceDistribution,
           SnmpKit.SnmpSim.CorrelationEngine
         ],
         "Testing Support": [
-          SnmpKit.TestSupport
+          SnmpKit.SnmpSim.TestHelpers
         ]
       ]
     ]

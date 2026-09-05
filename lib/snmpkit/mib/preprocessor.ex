@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpLib.MIB.Preprocessor do
+defmodule SnmpKit.MIB.Preprocessor do
   @moduledoc """
   Preprocessor for MIB files to handle problematic constructs before parsing.
 

@@ -292,9 +292,9 @@ defmodule SnmpKit.SnmpMgr.MIB do
   end
 
   @doc """
-  Compiles a MIB file using SnmpKit.SnmpLib.MIB pure Elixir implementation.
+  Compiles a MIB file using SnmpKit.MIB.Compiler pure Elixir implementation.
 
-  Enhanced to use SnmpKit.SnmpLib.MIB for improved compilation with better error handling.
+  Enhanced to use SnmpKit.MIB.Compiler for improved compilation with better error handling.
 
   ## Examples
 
@@ -305,7 +305,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
       {:error, :file_not_found}
   """
   def compile(mib_file, opts \\ []) do
-    # Try SnmpKit.SnmpLib.MIB first for enhanced compilation
+    # Try SnmpKit.MIB.Compiler first for enhanced compilation
     case compile_with_snmp_lib(mib_file, opts) do
       {:ok, result} ->
         {:ok, result}
@@ -319,10 +319,10 @@ defmodule SnmpKit.SnmpMgr.MIB do
   end
 
   @doc """
-  Compiles all MIB files in a directory using enhanced SnmpKit.SnmpLib.MIB capabilities.
+  Compiles all MIB files in a directory using enhanced SnmpKit.MIB.Compiler capabilities.
   """
   def compile_dir(directory, opts \\ []) do
-    # Try SnmpKit.SnmpLib.MIB.compile_all first for enhanced batch compilation
+    # Try SnmpKit.MIB.compile_all first for enhanced batch compilation
     case File.exists?(directory) do
       true ->
         case compile_all_with_snmp_lib(directory, opts) do
@@ -426,7 +426,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
   end
 
   @doc """
-  Parses a MIB file to extract object definitions using SnmpKit.SnmpLib.MIB.Parser.
+  Parses a MIB file to extract object definitions using SnmpKit.MIB.Parser.
 
   This provides enhanced MIB analysis without requiring compilation.
 
@@ -446,7 +446,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
   end
 
   @doc """
-  Parses MIB content string using SnmpKit.SnmpLib.MIB.Parser.
+  Parses MIB content string using SnmpKit.MIB.Parser.
 
   ## Examples
 
@@ -455,8 +455,8 @@ defmodule SnmpKit.SnmpMgr.MIB do
       {:ok, %{tokens: [...], parsed_objects: [...]}}
   """
   def parse_mib_content(content, opts \\ []) when is_binary(content) do
-    # Use SnmpKit.SnmpLib.MIB.Parser for enhanced parsing
-    case SnmpKit.SnmpLib.MIB.Parser.tokenize(content) do
+    # Use SnmpKit.MIB.Parser for enhanced parsing
+    case SnmpKit.MIB.Parser.tokenize(content) do
       {:ok, tokens} ->
         {:ok, objects} = parse_tokens_to_objects(tokens, opts)
 
@@ -473,10 +473,10 @@ defmodule SnmpKit.SnmpMgr.MIB do
   end
 
   @doc """
-  Loads a compiled MIB file using SnmpKit.SnmpLib.MIB.load_compiled with fallback.
+  Loads a compiled MIB file using SnmpKit.MIB.load_compiled with fallback.
   """
   def load(compiled_mib_path) do
-    # Try SnmpKit.SnmpLib.MIB.load_compiled first for enhanced loading
+    # Try SnmpKit.MIB.load_compiled first for enhanced loading
     case load_with_snmp_lib(compiled_mib_path) do
       {:ok, result} ->
         GenServer.call(__MODULE__, {:register_loaded_mib, result})
@@ -661,7 +661,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
 
   @impl true
   def handle_call({:register_loaded_mib, mib_data}, _from, state) do
-    # Register MIB data loaded via SnmpKit.SnmpLib.MIB.load_compiled
+    # Register MIB data loaded via SnmpKit.MIB.load_compiled
     new_state = merge_snmp_lib_mib_data(state, mib_data)
     {:reply, :ok, new_state}
   end
@@ -689,7 +689,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
   ## Private Functions
 
   defp compile_with_snmp_lib(mib_file, opts) do
-    case SnmpKit.SnmpLib.MIB.compile(mib_file, opts) do
+    case SnmpKit.MIB.compile(mib_file, opts) do
       {:ok, result} -> {:ok, result}
       {:error, reason} -> {:error, {:snmp_lib_compilation_failed, reason}}
     end
@@ -705,7 +705,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
           |> Enum.filter(&String.ends_with?(&1, ".mib"))
           |> Enum.map(&Path.join(directory, &1))
 
-        case SnmpKit.SnmpLib.MIB.compile_all(mib_files, opts) do
+        case SnmpKit.MIB.compile_all(mib_files, opts) do
           {:ok, results} -> {:ok, results}
           {:error, reason} -> {:error, {:snmp_lib_batch_compilation_failed, reason}}
         end
@@ -813,7 +813,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
   end
 
   defp load_with_snmp_lib(compiled_mib_path) do
-    case SnmpKit.SnmpLib.MIB.load_compiled(compiled_mib_path) do
+    case SnmpKit.MIB.load_compiled(compiled_mib_path) do
       {:ok, result} -> {:ok, result}
       {:error, reason} -> {:error, {:snmp_lib_load_failed, reason}}
     end
@@ -1267,7 +1267,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
   defp load_mib_file_and_extract_mappings(mib_path) do
     case SnmpKit.SnmpSim.SafeFile.read(mib_path) do
       {:ok, mib_content} ->
-        case SnmpKit.SnmpLib.MIB.Parser.parse(mib_content) do
+        case SnmpKit.MIB.Parser.parse(mib_content) do
           {:ok, parsed_mib_data} -> {:ok, extract_mib_mappings(parsed_mib_data)}
           {:error, reason} -> {:error, {:mib_parse_failed, reason}}
         end

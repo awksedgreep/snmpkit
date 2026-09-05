@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpLib.MIB.SnmpTokenizer do
+defmodule SnmpKit.MIB.SnmpTokenizer do
   @moduledoc """
   True 1:1 Elixir port of Erlang SNMP tokenizer (snmpc_tok.erl).
 

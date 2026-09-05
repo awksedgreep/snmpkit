@@ -440,7 +440,7 @@ defmodule SnmpKit.SnmpMgr.Core do
 
       trimmed ->
         # Try MIB registry first for symbolic names like "sysDescr.0"
-        case SnmpKit.SnmpLib.MIB.Registry.resolve_name(trimmed) do
+        case SnmpKit.MIB.Registry.resolve_name(trimmed) do
           {:ok, oid_list} when is_list(oid_list) and length(oid_list) > 0 ->
             {:ok, oid_list}
 

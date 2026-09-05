@@ -1,7 +1,7 @@
-defmodule SnmpKit.SnmpLib.MIB.CompilerTest do
+defmodule SnmpKit.MIB.CompilerTest do
   use ExUnit.Case, async: true
 
-  alias SnmpKit.SnmpLib.MIB.Compiler
+  alias SnmpKit.MIB.Compiler
 
   @moduledoc """
   Tests for the MIB Compiler interface.
@@ -181,7 +181,7 @@ defmodule SnmpKit.SnmpLib.MIB.CompilerTest do
 
       # Test that Compiler properly wraps Parser functionality
       assert {:ok, compiled} = Compiler.compile_string(mib_content)
-      assert {:ok, parsed} = SnmpKit.SnmpLib.MIB.Parser.parse(mib_content)
+      assert {:ok, parsed} = SnmpKit.MIB.Parser.parse(mib_content)
 
       # Verify the compiler adds the expected structure
       assert compiled.name == parsed.name

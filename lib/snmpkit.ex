@@ -235,14 +235,14 @@ defmodule SnmpKit do
     defdelegate load_and_integrate_mib(mib_file, opts), to: SnmpKit.SnmpMgr.MIB
     defdelegate load_standard_mibs(), to: SnmpKit.SnmpMgr.MIB
 
-    # Low-level MIB Compilation (SnmpLib.MIB)
-    defdelegate compile_raw(mib_source), to: SnmpKit.SnmpLib.MIB, as: :compile
-    defdelegate compile_raw(mib_source, opts), to: SnmpKit.SnmpLib.MIB, as: :compile
-    defdelegate compile_string(mib_content), to: SnmpKit.SnmpLib.MIB
-    defdelegate compile_string(mib_content, opts), to: SnmpKit.SnmpLib.MIB
-    defdelegate load_compiled(compiled_path), to: SnmpKit.SnmpLib.MIB
-    defdelegate compile_all(mib_files), to: SnmpKit.SnmpLib.MIB
-    defdelegate compile_all(mib_files, opts), to: SnmpKit.SnmpLib.MIB
+    # Low-level MIB compilation (SnmpKit.MIB.Compiler)
+    defdelegate compile_raw(mib_source), to: SnmpKit.MIB.Compiler, as: :compile
+    defdelegate compile_raw(mib_source, opts), to: SnmpKit.MIB.Compiler, as: :compile
+    defdelegate compile_string(mib_content), to: SnmpKit.MIB.Compiler
+    defdelegate compile_string(mib_content, opts), to: SnmpKit.MIB.Compiler
+    defdelegate load_compiled(compiled_path), to: SnmpKit.MIB.Compiler
+    defdelegate compile_all(mib_files), to: SnmpKit.MIB.Compiler
+    defdelegate compile_all(mib_files, opts), to: SnmpKit.MIB.Compiler
 
     # Registry Management
     defdelegate start_link(), to: SnmpKit.SnmpMgr.MIB
@@ -260,10 +260,10 @@ defmodule SnmpKit do
     """
 
     # Device Management
-    defdelegate start_device(profile), to: SnmpKit.TestSupport
-    defdelegate start_device(profile, opts), to: SnmpKit.TestSupport
-    defdelegate start_device_population(device_configs), to: SnmpKit.TestSupport
-    defdelegate start_device_population(device_configs, opts), to: SnmpKit.TestSupport
+    defdelegate start_device(profile), to: SnmpKit.SnmpSim
+    defdelegate start_device(profile, opts), to: SnmpKit.SnmpSim
+    defdelegate start_device_population(device_configs), to: SnmpKit.SnmpSim
+    defdelegate start_device_population(device_configs, opts), to: SnmpKit.SnmpSim
 
     # For more advanced simulation features, use SnmpKit.SnmpSim modules directly:
     # - SnmpKit.SnmpSim.Device for device behavior

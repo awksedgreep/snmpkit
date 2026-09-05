@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpLib.MIB.Parser do
+defmodule SnmpKit.MIB.Parser do
   @moduledoc """
   Pure native SNMP MIB parser using custom Elixir grammar.
 
@@ -76,7 +76,7 @@ defmodule SnmpKit.SnmpLib.MIB.Parser do
         "/path/to/mibs/working",
         "/path/to/mibs/docsis"
       ]
-      results = SnmpKit.SnmpLib.MIB.Parser.mibdirs(dirs)
+      results = SnmpKit.MIB.Parser.mibdirs(dirs)
 
       # Access results by directory
       working_results = results["/path/to/mibs/working"]
@@ -179,16 +179,16 @@ defmodule SnmpKit.SnmpLib.MIB.Parser do
   @doc """
   Tokenize MIB content using the native SNMP tokenizer.
 
-  Uses the SnmpKit.SnmpLib.MIB.SnmpTokenizer module for complete MIB tokenization.
+  Uses the SnmpKit.MIB.SnmpTokenizer module for complete MIB tokenization.
   """
   def tokenize(mib_content) when is_binary(mib_content) do
     # Convert to charlist for Erlang compatibility
     char_content = to_charlist(mib_content)
 
     # Use the native SNMP tokenizer
-    case SnmpKit.SnmpLib.MIB.SnmpTokenizer.tokenize(
+    case SnmpKit.MIB.SnmpTokenizer.tokenize(
            char_content,
-           &SnmpKit.SnmpLib.MIB.SnmpTokenizer.null_get_line/0
+           &SnmpKit.MIB.SnmpTokenizer.null_get_line/0
          ) do
       {:ok, tokens} ->
         Logger.debug("Tokenized MIB content successfully")

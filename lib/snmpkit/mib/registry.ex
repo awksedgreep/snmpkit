@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpLib.MIB.Registry do
+defmodule SnmpKit.MIB.Registry do
   @moduledoc """
   Standard SNMP MIB registry with name/OID resolution functions.
 
@@ -364,13 +364,13 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
 
   ## Examples
 
-      iex> SnmpKit.SnmpLib.MIB.Registry.resolve_name("sysDescr.0")
+      iex> SnmpKit.MIB.Registry.resolve_name("sysDescr.0")
       {:ok, [1, 3, 6, 1, 2, 1, 1, 1, 0]}
 
-      iex> SnmpKit.SnmpLib.MIB.Registry.resolve_name("sysDescr")
+      iex> SnmpKit.MIB.Registry.resolve_name("sysDescr")
       {:ok, [1, 3, 6, 1, 2, 1, 1, 1]}
 
-      iex> SnmpKit.SnmpLib.MIB.Registry.resolve_name("unknownName")
+      iex> SnmpKit.MIB.Registry.resolve_name("unknownName")
       {:error, :not_found}
   """
   def resolve_name(name), do: resolve_name(name, @standard_mibs)
@@ -381,10 +381,10 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
 
   ## Examples
 
-      iex> SnmpKit.SnmpLib.MIB.Registry.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1, 0])
+      iex> SnmpKit.MIB.Registry.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1, 0])
       {:ok, "sysDescr.0"}
 
-      iex> SnmpKit.SnmpLib.MIB.Registry.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1])
+      iex> SnmpKit.MIB.Registry.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1])
       {:ok, "sysDescr"}
   """
   def reverse_lookup(oid), do: reverse_lookup_oid(oid, standard_mibs_reverse())
@@ -394,7 +394,7 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
 
   ## Examples
 
-      iex> SnmpKit.SnmpLib.MIB.Registry.children([1, 3, 6, 1, 2, 1, 1])
+      iex> SnmpKit.MIB.Registry.children([1, 3, 6, 1, 2, 1, 1])
       {:ok, ["sysContact", "sysDescr", "sysLocation", "sysName", "sysObjectID", "sysServices", "sysUpTime"]}
   """
   def children(parent_oid), do: find_children(parent_oid, @standard_mibs)
@@ -404,7 +404,7 @@ defmodule SnmpKit.SnmpLib.MIB.Registry do
 
   ## Examples
 
-      iex> SnmpKit.SnmpLib.MIB.Registry.walk_tree([1, 3, 6, 1, 2, 1, 1])
+      iex> SnmpKit.MIB.Registry.walk_tree([1, 3, 6, 1, 2, 1, 1])
       {:ok, [{"sysDescr", [1, 3, 6, 1, 2, 1, 1, 1]}, {"sysObjectID", [1, 3, 6, 1, 2, 1, 1, 2]}, ...]}
   """
   def walk_tree(root_oid), do: walk_tree_from_root(root_oid, @standard_mibs)

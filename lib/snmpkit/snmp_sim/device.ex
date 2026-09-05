@@ -16,7 +16,7 @@ defmodule SnmpKit.SnmpSim.Device do
 
   alias SnmpKit.SnmpSim.{DeviceDistribution}
   alias SnmpKit.SnmpSim.Core.Server
-  alias SnmpKit.SnmpSim.Device.ErrorInjector
+  alias SnmpKit.SnmpSim.Device.ErrorConditions, as: ErrorInjector
   alias SnmpKit.SnmpSim.Device.OidHandler
   import SnmpKit.SnmpSim.Device.OidHandler
   import SnmpKit.SnmpSim.Device.PduProcessor, only: [process_snmp_pdu: 2]

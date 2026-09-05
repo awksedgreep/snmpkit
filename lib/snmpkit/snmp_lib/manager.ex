@@ -934,7 +934,7 @@ defmodule SnmpKit.SnmpLib.Manager do
 
   defp normalize_oid(oid) when is_binary(oid) do
     # First try MIB symbolic name resolution
-    case SnmpKit.SnmpLib.MIB.Registry.resolve_name(oid) do
+    case SnmpKit.MIB.Registry.resolve_name(oid) do
       {:ok, oid_list} ->
         oid_list
 

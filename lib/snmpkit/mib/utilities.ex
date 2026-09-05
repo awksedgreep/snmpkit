@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpLib.MIB.Utilities do
+defmodule SnmpKit.MIB.Utilities do
   @moduledoc """
   Direct port of Erlang snmpc_lib.erl utility functions to Elixir.
 

@@ -1,8 +1,8 @@
-defmodule SnmpKit.SnmpLib.MIB.DocsisMibTest do
+defmodule SnmpKit.MIB.DocsisMibTest do
   use ExUnit.Case, async: true
   @moduletag :mib
 
-  alias SnmpKit.SnmpLib.MIB.Parser
+  alias SnmpKit.MIB.Parser
 
   @moduledoc """
   Official test suite for DOCSIS MIB compatibility.
@@ -55,7 +55,7 @@ defmodule SnmpKit.SnmpLib.MIB.DocsisMibTest do
           Enum.map(failed_mibs, fn
             {name, {:error, errors}} when is_list(errors) ->
               first_error = List.first(errors)
-              "#{name}: #{SnmpKit.SnmpLib.MIB.Error.format(first_error)}"
+              "#{name}: #{SnmpKit.MIB.Error.format(first_error)}"
 
             {name, {:error, error_string}} when is_binary(error_string) ->
               "#{name}: #{error_string}"
@@ -294,7 +294,7 @@ defmodule SnmpKit.SnmpLib.MIB.DocsisMibTest do
         first_error = List.first(errors)
 
         flunk(
-          "Expected successful parsing but got error: #{SnmpKit.SnmpLib.MIB.Error.format(first_error)}"
+          "Expected successful parsing but got error: #{SnmpKit.MIB.Error.format(first_error)}"
         )
 
       {:error, error_string} when is_binary(error_string) ->

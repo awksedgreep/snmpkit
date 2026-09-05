@@ -51,7 +51,6 @@ defmodule SnmpKit.SnmpLib do
 
   Phase 3B adds enterprise-grade capabilities for high-scale SNMP deployments:
 
-  - **`SnmpKit.SnmpLib.Pool`** - Connection pooling and session management
     - FIFO, round-robin, and device-affinity strategies
     - Automatic overflow handling and health monitoring
     - 60-80% reduction in socket creation overhead
@@ -63,7 +62,6 @@ defmodule SnmpKit.SnmpLib do
     - Error classification (transient, permanent, degraded)
     - Adaptive timeout calculation based on device performance
 
-  - **`SnmpKit.SnmpLib.Monitor`** - Performance monitoring and analytics
     - Real-time operation metrics and device statistics
     - Configurable alerting system with callback support
     - Data export in JSON, CSV, and Prometheus formats
@@ -79,19 +77,16 @@ defmodule SnmpKit.SnmpLib do
 
   Phase 4 provides production-ready integration and optimization features:
 
-  - **`SnmpKit.SnmpLib.Config`** - Configuration management system
     - Environment-aware configuration (dev/test/prod)
     - Hot-reload capabilities and validation
     - Multi-tenant deployment support
     - Secrets management and security
 
-  - **`SnmpKit.SnmpLib.Dashboard`** - Real-time monitoring and visualization
     - Live performance dashboards and metrics
     - Alert management and notification routing
     - Prometheus/Grafana integration
     - Historical analytics and capacity planning
 
-  - **`SnmpKit.SnmpLib.Cache`** - Intelligent caching system
     - Multi-level caching (L1/L2/L3) with compression
     - Adaptive TTL based on data volatility
     - Smart invalidation and cache warming
@@ -112,20 +107,6 @@ defmodule SnmpKit.SnmpLib do
       {:ok, :success} = SnmpKit.SnmpLib.Manager.set("192.168.1.1", [1, 3, 6, 1, 2, 1, 1, 5, 0],
                                             {:string, "New System Name"})
 
-  ### High-Performance Connection Pooling
-
-      # Start a connection pool for network monitoring
-      {:ok, _pid} = SnmpKit.SnmpLib.Pool.start_pool(:network_monitor,
-        strategy: :device_affinity,
-        size: 20,
-        max_overflow: 10
-      )
-
-      # Use pooled connections for improved performance
-      SnmpKit.SnmpLib.Pool.with_connection(:network_monitor, "192.168.1.1", fn conn ->
-        SnmpKit.SnmpLib.Manager.get_multi(conn.socket, "192.168.1.1", oids, conn.opts)
-      end)
-
   ### Intelligent Error Handling
 
       # Retry operations with exponential backoff
@@ -138,92 +119,6 @@ defmodule SnmpKit.SnmpLib do
       result = SnmpKit.SnmpLib.ErrorHandler.call_through_breaker(breaker, fn ->
         SnmpKit.SnmpLib.Manager.get_bulk("192.168.1.1", [1, 3, 6, 1, 2, 1, 2, 2])
       end)
-
-  ### Performance Monitoring and Analytics
-
-      # Start monitoring system
-      {:ok, _pid} = SnmpKit.SnmpLib.Monitor.start_link()
-
-      # Record operation metrics
-      SnmpKit.SnmpLib.Monitor.record_operation(%{
-        device: "192.168.1.1",
-        operation: :get,
-        duration: 245,
-        result: :success
-      })
-
-      # Get device statistics and health scores
-      stats = SnmpKit.SnmpLib.Monitor.get_device_stats("192.168.1.1")
-      IO.puts("Device health score: " <> to_string(stats.health_score))
-
-      # Set up automated alerting
-      SnmpKit.SnmpLib.Monitor.set_alert_threshold("192.168.1.1", :response_time, 5000)
-
-  ### Configuration Management
-
-      # Load production configuration
-      {:ok, _pid} = SnmpKit.SnmpLib.Config.start_link(
-        config_file: "/etc/snmp_lib/production.exs",
-        environment: :prod
-      )
-
-      # Get configuration values with fallbacks
-      timeout = SnmpKit.SnmpLib.Config.get(:snmp, :default_timeout, 5000)
-      pool_size = SnmpKit.SnmpLib.Config.get(:pool, :default_size, 10)
-
-      # Hot-reload configuration
-      :ok = SnmpKit.SnmpLib.Config.reload()
-
-  ### Real-Time Dashboard and Monitoring
-
-      # Start dashboard with Prometheus integration
-      {:ok, _pid} = SnmpKit.SnmpLib.Dashboard.start_link(
-        port: 4000,
-        prometheus_enabled: true,
-        retention_days: 14
-      )
-
-      # Record custom metrics
-      SnmpKit.SnmpLib.Dashboard.record_metric(:snmp_response_time, 125, %{
-        device: "192.168.1.1",
-        operation: "get"
-      })
-
-      # Create alerts for monitoring
-      SnmpKit.SnmpLib.Dashboard.create_alert(:device_unreachable, :critical, %{
-        device: "192.168.1.1",
-        consecutive_failures: 5
-      })
-
-      # Export metrics for external systems
-      prometheus_data = SnmpKit.SnmpLib.Dashboard.export_prometheus()
-
-  ### Intelligent Caching
-
-      # Start cache with compression and adaptive TTL
-      {:ok, _pid} = SnmpKit.SnmpLib.Cache.start_link(
-        max_size: 50_000,
-        compression_enabled: true,
-        adaptive_ttl_enabled: true
-      )
-
-      # Cache SNMP responses with adaptive TTL
-      SnmpKit.SnmpLib.Cache.put_adaptive("device_1:sysDescr", description,
-        base_ttl: 3_600_000,
-        volatility: :low
-      )
-
-      # Retrieve from cache with fallback
-      device_desc = case SnmpKit.SnmpLib.Cache.get("device_1:sysDescr") do
-        {:ok, cached_desc} -> cached_desc
-        :miss ->
-          {:ok, desc} = SnmpKit.SnmpLib.Manager.get("device_1", [1,3,6,1,2,1,1,1,0])
-          SnmpKit.SnmpLib.Cache.put("device_1:sysDescr", desc, ttl: 3_600_000)
-          desc
-      end
-
-      # Warm cache for predictable access patterns
-      SnmpKit.SnmpLib.Cache.warm_cache("device_1", :auto, strategy: :predictive)
 
   ### Low-Level PDU Operations
 
@@ -615,12 +510,7 @@ defmodule SnmpKit.SnmpLib do
       ],
       modules: %{
         "SnmpKit.SnmpLib.Manager" => "High-level SNMP operations (GET, SET, GETBULK)",
-        "SnmpKit.SnmpLib.Pool" => "Connection pooling and session management",
         "SnmpKit.SnmpLib.ErrorHandler" => "Retry logic and circuit breakers",
-        "SnmpKit.SnmpLib.Monitor" => "Performance monitoring and analytics",
-        "SnmpKit.SnmpLib.Config" => "Configuration management system",
-        "SnmpKit.SnmpLib.Dashboard" => "Real-time monitoring and visualization",
-        "SnmpKit.SnmpLib.Cache" => "Intelligent caching system",
         "SnmpKit.SnmpLib.PDU" => "SNMP PDU encoding/decoding",
         "SnmpKit.SnmpLib.ASN1" => "ASN.1 BER encoding/decoding",
         "SnmpKit.SnmpLib.OID" => "OID manipulation utilities",

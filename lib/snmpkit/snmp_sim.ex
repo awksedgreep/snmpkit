@@ -37,7 +37,7 @@ defmodule SnmpKit.SnmpSim do
       :ok = SnmpKit.SnmpSim.stop()
   """
 
-  alias SnmpKit.SnmpSim.{Config, Device}
+  alias SnmpKit.SnmpSim.{Config, Device, LazyDevicePool}
 
   @supervisor SnmpSim.DeviceSupervisor
 
@@ -108,13 +108,40 @@ defmodule SnmpKit.SnmpSim do
   @doc """
   Starts one device from a `SnmpKit.SnmpSim.ProfileLoader` profile.
 
-  Options: `:port` (required), `:device_id`, `:community`. The device is
-  linked to the caller; see `SnmpKit.TestSupport.start_device/2`.
-  """
-  defdelegate start_device(profile, opts \\ []), to: SnmpKit.TestSupport
+  Options: `:port` (required), `:device_id` (default `"<type>_<port>"`),
+  `:community` (default `"public"`). The device is linked to the caller.
 
-  @doc "Starts a mixed population of devices; see `SnmpKit.TestSupport.start_device_population/2`."
-  defdelegate start_device_population(device_configs, opts \\ []), to: SnmpKit.TestSupport
+      profile = SnmpKit.SnmpSim.ProfileLoader.load_profile(:cable_modem, {:walk_file, "priv/walks/cable_modem.walk"})
+      {:ok, device} = SnmpKit.SnmpSim.start_device(profile, port: 9001)
+  """
+  @spec start_device(map(), keyword()) :: GenServer.on_start()
+  def start_device(profile, opts \\ []) do
+    port = Keyword.fetch!(opts, :port)
+    device_type = profile.device_type
+
+    Device.start_link(%{
+      port: port,
+      device_type: device_type,
+      device_id: Keyword.get(opts, :device_id, "#{device_type}_#{port}"),
+      profile: profile,
+      community: Keyword.get(opts, :community, "public")
+    })
+  end
+
+  @doc """
+  Starts a population of devices with mixed types through `SnmpKit.SnmpSim.LazyDevicePool`.
+
+      {:ok, devices} = SnmpKit.SnmpSim.start_device_population(
+        [
+          {:cable_modem, {:walk_file, "priv/walks/cable_modem.walk"}, count: 1000},
+          {:switch, {:walk_file, "priv/walks/switch.walk"}, count: 50}
+        ],
+        port_range: 30_000..39_999
+      )
+  """
+  def start_device_population(device_configs, opts \\ []) do
+    LazyDevicePool.start_device_population(device_configs, opts)
+  end
 
   ## Inspection and shutdown
 

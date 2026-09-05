@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpLib.MIB.Compiler do
+defmodule SnmpKit.MIB.Compiler do
   @moduledoc """
   Main MIB compiler that orchestrates the entire compilation process.
 
@@ -17,23 +17,23 @@ defmodule SnmpKit.SnmpLib.MIB.Compiler do
   ## Usage
 
       # Compile a single MIB file
-      {:ok, compiled} = SnmpKit.SnmpLib.MIB.Compiler.compile("MY-MIB.mib")
+      {:ok, compiled} = SnmpKit.MIB.Compiler.compile("MY-MIB.mib")
 
       # Compile with options
-      {:ok, compiled} = SnmpKit.SnmpLib.MIB.Compiler.compile("MY-MIB.mib",
+      {:ok, compiled} = SnmpKit.MIB.Compiler.compile("MY-MIB.mib",
         output_dir: "/tmp/mibs",
         format: :binary,
         optimize: true
       )
 
       # Compile multiple MIBs
-      {:ok, results} = SnmpKit.SnmpLib.MIB.Compiler.compile_all([
+      {:ok, results} = SnmpKit.MIB.Compiler.compile_all([
         "SNMPv2-SMI.mib",
         "MY-MIB.mib"
       ])
   """
 
-  alias SnmpKit.SnmpLib.MIB.{Logger, Error}
+  alias SnmpKit.MIB.{Logger, Error}
 
   @type compile_opts :: [
           output_dir: Path.t(),
@@ -55,7 +55,7 @@ defmodule SnmpKit.SnmpLib.MIB.Compiler do
           format: atom(),
           path: Path.t(),
           metadata: map(),
-          oid_tree: SnmpKit.SnmpLib.MIB.AST.oid_tree(),
+          oid_tree: SnmpKit.MIB.AST.oid_tree(),
           symbols: map(),
           dependencies: [binary()]
         }
@@ -74,11 +74,11 @@ defmodule SnmpKit.SnmpLib.MIB.Compiler do
 
   ## Examples
 
-      iex> SnmpKit.SnmpLib.MIB.Compiler.compile("test/fixtures/TEST-MIB.mib")
+      iex> SnmpKit.MIB.Compiler.compile("test/fixtures/TEST-MIB.mib")
       {:ok, %{name: "TEST-MIB", ...}}
 
-      iex> SnmpKit.SnmpLib.MIB.Compiler.compile("missing.mib")
-      {:error, [%SnmpKit.SnmpLib.MIB.Error{type: :file_not_found}]}
+      iex> SnmpKit.MIB.Compiler.compile("missing.mib")
+      {:error, [%SnmpKit.MIB.Error{type: :file_not_found}]}
   """
   @spec compile(Path.t(), compile_opts()) :: compile_result()
   def compile(mib_path, opts \\ []) do
@@ -107,7 +107,7 @@ defmodule SnmpKit.SnmpLib.MIB.Compiler do
 
   ## Examples
 
-      iex> SnmpKit.SnmpLib.MIB.Compiler.compile_string(mib_content)
+      iex> SnmpKit.MIB.Compiler.compile_string(mib_content)
       {:ok, %{name: "TEST-MIB", ...}}
   """
   @spec compile_string(binary(), compile_opts()) :: compile_result()
@@ -115,7 +115,7 @@ defmodule SnmpKit.SnmpLib.MIB.Compiler do
     opts = Keyword.merge(@default_opts, opts)
 
     # The Parser module implements the full compilation pipeline
-    case SnmpKit.SnmpLib.MIB.Parser.parse(mib_content) do
+    case SnmpKit.MIB.Parser.parse(mib_content) do
       {:ok, mib} ->
         # Convert parser output to compiled_mib format
         compiled = %{
@@ -191,7 +191,7 @@ defmodule SnmpKit.SnmpLib.MIB.Compiler do
 
   ## Examples
 
-      iex> SnmpKit.SnmpLib.MIB.Compiler.load_compiled("priv/mibs/TEST-MIB.mib")
+      iex> SnmpKit.MIB.Compiler.load_compiled("priv/mibs/TEST-MIB.mib")
       {:ok, %{name: "TEST-MIB", ...}}
   """
   @spec load_compiled(Path.t()) :: {:ok, compiled_mib()} | {:error, term()}
@@ -236,7 +236,7 @@ defmodule SnmpKit.SnmpLib.MIB.Compiler do
 
   ## Examples
 
-      iex> SnmpKit.SnmpLib.MIB.Compiler.compile_all(["SNMPv2-SMI.mib", "MY-MIB.mib"])
+      iex> SnmpKit.MIB.Compiler.compile_all(["SNMPv2-SMI.mib", "MY-MIB.mib"])
       {:ok, [%{name: "SNMPv2-SMI"}, %{name: "MY-MIB"}]}
   """
   @spec compile_all([Path.t()], compile_opts()) ::

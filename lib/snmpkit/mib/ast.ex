@@ -1,4 +1,4 @@
-defmodule SnmpKit.SnmpLib.MIB.AST do
+defmodule SnmpKit.MIB.AST do
   @moduledoc """
   Abstract Syntax Tree definitions for MIB compilation.
 
