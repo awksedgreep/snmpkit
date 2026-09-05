@@ -922,56 +922,56 @@ cat(Token) -> element(1, Token).
 
 statusv1(Tok) ->
     case val(Tok) of
-        mandatory -> mandatory;
-        optional -> optional;
-        obsolete -> obsolete;
-        deprecated -> deprecated;
-        Else -> {error, {list_to_binary("(statusv1) syntax error before: " ++ atom_to_list(Else)), line_of(Tok)}}
+        <<"mandatory">> -> 'mandatory';
+        <<"optional">> -> 'optional';
+        <<"obsolete">> -> 'obsolete';
+        <<"deprecated">> -> 'deprecated';
+        Else -> {error, {list_to_binary("(statusv1) syntax error before: " ++ to_chars(Else)), line_of(Tok)}}
     end.
 
 statusv2(Tok) ->
     case val(Tok) of
-        current -> current;
-        deprecated -> deprecated;
-        obsolete -> obsolete;
-        Else -> {error, {list_to_binary("(statusv2) syntax error before: " ++ atom_to_list(Else)), line_of(Tok)}}
+        <<"current">> -> 'current';
+        <<"deprecated">> -> 'deprecated';
+        <<"obsolete">> -> 'obsolete';
+        Else -> {error, {list_to_binary("(statusv2) syntax error before: " ++ to_chars(Else)), line_of(Tok)}}
     end.
 
 ac_status(Tok) ->
     case val(Tok) of
-        current -> current;
-        obsolete -> obsolete;
-        Else -> {error, {list_to_binary("(ac_status) syntax error before: " ++ atom_to_list(Else)), line_of(Tok)}}
+        <<"current">> -> 'current';
+        <<"obsolete">> -> 'obsolete';
+        Else -> {error, {list_to_binary("(ac_status) syntax error before: " ++ to_chars(Else)), line_of(Tok)}}
     end.
 
 accessv1(Tok) ->
     case val(Tok) of
-        'read-only' -> 'read-only';
-        'read-write' -> 'read-write';
-        'write-only' -> 'write-only';
-        'not-accessible' -> 'not-accessible';
-        Else -> {error, {list_to_binary("(accessv1) syntax error before: " ++ atom_to_list(Else)), line_of(Tok)}}
+        <<"read-only">> -> 'read-only';
+        <<"read-write">> -> 'read-write';
+        <<"write-only">> -> 'write-only';
+        <<"not-accessible">> -> 'not-accessible';
+        Else -> {error, {list_to_binary("(accessv1) syntax error before: " ++ to_chars(Else)), line_of(Tok)}}
     end.
 
 accessv2(Tok) ->
     case val(Tok) of
-        'not-accessible' -> 'not-accessible';
-        'accessible-for-notify' -> 'accessible-for-notify';
-        'read-only' -> 'read-only';
-        'read-write' -> 'read-write';
-        'read-create' -> 'read-create';
-        Else -> {error, {list_to_binary("(accessv2) syntax error before: " ++ atom_to_list(Else)), line_of(Tok)}}
+        <<"not-accessible">> -> 'not-accessible';
+        <<"accessible-for-notify">> -> 'accessible-for-notify';
+        <<"read-only">> -> 'read-only';
+        <<"read-write">> -> 'read-write';
+        <<"read-create">> -> 'read-create';
+        Else -> {error, {list_to_binary("(accessv2) syntax error before: " ++ to_chars(Else)), line_of(Tok)}}
     end.
 
 ac_access(Tok) ->
     case val(Tok) of
-        'not-implemented' -> 'not-implemented';
-        'accessible-for-notify' -> 'accessible-for-notify';
-        'read-only' -> 'read-only';
-        'read-write' -> 'read-write';
-        'read-create' -> 'read-create';
-        'write-only' -> 'write-only';
-        Else -> {error, {list_to_binary("(ac_access) syntax error before: " ++ atom_to_list(Else)), line_of(Tok)}}
+        <<"not-implemented">> -> 'not-implemented';
+        <<"accessible-for-notify">> -> 'accessible-for-notify';
+        <<"read-only">> -> 'read-only';
+        <<"read-write">> -> 'read-write';
+        <<"read-create">> -> 'read-create';
+        <<"write-only">> -> 'write-only';
+        Else -> {error, {list_to_binary("(ac_access) syntax error before: " ++ to_chars(Else)), line_of(Tok)}}
     end.
 
 %% ---------------------------------------------------------------------
@@ -1037,22 +1037,38 @@ make_sequence(Name, Fields) ->
 make_internal(Name, Macro, Parent, SubIdx) ->
     {mc_internal, Name, Macro, Parent, SubIdx}.
 
-make_range_integer(RevHexStr, h) ->
-    list_to_integer(lists:reverse(RevHexStr), 16);
-make_range_integer(RevHexStr, 'H') ->
-    list_to_integer(lists:reverse(RevHexStr), 16);
-make_range_integer(RevBitStr, b) ->
-    list_to_integer(lists:reverse(RevBitStr), 2);
-make_range_integer(RevBitStr, 'B') ->
-    list_to_integer(lists:reverse(RevBitStr), 2);
+%% Identifier token values are binaries; map the radix letter that follows a
+%% quoted string ('FF'H, '0101'B) onto the atoms the helpers below use.
+radix(<<"h">>) -> h;
+radix(<<"H">>) -> 'H';
+radix(<<"b">>) -> b;
+radix(<<"B">>) -> 'B';
+radix(Other) -> Other.
+
+to_chars(V) when is_binary(V) -> binary_to_list(V);
+to_chars(V) when is_atom(V) -> atom_to_list(V);
+to_chars(V) -> lists:flatten(io_lib:format("~p", [V])).
+
 make_range_integer(RevStr, Base) ->
+    make_range_integer_(RevStr, radix(Base)).
+
+make_range_integer_(RevHexStr, h) ->
+    list_to_integer(lists:reverse(RevHexStr), 16);
+make_range_integer_(RevHexStr, 'H') ->
+    list_to_integer(lists:reverse(RevHexStr), 16);
+make_range_integer_(RevBitStr, b) ->
+    list_to_integer(lists:reverse(RevBitStr), 2);
+make_range_integer_(RevBitStr, 'B') ->
+    list_to_integer(lists:reverse(RevBitStr), 2);
+make_range_integer_(RevStr, Base) ->
     {error, {invalid_base, Base, list_to_binary(lists:reverse(RevStr))}}.
 
 make_range(XIntList) ->
     IntList = lists:flatten(XIntList),
     {range, lists:min(IntList), lists:max(IntList)}.
 
-make_defval_for_string(_Line, Str, Atom) ->
+make_defval_for_string(_Line, Str, Suffix) ->
+    Atom = radix(Suffix),
     case lists:member(Atom, [h, 'H', b, 'B']) of
 	true ->
 	    case catch make_defval_for_string2(Str, Atom) of

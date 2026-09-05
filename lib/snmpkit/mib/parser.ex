@@ -202,30 +202,19 @@ defmodule SnmpKit.MIB.Parser do
     end
   end
 
-  # Apply hex atom conversion to tokens from the tokenizer.
-  # Converts long hex atoms like :"07fffffff" to integers for grammar compatibility.
+  # Apply hex identifier conversion to tokens from the tokenizer.
+  # Converts long hex identifiers like "07fffffff" to integers for grammar compatibility.
   defp apply_hex_conversion(tokens) do
     Enum.map(tokens, &convert_hex_atom/1)
   end
 
-  # Convert hex atoms that look like integers to actual integers
-  defp convert_hex_atom({:atom, line, atom_value}) when is_atom(atom_value) do
-    atom_string = Atom.to_string(atom_value)
-
-    # Check if it looks like a hex number (only convert long hex strings, not short identifiers like d1, d2)
-    if String.match?(atom_string, ~r/^[0-9a-fA-F]{8,}$/) do
-      try do
-        # Try to convert from hex to integer
-        hex_value = String.to_integer(atom_string, 16)
-        {:integer, line, hex_value}
-      rescue
-        _ ->
-          # If conversion fails, keep as atom
-          {:atom, line, atom_value}
-      end
+  # Convert identifiers that look like long hex integers to actual integers
+  # (short identifiers such as d1, d2 are left alone)
+  defp convert_hex_atom({:atom, line, name} = token) when is_binary(name) do
+    if String.match?(name, ~r/^[0-9a-fA-F]{8,}$/) do
+      {:integer, line, String.to_integer(name, 16)}
     else
-      # Not a hex pattern, keep as atom
-      {:atom, line, atom_value}
+      token
     end
   end
 
@@ -465,10 +454,10 @@ defmodule SnmpKit.MIB.Parser do
 
   defp convert_oid(oid_list) when is_list(oid_list) do
     Enum.map(oid_list, fn
-      {name, value} when is_atom(name) and is_integer(value) ->
+      {name, value} when (is_binary(name) or is_atom(name)) and is_integer(value) ->
         %{name: to_string(name), value: value}
 
-      {name, value} when is_atom(name) and is_list(value) ->
+      {name, value} when (is_binary(name) or is_atom(name)) and is_list(value) ->
         # Handle charlists in tuple values
         %{name: to_string(name), value: convert_oid_value(value)}
 
@@ -479,13 +468,13 @@ defmodule SnmpKit.MIB.Parser do
         # Handle charlists
         %{value: convert_oid_value(value)}
 
-      name when is_atom(name) ->
+      name when is_binary(name) or is_atom(name) ->
         %{name: to_string(name)}
     end)
   end
 
-  # Handle tuple OIDs like {:"mib-2", ~c"4"}
-  defp convert_oid({name, value}) when is_atom(name) do
+  # Handle tuple OIDs like {"mib-2", ~c"4"}
+  defp convert_oid({name, value}) when is_binary(name) or is_atom(name) do
     {name, convert_oid_value(value)}
   end
 
@@ -527,6 +516,7 @@ defmodule SnmpKit.MIB.Parser do
   defp convert_syntax({:"octet string", size}), do: {:octet_string, convert_constraints(size)}
   defp convert_syntax(:"object identifier"), do: :object_identifier
   defp convert_syntax(atom) when is_atom(atom), do: atom
+  defp convert_syntax(name) when is_binary(name), do: name
 
   defp convert_constraints(constraints), do: constraints
 
@@ -535,7 +525,7 @@ defmodule SnmpKit.MIB.Parser do
   defp convert_index(index_list) when is_list(index_list) do
     Enum.map(index_list, fn
       {:implied, name} -> {:implied, to_string(name)}
-      name when is_atom(name) -> to_string(name)
+      name when is_binary(name) or is_atom(name) -> to_string(name)
     end)
   end
 

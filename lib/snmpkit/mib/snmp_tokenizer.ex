@@ -19,7 +19,15 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
           get_line_fun: function() | nil
         }
 
-  @type token() :: {atom(), any(), pos_integer()}
+  @typedoc """
+  A token is `{category, line}` for reserved words and punctuation, or
+  `{category, line, value}` for `:integer`, `:string`, `:variable`,
+  `:atom` and `:quote`. Identifier values (`:variable`, `:atom`) are
+  binaries, never runtime-created atoms, so an untrusted MIB cannot grow
+  the atom table. `:quote` carries the quoted characters as a reversed
+  charlist, matching the OTP `snmpc_tok` convention the grammar expects.
+  """
+  @type token() :: {atom(), pos_integer()} | {atom(), pos_integer(), any()}
 
   # API Functions - exact equivalents from Erlang
 
@@ -436,42 +444,15 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
   end
 
   defp scan_quote([?' | chars], acc, _start_line, state) do
-    # End of quote - check for hex string suffix
-    case chars do
-      [?H | remaining_chars] ->
-        # Hex string with uppercase H suffix: 'FF'H - treat as special atom
-        hex_chars = Enum.reverse(acc)
-        # Create a special atom that the grammar can recognize
-        hex_atom =
-          case hex_chars do
-            # Empty hex string
-            [] -> :""
-            _ -> List.to_atom(hex_chars)
-          end
+    new_state = %{state | chars: chars}
 
-        new_state = %{state | chars: remaining_chars}
-        {{:atom, state.line, hex_atom}, new_state}
-
-      [?h | remaining_chars] ->
-        # Hex string with lowercase h suffix: 'FF'h - treat as special atom
-        hex_chars = Enum.reverse(acc)
-
-        hex_atom =
-          case hex_chars do
-            # Empty hex string
-            [] -> :""
-            _ -> List.to_atom(hex_chars)
-          end
-
-        new_state = %{state | chars: remaining_chars}
-        {{:atom, state.line, hex_atom}, new_state}
-
-      _ ->
-        # Regular quoted atom
-        atom_chars = Enum.reverse(acc)
-        atom_value = List.to_atom(atom_chars)
-        new_state = %{state | chars: chars}
-        {{:atom, state.line, atom_value}, new_state}
+    if radix_suffix?(chars) do
+      # 'FF'H / 'FF'h / '0101'B / '0101'b: emit the quoted characters as a
+      # :quote token (reversed, as snmpc_tok does) and leave the radix
+      # letter in the stream so the grammar sees `quote atom|variable`.
+      {{:quote, state.line, acc}, new_state}
+    else
+      {{:atom, state.line, acc |> Enum.reverse() |> List.to_string()}, new_state}
     end
   end
 
@@ -491,6 +472,18 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
     # Regular character in quote
     scan_quote(chars, [char | acc], start_line, state)
   end
+
+  # A radix letter directly after the closing quote that is itself a
+  # complete one-letter name.
+  defp radix_suffix?([c]) when c in [?H, ?h, ?B, ?b], do: true
+
+  defp radix_suffix?([c, next | _]) when c in [?H, ?h, ?B, ?b],
+    do: not name_char?(next)
+
+  defp radix_suffix?(_), do: false
+
+  defp name_char?(c),
+    do: (c >= ?a and c <= ?z) or (c >= ?A and c <= ?Z) or (c >= ?0 and c <= ?9) or c in [?_, ?-]
 
   # Scan integer
   defp scan_integer([?- | chars], [], line, state) do
@@ -530,10 +523,9 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
         {{:integer, line, integer_value}, new_state}
       rescue
         _ ->
-          # Fall back to treating as atom if hex conversion fails
-          atom_value = String.to_atom(hex_string)
+          # Fall back to an identifier token if hex conversion fails
           new_state = %{state | chars: chars}
-          {{:atom, line, atom_value}, new_state}
+          {{:atom, line, hex_string}, new_state}
       end
     else
       # Regular decimal integer
@@ -567,7 +559,7 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
           {:variable, line, name_string}
 
         {:atom, _} ->
-          {:atom, line, String.to_atom(name_string)}
+          {:atom, line, name_string}
       end
 
     new_state = %{state | chars: chars}

@@ -52,6 +52,22 @@ its public functions (as implementations or delegates):
 | `SnmpKit.SnmpLib.Types` | `Types.Validation`, `Types.Format` (delegates kept on `Types`) |
 | `SnmpKit.SnmpLib.Manager` | `Manager.Request` (socket, send/receive/retries), `Manager.Response` (result extraction, error-status decoding) |
 
+## MIB parser
+
+The tokenizer (`SnmpKit.MIB.SnmpTokenizer`) emits identifier values as binaries
+instead of interning them as atoms, so parsing untrusted MIB files can no longer
+grow the atom table. Effects visible to callers:
+
+- Raw parse trees (`SnmpKit.MIB.Parser.parse/1` before conversion, or anything
+  reaching into `kind`/`syntax` tuples) carry `"ifIndex"` where 1.x had
+  `:ifIndex`. The converted definition maps already used strings.
+- A `DEFVAL { true }` or `{ false }` enumeration label arrives as the string
+  `"true"`/`"false"` rather than an Elixir boolean.
+- Hex and binary string literals (`'C0A8'H`, `''h`, `'0101'B`) follow OTP's
+  `snmpc_tok`: `DEFVAL` decodes to a byte list (`[192, 168]`) and the literals
+  are accepted inside `SIZE` ranges. In 1.x the radix suffix was dropped and a
+  `'..'b` literal was a syntax error.
+
 ## Behaviour unchanged since 1.4
 
 Enriched result maps, the RFC-compliant SNMPv3 stack, SNMPv1/v2c end-of-MIB

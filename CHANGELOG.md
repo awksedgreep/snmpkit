@@ -23,6 +23,8 @@ Breaking release. See `docs/v2-migration.md` for the rename/removal table.
 - `SnmpKit.Sim.start_device/2` and `start_device_population/2` are implemented on `SnmpKit.SnmpSim`.
 - `SnmpSim.Device.OidHandler`, `SnmpSim.ValueSimulator`, `SnmpLib.Types` and `SnmpLib.Manager` are split into focused submodules; public functions stay where they were.
 - `SnmpMgr.MIB` is split: built-in tables in `SnmpKit.MIB.Builtin`, pure lookups in `SnmpKit.MIB.Resolver`, parsed/compiled data import in `SnmpKit.MIB.Import`; the GenServer keeps the public API. `SnmpMgr.MIB.load/1` now merges loaded objects into the registry (it silently discarded them before).
+- MIB tokenizer no longer creates atoms: identifier tokens carry binaries, so parsing an untrusted MIB cannot exhaust the atom table. Raw parse output (`SnmpKit.MIB.Parser.parse/1` before conversion) has binary names where it had atoms; the converted maps are unchanged except that a `DEFVAL { true }` / `{ false }` label is now the string `"true"` / `"false"` rather than an Elixir boolean.
+- Hex and binary string literals (`'C0A8'H`, `''h`, `'0101'B`) are tokenized as in OTP's `snmpc_tok`: `DEFVAL` values decode to byte lists and they are accepted in `SIZE` ranges (previously a syntax error on some MIBs).
 
 ## [1.4.0] - 2026-09-05
 
