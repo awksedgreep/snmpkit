@@ -21,6 +21,7 @@ Breaking release. See `docs/v2-migration.md` for the rename/removal table.
 - `SnmpKit.SnmpLib.MIB.*` -> `SnmpKit.MIB.*`.
 - `SnmpKit.SnmpSim.Device.ErrorInjector` -> `SnmpKit.SnmpSim.Device.ErrorConditions`.
 - `SnmpKit.Sim.start_device/2` and `start_device_population/2` are implemented on `SnmpKit.SnmpSim`.
+- `SnmpSim.Device.OidHandler`, `SnmpSim.ValueSimulator`, `SnmpLib.Types` and `SnmpLib.Manager` are split into focused submodules; public functions stay where they were.
 - `SnmpMgr.MIB` is split: built-in tables in `SnmpKit.MIB.Builtin`, pure lookups in `SnmpKit.MIB.Resolver`, parsed/compiled data import in `SnmpKit.MIB.Import`; the GenServer keeps the public API. `SnmpMgr.MIB.load/1` now merges loaded objects into the registry (it silently discarded them before).
 
 ## [1.4.0] - 2026-09-05

@@ -44,6 +44,8 @@ defmodule SnmpKit.SnmpLib.Manager do
 
   require Logger
 
+  alias SnmpKit.SnmpLib.Manager.{Request, Response}
+
   @default_community "public"
   @default_version :v2c
   @default_timeout 5_000
@@ -121,14 +123,14 @@ defmodule SnmpKit.SnmpLib.Manager do
 
     Logger.debug("Starting GET operation: host=#{inspect(host)}, oid=#{inspect(normalized_oid)}")
 
-    with {:ok, socket} <- create_socket(opts) do
+    with {:ok, socket} <- Request.create_socket(opts) do
       Logger.debug("Socket created successfully")
 
       try do
         case perform_get_operation(socket, host, normalized_oid, opts) do
           {:ok, response} ->
             Logger.debug("GET operation completed, extracting result")
-            result = extract_get_result(response)
+            result = Response.extract_get_result(response)
             Logger.debug("Final GET result: #{inspect(result)}")
             result
 
@@ -137,7 +139,7 @@ defmodule SnmpKit.SnmpLib.Manager do
             {:error, reason}
         end
       after
-        :ok = close_socket(socket)
+        :ok = Request.close_socket(socket)
       end
     else
       {:error, reason} ->
@@ -238,11 +240,11 @@ defmodule SnmpKit.SnmpLib.Manager do
   def get_bulk(host, base_oid, opts \\ []) do
     opts = merge_bulk_opts(opts)
 
-    with {:ok, socket} <- create_socket(opts) do
+    with {:ok, socket} <- Request.create_socket(opts) do
       try do
         get_bulk_with_socket(socket, host, base_oid, opts)
       after
-        :ok = close_socket(socket)
+        :ok = Request.close_socket(socket)
       end
     else
       {:error, reason} -> {:error, reason}
@@ -259,7 +261,7 @@ defmodule SnmpKit.SnmpLib.Manager do
       {:error, :getbulk_requires_v2c}
     else
       case perform_bulk_operation(socket, host, normalized_oid, opts) do
-        {:ok, response} -> extract_bulk_result(response)
+        {:ok, response} -> Response.extract_bulk_result(response)
         {:error, reason} -> {:error, reason}
       end
     end
@@ -300,14 +302,14 @@ defmodule SnmpKit.SnmpLib.Manager do
     opts = merge_default_opts(opts)
     normalized_oid = normalize_oid(oid)
 
-    with {:ok, socket} <- create_socket(opts) do
+    with {:ok, socket} <- Request.create_socket(opts) do
       try do
         case perform_set_operation(socket, host, normalized_oid, {type, value}, opts) do
-          {:ok, response} -> extract_set_result(response)
+          {:ok, response} -> Response.extract_set_result(response)
           {:error, reason} -> {:error, reason}
         end
       after
-        :ok = close_socket(socket)
+        :ok = Request.close_socket(socket)
       end
     else
       {:error, reason} -> {:error, reason}
@@ -350,7 +352,7 @@ defmodule SnmpKit.SnmpLib.Manager do
         opts = merge_default_opts(opts)
         normalized_oids = Enum.map(oids, &normalize_oid/1)
 
-        with {:ok, socket} <- create_socket(opts) do
+        with {:ok, socket} <- Request.create_socket(opts) do
           try do
             results = get_multi_with_socket(socket, host, normalized_oids, opts)
 
@@ -360,7 +362,7 @@ defmodule SnmpKit.SnmpLib.Manager do
               :mixed_results -> {:ok, results}
             end
           after
-            :ok = close_socket(socket)
+            :ok = Request.close_socket(socket)
           end
         else
           {:error, reason} -> {:error, reason}
@@ -452,28 +454,11 @@ defmodule SnmpKit.SnmpLib.Manager do
 
   ## Private Implementation
 
-  # Socket management
-  defp create_socket(opts) do
-    socket_opts =
-      opts
-      |> Keyword.take([:local_port, :bind_address, :recbuf, :sndbuf])
-      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
-
-    case SnmpKit.SnmpLib.Transport.create_client_socket(socket_opts) do
-      {:ok, socket} -> {:ok, socket}
-      {:error, reason} -> {:error, {:socket_error, reason}}
-    end
-  end
-
-  defp close_socket(socket) do
-    SnmpKit.SnmpLib.Transport.close_socket(socket)
-  end
-
   # Operation implementations
   defp perform_get_operation(socket, host, oid, opts) do
     request_id = generate_request_id()
     pdu = SnmpKit.SnmpLib.PDU.build_get_request(oid, request_id)
-    perform_snmp_request(socket, host, pdu, opts)
+    Request.perform_snmp_request(socket, host, pdu, opts)
   end
 
   defp perform_bulk_operation(socket, host, base_oid, opts) do
@@ -482,174 +467,13 @@ defmodule SnmpKit.SnmpLib.Manager do
     non_reps = opts[:non_repeaters] || @default_non_repeaters
 
     pdu = SnmpKit.SnmpLib.PDU.build_get_bulk_request(base_oid, request_id, non_reps, max_reps)
-    perform_snmp_request(socket, host, pdu, opts)
+    Request.perform_snmp_request(socket, host, pdu, opts)
   end
 
   defp perform_set_operation(socket, host, oid, value, opts) do
     request_id = generate_request_id()
     pdu = SnmpKit.SnmpLib.PDU.build_set_request(oid, value, request_id)
-    perform_snmp_request(socket, host, pdu, opts)
-  end
-
-  defp perform_snmp_request(socket, host, pdu, opts) do
-    community = opts[:community] || @default_community
-    version = opts[:version] || @default_version
-    timeout = opts[:timeout] || @default_timeout
-    retries = normalize_retries(opts[:retries] || @default_retries)
-    port_option = opts[:port] || @default_port
-
-    # Parse target to handle both host:port strings and :port option
-    {parsed_host, parsed_port} =
-      case SnmpKit.SnmpLib.Utils.parse_target(host) do
-        {:ok, %{host: h, port: p}} ->
-          # Check if host contained a port specification
-          if host_contains_port?(host) do
-            # Host:port format - use parsed port (backward compatibility)
-            {h, p}
-          else
-            # Host without port - use :port option
-            {h, port_option}
-          end
-
-        {:error, _} ->
-          # Parse failed - use original host and :port option
-          {host, port_option}
-      end
-
-    message = SnmpKit.SnmpLib.PDU.build_message(pdu, community, version)
-    Logger.debug("Built SNMP message: #{inspect(message)}")
-
-    with {:ok, target_address} <- SnmpKit.SnmpLib.Transport.resolve_address(parsed_host),
-         {:ok, packet} <- SnmpKit.SnmpLib.PDU.encode_message(message) do
-      Logger.debug("Encoded PDU packet for transmission")
-
-      case send_and_receive_with_retries(
-             socket,
-             target_address,
-             parsed_port,
-             packet,
-             pdu.request_id,
-             timeout,
-             retries
-           ) do
-        {:ok, response_message} ->
-          Logger.debug("Received response packet from network")
-          Logger.debug("Decoded response message: #{inspect(response_message)}")
-          {:ok, response_message}
-
-        {:error, network_reason} = network_error ->
-          Logger.error("Network operation failed: #{inspect(network_reason)}")
-          network_error
-      end
-    else
-      {:error, reason} = error ->
-        Logger.error("PDU preparation failed: #{inspect(reason)}")
-        error
-    end
-  end
-
-  defp send_and_receive_with_retries(socket, host, port, packet, request_id, timeout, retries) do
-    max_attempts = max(1, retries + 1)
-    send_and_receive_attempt(socket, host, port, packet, request_id, timeout, max_attempts, 1)
-  end
-
-  defp normalize_retries(retries) when is_integer(retries) and retries >= 0, do: retries
-  defp normalize_retries(_), do: @default_retries
-
-  defp send_and_receive_attempt(
-         socket,
-         host,
-         port,
-         packet,
-         request_id,
-         timeout,
-         max_attempts,
-         attempt
-       ) do
-    case send_and_receive(socket, host, port, packet, request_id, timeout) do
-      {:error, :timeout} when attempt < max_attempts ->
-        Logger.debug(
-          "Timeout waiting for response on attempt #{attempt}/#{max_attempts}; retrying"
-        )
-
-        send_and_receive_attempt(
-          socket,
-          host,
-          port,
-          packet,
-          request_id,
-          timeout,
-          max_attempts,
-          attempt + 1
-        )
-
-      result ->
-        result
-    end
-  end
-
-  defp send_and_receive(socket, host, port, packet, request_id, timeout) do
-    # Normal send-and-receive flow
-    with :ok <- SnmpKit.SnmpLib.Transport.send_packet(socket, host, port, packet) do
-      Logger.debug("Packet sent successfully, waiting for response (timeout: #{timeout}ms)")
-      receive_matching_response(socket, host, port, request_id, timeout)
-    else
-      {:error, reason} ->
-        Logger.debug("Error sending packet: #{inspect(reason)}")
-        {:error, {:network_error, reason}}
-    end
-  end
-
-  defp receive_matching_response(socket, host, port, request_id, timeout) do
-    deadline = System.monotonic_time(:millisecond) + timeout
-    receive_matching_response_loop(socket, host, port, request_id, deadline)
-  end
-
-  defp receive_matching_response_loop(socket, host, port, request_id, deadline) do
-    remaining = max(deadline - System.monotonic_time(:millisecond), 0)
-
-    case SnmpKit.SnmpLib.Transport.receive_packet(socket, remaining) do
-      {:ok, {response_packet, ^host, ^port}} ->
-        Logger.debug("Received response packet: #{byte_size(response_packet)} bytes")
-
-        case SnmpKit.SnmpLib.PDU.decode_message(response_packet) do
-          {:ok, %{pdu: %{request_id: ^request_id}} = response_message} ->
-            {:ok, response_message}
-
-          {:ok, %{pdu: %{request_id: other_request_id}}} ->
-            Logger.debug(
-              "Ignoring SNMP response for request_id=#{inspect(other_request_id)} while waiting for #{inspect(request_id)}"
-            )
-
-            receive_matching_response_loop(socket, host, port, request_id, deadline)
-
-          {:ok, response_message} ->
-            Logger.debug(
-              "Ignoring SNMP response without request_id: #{inspect(response_message)}"
-            )
-
-            receive_matching_response_loop(socket, host, port, request_id, deadline)
-
-          {:error, decode_reason} ->
-            Logger.debug("Ignoring undecodable SNMP packet: #{inspect(decode_reason)}")
-            receive_matching_response_loop(socket, host, port, request_id, deadline)
-        end
-
-      {:ok, {_response_packet, from_addr, from_port}} ->
-        Logger.debug(
-          "Ignoring UDP packet from #{inspect(from_addr)}:#{from_port} while waiting for #{inspect(host)}:#{port}"
-        )
-
-        receive_matching_response_loop(socket, host, port, request_id, deadline)
-
-      {:error, :timeout} = timeout_error ->
-        Logger.debug("Timeout waiting for matching response")
-        timeout_error
-
-      {:error, reason} ->
-        Logger.debug("Error receiving response: #{inspect(reason)}")
-        {:error, {:network_error, reason}}
-    end
+    Request.perform_snmp_request(socket, host, pdu, opts)
   end
 
   # Multi-get implementation with connection reuse
@@ -657,7 +481,7 @@ defmodule SnmpKit.SnmpLib.Manager do
     Enum.map(oids, fn oid ->
       case perform_get_operation(socket, host, oid, opts) do
         {:ok, response} ->
-          case extract_get_result_with_oid(response) do
+          case Response.extract_get_result_with_oid(response) do
             {:ok, {oid, type, value}} -> {oid, type, value}
             {:error, reason} -> {oid, {:error, reason}}
           end
@@ -668,163 +492,16 @@ defmodule SnmpKit.SnmpLib.Manager do
     end)
   end
 
-  # Result extraction
-  defp extract_get_result(%{pdu: %{error_status: error_status}} = response)
-       when error_status != 0 do
-    Logger.debug("Extracting error result - error_status: #{error_status}")
-    Logger.debug("Full response PDU: #{inspect(response.pdu)}")
-    {:error, decode_error_status(error_status)}
-  end
-
-  defp extract_get_result(%{pdu: %{varbinds: [{oid, type, value}]}} = response) do
-    Logger.debug("Extracting successful result - PDU: #{inspect(response.pdu)}")
-
-    Logger.debug(
-      "Varbind details - oid: #{inspect(oid)}, type: #{inspect(type)}, value: #{inspect(value)}"
-    )
-
-    # Check for SNMPv2c exception values in both type and value fields
-    case {type, value} do
-      # Exception values in type field (from simulator)
-      {:no_such_object, _} ->
-        Logger.debug("Found exception in type field: no_such_object")
-        {:error, :no_such_object}
-
-      {:no_such_instance, _} ->
-        Logger.debug("Found exception in type field: no_such_instance")
-        {:error, :no_such_instance}
-
-      {:end_of_mib_view, _} ->
-        Logger.debug("Found exception in type field: end_of_mib_view")
-        {:error, :end_of_mib_view}
-
-      # Exception values in value field (standard format)
-      {_, {:no_such_object, _}} ->
-        Logger.debug("Found exception in value field: no_such_object")
-        {:error, :no_such_object}
-
-      {_, {:no_such_instance, _}} ->
-        Logger.debug("Found exception in value field: no_such_instance")
-        {:error, :no_such_instance}
-
-      {_, {:end_of_mib_view, _}} ->
-        Logger.debug("Found exception in value field: end_of_mib_view")
-        {:error, :end_of_mib_view}
-
-      # Normal value - return type and value only (OID is known from input)
-      _ ->
-        Logger.debug("Returning successful value with type: #{inspect({type, value})}")
-        {:ok, {type, value}}
-    end
-  end
-
-  defp extract_get_result(response) do
-    Logger.error("Invalid response format: #{inspect(response)}")
-    {:error, :invalid_response}
-  end
-
-  defp extract_get_result_with_oid(%{pdu: %{error_status: error_status}} = response)
-       when error_status != 0 do
-    Logger.debug("Extracting error result - error_status: #{error_status}")
-    Logger.debug("Full response PDU: #{inspect(response.pdu)}")
-    {:error, decode_error_status(error_status)}
-  end
-
-  defp extract_get_result_with_oid(%{pdu: %{varbinds: [{oid, type, value}]}} = response) do
-    Logger.debug("Extracting successful result - PDU: #{inspect(response.pdu)}")
-
-    Logger.debug(
-      "Varbind details - oid: #{inspect(oid)}, type: #{inspect(type)}, value: #{inspect(value)}"
-    )
-
-    # Check for SNMPv2c exception values in both type and value fields
-    case {type, value} do
-      # Exception values in type field (from simulator)
-      {:no_such_object, _} ->
-        Logger.debug("Found exception in type field: no_such_object")
-        {:error, :no_such_object}
-
-      {:no_such_instance, _} ->
-        Logger.debug("Found exception in type field: no_such_instance")
-        {:error, :no_such_instance}
-
-      {:end_of_mib_view, _} ->
-        Logger.debug("Found exception in type field: end_of_mib_view")
-        {:error, :end_of_mib_view}
-
-      # Exception values in value field (standard format)
-      {_, {:no_such_object, _}} ->
-        Logger.debug("Found exception in value field: no_such_object")
-        {:error, :no_such_object}
-
-      {_, {:no_such_instance, _}} ->
-        Logger.debug("Found exception in value field: no_such_instance")
-        {:error, :no_such_instance}
-
-      {_, {:end_of_mib_view, _}} ->
-        Logger.debug("Found exception in value field: end_of_mib_view")
-        {:error, :end_of_mib_view}
-
-      # Normal value - return full 3-tuple for multi operations
-      _ ->
-        Logger.debug("Returning successful varbind with type: #{inspect({oid, type, value})}")
-        {:ok, {oid, type, value}}
-    end
-  end
-
-  defp extract_get_result_with_oid(response) do
-    Logger.error("Invalid response format: #{inspect(response)}")
-    {:error, :invalid_response}
-  end
-
-  defp extract_bulk_result(%{pdu: %{varbinds: varbinds}}) do
-    valid_varbinds =
-      Enum.filter(varbinds, fn {_oid, type, value} ->
-        # Check for SNMPv2c exception values in both type and value fields
-        case {type, value} do
-          # Exception values in type field (from simulator)
-          {:no_such_object, _} -> false
-          {:no_such_instance, _} -> false
-          {:end_of_mib_view, _} -> false
-          # Exception values in value field (standard format)
-          {_, {:no_such_object, _}} -> false
-          {_, {:no_such_instance, _}} -> false
-          {_, {:end_of_mib_view, _}} -> false
-          # Valid varbind
-          _ -> true
-        end
-      end)
-
-    # Return documented 3-tuple varbind format {oid, type, value}
-    {:ok, valid_varbinds}
-  end
-
-  defp extract_bulk_result(%{pdu: %{error_status: error_status}}) when error_status != 0 do
-    {:error, decode_error_status(error_status)}
-  end
-
-  defp extract_bulk_result(_), do: {:error, :invalid_response}
-
-  defp extract_set_result(%{pdu: %{error_status: 0}}) do
-    {:ok, :success}
-  end
-
-  defp extract_set_result(%{pdu: %{error_status: error_status}}) when error_status != 0 do
-    {:error, decode_error_status(error_status)}
-  end
-
-  defp extract_set_result(_), do: {:error, :invalid_response}
-
   # GETNEXT implementation for SNMP v1
   defp perform_get_next_v1(host, oid, opts) do
-    with {:ok, socket} <- create_socket(opts) do
+    with {:ok, socket} <- Request.create_socket(opts) do
       Logger.debug("Socket created successfully for GETNEXT v1")
 
       try do
         case perform_get_next_operation(socket, host, oid, opts) do
           {:ok, response} ->
             Logger.debug("GETNEXT v1 operation completed, extracting result")
-            result = extract_get_next_result(response)
+            result = Response.extract_get_next_result(response)
             Logger.debug("Final GETNEXT v1 result: #{inspect(result)}")
             result
 
@@ -833,7 +510,7 @@ defmodule SnmpKit.SnmpLib.Manager do
             {:error, reason}
         end
       after
-        :ok = close_socket(socket)
+        :ok = Request.close_socket(socket)
       end
     else
       {:error, reason} ->
@@ -872,54 +549,7 @@ defmodule SnmpKit.SnmpLib.Manager do
   defp perform_get_next_operation(socket, host, oid, opts) do
     request_id = generate_request_id()
     pdu = SnmpKit.SnmpLib.PDU.build_get_next_request(oid, request_id)
-    perform_snmp_request(socket, host, pdu, opts)
-  end
-
-  defp extract_get_next_result(%{pdu: %{varbinds: [{next_oid, type, value}]}} = response) do
-    Logger.debug("Extracting GETNEXT result - PDU: #{inspect(response.pdu)}")
-
-    Logger.debug(
-      "Varbind details - next_oid: #{inspect(next_oid)}, type: #{inspect(type)}, value: #{inspect(value)}"
-    )
-
-    # Check for SNMPv2c exception values in both type and value fields
-    case {type, value} do
-      # Exception values in type field (from simulator)
-      {:no_such_object, _} ->
-        Logger.debug("Found exception in type field: no_such_object")
-        {:error, :no_such_object}
-
-      {:no_such_instance, _} ->
-        Logger.debug("Found exception in type field: no_such_instance")
-        {:error, :no_such_instance}
-
-      {:end_of_mib_view, _} ->
-        Logger.debug("Found exception in type field: end_of_mib_view")
-        {:error, :end_of_mib_view}
-
-      # Exception values in value field (standard format)
-      {_, {:no_such_object, _}} ->
-        Logger.debug("Found exception in value field: no_such_object")
-        {:error, :no_such_object}
-
-      {_, {:no_such_instance, _}} ->
-        Logger.debug("Found exception in value field: no_such_instance")
-        {:error, :no_such_instance}
-
-      {_, {:end_of_mib_view, _}} ->
-        Logger.debug("Found exception in value field: end_of_mib_view")
-        {:error, :end_of_mib_view}
-
-      # Normal value - return both next OID and value
-      _ ->
-        Logger.debug("Returning successful GETNEXT result: #{inspect({next_oid, type, value})}")
-        {:ok, {next_oid, type, value}}
-    end
-  end
-
-  defp extract_get_next_result(response) do
-    Logger.error("Invalid GETNEXT response format: #{inspect(response)}")
-    {:error, :invalid_response}
+    Request.perform_snmp_request(socket, host, pdu, opts)
   end
 
   # Helper functions
@@ -954,28 +584,6 @@ defmodule SnmpKit.SnmpLib.Manager do
     :rand.uniform(2_147_483_647)
   end
 
-  defp decode_error_status(0), do: :no_error
-  defp decode_error_status(1), do: :too_big
-  defp decode_error_status(2), do: :no_such_name
-  defp decode_error_status(3), do: :bad_value
-  defp decode_error_status(4), do: :read_only
-  defp decode_error_status(5), do: :gen_err
-  # SNMPv2c additional error codes (RFC 3416)
-  defp decode_error_status(6), do: :no_access
-  defp decode_error_status(7), do: :wrong_type
-  defp decode_error_status(8), do: :wrong_length
-  defp decode_error_status(9), do: :wrong_encoding
-  defp decode_error_status(10), do: :wrong_value
-  defp decode_error_status(11), do: :no_creation
-  defp decode_error_status(12), do: :inconsistent_value
-  defp decode_error_status(13), do: :resource_unavailable
-  defp decode_error_status(14), do: :commit_failed
-  defp decode_error_status(15), do: :undo_failed
-  defp decode_error_status(16), do: :authorization_error
-  defp decode_error_status(17), do: :not_writable
-  defp decode_error_status(18), do: :inconsistent_name
-  defp decode_error_status(error), do: {:unknown_error, error}
-
   defp merge_default_opts(opts) do
     [
       community: @default_community,
@@ -996,52 +604,6 @@ defmodule SnmpKit.SnmpLib.Manager do
     )
     |> Keyword.merge(opts)
   end
-
-  # Helper to determine if host string contains port specification
-  defp host_contains_port?(host) when is_binary(host) do
-    cond do
-      # RFC 3986 bracket notation: [IPv6]:port
-      String.starts_with?(host, "[") and String.contains?(host, "]:") ->
-        # Check if it's valid [addr]:port format
-        case String.split(host, "]:", parts: 2) do
-          [_ipv6_part, port_part] ->
-            case Integer.parse(port_part) do
-              {port, ""} when port > 0 and port <= 65535 -> true
-              _ -> false
-            end
-
-          _ ->
-            false
-        end
-
-      # Plain IPv6 addresses (contain :: or multiple colons) - no port embedded
-      String.contains?(host, "::") ->
-        false
-
-      host |> String.graphemes() |> Enum.count(&(&1 == ":")) > 1 ->
-        false
-
-      # IPv4 or simple hostname with port
-      String.contains?(host, ":") ->
-        # Single colon - check if part after colon looks like a port number
-        case String.split(host, ":", parts: 2) do
-          [_host_part, port_part] ->
-            case Integer.parse(port_part) do
-              {port, ""} when port > 0 and port <= 65535 -> true
-              _ -> false
-            end
-
-          _ ->
-            false
-        end
-
-      # No colon at all
-      true ->
-        false
-    end
-  end
-
-  defp host_contains_port?(_), do: false
 
   # Check if all results failed with the same network-related error
   defp check_for_global_failure(results) do

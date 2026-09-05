@@ -42,6 +42,16 @@ compiled MIB data into registry maps in `SnmpKit.MIB.Import`. One behaviour
 change: `SnmpMgr.MIB.load/1` merges the loaded objects into the registry
 (the 1.x fallback path silently discarded them).
 
+Other large modules were split the same way, with the original module keeping
+its public functions (as implementations or delegates):
+
+| Module | Extracted into |
+|--------|----------------|
+| `SnmpKit.SnmpSim.Device.OidHandler` | `Device.Metrics` (uptime, counter increments, gauges), `Device.BuiltinValues` (hard-coded per-device-type objects and their GETNEXT/GETBULK) |
+| `SnmpKit.SnmpSim.ValueSimulator` | `ValueSimulator.Patterns`, `.Counters`, `.Variance` |
+| `SnmpKit.SnmpLib.Types` | `Types.Validation`, `Types.Format` (delegates kept on `Types`) |
+| `SnmpKit.SnmpLib.Manager` | `Manager.Request` (socket, send/receive/retries), `Manager.Response` (result extraction, error-status decoding) |
+
 ## Behaviour unchanged since 1.4
 
 Enriched result maps, the RFC-compliant SNMPv3 stack, SNMPv1/v2c end-of-MIB
