@@ -65,9 +65,6 @@ defmodule SnmpKit.SnmpLib.Security.USM do
 
   require Logger
 
-  alias SnmpKit.SnmpLib.Security.{Auth, Priv}
-  alias SnmpKit.SnmpLib.PDU
-
   @type engine_id :: binary()
   @type security_name :: binary()
   @type security_level :: :no_auth_no_priv | :auth_no_priv | :auth_priv
@@ -174,7 +171,18 @@ defmodule SnmpKit.SnmpLib.Security.USM do
 
   Time synchronization is required for authenticated communication to prevent
   replay attacks. This function retrieves the agent's current boot counter
-  and engine time.
+  and engine time (RFC 3414 section 2.3).
+
+  The request is sent with `msgAuthoritativeEngineBoots`/`Time` of zero. The
+  agent answers with a Report PDU (usmStatsNotInTimeWindows) whose security
+  parameters carry its real boots and time, which are returned.
+
+  ## Options
+
+  - `:user` - a security user (see `SnmpKit.SnmpLib.Security.create_user/2`)
+    with valid authentication keys. Agents only answer time-sync requests they
+    can authenticate, so this is needed for real devices.
+  - `:security_name`, `:port`, `:timeout`
   """
   @spec synchronize_time(binary(), engine_id(), keyword()) ::
           {:ok, {engine_boots(), engine_time()}} | {:error, atom()}
@@ -182,14 +190,14 @@ defmodule SnmpKit.SnmpLib.Security.USM do
     Logger.debug("Starting time synchronization with engine: #{Base.encode16(engine_id)}")
 
     try do
-      # Create time synchronization message (authenticated but not encrypted)
       msg_id = :rand.uniform(2_147_483_647)
+      user = sync_user(engine_id, opts)
 
       time_sync_message = %{
         version: 3,
         msg_id: msg_id,
         msg_max_size: SnmpKit.SnmpLib.PDU.Constants.default_max_message_size(),
-        msg_flags: %{auth: true, priv: false, reportable: true},
+        msg_flags: %{auth: user.auth_protocol != :none, priv: false, reportable: true},
         msg_security_model: SnmpKit.SnmpLib.PDU.Constants.usm_security_model(),
         msg_security_parameters: <<>>,
         msg_data: %{
@@ -206,10 +214,7 @@ defmodule SnmpKit.SnmpLib.Security.USM do
         }
       }
 
-      # Create temporary user for time sync (with zero keys initially)
-      temp_user = create_temp_sync_user(engine_id, opts)
-
-      case send_time_sync_request(host, time_sync_message, temp_user, opts) do
+      case send_time_sync_request(host, time_sync_message, user, opts) do
         {:ok, engine_boots, engine_time} ->
           Logger.debug(
             "Time synchronization successful: boots=#{engine_boots}, time=#{engine_time}"
@@ -315,63 +320,50 @@ defmodule SnmpKit.SnmpLib.Security.USM do
     {:error, :no_engine_id_found}
   end
 
-  defp create_temp_sync_user(engine_id, opts) do
-    %{
-      security_name: Keyword.get(opts, :security_name, ""),
-      auth_protocol: :none,
-      priv_protocol: :none,
-      auth_key: <<>>,
-      priv_key: <<>>,
-      engine_id: engine_id,
-      engine_boots: 0,
-      engine_time: 0
-    }
+  # The sync request goes out with boots/time 0 so the agent reports its own.
+  defp sync_user(engine_id, opts) do
+    base =
+      case Keyword.get(opts, :user) do
+        %{} = user ->
+          user
+
+        nil ->
+          %{
+            security_name: Keyword.get(opts, :security_name, ""),
+            auth_protocol: :none,
+            priv_protocol: :none,
+            auth_key: <<>>,
+            priv_key: <<>>
+          }
+      end
+
+    Map.merge(base, %{engine_id: engine_id, engine_boots: 0, engine_time: 0})
   end
 
   defp send_time_sync_request(host, message, user, opts) do
-    # For time sync, we expect to get a report PDU with timing information
-    case send_discovery_request(
-           host,
-           SnmpKit.SnmpLib.PDU.V3Encoder.encode_message(message, user),
-           opts
-         ) do
-      {:ok, response_packet} ->
-        case SnmpKit.SnmpLib.PDU.V3Encoder.decode_message(response_packet, user) do
-          {:ok, response} ->
-            # Extract timing information from response
-            extract_timing_from_response(response)
-
-          {:error, reason} ->
-            {:error, reason}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
+    with {:ok, packet} <- SnmpKit.SnmpLib.PDU.V3Encoder.encode_message(message, user),
+         {:ok, response_packet} <- send_discovery_request(host, packet, opts),
+         {:ok, response} <- decode_sync_response(response_packet, user) do
+      extract_timing_from_response(response)
     end
   end
 
-  defp extract_timing_from_response(%{msg_security_parameters: security_params}) do
-    case decode_usm_security_params(security_params) do
-      {:ok, %{engine_boots: boots, engine_time: time}} ->
-        {:ok, boots, time}
-
-      {:error, reason} ->
-        {:error, reason}
+  # A Report about our zero boots/time is authenticated by the agent with the
+  # user's key; anything else (e.g. an unauthenticated report) is still useful
+  # for its header, so fall back to header-only decoding.
+  defp decode_sync_response(packet, user) do
+    case SnmpKit.SnmpLib.PDU.V3Encoder.decode_message(packet, user) do
+      {:ok, response} -> {:ok, response}
+      {:error, _} -> SnmpKit.SnmpLib.PDU.V3Encoder.decode_message_header(packet)
     end
+  end
+
+  defp extract_timing_from_response(%{security_parameters: %{} = params}) do
+    {:ok, params.authoritative_engine_boots, params.authoritative_engine_time}
   end
 
   defp extract_timing_from_response(_response) do
     {:error, :no_timing_info}
-  end
-
-  defp decode_usm_security_params(params) when is_binary(params) and byte_size(params) > 0 do
-    # Simple USM parameter decoding - in a full implementation this would use proper ASN.1 decoding
-    # For now, return mock values
-    {:ok, %{engine_boots: 1, engine_time: System.system_time(:second)}}
-  end
-
-  defp decode_usm_security_params(_) do
-    {:error, :invalid_params}
   end
 
   defp validate_security_level(user, security_level) do
@@ -404,21 +396,41 @@ defmodule SnmpKit.SnmpLib.Security.USM do
   @doc """
   Processes an incoming SNMP message with USM security.
 
-  This function validates and decrypts an incoming secure message, returning
-  the plain message content and validated user information.
+  Implements the receiving side of RFC 3414 section 3.2: the header is read to
+  find `msgUserName`, the user is looked up in `user_database` (a map from
+  security name to user entry), the engine ID, security level and timeliness
+  window are checked, and finally the message is authenticated and decrypted
+  with that user's keys.
+
+  User entries must carry the authoritative engine's current `engine_boots`
+  and `engine_time`; those are what incoming messages are checked against.
+
+  ## Options
+
+  - `:time_window` - allowed |time difference| in seconds (default 150)
+
+  ## Returns
+
+  - `{:ok, {message, user}}` where `message` is the decoded SNMPv3 message
+    (see `SnmpKit.SnmpLib.PDU.V3Encoder.decode_message/2`)
+  - `{:error, reason}` with the RFC 3414 failure class, e.g.
+    `:unknown_user_name`, `:unknown_engine_id`, `:unsupported_security_level`,
+    `:not_in_time_window`, `:authentication_mismatch`
   """
-  @spec process_incoming_message(binary(), map()) ::
-          {:ok, {binary(), user_entry()}} | {:error, atom()}
-  def process_incoming_message(secure_message, user_database) do
+  @spec process_incoming_message(binary(), map(), keyword()) ::
+          {:ok, {map(), user_entry()}} | {:error, atom()}
+  def process_incoming_message(secure_message, user_database, opts \\ []) do
     Logger.debug("Processing incoming secure message")
 
-    with {:ok, {scoped_pdu, security_params, flags}} <- parse_secure_message(secure_message),
-         {:ok, user} <- lookup_user(user_database, security_params.user_name),
-         :ok <- validate_security_parameters(user, security_params),
-         :ok <- verify_authentication(user, secure_message, security_params, flags),
-         {:ok, plain_message} <- decrypt_message(user, scoped_pdu, security_params, flags) do
+    alias SnmpKit.SnmpLib.PDU.V3Encoder
+
+    with {:ok, header} <- V3Encoder.decode_message_header(secure_message),
+         {:ok, params} <- fetch_security_params(header),
+         {:ok, user} <- lookup_user(user_database, params.user_name),
+         :ok <- validate_security_parameters(user, params, header.msg_flags, opts),
+         {:ok, message} <- V3Encoder.decode_message(secure_message, user) do
       Logger.debug("Incoming message processing successful")
-      {:ok, {plain_message, user}}
+      {:ok, {message, user}}
     else
       {:error, reason} ->
         Logger.error("Incoming message processing failed: #{inspect(reason)}")
@@ -435,9 +447,16 @@ defmodule SnmpKit.SnmpLib.Security.USM do
   - Engine boots match (within 1)
   - Engine time is within 150 seconds
   """
-  @spec validate_time_window(engine_boots(), engine_time(), engine_boots(), engine_time()) ::
+  @spec validate_time_window(
+          engine_boots(),
+          engine_time(),
+          engine_boots(),
+          engine_time(),
+          keyword()
+        ) ::
           :ok | {:error, atom()}
-  def validate_time_window(local_boots, local_time, remote_boots, remote_time) do
+  def validate_time_window(local_boots, local_time, remote_boots, remote_time, opts \\ []) do
+    window = Keyword.get(opts, :time_window, @time_window)
     boots_diff = abs(local_boots - remote_boots)
     time_diff = abs(local_time - remote_time)
 
@@ -446,12 +465,12 @@ defmodule SnmpKit.SnmpLib.Security.USM do
         Logger.warning("Engine boots difference too large: #{boots_diff}")
         {:error, :engine_boots_mismatch}
 
-      boots_diff == 1 and time_diff > @time_window ->
+      boots_diff == 1 and time_diff > window ->
         Logger.warning("Time window exceeded across boot boundary: #{time_diff}s")
         {:error, :time_window_exceeded}
 
-      boots_diff == 0 and time_diff > @time_window ->
-        Logger.warning("Time window exceeded: #{time_diff}s > #{@time_window}s")
+      boots_diff == 0 and time_diff > window ->
+        Logger.warning("Time window exceeded: #{time_diff}s > #{window}s")
         {:error, :time_window_exceeded}
 
       true ->
@@ -692,43 +711,8 @@ defmodule SnmpKit.SnmpLib.Security.USM do
   #   PDU.encode_message(message)
   # end
 
-  defp parse_secure_message(secure_message) do
-    case PDU.decode_message(secure_message) do
-      {:ok, decoded} ->
-        # Check if this is an SNMPv3 message with required fields
-        with {:ok, scoped_pdu} <- get_scoped_pdu(decoded),
-             {:ok, security_params} <- get_security_parameters(decoded),
-             {:ok, flags} <- get_message_flags(decoded) do
-          {:ok, {scoped_pdu, security_params, flags}}
-        else
-          {:error, reason} -> {:error, reason}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp get_scoped_pdu(decoded) do
-    case Map.get(decoded, :scoped_pdu) do
-      nil -> {:error, :missing_scoped_pdu}
-      scoped_pdu -> {:ok, scoped_pdu}
-    end
-  end
-
-  defp get_security_parameters(decoded) do
-    case Map.get(decoded, :security_parameters) do
-      nil -> {:error, :missing_security_parameters}
-      security_params -> {:ok, security_params}
-    end
-  end
-
-  defp get_message_flags(decoded) do
-    case Map.get(decoded, :flags) do
-      nil -> {:error, :missing_message_flags}
-      flags -> {:ok, flags}
-    end
-  end
+  defp fetch_security_params(%{security_parameters: %{} = params}), do: {:ok, params}
+  defp fetch_security_params(_header), do: {:error, :missing_security_parameters}
 
   defp lookup_user(user_database, user_name) do
     case Map.get(user_database, user_name) do
@@ -737,16 +721,26 @@ defmodule SnmpKit.SnmpLib.Security.USM do
     end
   end
 
-  defp validate_security_parameters(user, params) do
+  # RFC 3414 3.2 steps 3-5,7: engine ID, security level, then timeliness
+  # (only authenticated messages carry trustworthy boots/time).
+  defp validate_security_parameters(user, params, flags, opts) do
     with :ok <- validate_engine_id(user.engine_id, params.authoritative_engine_id),
-         :ok <-
-           validate_time_window(
-             1,
-             System.system_time(:second),
-             params.authoritative_engine_boots,
-             params.authoritative_engine_time
-           ) do
-      :ok
+         :ok <- validate_flags_against_user(user, flags) do
+      if flags.auth do
+        validate_time_window(
+          user.engine_boots,
+          user.engine_time,
+          params.authoritative_engine_boots,
+          params.authoritative_engine_time,
+          opts
+        )
+        |> case do
+          :ok -> :ok
+          {:error, _} -> {:error, :not_in_time_window}
+        end
+      else
+        :ok
+      end
     end
   end
 
@@ -758,25 +752,12 @@ defmodule SnmpKit.SnmpLib.Security.USM do
     end
   end
 
-  defp verify_authentication(user, message, params, flags) do
-    if flags.auth_flag do
-      Auth.verify(user.auth_protocol, user.auth_key, message, params.authentication_parameters)
-    else
-      :ok
-    end
-  end
-
-  defp decrypt_message(user, encrypted_message, params, flags) do
-    if flags.priv_flag do
-      Priv.decrypt(
-        user.priv_protocol,
-        user.priv_key,
-        user.auth_key,
-        encrypted_message,
-        params.privacy_parameters
-      )
-    else
-      {:ok, encrypted_message}
+  defp validate_flags_against_user(user, flags) do
+    cond do
+      flags.priv and not flags.auth -> {:error, :unsupported_security_level}
+      flags.priv and user.priv_protocol == :none -> {:error, :unsupported_security_level}
+      flags.auth and user.auth_protocol == :none -> {:error, :unsupported_security_level}
+      true -> :ok
     end
   end
 

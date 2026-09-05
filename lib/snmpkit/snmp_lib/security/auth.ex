@@ -57,7 +57,9 @@ defmodule SnmpKit.SnmpLib.Security.Auth do
   @type auth_params :: binary()
   @type message_data :: binary()
 
-  # Protocol specifications per RFC 3414 and RFC 7860
+  # Protocol specifications per RFC 3414 and RFC 7860.
+  # truncated_size is the msgAuthenticationParameters length on the wire:
+  # 12 for MD5/SHA-1 (RFC 3414), 16/24/32/48 for SHA-224/256/384/512 (RFC 7860 4.2).
   @protocol_specs %{
     none: %{
       algorithm: :none,
@@ -96,7 +98,7 @@ defmodule SnmpKit.SnmpLib.Security.Auth do
     sha256: %{
       algorithm: :sha256,
       digest_size: 32,
-      truncated_size: 16,
+      truncated_size: 24,
       max_key_size: 64,
       secure: true,
       rfc: "RFC 7860"
@@ -104,7 +106,7 @@ defmodule SnmpKit.SnmpLib.Security.Auth do
     sha384: %{
       algorithm: :sha384,
       digest_size: 48,
-      truncated_size: 24,
+      truncated_size: 32,
       max_key_size: 64,
       secure: true,
       rfc: "RFC 7860"
@@ -112,7 +114,7 @@ defmodule SnmpKit.SnmpLib.Security.Auth do
     sha512: %{
       algorithm: :sha512,
       digest_size: 64,
-      truncated_size: 32,
+      truncated_size: 48,
       max_key_size: 64,
       secure: true,
       rfc: "RFC 7860"
@@ -127,14 +129,34 @@ defmodule SnmpKit.SnmpLib.Security.Auth do
   ## Examples
 
       iex> SnmpKit.SnmpLib.Security.Auth.protocol_info(:sha256)
-      %{algorithm: :sha256, digest_size: 32, truncated_size: 16, secure: true, rfc: "RFC 7860"}
+      %{algorithm: :sha256, digest_size: 32, truncated_size: 24, max_key_size: 64, secure: true, rfc: "RFC 7860"}
 
       iex> SnmpKit.SnmpLib.Security.Auth.protocol_info(:md5)
-      %{algorithm: :md5, digest_size: 16, truncated_size: 12, secure: false, rfc: "RFC 3414"}
+      %{algorithm: :md5, digest_size: 16, truncated_size: 12, max_key_size: 64, secure: false, rfc: "RFC 3414"}
   """
   @spec protocol_info(auth_protocol()) :: map() | nil
   def protocol_info(protocol) do
     Map.get(@protocol_specs, protocol)
+  end
+
+  @doc """
+  Length in octets of `msgAuthenticationParameters` for a protocol.
+
+  This is the truncated HMAC size (RFC 3414 6.3.1 / 7.3.1, RFC 7860 4.2) and
+  also the size of the zero placeholder that must occupy the field while the
+  MAC is computed.
+
+      iex> SnmpKit.SnmpLib.Security.Auth.auth_params_size(:sha256)
+      24
+      iex> SnmpKit.SnmpLib.Security.Auth.auth_params_size(:none)
+      0
+  """
+  @spec auth_params_size(auth_protocol()) :: non_neg_integer()
+  def auth_params_size(protocol) do
+    case protocol_info(protocol) do
+      %{truncated_size: size} -> size
+      nil -> 0
+    end
   end
 
   @doc """

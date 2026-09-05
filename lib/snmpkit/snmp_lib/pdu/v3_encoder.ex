@@ -86,6 +86,20 @@ defmodule SnmpKit.SnmpLib.PDU.V3Encoder do
   - Engine discovery must be performed before authenticated communication
   - Time synchronization is required to prevent replay attacks
   - Message IDs should be unique to prevent duplicate processing
+
+  ## Wire-format details
+
+  - `msgAuthenticationParameters` is the HMAC computed over the *entire*
+    serialized message with the parameter field itself zeroed (RFC 3414 6.3.1 /
+    7.3.1). On decode the MAC is recomputed over the bytes actually received,
+    never over a re-encoding, so any peer's BER choices are accepted.
+  - Encrypted messages carry the ciphertext in an OCTET STRING `msgData`; the
+    MAC covers that OCTET STRING, exactly as transmitted.
+  - AES/DES IVs are derived from `msgAuthoritativeEngineBoots`/`Time` and the
+    8-octet salt in `msgPrivacyParameters` (RFC 3414 8.1.1.1, RFC 3826 3.1.2.1).
+  - Decoded messages expose the received USM parameters under
+    `:security_parameters` (see `SnmpKit.SnmpLib.Security.security_params/0`)
+    and the raw octets under `:msg_security_parameters`.
   """
 
   import Bitwise
@@ -94,6 +108,7 @@ defmodule SnmpKit.SnmpLib.PDU.V3Encoder do
   alias SnmpKit.SnmpLib.ASN1
   alias SnmpKit.SnmpLib.PDU.{Constants, Encoder, Decoder}
   alias SnmpKit.SnmpLib.Security
+  alias SnmpKit.SnmpLib.Security.{Auth, Priv}
 
   @type v3_message :: Constants.v3_message()
   @type scoped_pdu :: Constants.scoped_pdu()
@@ -102,6 +117,17 @@ defmodule SnmpKit.SnmpLib.PDU.V3Encoder do
 
   # ASN.1 tags
   @sequence 0x30
+
+  # Decoded msgSecurityParameters, USM flavour (RFC 3414 2.4)
+  @typep usm_params :: %{
+           engine_id: binary(),
+           engine_boots: non_neg_integer(),
+           engine_time: non_neg_integer(),
+           security_name: binary(),
+           auth_params: binary(),
+           priv_params: binary(),
+           auth_params_offset: non_neg_integer()
+         }
 
   @doc """
   Encodes a SNMPv3 message with security processing.
@@ -127,21 +153,8 @@ defmodule SnmpKit.SnmpLib.PDU.V3Encoder do
 
   def encode_message(%{version: 3} = message, user) do
     try do
-      # Encode scoped PDU
-      case encode_scoped_pdu(message.msg_data) do
-        {:ok, scoped_pdu_data} ->
-          # Apply security processing
-          case apply_security_processing(message, scoped_pdu_data, user) do
-            {:ok, final_msg_data, security_params} ->
-              # Encode complete message
-              encode_v3_message(message, security_params, final_msg_data)
-
-            {:error, reason} ->
-              {:error, reason}
-          end
-
-        {:error, reason} ->
-          {:error, reason}
+      with {:ok, scoped_pdu_data} <- encode_scoped_pdu(message.msg_data) do
+        apply_security_processing(message, scoped_pdu_data, user)
       end
     rescue
       error ->
@@ -168,39 +181,34 @@ defmodule SnmpKit.SnmpLib.PDU.V3Encoder do
 
   ## Returns
 
-  - `{:ok, message}` on success
-  - `{:error, reason}` on failure
+  - `{:ok, message}` on success. Besides the header fields and `:msg_data`
+    (the decoded ScopedPDU) the map carries `:msg_security_parameters` (raw
+    octets) and `:security_parameters` (decoded USM parameters, or `nil` when
+    they are not USM-shaped).
+  - `{:error, reason}` on failure. An encrypted message decoded without a user
+    yields `{:error, :user_required_for_privacy}`; use `decode_message_header/1`
+    to read the security parameters first and look the user up.
   """
   @spec decode_message(binary(), security_user() | nil) ::
           {:ok, v3_message()} | {:error, atom()}
   def decode_message(data, user \\ nil) when is_binary(data) do
     try do
-      case decode_v3_message(data) do
-        {:ok, message, security_params, msg_data} ->
-          # Apply security processing
-          case process_security_parameters(message, security_params, msg_data, user) do
-            {:ok, result} when user == nil ->
-              # For discovery messages, process_security_parameters already returns the scoped_pdu
-              final_message = Map.put(message, :msg_data, result)
-              {:ok, final_message}
-
-            {:ok, decrypted_data} ->
-              # Decode scoped PDU
-              case decode_scoped_pdu(decrypted_data) do
-                {:ok, scoped_pdu} ->
-                  final_message = Map.put(message, :msg_data, scoped_pdu)
-                  {:ok, final_message}
-
-                {:error, reason} ->
-                  {:error, reason}
-              end
-
-            {:error, reason} ->
-              {:error, reason}
-          end
-
-        {:error, reason} ->
-          {:error, reason}
+      with {:ok, message, security_params, msg_data, sec_offset} <- decode_v3_message(data),
+           {:ok, plain_scoped_pdu} <-
+             process_security_parameters(
+               data,
+               message,
+               security_params,
+               sec_offset,
+               msg_data,
+               user
+             ),
+           {:ok, scoped_pdu} <- decode_scoped_pdu(plain_scoped_pdu) do
+        {:ok,
+         message
+         |> Map.put(:msg_security_parameters, security_params)
+         |> Map.put(:security_parameters, public_security_params(security_params))
+         |> Map.put(:msg_data, scoped_pdu)}
       end
     rescue
       error ->
@@ -209,10 +217,116 @@ defmodule SnmpKit.SnmpLib.PDU.V3Encoder do
     end
   end
 
-  # Private encoding functions
+  @doc """
+  Decodes only the header and security parameters of a SNMPv3 message.
 
-  defp encode_v3_message(message, security_params, msg_data) do
-    # Build complete message
+  No authentication or decryption is performed. This is what an authoritative
+  engine uses to find `msgUserName` before it can select the user whose keys
+  verify the message.
+
+  Returns the same map as `decode_message/2` minus `:msg_data`.
+  """
+  @spec decode_message_header(binary()) :: {:ok, map()} | {:error, atom()}
+  def decode_message_header(data) when is_binary(data) do
+    try do
+      with {:ok, message, security_params, _msg_data, _sec_offset} <- decode_v3_message(data) do
+        {:ok,
+         message
+         |> Map.put(:msg_security_parameters, security_params)
+         |> Map.put(:security_parameters, public_security_params(security_params))}
+      end
+    rescue
+      error ->
+        Logger.error("SNMPv3 header decoding failed: #{inspect(error)}")
+        {:error, :decoding_failed}
+    end
+  end
+
+  @doc """
+  Decodes a raw `msgSecurityParameters` OCTET STRING as USM parameters.
+
+  Returns a map in the `SnmpKit.SnmpLib.Security.security_params/0` shape.
+  """
+  @spec decode_security_parameters(binary()) :: {:ok, security_params()} | {:error, atom()}
+  def decode_security_parameters(security_params) when is_binary(security_params) do
+    with {:ok, usm} <- decode_usm_security_params(security_params) do
+      {:ok, to_public_security_params(usm)}
+    end
+  end
+
+  # Private encoding functions ------------------------------------------------
+
+  # Discovery / unauthenticated messages still carry USM parameters, just with
+  # empty engine ID, user name and zero boots/time (RFC 3414 4).
+  @discovery_params %{
+    engine_id: <<>>,
+    engine_boots: 0,
+    engine_time: 0,
+    security_name: <<>>
+  }
+
+  defp apply_security_processing(message, scoped_pdu_data, nil) do
+    with {:ok, security_params, _} <- encode_usm_security_params(@discovery_params, <<>>, <<>>),
+         {:ok, packet, _} <- assemble_message(message, security_params, scoped_pdu_data) do
+      {:ok, packet}
+    end
+  end
+
+  defp apply_security_processing(message, scoped_pdu_data, user) do
+    flags = message.msg_flags
+
+    cond do
+      flags.priv -> apply_auth_priv_processing(message, scoped_pdu_data, user)
+      flags.auth -> apply_auth_processing(message, scoped_pdu_data, user, <<>>)
+      true -> apply_no_auth_processing(message, scoped_pdu_data, user)
+    end
+  end
+
+  defp apply_no_auth_processing(message, scoped_pdu_data, user) do
+    with {:ok, security_params, _} <- encode_usm_security_params(user, <<>>, <<>>),
+         {:ok, packet, _} <- assemble_message(message, security_params, scoped_pdu_data) do
+      {:ok, packet}
+    end
+  end
+
+  defp apply_auth_priv_processing(message, scoped_pdu_data, user) do
+    priv_opts = [engine_boots: user.engine_boots, engine_time: user.engine_time]
+
+    with {:ok, {ciphertext, priv_params}} <-
+           Priv.encrypt(
+             user.priv_protocol,
+             user.priv_key,
+             user.auth_key,
+             scoped_pdu_data,
+             priv_opts
+           ),
+         {:ok, encrypted_msg_data} <- ASN1.encode_octet_string(ciphertext) do
+      apply_auth_processing(message, encrypted_msg_data, user, priv_params)
+    end
+  end
+
+  # RFC 3414 6.3.1 / 7.3.1: serialize the whole message with a zero-filled
+  # msgAuthenticationParameters of the protocol's MAC length, MAC those exact
+  # bytes, then write the MAC into the placeholder.
+  defp apply_auth_processing(message, msg_data, user, priv_params) do
+    mac_len = Auth.auth_params_size(user.auth_protocol)
+    placeholder = :binary.copy(<<0>>, mac_len)
+
+    with {:ok, security_params, auth_offset} <-
+           encode_usm_security_params(user, placeholder, priv_params),
+         {:ok, packet, sec_offset} <- assemble_message(message, security_params, msg_data),
+         {:ok, mac} <- Auth.authenticate(user.auth_protocol, user.auth_key, packet) do
+      if byte_size(mac) == mac_len do
+        {:ok, splice(packet, sec_offset + auth_offset, mac)}
+      else
+        {:error, :authentication_failed}
+      end
+    end
+  end
+
+  # Serializes the SNMPv3Message. Returns the packet and the byte offset of the
+  # msgSecurityParameters *content* within it.
+  defp assemble_message(message, security_params, msg_data) do
     with {:ok, version_data} <- ASN1.encode_integer(message.version),
          {:ok, header_data} <-
            encode_header_data(
@@ -221,30 +335,17 @@ defmodule SnmpKit.SnmpLib.PDU.V3Encoder do
              message.msg_flags,
              message.msg_security_model
            ),
-         {:ok, security_data} <- ASN1.encode_octet_string(security_params),
-         {:ok, msg_data_encoded} <- encode_msg_data_for_transport(msg_data, message.msg_flags) do
-      iodata = [
-        version_data,
-        header_data,
-        security_data,
-        msg_data_encoded
-      ]
+         {:ok, security_data} <- ASN1.encode_octet_string(security_params) do
+      content =
+        <<version_data::binary, header_data::binary, security_data::binary, msg_data::binary>>
 
-      content = :erlang.iolist_to_binary(iodata)
-      encode_sequence(content)
-    else
-      {:error, reason} -> {:error, reason}
-    end
-  end
+      {:ok, packet} = encode_sequence(content)
 
-  defp encode_msg_data_for_transport(msg_data, msg_flags) do
-    # For encrypted messages (priv=true), msg_data is encrypted binary that needs OCTET STRING wrapper
-    # For plaintext messages, msg_data is scoped PDU binary that should remain as sequence data
-    if msg_flags.priv do
-      ASN1.encode_octet_string(msg_data)
-    else
-      # Plaintext scoped PDU data is already properly encoded as sequence
-      {:ok, msg_data}
+      sec_offset =
+        byte_size(packet) - byte_size(content) + byte_size(version_data) +
+          byte_size(header_data) + (byte_size(security_data) - byte_size(security_params))
+
+      {:ok, packet, sec_offset}
     end
   end
 
@@ -255,213 +356,79 @@ defmodule SnmpKit.SnmpLib.PDU.V3Encoder do
          {:ok, size_data} <- ASN1.encode_integer(msg_max_size),
          {:ok, flags_data} <- ASN1.encode_octet_string(flags_binary),
          {:ok, model_data} <- ASN1.encode_integer(security_model) do
-      iodata = [
-        msg_id_data,
-        size_data,
-        flags_data,
-        model_data
-      ]
-
-      content = :erlang.iolist_to_binary(iodata)
-      encode_sequence(content)
-    else
-      {:error, reason} -> {:error, reason}
+      encode_sequence(
+        <<msg_id_data::binary, size_data::binary, flags_data::binary, model_data::binary>>
+      )
     end
   end
 
   defp encode_scoped_pdu(%{context_engine_id: engine_id, context_name: name, pdu: pdu}) do
-    case Encoder.encode_pdu(pdu) do
-      {:ok, pdu_data} ->
-        # Instead of trying to construct iodata directly, let's validate each component
-        with {:ok, engine_data} <- ASN1.encode_octet_string(engine_id),
-             {:ok, name_data} <- ASN1.encode_octet_string(name) do
-          try do
-            # Build the sequence content directly without intermediate iodata
-            content = <<engine_data::binary, name_data::binary, pdu_data::binary>>
-            {:ok, encoded_seq} = encode_sequence(content)
-            {:ok, encoded_seq}
-          rescue
-            error ->
-              Logger.error(
-                "Scoped PDU encoding failed: #{inspect(error)} - engine_id: #{inspect(engine_id)}, name: #{inspect(name)}, pdu_data size: #{byte_size(pdu_data)}"
-              )
-
-              {:error, :scoped_pdu_encoding_failed}
-          end
-        else
-          {:error, reason} -> {:error, reason}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
+    with {:ok, pdu_data} <- Encoder.encode_pdu(pdu),
+         {:ok, engine_data} <- ASN1.encode_octet_string(engine_id),
+         {:ok, name_data} <- ASN1.encode_octet_string(name) do
+      encode_sequence(<<engine_data::binary, name_data::binary, pdu_data::binary>>)
     end
   end
 
-  defp apply_security_processing(_message, scoped_pdu_data, nil) do
-    # No security processing for discovery messages
-    {:ok, scoped_pdu_data, <<>>}
-  end
+  defp encode_scoped_pdu(_), do: {:error, :invalid_scoped_pdu}
 
-  defp apply_security_processing(message, scoped_pdu_data, user) do
-    flags = message.msg_flags
-
-    cond do
-      flags.priv ->
-        # Authentication and Privacy
-        apply_auth_priv_processing(message, scoped_pdu_data, user)
-
-      flags.auth ->
-        # Authentication only
-        apply_auth_processing(message, scoped_pdu_data, user)
-
-      true ->
-        # No security
-        {:ok, scoped_pdu_data, encode_usm_security_params(user, <<>>, <<>>)}
-    end
-  end
-
-  defp apply_auth_processing(message, scoped_pdu_data, user) do
-    # Create security parameters with placeholder for authentication
-    # 12-byte placeholder
-    auth_placeholder = :binary.copy(<<0>>, 12)
-    security_params = encode_usm_security_params(user, auth_placeholder, <<>>)
-
-    # Build message for authentication
-    temp_msg_data = scoped_pdu_data
-    auth_message = build_auth_message(message, security_params, temp_msg_data)
-
-    # Calculate authentication parameters
-    case Security.authenticate_message(user, auth_message) do
-      {:ok, auth_params} ->
-        # Replace placeholder with actual authentication
-        final_security_params = encode_usm_security_params(user, auth_params, <<>>)
-        {:ok, scoped_pdu_data, final_security_params}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp apply_auth_priv_processing(message, scoped_pdu_data, user) do
-    # Encrypt the scoped PDU
-    case Security.Priv.encrypt(user.priv_protocol, user.priv_key, user.auth_key, scoped_pdu_data) do
-      {:ok, {encrypted_data, priv_params}} ->
-        # Apply authentication to encrypted data
-        auth_placeholder = :binary.copy(<<0>>, 12)
-        security_params = encode_usm_security_params(user, auth_placeholder, priv_params)
-
-        # Build message for authentication
-        auth_message = build_auth_message(message, security_params, encrypted_data)
-
-        case Security.authenticate_message(user, auth_message) do
-          {:ok, auth_params} ->
-            final_security_params = encode_usm_security_params(user, auth_params, priv_params)
-            {:ok, encrypted_data, final_security_params}
-
-          {:error, reason} ->
-            {:error, reason}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp encode_usm_security_params(user, auth_params, priv_params) do
-    # USM Security Parameters format
-    with {:ok, engine_data} <- ASN1.encode_octet_string(user.engine_id),
-         {:ok, boots_data} <- ASN1.encode_integer(user.engine_boots),
-         {:ok, time_data} <- ASN1.encode_integer(user.engine_time),
-         {:ok, name_data} <- ASN1.encode_octet_string(user.security_name),
+  # UsmSecurityParameters (RFC 3414 2.4). Returns the encoded SEQUENCE and the
+  # offset of the msgAuthenticationParameters value within it.
+  defp encode_usm_security_params(params, auth_params, priv_params) do
+    with {:ok, engine_data} <- ASN1.encode_octet_string(params.engine_id),
+         {:ok, boots_data} <- ASN1.encode_integer(params.engine_boots),
+         {:ok, time_data} <- ASN1.encode_integer(params.engine_time),
+         {:ok, name_data} <- ASN1.encode_octet_string(params.security_name),
          {:ok, auth_data} <- ASN1.encode_octet_string(auth_params),
          {:ok, priv_data} <- ASN1.encode_octet_string(priv_params) do
-      iodata = [
-        engine_data,
-        boots_data,
-        time_data,
-        name_data,
-        auth_data,
-        priv_data
-      ]
+      content =
+        <<engine_data::binary, boots_data::binary, time_data::binary, name_data::binary,
+          auth_data::binary, priv_data::binary>>
 
-      content = :erlang.iolist_to_binary(iodata)
-      {:ok, result} = encode_sequence(content)
-      result
-    else
-      {:error, reason} -> {:error, reason}
+      {:ok, encoded} = encode_sequence(content)
+      auth_offset = byte_size(encoded) - byte_size(priv_data) - byte_size(auth_params)
+      {:ok, encoded, auth_offset}
     end
   end
 
-  defp build_auth_message(message, security_params, msg_data) do
-    # Build complete message for authentication calculation
-
-    with {:ok, version_data} <- ASN1.encode_integer(message.version),
-         {:ok, header_data} <-
-           encode_header_data(
-             message.msg_id,
-             message.msg_max_size,
-             message.msg_flags,
-             message.msg_security_model
-           ),
-         {:ok, security_params_data} <- ASN1.encode_octet_string(security_params) do
-      iodata = [
-        version_data,
-        header_data,
-        security_params_data,
-        msg_data
-      ]
-
-      content = :erlang.iolist_to_binary(iodata)
-      {:ok, auth_message} = encode_sequence(content)
-      auth_message
-    else
-      {:error, reason} -> {:error, reason}
-    end
+  defp splice(binary, offset, replacement) do
+    len = byte_size(replacement)
+    <<before::binary-size(offset), _::binary-size(len), rest::binary>> = binary
+    <<before::binary, replacement::binary, rest::binary>>
   end
 
-  # Private decoding functions
+  # Private decoding functions ------------------------------------------------
 
+  # Returns the header map, the raw msgSecurityParameters, the raw msgData and
+  # the byte offset of the security parameters content within `data`.
   defp decode_v3_message(data) do
-    case ASN1.decode_sequence(data) do
-      {:ok, {content, _remaining}} ->
-        case decode_message_components(content) do
-          {:ok, version, header_data, security_params, msg_data} when version == 3 ->
-            case decode_header_data(header_data) do
-              {:ok, msg_id, msg_max_size, msg_flags, security_model} ->
-                message = %{
-                  version: version,
-                  msg_id: msg_id,
-                  msg_max_size: msg_max_size,
-                  msg_flags: msg_flags,
-                  msg_security_model: security_model
-                }
+    with {:ok, {content, remaining}} <- ASN1.decode_sequence(data),
+         {:ok, version, header_data, security_params, msg_data, sec_offset_in_content} <-
+           decode_message_components(content),
+         :ok <- check_version(version),
+         {:ok, msg_id, msg_max_size, msg_flags, security_model} <- decode_header_data(header_data) do
+      message = %{
+        version: version,
+        msg_id: msg_id,
+        msg_max_size: msg_max_size,
+        msg_flags: msg_flags,
+        msg_security_model: security_model
+      }
 
-                {:ok, message, security_params, msg_data}
-
-              {:error, reason} ->
-                {:error, reason}
-            end
-
-          {:ok, version, _, _, _} ->
-            {:error, {:invalid_version, version}}
-
-          {:error, reason} ->
-            {:error, reason}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
+      content_offset = byte_size(data) - byte_size(remaining) - byte_size(content)
+      {:ok, message, security_params, msg_data, content_offset + sec_offset_in_content}
     end
   end
 
-  defp decode_message_components(data) do
-    with {:ok, {version, rest1}} <- ASN1.decode_integer(data),
+  defp check_version(3), do: :ok
+  defp check_version(version), do: {:error, {:invalid_version, version}}
+
+  defp decode_message_components(content) do
+    with {:ok, {version, rest1}} <- ASN1.decode_integer(content),
          {:ok, {header_data, rest2}} <- ASN1.decode_sequence(rest1),
-         {:ok, {security_params, rest3}} <- ASN1.decode_octet_string(rest2),
-         {:ok, msg_data, _rest4} <- decode_msg_data(rest3) do
-      {:ok, version, header_data, security_params, msg_data}
-    else
-      {:error, reason} -> {:error, reason}
+         {:ok, {security_params, rest3}} <- ASN1.decode_octet_string(rest2) do
+      sec_offset = byte_size(content) - byte_size(rest3) - byte_size(security_params)
+      {:ok, version, header_data, security_params, rest3, sec_offset}
     end
   end
 
@@ -470,201 +437,132 @@ defmodule SnmpKit.SnmpLib.PDU.V3Encoder do
          {:ok, {msg_max_size, rest2}} <- ASN1.decode_integer(rest1),
          {:ok, {msg_flags_binary, rest3}} <- ASN1.decode_octet_string(rest2),
          {:ok, {security_model, _rest4}} <- ASN1.decode_integer(rest3) do
-      msg_flags = Constants.decode_msg_flags(msg_flags_binary)
-      {:ok, msg_id, msg_max_size, msg_flags, security_model}
-    else
-      {:error, reason} -> {:error, reason}
+      {:ok, msg_id, msg_max_size, Constants.decode_msg_flags(msg_flags_binary), security_model}
     end
   end
 
-  defp decode_msg_data(data) do
-    # msg_data can be either plaintext ScopedPDU or encrypted OCTET STRING
-    # Try OCTET STRING first (encrypted data), then return raw data for plaintext
-    case ASN1.decode_octet_string(data) do
-      {:ok, {encrypted_data, remaining}} ->
-        {:ok, encrypted_data, remaining}
-
-      {:error, _} ->
-        # For plaintext, return the raw data (which should be a complete SEQUENCE)
-        {:ok, data, <<>>}
+  # msgData is either a plaintext ScopedPDU (SEQUENCE) or an OCTET STRING of ciphertext.
+  defp unwrap_encrypted_msg_data(msg_data) do
+    case ASN1.decode_octet_string(msg_data) do
+      {:ok, {ciphertext, _remaining}} -> {:ok, ciphertext}
+      {:error, _} -> {:error, :invalid_encrypted_msg_data}
     end
   end
 
+  # Trailing octets after the SEQUENCE are ignored on purpose: DES-CBC plaintext
+  # keeps its RFC 3414 block padding, and the BER length tells us where the
+  # ScopedPDU ends.
   defp decode_scoped_pdu(data) do
-    case ASN1.decode_sequence(data) do
-      {:ok, {content, _remaining}} ->
-        with {:ok, {context_engine_id, rest1}} <- ASN1.decode_octet_string(content),
-             {:ok, {context_name, rest2}} <- ASN1.decode_octet_string(rest1),
-             {:ok, pdu} <- Decoder.decode_pdu(rest2) do
-          scoped_pdu = %{
-            context_engine_id: context_engine_id,
-            context_name: context_name,
-            pdu: pdu
-          }
-
-          {:ok, scoped_pdu}
-        else
-          {:error, reason} -> {:error, reason}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
+    with {:ok, {content, _remaining}} <- ASN1.decode_sequence(data),
+         {:ok, {context_engine_id, rest1}} <- ASN1.decode_octet_string(content),
+         {:ok, {context_name, rest2}} <- ASN1.decode_octet_string(rest1),
+         {:ok, pdu} <- Decoder.decode_pdu(rest2) do
+      {:ok, %{context_engine_id: context_engine_id, context_name: context_name, pdu: pdu}}
     end
   end
 
-  defp process_security_parameters(_message, _security_params, msg_data, nil) do
-    # No security processing for discovery messages
-    # For discovery messages, msg_data might be raw SEQUENCE data
-    # First try to decode as SEQUENCE to get content, then process content
-    case ASN1.decode_sequence(msg_data) do
-      {:ok, {sequence_content, _}} ->
-        # Now process the sequence content
-        with {:ok, {context_engine_id, rest1}} <- ASN1.decode_octet_string(sequence_content),
-             {:ok, {context_name, rest2}} <- ASN1.decode_octet_string(rest1),
-             {:ok, pdu} <- Decoder.decode_pdu(rest2) do
-          scoped_pdu = %{
-            context_engine_id: context_engine_id,
-            context_name: context_name,
-            pdu: pdu
-          }
-
-          {:ok, scoped_pdu}
-        else
-          {:error, reason} -> {:error, reason}
-        end
-
-      {:error, _} ->
-        # msg_data is already sequence content, try direct processing
-        with {:ok, {context_engine_id, rest1}} <- ASN1.decode_octet_string(msg_data),
-             {:ok, {context_name, rest2}} <- ASN1.decode_octet_string(rest1),
-             {:ok, pdu} <- Decoder.decode_pdu(rest2) do
-          scoped_pdu = %{
-            context_engine_id: context_engine_id,
-            context_name: context_name,
-            pdu: pdu
-          }
-
-          {:ok, scoped_pdu}
-        else
-          {:error, reason} -> {:error, reason}
-        end
+  # No user: only unencrypted messages can be read; nothing is verified.
+  defp process_security_parameters(_data, message, _security_params, _sec_offset, msg_data, nil) do
+    if message.msg_flags.priv do
+      {:error, :user_required_for_privacy}
+    else
+      {:ok, msg_data}
     end
   end
 
-  defp process_security_parameters(message, security_params, msg_data, user) do
-    case decode_usm_security_params(security_params) do
-      {:ok, usm_params} ->
-        flags = message.msg_flags
+  defp process_security_parameters(data, message, security_params, sec_offset, msg_data, user) do
+    flags = message.msg_flags
 
-        cond do
-          flags.priv ->
-            # Decrypt and verify authentication
-            process_auth_priv_message(message, usm_params, msg_data, user)
-
-          flags.auth ->
-            # Verify authentication only
-            process_auth_message(message, usm_params, msg_data, user)
-
-          true ->
-            # No authentication or privacy
-            {:ok, msg_data}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp process_auth_message(message, usm_params, msg_data, user) do
-    # Build message for authentication verification
-    auth_placeholder = :binary.copy(<<0>>, 12)
-
-    temp_security_params =
-      encode_usm_security_params(
-        user,
-        auth_placeholder,
-        usm_params.priv_params
-      )
-
-    # For auth-only messages, msg_data should remain as sequence (not OCTET STRING wrapped)
-    auth_message = build_auth_message(message, temp_security_params, msg_data)
-
-    case Security.Auth.verify(
-           user.auth_protocol,
-           user.auth_key,
-           auth_message,
-           usm_params.auth_params
-         ) do
-      :ok ->
+    with {:ok, usm} <- decode_usm_security_params(security_params),
+         :ok <- verify_authentication(data, sec_offset, usm, flags, user) do
+      if flags.priv do
+        decrypt_msg_data(msg_data, usm, user)
+      else
         {:ok, msg_data}
-
-      {:error, reason} ->
-        {:error, reason}
+      end
     end
   end
 
-  defp process_auth_priv_message(message, usm_params, encrypted_data, user) do
-    # First verify authentication
-    auth_placeholder = :binary.copy(<<0>>, 12)
+  defp verify_authentication(_data, _sec_offset, _usm, %{auth: false}, _user), do: :ok
 
-    temp_security_params =
-      encode_usm_security_params(
-        user,
-        auth_placeholder,
-        usm_params.priv_params
+  # Recompute the MAC over the received datagram with msgAuthenticationParameters
+  # zeroed in place. No re-encoding is involved, so peers that pick different
+  # (but valid) BER encodings still verify.
+  defp verify_authentication(data, sec_offset, usm, %{auth: true}, user) do
+    expected_len = Auth.auth_params_size(user.auth_protocol)
+    received = usm.auth_params
+
+    if byte_size(received) != expected_len do
+      Logger.warning(
+        "Authentication parameter length #{byte_size(received)} does not match #{user.auth_protocol}"
       )
 
-    # Use raw encrypted data for authentication, same as during encoding
-    # OCTET STRING wrapping happens later for transport, not for authentication
-    auth_message = build_auth_message(message, temp_security_params, encrypted_data)
+      {:error, :authentication_mismatch}
+    else
+      zeroed =
+        splice(data, sec_offset + usm.auth_params_offset, :binary.copy(<<0>>, expected_len))
 
-    case Security.Auth.verify(
-           user.auth_protocol,
-           user.auth_key,
-           auth_message,
-           usm_params.auth_params
-         ) do
-      :ok ->
-        # Decrypt the message
-        Security.Priv.decrypt(
-          user.priv_protocol,
-          user.priv_key,
-          user.auth_key,
-          encrypted_data,
-          usm_params.priv_params
-        )
-
-      {:error, reason} ->
-        {:error, reason}
+      Auth.verify(user.auth_protocol, user.auth_key, zeroed, received)
     end
   end
 
-  defp decode_usm_security_params(data) do
-    case ASN1.decode_sequence(data) do
-      {:ok, {content, _remaining}} ->
-        with {:ok, {engine_id, rest1}} <- ASN1.decode_octet_string(content),
-             {:ok, {engine_boots, rest2}} <- ASN1.decode_integer(rest1),
-             {:ok, {engine_time, rest3}} <- ASN1.decode_integer(rest2),
-             {:ok, {security_name, rest4}} <- ASN1.decode_octet_string(rest3),
-             {:ok, {auth_params, rest5}} <- ASN1.decode_octet_string(rest4),
-             {:ok, {priv_params, _rest6}} <- ASN1.decode_octet_string(rest5) do
-          usm_params = %{
-            engine_id: engine_id,
-            engine_boots: engine_boots,
-            engine_time: engine_time,
-            security_name: security_name,
-            auth_params: auth_params,
-            priv_params: priv_params
-          }
-
-          {:ok, usm_params}
-        else
-          {:error, reason} -> {:error, reason}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
+  defp decrypt_msg_data(msg_data, usm, user) do
+    with {:ok, ciphertext} <- unwrap_encrypted_msg_data(msg_data) do
+      Priv.decrypt(
+        user.priv_protocol,
+        user.priv_key,
+        user.auth_key,
+        ciphertext,
+        usm.priv_params,
+        engine_boots: usm.engine_boots,
+        engine_time: usm.engine_time
+      )
     end
+  end
+
+  @spec decode_usm_security_params(binary()) :: {:ok, usm_params()} | {:error, atom()}
+  defp decode_usm_security_params(data) do
+    with {:ok, {content, remaining}} <- ASN1.decode_sequence(data),
+         {:ok, {engine_id, rest1}} <- ASN1.decode_octet_string(content),
+         {:ok, {engine_boots, rest2}} <- ASN1.decode_integer(rest1),
+         {:ok, {engine_time, rest3}} <- ASN1.decode_integer(rest2),
+         {:ok, {security_name, rest4}} <- ASN1.decode_octet_string(rest3),
+         {:ok, {auth_params, rest5}} <- ASN1.decode_octet_string(rest4),
+         {:ok, {priv_params, _rest6}} <- ASN1.decode_octet_string(rest5) do
+      content_offset = byte_size(data) - byte_size(remaining) - byte_size(content)
+
+      auth_offset =
+        content_offset + byte_size(content) - byte_size(rest5) - byte_size(auth_params)
+
+      {:ok,
+       %{
+         engine_id: engine_id,
+         engine_boots: engine_boots,
+         engine_time: engine_time,
+         security_name: security_name,
+         auth_params: auth_params,
+         priv_params: priv_params,
+         auth_params_offset: auth_offset
+       }}
+    end
+  end
+
+  defp public_security_params(security_params) do
+    case decode_usm_security_params(security_params) do
+      {:ok, usm} -> to_public_security_params(usm)
+      {:error, _} -> nil
+    end
+  end
+
+  defp to_public_security_params(usm) do
+    %{
+      authoritative_engine_id: usm.engine_id,
+      authoritative_engine_boots: usm.engine_boots,
+      authoritative_engine_time: usm.engine_time,
+      user_name: usm.security_name,
+      authentication_parameters: usm.auth_params,
+      privacy_parameters: usm.priv_params
+    }
   end
 
   # Utility functions

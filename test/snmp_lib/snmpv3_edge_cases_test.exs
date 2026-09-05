@@ -256,7 +256,7 @@ defmodule SnmpKit.SnmpLib.SNMPv3EdgeCasesTest do
 
       # Should complete within reasonable time (1 second)
       assert end_time - start_time < 1_000_000
-      assert byte_size(auth_params) == 16
+      assert byte_size(auth_params) == 24
     end
 
     test "encryption with non-standard block sizes" do

@@ -229,7 +229,7 @@ defmodule SnmpKit.SnmpLib.Security do
   def encrypt_message(user, plaintext) do
     case user.priv_protocol do
       :none -> {:ok, {plaintext, <<>>}}
-      protocol -> Priv.encrypt(protocol, user.priv_key, user.auth_key, plaintext)
+      protocol -> Priv.encrypt(protocol, user.priv_key, user.auth_key, plaintext, priv_opts(user))
     end
   end
 
@@ -239,8 +239,18 @@ defmodule SnmpKit.SnmpLib.Security do
   @spec decrypt_message(security_user(), binary(), binary()) :: {:ok, binary()} | {:error, atom()}
   def decrypt_message(user, ciphertext, priv_params) do
     case user.priv_protocol do
-      :none -> {:ok, ciphertext}
-      protocol -> Priv.decrypt(protocol, user.priv_key, user.auth_key, ciphertext, priv_params)
+      :none ->
+        {:ok, ciphertext}
+
+      protocol ->
+        Priv.decrypt(
+          protocol,
+          user.priv_key,
+          user.auth_key,
+          ciphertext,
+          priv_params,
+          priv_opts(user)
+        )
     end
   end
 
@@ -379,6 +389,12 @@ defmodule SnmpKit.SnmpLib.Security do
     end
   end
 
+  # The IV for both DES and AES is bound to the engine boots/time carried in the
+  # message (RFC 3414 8.1.1.1, RFC 3826 3.1.2.1); use the user's current view.
+  defp priv_opts(user) do
+    [engine_boots: Map.get(user, :engine_boots, 0), engine_time: Map.get(user, :engine_time, 0)]
+  end
+
   defp derive_auth_key(config) do
     case config[:auth_protocol] do
       :none ->
@@ -405,10 +421,17 @@ defmodule SnmpKit.SnmpLib.Security do
         Keys.derive_priv_key(
           protocol,
           config[:priv_password],
-          config[:engine_id]
+          config[:engine_id],
+          auth_protocol: priv_key_auth_protocol(config[:auth_protocol])
         )
     end
   end
+
+  # RFC 3414 8.1.1.1: the privacy key is derived with the user's authentication
+  # protocol. SNMPv3 has no authless privacy, so fall back to the RFC's MD5
+  # baseline when a caller builds such a user anyway.
+  defp priv_key_auth_protocol(auth_protocol) when auth_protocol in [nil, :none], do: :md5
+  defp priv_key_auth_protocol(auth_protocol), do: auth_protocol
 
   defp user_to_config(user) do
     %{
@@ -439,7 +462,10 @@ defmodule SnmpKit.SnmpLib.Security do
         :ok
 
       protocol when password != "" ->
-        expected_key = Keys.derive_priv_key(protocol, password, user.engine_id)
+        expected_key =
+          Keys.derive_priv_key(protocol, password, user.engine_id,
+            auth_protocol: priv_key_auth_protocol(user.auth_protocol)
+          )
 
         case expected_key do
           {:ok, key} when key == user.priv_key -> :ok

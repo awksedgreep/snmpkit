@@ -33,7 +33,8 @@ defmodule SnmpKit.SnmpLib.SecurityV3Test do
       message = "Test message for SHA256"
 
       assert {:ok, auth_params} = Auth.authenticate(:sha256, key, message)
-      assert byte_size(auth_params) == 16
+      # RFC 7860 4.2: HMAC-192-SHA-256
+      assert byte_size(auth_params) == 24
       assert :ok = Auth.verify(:sha256, key, message, auth_params)
     end
 
@@ -42,7 +43,8 @@ defmodule SnmpKit.SnmpLib.SecurityV3Test do
       message = "Test message for SHA384"
 
       assert {:ok, auth_params} = Auth.authenticate(:sha384, key, message)
-      assert byte_size(auth_params) == 24
+      # RFC 7860 4.2: HMAC-256-SHA-384
+      assert byte_size(auth_params) == 32
       assert :ok = Auth.verify(:sha384, key, message, auth_params)
     end
 
@@ -51,7 +53,8 @@ defmodule SnmpKit.SnmpLib.SecurityV3Test do
       message = "Test message for SHA512"
 
       assert {:ok, auth_params} = Auth.authenticate(:sha512, key, message)
-      assert byte_size(auth_params) == 32
+      # RFC 7860 4.2: HMAC-384-SHA-512
+      assert byte_size(auth_params) == 48
       assert :ok = Auth.verify(:sha512, key, message, auth_params)
     end
 
@@ -132,17 +135,23 @@ defmodule SnmpKit.SnmpLib.SecurityV3Test do
 
   describe "Privacy protocol tests" do
     test "DES encryption/decryption" do
-      priv_key = :crypto.strong_rand_bytes(8)
+      # RFC 3414 8.1.1.1: 8-byte DES key followed by 8-byte pre-IV
+      priv_key = :crypto.strong_rand_bytes(16)
       auth_key = :crypto.strong_rand_bytes(16)
-      plaintext = "Secret SNMP data"
+      plaintext = "Secret SNMP data!"
 
       assert {:ok, {ciphertext, priv_params}} = Priv.encrypt(:des, priv_key, auth_key, plaintext)
       assert ciphertext != plaintext
-      # DES IV size
+      # msgPrivacyParameters is the 8-byte salt
       assert byte_size(priv_params) == 8
+      # CBC output is whole blocks
+      assert rem(byte_size(ciphertext), 8) == 0
 
       assert {:ok, decrypted} = Priv.decrypt(:des, priv_key, auth_key, ciphertext, priv_params)
-      assert decrypted == plaintext
+      # RFC 3414 does not transmit the padding length; the BER length of the
+      # decrypted ScopedPDU delimits the data, so the padding is still present.
+      assert binary_part(decrypted, 0, byte_size(plaintext)) == plaintext
+      assert rem(byte_size(decrypted), 8) == 0
     end
 
     test "AES-128 encryption/decryption" do
@@ -154,8 +163,10 @@ defmodule SnmpKit.SnmpLib.SecurityV3Test do
                Priv.encrypt(:aes128, priv_key, auth_key, plaintext)
 
       assert ciphertext != plaintext
-      # AES IV size
-      assert byte_size(priv_params) == 16
+      # msgPrivacyParameters is the 8-byte salt (RFC 3826 3.1.2.1)
+      assert byte_size(priv_params) == 8
+      # CFB is a stream mode: no expansion
+      assert byte_size(ciphertext) == byte_size(plaintext)
 
       assert {:ok, decrypted} = Priv.decrypt(:aes128, priv_key, auth_key, ciphertext, priv_params)
       assert decrypted == plaintext
@@ -170,8 +181,7 @@ defmodule SnmpKit.SnmpLib.SecurityV3Test do
                Priv.encrypt(:aes192, priv_key, auth_key, plaintext)
 
       assert ciphertext != plaintext
-      # AES IV size
-      assert byte_size(priv_params) == 16
+      assert byte_size(priv_params) == 8
 
       assert {:ok, decrypted} = Priv.decrypt(:aes192, priv_key, auth_key, ciphertext, priv_params)
       assert decrypted == plaintext
@@ -186,8 +196,7 @@ defmodule SnmpKit.SnmpLib.SecurityV3Test do
                Priv.encrypt(:aes256, priv_key, auth_key, plaintext)
 
       assert ciphertext != plaintext
-      # AES IV size
-      assert byte_size(priv_params) == 16
+      assert byte_size(priv_params) == 8
 
       assert {:ok, decrypted} = Priv.decrypt(:aes256, priv_key, auth_key, ciphertext, priv_params)
       assert decrypted == plaintext
@@ -216,24 +225,78 @@ defmodule SnmpKit.SnmpLib.SecurityV3Test do
       assert ciphertext1 != ciphertext2
     end
 
-    test "decryption fails with wrong key" do
+    # CFB has no padding or integrity check: a wrong key or salt yields garbage,
+    # not an error. Integrity comes from authentication (RFC 3414 requires
+    # authPriv, never noAuthPriv).
+    test "decryption with wrong key yields different data" do
       priv_key1 = :crypto.strong_rand_bytes(16)
       priv_key2 = :crypto.strong_rand_bytes(16)
       auth_key = :crypto.strong_rand_bytes(16)
       plaintext = "Secret data"
 
       {:ok, {ciphertext, priv_params}} = Priv.encrypt(:aes128, priv_key1, auth_key, plaintext)
-      assert {:error, _} = Priv.decrypt(:aes128, priv_key2, auth_key, ciphertext, priv_params)
+      {:ok, garbage} = Priv.decrypt(:aes128, priv_key2, auth_key, ciphertext, priv_params)
+      assert garbage != plaintext
     end
 
-    test "decryption fails with wrong IV" do
+    test "decryption with wrong salt yields different data" do
       priv_key = :crypto.strong_rand_bytes(16)
       auth_key = :crypto.strong_rand_bytes(16)
       plaintext = "Secret data"
 
       {:ok, {ciphertext, _}} = Priv.encrypt(:aes128, priv_key, auth_key, plaintext)
-      wrong_iv = :crypto.strong_rand_bytes(16)
-      assert {:error, _} = Priv.decrypt(:aes128, priv_key, auth_key, ciphertext, wrong_iv)
+      wrong_salt = :crypto.strong_rand_bytes(8)
+      {:ok, garbage} = Priv.decrypt(:aes128, priv_key, auth_key, ciphertext, wrong_salt)
+      assert garbage != plaintext
+    end
+
+    test "priv params of the wrong length are rejected" do
+      priv_key = :crypto.strong_rand_bytes(16)
+      {:ok, {ciphertext, _}} = Priv.encrypt(:aes128, priv_key, <<>>, "data")
+
+      assert {:error, :invalid_priv_params} =
+               Priv.decrypt(:aes128, priv_key, <<>>, ciphertext, :crypto.strong_rand_bytes(16))
+    end
+
+    test "AES IV is engineBoots || engineTime || salt (RFC 3826 3.1.2.1)" do
+      priv_key = :crypto.strong_rand_bytes(16)
+      plaintext = "scoped pdu bytes"
+      salt = <<1, 2, 3, 4, 5, 6, 7, 8>>
+      opts = [engine_boots: 7, engine_time: 123_456, salt: salt]
+
+      {:ok, {ciphertext, ^salt}} = Priv.encrypt(:aes128, priv_key, <<>>, plaintext, opts)
+
+      iv = <<7::32, 123_456::32>> <> salt
+
+      assert :crypto.crypto_one_time(:aes_128_cfb128, priv_key, iv, ciphertext, false) ==
+               plaintext
+
+      assert {:ok, ^plaintext} = Priv.decrypt(:aes128, priv_key, <<>>, ciphertext, salt, opts)
+      # A different engine time gives a different IV, so decryption must not match
+      {:ok, other} =
+        Priv.decrypt(:aes128, priv_key, <<>>, ciphertext, salt, engine_boots: 7, engine_time: 1)
+
+      assert other != plaintext
+    end
+
+    test "DES IV is preIV XOR (engineBoots || localInt) (RFC 3414 8.1.1.1)" do
+      des_key = :crypto.strong_rand_bytes(8)
+      pre_iv = :crypto.strong_rand_bytes(8)
+      plaintext = "exactly16bytes!!"
+      salt = <<0, 0, 0, 9, 0xAA, 0xBB, 0xCC, 0xDD>>
+
+      {:ok, {ciphertext, ^salt}} =
+        Priv.encrypt(:des, des_key <> pre_iv, <<>>, plaintext, engine_boots: 9, salt: salt)
+
+      iv = :crypto.exor(pre_iv, salt)
+      assert :crypto.crypto_one_time(:des_cbc, des_key, iv, ciphertext, false) == plaintext
+    end
+
+    test "salts differ between messages" do
+      priv_key = :crypto.strong_rand_bytes(16)
+      {:ok, {_, salt1}} = Priv.encrypt(:aes128, priv_key, <<>>, "x")
+      {:ok, {_, salt2}} = Priv.encrypt(:aes128, priv_key, <<>>, "x")
+      assert salt1 != salt2
     end
 
     test "handles large plaintexts" do
@@ -251,14 +314,14 @@ defmodule SnmpKit.SnmpLib.SecurityV3Test do
 
     test "validates privacy keys correctly" do
       assert :ok = Priv.validate_key(:none, <<>>)
-      assert :ok = Priv.validate_key(:des, :crypto.strong_rand_bytes(8))
+      assert :ok = Priv.validate_key(:des, :crypto.strong_rand_bytes(16))
       assert :ok = Priv.validate_key(:aes128, :crypto.strong_rand_bytes(16))
       assert :ok = Priv.validate_key(:aes192, :crypto.strong_rand_bytes(24))
       assert :ok = Priv.validate_key(:aes256, :crypto.strong_rand_bytes(32))
 
       # Wrong key sizes
       assert {:error, :invalid_key_size} =
-               Priv.validate_key(:des, :crypto.strong_rand_bytes(16))
+               Priv.validate_key(:des, :crypto.strong_rand_bytes(8))
 
       assert {:error, :invalid_key_size} =
                Priv.validate_key(:aes128, :crypto.strong_rand_bytes(8))
@@ -401,6 +464,93 @@ defmodule SnmpKit.SnmpLib.SecurityV3Test do
     end
   end
 
+  describe "RFC 3414 Appendix A.3 test vectors" do
+    # password "maplesyrup", engineID 00 00 00 00 00 00 00 00 00 00 00 02
+    @engine_id <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2>>
+
+    test "A.3.1 MD5 localized key" do
+      assert {:ok, key} = Keys.derive_auth_key(:md5, "maplesyrup", @engine_id)
+      assert Base.encode16(key, case: :lower) == "526f5eed9fcce26f8964c2930787d82b"
+    end
+
+    test "A.3.2 SHA-1 localized key" do
+      assert {:ok, key} = Keys.derive_auth_key(:sha1, "maplesyrup", @engine_id)
+      assert Base.encode16(key, case: :lower) == "6695febc9288e36282235fc7151f128497b38f3f"
+    end
+
+    test "privacy key uses the authentication protocol's hash (RFC 3414 8.1.1.1)" do
+      # DES with MD5 auth: privKey is the full 16-byte localized key
+      assert {:ok, des_key} =
+               Keys.derive_priv_key(:des, "maplesyrup", @engine_id, auth_protocol: :md5)
+
+      assert Base.encode16(des_key, case: :lower) == "526f5eed9fcce26f8964c2930787d82b"
+
+      # AES-128 with SHA-1 auth: first 16 bytes of the SHA-1 localized key
+      assert {:ok, aes_key} =
+               Keys.derive_priv_key(:aes128, "maplesyrup", @engine_id, auth_protocol: :sha1)
+
+      assert Base.encode16(aes_key, case: :lower) == "6695febc9288e36282235fc7151f1284"
+
+      # Same result when derived from the localized auth key (identical passwords)
+      {:ok, auth_key} = Keys.derive_auth_key(:sha1, "maplesyrup", @engine_id)
+      assert {:ok, ^aes_key} = Keys.derive_priv_key_from_auth(:aes128, auth_key, @engine_id)
+
+      # SHA-256 covers AES-256 without extension: first 32 bytes == whole key
+      {:ok, sha256_auth} = Keys.derive_auth_key(:sha256, "maplesyrup", @engine_id)
+
+      assert {:ok, ^sha256_auth} =
+               Keys.derive_priv_key(:aes256, "maplesyrup", @engine_id, auth_protocol: :sha256)
+    end
+
+    test "AES-256 with a short hash is extended, deterministically, per scheme" do
+      {:ok, reeder} = Keys.derive_priv_key(:aes256, "maplesyrup", @engine_id, auth_protocol: :md5)
+
+      {:ok, reeder2} =
+        Keys.derive_priv_key(:aes256, "maplesyrup", @engine_id, auth_protocol: :md5)
+
+      assert byte_size(reeder) == 32
+      assert reeder == reeder2
+      # The first 16 bytes are the plain localized key in both schemes
+      assert binary_part(reeder, 0, 16) ==
+               Base.decode16!("526f5eed9fcce26f8964c2930787d82b", case: :lower)
+
+      {:ok, blumenthal} =
+        Keys.derive_priv_key(:aes256, "maplesyrup", @engine_id,
+          auth_protocol: :md5,
+          key_extension: :blumenthal
+        )
+
+      assert byte_size(blumenthal) == 32
+      assert binary_part(blumenthal, 0, 16) == binary_part(reeder, 0, 16)
+      # Blumenthal appends MD5(Kul)
+      assert binary_part(blumenthal, 16, 16) == :crypto.hash(:md5, binary_part(reeder, 0, 16))
+      assert blumenthal != reeder
+
+      assert {:error, :invalid_key_extension} =
+               Keys.derive_priv_key(:aes256, "maplesyrup", @engine_id, key_extension: :bogus)
+    end
+
+    test "DES privacy keys are 16 bytes, AES keys match the cipher" do
+      for {proto, size} <- [des: 16, aes128: 16, aes192: 24, aes256: 32] do
+        {:ok, key} = Keys.derive_priv_key(proto, "maplesyrup", @engine_id, auth_protocol: :sha1)
+        assert byte_size(key) == size
+        assert :ok = Priv.validate_key(proto, key)
+      end
+    end
+
+    test "generate_secure_password only uses charset characters" do
+      charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
+      password = Keys.generate_secure_password(64)
+      assert byte_size(password) == 64
+
+      assert password
+             |> :binary.bin_to_list()
+             |> Enum.all?(&(<<&1>> in String.graphemes(charset)))
+
+      assert password != Keys.generate_secure_password(64)
+    end
+  end
+
   describe "USM (User Security Model) tests" do
     test "discovers engine successfully with mock" do
       # This is a unit test - skip actual network discovery in test environment
@@ -522,7 +672,8 @@ defmodule SnmpKit.SnmpLib.SecurityV3Test do
         {:ok, decrypted} =
           Priv.decrypt(user.priv_protocol, user.priv_key, user.auth_key, ciphertext, priv_params)
 
-        assert decrypted == test_data
+        # DES-CBC output keeps its RFC 3414 block padding
+        assert binary_part(decrypted, 0, byte_size(test_data)) == test_data
       end
     end
 
@@ -648,7 +799,8 @@ defmodule SnmpKit.SnmpLib.SecurityV3Test do
   defp derive_test_key(:sha256, _), do: :crypto.strong_rand_bytes(32)
   defp derive_test_key(:sha384, _), do: :crypto.strong_rand_bytes(48)
   defp derive_test_key(:sha512, _), do: :crypto.strong_rand_bytes(64)
-  defp derive_test_key(:des, _), do: :crypto.strong_rand_bytes(8)
+  # 8-byte DES key + 8-byte pre-IV (RFC 3414 8.1.1.1)
+  defp derive_test_key(:des, _), do: :crypto.strong_rand_bytes(16)
   defp derive_test_key(:aes128, _), do: :crypto.strong_rand_bytes(16)
   defp derive_test_key(:aes192, _), do: :crypto.strong_rand_bytes(24)
   defp derive_test_key(:aes256, _), do: :crypto.strong_rand_bytes(32)

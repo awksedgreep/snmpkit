@@ -514,7 +514,7 @@ defmodule SnmpKit.SnmpLib.SNMPv3IntegrationTest do
 
     priv_key_size =
       case priv_protocol do
-        :des -> 8
+        :des -> 16
         :aes128 -> 16
         :aes192 -> 24
         :aes256 -> 32

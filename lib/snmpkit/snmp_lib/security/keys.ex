@@ -34,10 +34,20 @@ defmodule SnmpKit.SnmpLib.Security.Keys do
   - **SHA-512**: RFC 7860 compliant
 
   ### Privacy Key Derivation
-  - **DES**: 8-byte keys from authentication keys
-  - **AES-128**: 16-byte keys with salt mixing
-  - **AES-192**: 24-byte keys with salt mixing
-  - **AES-256**: 32-byte keys with salt mixing
+  Per RFC 3414 section 8.1.1.1 and RFC 3826 section 1.2 the privacy key is the
+  *authentication protocol's* password-to-key algorithm applied to the privacy
+  password and localized with the engine ID, truncated to the cipher's key size:
+
+  - **DES**: 16 bytes (8-byte DES key followed by the 8-byte pre-IV)
+  - **AES-128**: 16 bytes
+  - **AES-192**: 24 bytes
+  - **AES-256**: 32 bytes
+
+  When the hash output is shorter than the cipher key (e.g. MD5/SHA-1 with
+  AES-192/256) the key is extended. Two extension schemes exist in the wild:
+  `:reeder` (draft-reeder-snmpv3-usm-3desede, the net-snmp default) and
+  `:blumenthal` (draft-blumenthal-aes-usm). Pass `key_extension:` to choose;
+  the default is `:reeder`.
 
   ## Usage Examples
 
@@ -51,10 +61,12 @@ defmodule SnmpKit.SnmpLib.Security.Keys do
 
   ### Privacy Key Derivation
 
-      # Derive AES-256 privacy key
-      {:ok, priv_key} = SnmpKit.SnmpLib.Security.Keys.derive_priv_key(:aes256, password, engine_id)
+      # Derive AES-256 privacy key for a user authenticating with SHA-256
+      {:ok, priv_key} = SnmpKit.SnmpLib.Security.Keys.derive_priv_key(
+        :aes256, password, engine_id, auth_protocol: :sha256
+      )
 
-      # Or derive from existing authentication key
+      # Or reuse the localized authentication key when both passwords are the same
       {:ok, priv_key} = SnmpKit.SnmpLib.Security.Keys.derive_priv_key_from_auth(:aes256, auth_key, engine_id)
 
   ### Key Validation
@@ -91,11 +103,21 @@ defmodule SnmpKit.SnmpLib.Security.Keys do
   }
 
   @priv_key_sizes %{
-    des: 8,
+    # 8-byte DES key + 8-byte pre-IV (RFC 3414 8.1.1.1)
+    des: 16,
     aes128: 16,
     aes192: 24,
     aes256: 32
   }
+
+  # Hash function used when a caller does not say which authentication protocol
+  # the user has. RFC 3414 defines the algorithm in terms of MD5.
+  @default_priv_auth_protocol :md5
+  @default_key_extension :reeder
+
+  # Chunk of the 1 MiB password stream hashed per update (bytes, rounded to a
+  # whole number of password repetitions).
+  @password_stream_chunk 65_536
 
   ## Authentication Key Derivation
 
@@ -186,14 +208,21 @@ defmodule SnmpKit.SnmpLib.Security.Keys do
   @doc """
   Derives privacy key from password and engine ID.
 
-  Privacy keys are derived using a combination of authentication key derivation
-  and protocol-specific key expansion techniques.
+  Implements RFC 3414 section 8.1.1.1 / RFC 3826 section 1.2: the privacy
+  password is run through the *authentication* protocol's password-to-key
+  algorithm, localized with the engine ID, and cut (or extended) to the cipher
+  key size.
 
   ## Parameters
 
   - `protocol`: Privacy protocol (:des, :aes128, :aes192, :aes256)
   - `password`: User password for privacy
   - `engine_id`: Authoritative engine ID
+  - `opts`:
+    - `:auth_protocol` - the user's authentication protocol, which selects the
+      hash (default `:md5`, the RFC 3414 baseline)
+    - `:key_extension` - `:reeder` (default, net-snmp compatible) or
+      `:blumenthal` for AES keys longer than the hash output
 
   ## Returns
 
@@ -202,31 +231,32 @@ defmodule SnmpKit.SnmpLib.Security.Keys do
 
   ## Examples
 
-      # AES-256 privacy key (recommended)
+      # AES-256 privacy key for a SHA-256 user (recommended)
       {:ok, key} = SnmpKit.SnmpLib.Security.Keys.derive_priv_key(
-        :aes256, "privacy_password", engine_id
+        :aes256, "privacy_password", engine_id, auth_protocol: :sha256
       )
 
-      # DES privacy key (legacy)
+      # DES privacy key (legacy, MD5 based)
       {:ok, key} = SnmpKit.SnmpLib.Security.Keys.derive_priv_key(
         :des, "legacy_privacy_password", engine_id
       )
   """
-  @spec derive_priv_key(priv_protocol(), password(), engine_id()) ::
+  @spec derive_priv_key(priv_protocol(), password(), engine_id(), keyword()) ::
           {:ok, derived_key()} | {:error, atom()}
-  def derive_priv_key(protocol, password, engine_id) do
+  def derive_priv_key(protocol, password, engine_id, opts \\ []) do
     Logger.debug("Deriving #{protocol} privacy key")
 
-    with :ok <- validate_priv_protocol(protocol),
-         :ok <- validate_password(password),
-         :ok <- validate_engine_id(engine_id) do
-      case protocol do
-        :des ->
-          derive_des_priv_key(password, engine_id)
+    auth_protocol = Keyword.get(opts, :auth_protocol, @default_priv_auth_protocol)
+    extension = Keyword.get(opts, :key_extension, @default_key_extension)
 
-        aes_protocol when aes_protocol in [:aes128, :aes192, :aes256] ->
-          derive_aes_priv_key(aes_protocol, password, engine_id)
-      end
+    with :ok <- validate_priv_protocol(protocol),
+         :ok <- validate_auth_protocol(auth_protocol),
+         :ok <- validate_key_extension(extension),
+         :ok <- validate_password(password),
+         :ok <- validate_engine_id(engine_id),
+         {:ok, localized_key} <- localize_key(auth_protocol, password, engine_id) do
+      hash = get_hash_function(auth_protocol)
+      {:ok, fit_priv_key(localized_key, @priv_key_sizes[protocol], hash, engine_id, extension)}
     else
       {:error, reason} ->
         Logger.error("Privacy key derivation failed for #{protocol}: #{reason}")
@@ -235,36 +265,34 @@ defmodule SnmpKit.SnmpLib.Security.Keys do
   end
 
   @doc """
-  Derives privacy key from an existing authentication key.
+  Derives privacy key from an existing localized authentication key.
 
-  More efficient when both authentication and privacy keys are needed,
-  as it avoids repeating the expensive key localization process.
+  Only valid when the privacy password equals the authentication password: the
+  localized key is then the same for both, and this skips the expensive
+  password-to-key step. The hash used for key extension is inferred from the
+  key length unless `auth_protocol:` is given.
 
   ## Examples
 
-      # First derive authentication key
       {:ok, auth_key} = derive_auth_key(:sha256, password, engine_id)
 
-      # Then derive privacy key from auth key
       {:ok, priv_key} = SnmpKit.SnmpLib.Security.Keys.derive_priv_key_from_auth(
         :aes256, auth_key, engine_id
       )
   """
-  @spec derive_priv_key_from_auth(priv_protocol(), derived_key(), engine_id()) ::
+  @spec derive_priv_key_from_auth(priv_protocol(), derived_key(), engine_id(), keyword()) ::
           {:ok, derived_key()} | {:error, atom()}
-  def derive_priv_key_from_auth(protocol, auth_key, engine_id) do
+  def derive_priv_key_from_auth(protocol, auth_key, engine_id, opts \\ []) do
     Logger.debug("Deriving #{protocol} privacy key from authentication key")
+
+    extension = Keyword.get(opts, :key_extension, @default_key_extension)
 
     with :ok <- validate_priv_protocol(protocol),
          :ok <- validate_auth_key(auth_key),
-         :ok <- validate_engine_id(engine_id) do
-      case protocol do
-        :des ->
-          derive_des_priv_key_from_auth(auth_key, engine_id)
-
-        aes_protocol when aes_protocol in [:aes128, :aes192, :aes256] ->
-          derive_aes_priv_key_from_auth(aes_protocol, auth_key, engine_id)
-      end
+         :ok <- validate_engine_id(engine_id),
+         :ok <- validate_key_extension(extension),
+         {:ok, hash} <- hash_for_localized_key(auth_key, Keyword.get(opts, :auth_protocol)) do
+      {:ok, fit_priv_key(auth_key, @priv_key_sizes[protocol], hash, engine_id, extension)}
     end
   end
 
@@ -316,14 +344,16 @@ defmodule SnmpKit.SnmpLib.Security.Keys do
   def generate_secure_password(length \\ 16) when length >= @min_password_length do
     # Character set with good entropy
     charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
-    charset_size = String.length(charset)
+    charset_size = byte_size(charset)
+    # Largest multiple of charset_size that fits in a byte; values at or above it
+    # are rejected so every character is equally likely.
+    limit = div(256, charset_size) * charset_size
 
-    1..length
-    |> Enum.map(fn _i ->
-      random_index = :rand.uniform(charset_size) - 1
-      String.at(charset, random_index)
-    end)
-    |> Enum.join()
+    Stream.repeatedly(fn -> :binary.first(:crypto.strong_rand_bytes(1)) end)
+    |> Stream.reject(&(&1 >= limit))
+    |> Stream.map(&:binary.at(charset, rem(&1, charset_size)))
+    |> Enum.take(length)
+    |> :binary.list_to_bin()
   end
 
   @doc """
@@ -349,6 +379,7 @@ defmodule SnmpKit.SnmpLib.Security.Keys do
   Note: This provides best-effort memory clearing but cannot guarantee
   complete removal due to Erlang VM memory management.
   """
+  @deprecated "Erlang binaries are immutable and cannot be wiped in place; this is a no-op"
   @spec secure_wipe(derived_key()) :: :ok
   def secure_wipe(key) when is_binary(key) do
     # Best effort memory clearing
@@ -394,103 +425,99 @@ defmodule SnmpKit.SnmpLib.Security.Keys do
 
   ## Private Implementation
 
-  # Key localization per RFC 3414
+  # Password-to-key and localization per RFC 3414 A.2 / RFC 7860 9.3:
+  #   Ku  = H(first 1 MiB of the password repeated)
+  #   Kul = H(Ku || engineID || Ku)
   defp localize_key(protocol, password, engine_id) do
-    hash_function = get_hash_function(protocol)
+    hash = get_hash_function(protocol)
+    ku = password_to_key(hash, password)
+    {:ok, :crypto.hash(hash, ku <> engine_id <> ku)}
+  end
 
-    # Step 1: Create initial hash input
-    password_repeated = repeat_password(password, @key_localization_iterations)
+  # Streams exactly 1 MiB of the cyclically repeated password through the hash
+  # in ~64 KiB chunks, so memory stays bounded regardless of password length.
+  defp password_to_key(hash, password) do
+    len = byte_size(password)
+    reps = max(1, div(@password_stream_chunk, len))
+    chunk = :binary.copy(password, reps)
+    chunk_size = byte_size(chunk)
 
-    # Step 2: Hash the repeated password
-    intermediate_key = :crypto.hash(hash_function, password_repeated)
+    hash
+    |> :crypto.hash_init()
+    |> feed_password_stream(chunk, chunk_size, @key_localization_iterations)
+    |> :crypto.hash_final()
+  end
 
-    # Step 3: Localize with engine ID
-    localization_input = intermediate_key <> engine_id <> intermediate_key
-    localized_key = :crypto.hash(hash_function, localization_input)
+  defp feed_password_stream(ctx, _chunk, _chunk_size, 0), do: ctx
 
-    {:ok, localized_key}
+  defp feed_password_stream(ctx, chunk, chunk_size, remaining) when remaining >= chunk_size do
+    ctx
+    |> :crypto.hash_update(chunk)
+    |> feed_password_stream(chunk, chunk_size, remaining - chunk_size)
+  end
+
+  defp feed_password_stream(ctx, chunk, _chunk_size, remaining) do
+    :crypto.hash_update(ctx, binary_part(chunk, 0, remaining))
   end
 
   defp extract_auth_key(protocol, localized_key) do
     key_size = Map.get(@auth_key_sizes, protocol)
 
     if byte_size(localized_key) >= key_size do
-      auth_key = binary_part(localized_key, 0, key_size)
-      {:ok, auth_key}
+      {:ok, binary_part(localized_key, 0, key_size)}
     else
       {:error, :insufficient_key_material}
     end
   end
 
-  defp derive_des_priv_key(password, engine_id) do
-    # DES privacy key derivation uses MD5-based localization
-    with {:ok, localized_key} <- localize_key(:md5, password, engine_id) do
-      # Take first 8 bytes for DES key
-      des_key = binary_part(localized_key, 0, 8)
-      {:ok, des_key}
+  # Cut or extend a localized key to the cipher's key size.
+  defp fit_priv_key(localized_key, key_size, _hash, _engine_id, _extension)
+       when byte_size(localized_key) >= key_size do
+    binary_part(localized_key, 0, key_size)
+  end
+
+  defp fit_priv_key(localized_key, key_size, hash, engine_id, extension) do
+    localized_key
+    |> extend_key(key_size, hash, engine_id, extension, localized_key)
+    |> binary_part(0, key_size)
+  end
+
+  defp extend_key(acc, key_size, _hash, _engine_id, _extension, _last)
+       when byte_size(acc) >= key_size,
+       do: acc
+
+  # draft-reeder-snmpv3-usm-3desede 2.1: treat the previous localized key as a
+  # password, run password-to-key + localization again, append.
+  defp extend_key(acc, key_size, hash, engine_id, :reeder, last) do
+    ku = password_to_key(hash, last)
+    next = :crypto.hash(hash, ku <> engine_id <> ku)
+    extend_key(acc <> next, key_size, hash, engine_id, :reeder, next)
+  end
+
+  # draft-blumenthal-aes-usm-04 3.1.2.1: append H(previous chunk).
+  defp extend_key(acc, key_size, hash, engine_id, :blumenthal, last) do
+    next = :crypto.hash(hash, last)
+    extend_key(acc <> next, key_size, hash, engine_id, :blumenthal, next)
+  end
+
+  defp hash_for_localized_key(_key, auth_protocol) when auth_protocol != nil do
+    with :ok <- validate_auth_protocol(auth_protocol), do: {:ok, get_hash_function(auth_protocol)}
+  end
+
+  defp hash_for_localized_key(key, nil) do
+    case byte_size(key) do
+      16 -> {:ok, :md5}
+      20 -> {:ok, :sha}
+      28 -> {:ok, :sha224}
+      32 -> {:ok, :sha256}
+      48 -> {:ok, :sha384}
+      64 -> {:ok, :sha512}
+      _ -> {:error, :cannot_infer_auth_protocol}
     end
   end
 
-  defp derive_des_priv_key_from_auth(auth_key, engine_id) do
-    # For DES, derive from auth key with salt
-    salt = "priv_salt"
-    key_material = auth_key <> engine_id <> salt
-    full_key = :crypto.hash(:md5, key_material)
-    des_key = binary_part(full_key, 0, 8)
-    {:ok, des_key}
-  end
-
-  defp derive_aes_priv_key(protocol, password, engine_id) do
-    # AES privacy key derivation uses SHA-256 base
-    with {:ok, localized_key} <- localize_key(:sha256, password, engine_id) do
-      derive_aes_key_from_material(protocol, localized_key, engine_id)
-    end
-  end
-
-  defp derive_aes_priv_key_from_auth(protocol, auth_key, engine_id) do
-    # Derive AES key from auth key material
-    derive_aes_key_from_material(protocol, auth_key, engine_id)
-  end
-
-  defp derive_aes_key_from_material(protocol, key_material, engine_id) do
-    key_size = Map.get(@priv_key_sizes, protocol)
-
-    # Use HKDF-like expansion for AES keys
-    salt = "AES_PRIV_" <> Atom.to_string(protocol)
-    expanded_material = key_material <> engine_id <> salt
-
-    # Hash and expand until we have enough key material
-    expanded_key = expand_key_material(expanded_material, key_size)
-    aes_key = binary_part(expanded_key, 0, key_size)
-
-    {:ok, aes_key}
-  end
-
-  defp expand_key_material(material, target_size) do
-    expand_key_material(material, target_size, <<>>, 1)
-  end
-
-  defp expand_key_material(_material, target_size, accumulated, _counter)
-       when byte_size(accumulated) >= target_size do
-    accumulated
-  end
-
-  defp expand_key_material(material, target_size, accumulated, counter) do
-    hash_input = material <> <<counter::8>>
-    new_material = :crypto.hash(:sha256, hash_input)
-    expand_key_material(material, target_size, accumulated <> new_material, counter + 1)
-  end
-
-  defp repeat_password(password, iterations) do
-    password_length = byte_size(password)
-    total_bytes = iterations * password_length
-
-    Stream.repeatedly(fn -> password end)
-    |> Enum.take(iterations)
-    |> Enum.join()
-    # Limit to 1MB for safety
-    |> binary_part(0, min(total_bytes, 1_048_576))
-  end
+  defp validate_key_extension(extension) when extension in [:reeder, :blumenthal], do: :ok
+  defp validate_key_extension(_), do: {:error, :invalid_key_extension}
 
   defp get_hash_function(:md5), do: :md5
   defp get_hash_function(:sha1), do: :sha

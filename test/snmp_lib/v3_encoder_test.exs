@@ -478,6 +478,159 @@ defmodule SnmpKit.SnmpLib.PDU.V3EncoderTest do
     }
   end
 
+  describe "RFC 3414 wire format" do
+    alias SnmpKit.SnmpLib.Security.{Auth, USM}
+
+    defp create_test_message(security_level) do
+      create_test_v3_message(4242, create_test_pdu(:get_request, 4242), security_level)
+    end
+
+    defp auth_params_in_packet(packet) do
+      {:ok, header} = V3Encoder.decode_message_header(packet)
+      header.security_parameters.authentication_parameters
+    end
+
+    defp zero_auth_params(packet, auth_params) do
+      # The MAC bytes appear exactly once; replace them with zeros in place.
+      {pos, len} = :binary.match(packet, auth_params)
+      <<pre::binary-size(pos), _::binary-size(len), post::binary>> = packet
+      pre <> :binary.copy(<<0>>, len) <> post
+    end
+
+    test "MAC is computed over the whole transmitted message with zeroed authParams" do
+      for {auth, priv} <- [{:md5, :none}, {:sha1, :none}, {:sha256, :aes128}, {:sha512, :aes256}] do
+        level = if priv == :none, do: :auth_no_priv, else: :auth_priv
+        user = create_test_user(level, auth_protocol: auth, priv_protocol: priv)
+        message = create_test_message(level)
+        {:ok, packet} = V3Encoder.encode_message(message, user)
+
+        auth_params = auth_params_in_packet(packet)
+        assert byte_size(auth_params) == Auth.auth_params_size(auth)
+
+        # An independent implementation of RFC 3414 6.3.1 / RFC 7860 4.2.1
+        zeroed = zero_auth_params(packet, auth_params)
+        {:ok, expected} = Auth.authenticate(auth, user.auth_key, zeroed)
+        assert expected == auth_params
+
+        assert {:ok, decoded} = V3Encoder.decode_message(packet, user)
+        assert decoded.msg_data.pdu.request_id == message.msg_data.pdu.request_id
+      end
+    end
+
+    test "encrypted msgData is an OCTET STRING and priv params are the 8-byte salt" do
+      user = create_test_user(:auth_priv, auth_protocol: :sha256, priv_protocol: :aes128)
+      {:ok, packet} = V3Encoder.encode_message(create_test_message(:auth_priv), user)
+      {:ok, header} = V3Encoder.decode_message_header(packet)
+
+      assert byte_size(header.security_parameters.privacy_parameters) == 8
+      assert header.security_parameters.authoritative_engine_boots == user.engine_boots
+      assert header.security_parameters.authoritative_engine_time == user.engine_time
+      assert header.msg_flags == %{auth: true, priv: true, reportable: true}
+
+      # msgData is the last element of the outer SEQUENCE and must be tagged 0x04
+      {:ok, {content, <<>>}} = SnmpKit.SnmpLib.ASN1.decode_sequence(packet)
+      {:ok, {_version, rest1}} = SnmpKit.SnmpLib.ASN1.decode_integer(content)
+      {:ok, {_header, rest2}} = SnmpKit.SnmpLib.ASN1.decode_sequence(rest1)
+      {:ok, {_sec, <<0x04, _::binary>>}} = SnmpKit.SnmpLib.ASN1.decode_octet_string(rest2)
+    end
+
+    test "any modified byte in an authenticated message fails verification" do
+      user = create_test_user(:auth_priv, auth_protocol: :sha256, priv_protocol: :aes128)
+      {:ok, packet} = V3Encoder.encode_message(create_test_message(:auth_priv), user)
+
+      # Flip a byte in the ciphertext (last byte) and one in the header (msgID area)
+      for pos <- [byte_size(packet) - 1, 6] do
+        <<pre::binary-size(pos), byte, post::binary>> = packet
+        tampered = pre <> <<Bitwise.bxor(byte, 0x55)>> <> post
+        assert {:error, _} = V3Encoder.decode_message(tampered, user)
+      end
+    end
+
+    test "authentication with the wrong key or protocol fails" do
+      user = create_test_user(:auth_no_priv, auth_protocol: :sha256)
+      {:ok, packet} = V3Encoder.encode_message(create_test_message(:auth_no_priv), user)
+
+      wrong_key = %{user | auth_key: :crypto.strong_rand_bytes(32)}
+      assert {:error, :authentication_mismatch} = V3Encoder.decode_message(packet, wrong_key)
+
+      wrong_proto = %{user | auth_protocol: :sha1, auth_key: binary_part(user.auth_key, 0, 20)}
+      assert {:error, :authentication_mismatch} = V3Encoder.decode_message(packet, wrong_proto)
+    end
+
+    test "verification uses the received bytes, not a re-encoding" do
+      # Rebuild the message by hand with a long-form length on the outer SEQUENCE;
+      # a compliant receiver must still verify it.
+      user = create_test_user(:auth_no_priv, auth_protocol: :md5)
+      {:ok, packet} = V3Encoder.encode_message(create_test_message(:auth_no_priv), user)
+      <<0x30, len, content::binary>> = packet
+      assert len < 128 and byte_size(content) == len
+
+      relaxed = <<0x30, 0x81, len>> <> content
+      auth_params = auth_params_in_packet(relaxed)
+      zeroed = zero_auth_params(relaxed, auth_params)
+      {:ok, mac} = Auth.authenticate(:md5, user.auth_key, zeroed)
+      {pos, 12} = :binary.match(relaxed, auth_params)
+      <<pre::binary-size(pos), _::binary-size(12), post::binary>> = relaxed
+      resigned = pre <> mac <> post
+
+      assert {:ok, decoded} = V3Encoder.decode_message(resigned, user)
+      assert decoded.msg_data.pdu.type == :get_request
+    end
+
+    test "DES padding is tolerated by the ScopedPDU decoder" do
+      user = create_test_user(:auth_priv, auth_protocol: :md5, priv_protocol: :des)
+      message = create_test_message(:auth_priv)
+      {:ok, packet} = V3Encoder.encode_message(message, user)
+      assert {:ok, decoded} = V3Encoder.decode_message(packet, user)
+      assert decoded.msg_data.pdu.varbinds == message.msg_data.pdu.varbinds
+    end
+
+    test "encrypted messages cannot be decoded without a user" do
+      user = create_test_user(:auth_priv)
+      {:ok, packet} = V3Encoder.encode_message(create_test_message(:auth_priv), user)
+      assert {:error, :user_required_for_privacy} = V3Encoder.decode_message(packet, nil)
+
+      assert {:ok, %{security_parameters: %{user_name: "test_user"}}} =
+               V3Encoder.decode_message_header(packet)
+    end
+
+    test "USM.process_incoming_message looks up the user and enforces the time window" do
+      user = create_test_user(:auth_priv, auth_protocol: :sha256, priv_protocol: :aes128)
+      {:ok, packet} = V3Encoder.encode_message(create_test_message(:auth_priv), user)
+      db = %{user.security_name => user}
+
+      assert {:ok, {decoded, ^user}} = USM.process_incoming_message(packet, db)
+      assert decoded.msg_data.pdu.type == :get_request
+
+      assert {:error, :unknown_user_name} = USM.process_incoming_message(packet, %{})
+
+      other_engine = %{user | engine_id: "someone_else"}
+
+      assert {:error, :unknown_engine_id} =
+               USM.process_incoming_message(packet, %{user.security_name => other_engine})
+
+      stale = %{user | engine_time: user.engine_time + 1000}
+
+      assert {:error, :not_in_time_window} =
+               USM.process_incoming_message(packet, %{user.security_name => stale})
+
+      rebooted = %{user | engine_boots: user.engine_boots + 5}
+
+      assert {:error, :not_in_time_window} =
+               USM.process_incoming_message(packet, %{user.security_name => rebooted})
+
+      no_priv = %{user | priv_protocol: :none, priv_key: <<>>}
+
+      assert {:error, :unsupported_security_level} =
+               USM.process_incoming_message(packet, %{user.security_name => no_priv})
+
+      wrong_key = %{user | auth_key: :crypto.strong_rand_bytes(32)}
+
+      assert {:error, :authentication_mismatch} =
+               USM.process_incoming_message(packet, %{user.security_name => wrong_key})
+    end
+  end
+
   defp create_test_user(security_level, opts \\ []) do
     auth_protocol = Keyword.get(opts, :auth_protocol, :sha256)
     priv_protocol = Keyword.get(opts, :priv_protocol, :aes128)
@@ -494,7 +647,7 @@ defmodule SnmpKit.SnmpLib.PDU.V3EncoderTest do
           # Generate key based on protocol requirements
           key_size =
             case priv_protocol do
-              :des -> 8
+              :des -> 16
               :aes128 -> 16
               :aes192 -> 24
               :aes256 -> 32
