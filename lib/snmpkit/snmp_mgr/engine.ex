@@ -183,21 +183,41 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
     # Add to pending requests for correlation
     pending_requests = Map.put(state.pending_requests, request_id, enriched_request)
+    state_with_pending = %{state | pending_requests: pending_requests, request_counter: new_counter}
 
-    # Send request immediately using shared socket
-    send_snmp_request_shared(state.shared_socket, enriched_request)
+    # Send request immediately using shared socket.
+    # Send/build failures complete (and reply) here, so the caller
+    # always gets exactly one reply and no stale entry is left behind.
+    case send_snmp_request_shared(state_with_pending.shared_socket, enriched_request) do
+      :ok ->
+        # Schedule timeout; keep the timer ref so completion can cancel it
+        timer_ref = schedule_request_timeout(ref, state.request_timeout)
 
-    # Schedule timeout
-    schedule_request_timeout(ref, state.request_timeout)
+        pending_requests =
+          Map.put(
+            state_with_pending.pending_requests,
+            request_id,
+            Map.put(enriched_request, :timer_ref, timer_ref)
+          )
 
-    # Update state
-    new_state = %{state | pending_requests: pending_requests, request_counter: new_counter}
+        # Update state
+        new_state = %{state_with_pending | pending_requests: pending_requests}
 
-    # Update metrics
-    metrics = update_metrics(state.metrics, :requests_submitted, 1)
-    new_state = %{new_state | metrics: metrics}
+        # Update metrics
+        metrics = update_metrics(state.metrics, :requests_submitted, 1)
+        new_state = %{new_state | metrics: metrics}
 
-    {:noreply, new_state}
+        {:noreply, new_state}
+
+      {:error, reason} ->
+        new_state = complete_request(state_with_pending, request_id, {:error, reason})
+
+        # Update metrics
+        metrics = update_metrics(new_state.metrics, :requests_submitted, 1)
+        new_state = %{new_state | metrics: metrics}
+
+        {:noreply, new_state}
+    end
   end
 
   @impl true
@@ -465,13 +485,24 @@ defmodule SnmpKit.SnmpMgr.Engine do
     new_connections = Map.put(state.connections, conn_id, updated_connection)
     new_state = %{state | connections: new_connections}
 
-    # Actually send the SNMP requests
-    Enum.each(requests, fn request ->
-      send_snmp_request(socket, request)
-      schedule_request_timeout(request.ref, state.request_timeout)
-    end)
+    # Actually send the SNMP requests. Immediate send failures complete
+    # (and reply) here so no stale pending entry or orphaned timer remains.
+    Enum.reduce(requests, new_state, fn request, acc_state ->
+      case send_snmp_request(socket, request) do
+        :ok ->
+          timer_ref = schedule_request_timeout(request.ref, acc_state.request_timeout)
 
-    new_state
+          pending_requests =
+            Map.update!(acc_state.pending_requests, request.request_id, fn req ->
+              Map.put(req, :timer_ref, timer_ref)
+            end)
+
+          %{acc_state | pending_requests: pending_requests}
+
+        {:error, reason} ->
+          complete_request(acc_state, request.request_id, {:error, reason})
+      end
+    end)
   end
 
   defp get_available_connection(connections, _target) do
@@ -509,7 +540,9 @@ defmodule SnmpKit.SnmpMgr.Engine do
   end
 
   defp send_snmp_request_shared(socket, request) do
-    # Send SNMP request using shared socket
+    # Send SNMP request using shared socket.
+    # Returns :ok | {:error, reason} without replying; callers route
+    # failures through complete_request/3 so each caller gets exactly one reply.
     Logger.debug("Preparing to send SNMP request #{request.request_id} to #{request.target}")
     target = resolve_target(request.target)
     Logger.debug("Resolved target: #{inspect(target)}")
@@ -526,12 +559,12 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
           {:error, reason} ->
             Logger.error("Failed to send SNMP request: #{inspect(reason)}")
-            GenServer.reply(request.from, {:error, reason})
+            {:error, reason}
         end
 
       {:error, reason} ->
         Logger.error("Failed to build SNMP message: #{inspect(reason)}")
-        GenServer.reply(request.from, {:error, reason})
+        {:error, reason}
     end
   end
 
@@ -681,6 +714,13 @@ defmodule SnmpKit.SnmpMgr.Engine do
         state
 
       request ->
+        # Cancel the timeout timer so no stale timeout message lingers.
+        # If it already fired, the handler finds no pending entry and ignores it.
+        case Map.get(request, :timer_ref) do
+          nil -> :ok
+          timer_ref -> Process.cancel_timer(timer_ref)
+        end
+
         pending_requests = Map.delete(state.pending_requests, request_id)
 
         state =

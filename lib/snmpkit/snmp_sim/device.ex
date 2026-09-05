@@ -480,15 +480,12 @@ defmodule SnmpKit.SnmpSim.Device do
     result =
       process_get_bulk_varbinds(varbinds, non_repeaters, max_repetitions, state.device_type)
 
-    IO.inspect(result, label: "GETBULK result from process_get_bulk_varbinds")
-
     formatted_result =
       Enum.map(result, fn
         {oid, type, value} -> {OidHandler.oid_to_string(oid), type, value}
         {oid, value} -> {OidHandler.oid_to_string(oid), :octet_string, value}
       end)
 
-    IO.inspect(formatted_result, label: "GETBULK formatted_result")
     {:reply, {:ok, formatted_result}, state}
   end
 
@@ -806,12 +803,7 @@ defmodule SnmpKit.SnmpSim.Device do
   end
 
   defp process_get_bulk_varbinds(varbinds, non_repeaters, max_repetitions, device_type) do
-    IO.inspect({varbinds, non_repeaters, max_repetitions, device_type},
-      label: "GETBULK input params"
-    )
-
     {non_repeater_vars, repeater_vars} = Enum.split(varbinds, non_repeaters)
-    IO.inspect({non_repeater_vars, repeater_vars}, label: "GETBULK split varbinds")
 
     # For GETBULK, we need to get the NEXT OIDs, not the exact OIDs
     non_repeater_results =
@@ -827,15 +819,12 @@ defmodule SnmpKit.SnmpSim.Device do
         end
       end)
 
-    IO.inspect(non_repeater_results, label: "GETBULK non_repeater_results")
-
     repeater_results =
       repeater_vars
       |> Enum.flat_map(fn {oid, _} ->
         1..max_repetitions
         |> Enum.reduce_while([], fn _i, acc ->
           current_oid = if acc == [], do: oid, else: elem(List.last(acc), 0)
-          IO.inspect(current_oid, label: "GETBULK current_oid for iteration")
 
           device_state = %{device_type: device_type, uptime: 0}
 
@@ -846,27 +835,22 @@ defmodule SnmpKit.SnmpSim.Device do
                ) do
             {:ok, {next_oid, type, value}} ->
               result = {next_oid, type, value}
-              IO.inspect(result, label: "GETBULK got next_oid result")
               {:cont, acc ++ [result]}
 
             {:ok, {next_oid, value}} ->
               result = {next_oid, :octet_string, value}
-              IO.inspect(result, label: "GETBULK got next_oid result (2-tuple)")
               {:cont, acc ++ [result]}
 
             {:ok, value} ->
               result = {current_oid, :octet_string, value}
-              IO.inspect(result, label: "GETBULK got value result")
               {:cont, acc ++ [result]}
 
             {:error, reason} ->
-              IO.inspect(reason, label: "GETBULK error, halting")
+              Logger.debug("GETBULK error, halting: #{inspect(reason)}")
               {:halt, acc}
           end
         end)
       end)
-
-    IO.inspect(repeater_results, label: "GETBULK repeater_results")
 
     non_repeater_results ++ repeater_results
   end

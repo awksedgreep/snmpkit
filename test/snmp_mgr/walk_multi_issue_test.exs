@@ -1,5 +1,6 @@
 defmodule SnmpKit.WalkMultiIssueTest do
   use ExUnit.Case, async: true
+  require Logger
   @moduletag :walk_multi_issue
 
   alias SnmpKit.SnmpMgr.Multi
@@ -57,7 +58,7 @@ defmodule SnmpKit.WalkMultiIssueTest do
     # Verify simulator is responding with basic GET
     case SnmpKit.SNMP.get(@sim_host, "1.3.6.1.2.1.1.1.0", port: @sim_port, timeout: 5000) do
       {:ok, _value} ->
-        IO.puts("Simulator is ready and responding")
+        Logger.debug("Simulator is ready and responding")
 
       {:error, reason} ->
         raise "Cannot start walk_multi tests - simulator not responding: #{inspect(reason)}"
@@ -77,13 +78,13 @@ defmodule SnmpKit.WalkMultiIssueTest do
       # First verify that regular walk works
       case SnmpKit.SNMP.walk(@sim_host, "1.3.6.1.2.1.1", port: @sim_port, timeout: @test_timeout) do
         {:ok, walk_results} ->
-          IO.puts("SINGLE WALK SUCCESS: Got #{length(walk_results)} results")
+          Logger.debug("SINGLE WALK SUCCESS: Got #{length(walk_results)} results")
 
           # Print first few for debugging
           walk_results
           |> Enum.take(3)
           |> Enum.each(fn {oid, type, value} ->
-            IO.puts("  #{oid} = #{inspect(value)} (#{type})")
+            Logger.debug("  #{oid} = #{inspect(value)} (#{type})")
           end)
 
           assert is_list(walk_results)
@@ -100,7 +101,7 @@ defmodule SnmpKit.WalkMultiIssueTest do
         {@sim_host, "1.3.6.1.2.1.1", [port: @sim_port, timeout: @test_timeout]}
       ]
 
-      IO.puts("Starting walk_multi with timeout: #{@test_timeout}ms")
+      Logger.debug("Starting walk_multi with timeout: #{@test_timeout}ms")
       start_time = System.monotonic_time(:millisecond)
 
       results = Multi.walk_multi(targets_and_oids)
@@ -108,20 +109,20 @@ defmodule SnmpKit.WalkMultiIssueTest do
       end_time = System.monotonic_time(:millisecond)
       duration = end_time - start_time
 
-      IO.puts("walk_multi completed in #{duration}ms")
+      Logger.debug("walk_multi completed in #{duration}ms")
 
       assert is_list(results)
       assert length(results) == 1
 
       case results do
         [{:ok, walk_results}] ->
-          IO.puts("WALK_MULTI SUCCESS: Got #{length(walk_results)} results")
+          Logger.debug("WALK_MULTI SUCCESS: Got #{length(walk_results)} results")
 
           # Print first few for debugging
           walk_results
           |> Enum.take(3)
           |> Enum.each(fn {oid, type, value} ->
-            IO.puts("  #{oid} = #{inspect(value)} (#{type})")
+            Logger.debug("  #{oid} = #{inspect(value)} (#{type})")
           end)
 
           assert is_list(walk_results)
@@ -133,7 +134,7 @@ defmodule SnmpKit.WalkMultiIssueTest do
                  "BUG CONFIRMED: walk_multi returned only first OID: #{inspect(walk_results)}"
 
         [{:error, reason}] ->
-          IO.puts("WALK_MULTI FAILED: #{inspect(reason)} after #{duration}ms")
+          Logger.debug("WALK_MULTI FAILED: #{inspect(reason)} after #{duration}ms")
           flunk("walk_multi failed while single walk works: #{inspect(reason)}")
       end
     end
@@ -143,26 +144,26 @@ defmodule SnmpKit.WalkMultiIssueTest do
       oid = "1.3.6.1.2.1.1"
       opts = [port: @sim_port, timeout: @test_timeout]
 
-      IO.puts("=== SINGLE WALK TEST ===")
+      Logger.debug("=== SINGLE WALK TEST ===")
       single_start = System.monotonic_time(:millisecond)
       single_result = SnmpKit.SNMP.walk(@sim_host, oid, opts)
       single_end = System.monotonic_time(:millisecond)
       single_duration = single_end - single_start
 
-      IO.puts("=== WALK_MULTI TEST ===")
+      Logger.debug("=== WALK_MULTI TEST ===")
       multi_start = System.monotonic_time(:millisecond)
       multi_results = Multi.walk_multi([{@sim_host, oid, opts}])
       multi_end = System.monotonic_time(:millisecond)
       multi_duration = multi_end - multi_start
 
-      IO.puts("Single walk: #{single_duration}ms")
-      IO.puts("Multi walk: #{multi_duration}ms")
+      Logger.debug("Single walk: #{single_duration}ms")
+      Logger.debug("Multi walk: #{multi_duration}ms")
 
       case {single_result, multi_results} do
         {{:ok, single_walk_results}, [{:ok, multi_walk_results}]} ->
-          IO.puts("Both succeeded!")
-          IO.puts("Single walk: #{length(single_walk_results)} results")
-          IO.puts("Multi walk: #{length(multi_walk_results)} results")
+          Logger.debug("Both succeeded!")
+          Logger.debug("Single walk: #{length(single_walk_results)} results")
+          Logger.debug("Multi walk: #{length(multi_walk_results)} results")
 
           # Compare the results
           assert length(single_walk_results) == length(multi_walk_results),
@@ -180,21 +181,21 @@ defmodule SnmpKit.WalkMultiIssueTest do
                  "Both walks should return the same OIDs"
 
         {{:ok, single_walk_results}, [{:error, multi_error}]} ->
-          IO.puts("Single walk succeeded with #{length(single_walk_results)} results")
-          IO.puts("Multi walk failed: #{inspect(multi_error)}")
+          Logger.debug("Single walk succeeded with #{length(single_walk_results)} results")
+          Logger.debug("Multi walk failed: #{inspect(multi_error)}")
 
           flunk("walk_multi failed while single walk succeeded: #{inspect(multi_error)}")
 
         {{:error, single_error}, [{:ok, multi_walk_results}]} ->
-          IO.puts("Single walk failed: #{inspect(single_error)}")
-          IO.puts("Multi walk succeeded with #{length(multi_walk_results)} results")
+          Logger.debug("Single walk failed: #{inspect(single_error)}")
+          Logger.debug("Multi walk succeeded with #{length(multi_walk_results)} results")
 
           flunk("Single walk failed while walk_multi succeeded: #{inspect(single_error)}")
 
         {{:error, single_error}, [{:error, multi_error}]} ->
-          IO.puts("Both failed:")
-          IO.puts("Single walk: #{inspect(single_error)}")
-          IO.puts("Multi walk: #{inspect(multi_error)}")
+          Logger.debug("Both failed:")
+          Logger.debug("Single walk: #{inspect(single_error)}")
+          Logger.debug("Multi walk: #{inspect(multi_error)}")
 
           flunk("Both walks failed - simulator issue?")
       end
@@ -206,7 +207,7 @@ defmodule SnmpKit.WalkMultiIssueTest do
         {@sim_host, "1.3.6.1.2.1.1", [port: @sim_port, timeout: 30_000]}
       ]
 
-      IO.puts("Testing walk_multi with 30 second timeout...")
+      Logger.debug("Testing walk_multi with 30 second timeout...")
       start_time = System.monotonic_time(:millisecond)
 
       results = Multi.walk_multi(targets_and_oids)
@@ -214,18 +215,18 @@ defmodule SnmpKit.WalkMultiIssueTest do
       end_time = System.monotonic_time(:millisecond)
       duration = end_time - start_time
 
-      IO.puts("walk_multi with long timeout completed in #{duration}ms")
+      Logger.debug("walk_multi with long timeout completed in #{duration}ms")
 
       assert is_list(results)
       assert length(results) == 1
 
       case results do
         [{:ok, walk_results}] ->
-          IO.puts("SUCCESS with long timeout: Got #{length(walk_results)} results")
+          Logger.debug("SUCCESS with long timeout: Got #{length(walk_results)} results")
           assert length(walk_results) > 1, "Should get multiple results"
 
         [{:error, reason}] ->
-          IO.puts("FAILED even with 30s timeout: #{inspect(reason)}")
+          Logger.debug("FAILED even with 30s timeout: #{inspect(reason)}")
 
           # This would indicate a real bug, not just a timeout issue
           flunk("walk_multi failed even with 30 second timeout: #{inspect(reason)}")
@@ -242,8 +243,8 @@ defmodule SnmpKit.WalkMultiIssueTest do
 
       case results do
         [{:ok, walk_results}] ->
-          IO.puts("Analyzing walk_multi results...")
-          IO.puts("Total results: #{length(walk_results)}")
+          Logger.debug("Analyzing walk_multi results...")
+          Logger.debug("Total results: #{length(walk_results)}")
 
           # Group by base OID to see distribution
           base_oid_counts =
@@ -257,24 +258,24 @@ defmodule SnmpKit.WalkMultiIssueTest do
             end)
             |> Enum.frequencies()
 
-          IO.puts("Results by base OID:")
+          Logger.debug("Results by base OID:")
 
           Enum.each(base_oid_counts, fn {base, count} ->
-            IO.puts("  #{base}: #{count} result(s)")
+            Logger.debug("  #{base}: #{count} result(s)")
           end)
 
           # The bug would be if we only got results for one base OID
           unique_base_oids = Map.keys(base_oid_counts)
 
           if length(unique_base_oids) == 1 do
-            IO.puts("WARNING: Only got results for one base OID - possible first-OID bug!")
-            IO.puts("Single base OID: #{List.first(unique_base_oids)}")
+            Logger.debug("WARNING: Only got results for one base OID - possible first-OID bug!")
+            Logger.debug("Single base OID: #{List.first(unique_base_oids)}")
 
             # Show all results to understand the pattern
-            IO.puts("All results:")
+            Logger.debug("All results:")
 
             Enum.each(walk_results, fn {oid, type, value} ->
-              IO.puts("  #{oid} = #{inspect(value)} (#{type})")
+              Logger.debug("  #{oid} = #{inspect(value)} (#{type})")
             end)
           end
 

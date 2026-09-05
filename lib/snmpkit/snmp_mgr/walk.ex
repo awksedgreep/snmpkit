@@ -24,10 +24,16 @@ defmodule SnmpKit.SnmpMgr.Walk do
 
       iex> SnmpKit.SnmpMgr.Walk.walk("192.168.1.1", [1, 3, 6, 1, 2, 1, 1])
       {:ok, [
-        {[1,3,6,1,2,1,1,1,0], :octet_string, "System description"},
-        {[1,3,6,1,2,1,1,2,0], :object_identifier, [1,3,6,1,4,1,9,1,1]},
-        {[1,3,6,1,2,1,1,3,0], :timeticks, 12345}
+        %{oid: "1.3.6.1.2.1.1.1.0", oid_list: [1, 3, 6, 1, 2, 1, 1, 1, 0], type: :octet_string, value: "System description", name: "sysDescr", formatted: "System description"},
+        %{oid: "1.3.6.1.2.1.1.2.0", oid_list: [1, 3, 6, 1, 2, 1, 1, 2, 0], type: :object_identifier, value: [1, 3, 6, 1, 4, 1, 9, 1, 1], name: "sysObjectID", formatted: "1.3.6.1.4.1.9.1.1"},
+        %{oid: "1.3.6.1.2.1.1.3.0", oid_list: [1, 3, 6, 1, 2, 1, 1, 3, 0], type: :timeticks, value: 12345, name: "sysUpTime", formatted: "2 minutes 3 seconds 45 centiseconds"}
       ]}
+
+  Returns enriched maps by default (`include_names: true`,
+  `include_formatted: true`). Pass `include_names: false,
+  include_formatted: false` for the legacy `{oid, type, value}` tuple
+  shape. Note: the SNMPv1 fallback path returns legacy
+  `{oid_string, type, value}` tuples.
   """
   def walk(target, root_oid, opts \\ []) do
     version = Keyword.get(opts, :version, :v2c)

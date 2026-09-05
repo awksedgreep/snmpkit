@@ -195,15 +195,35 @@ defmodule SnmpKit.SnmpLib.MIB.Compiler do
       {:ok, %{name: "TEST-MIB", ...}}
   """
   @spec load_compiled(Path.t()) :: {:ok, compiled_mib()} | {:error, term()}
+  # 10 MB is far above any realistic compiled MIB; larger files are rejected
+  # before decoding to bound memory use on untrusted input.
+  @max_compiled_size 10 * 1024 * 1024
   def load_compiled(compiled_path) do
     case File.read(compiled_path) do
-      {:ok, binary_data} ->
-        case :erlang.binary_to_term(binary_data) do
-          %{__type__: :compiled_mib} = compiled ->
-            {:ok, compiled}
+      {:ok, binary_data} when byte_size(binary_data) > @max_compiled_size ->
+        {:error,
+         {:compiled_file_too_large,
+          "Compiled MIB #{compiled_path} is #{byte_size(binary_data)} bytes " <>
+            "(limit #{@max_compiled_size}). Refusing to decode."}}
 
-          _ ->
-            {:error, :invalid_compiled_format}
+      {:ok, binary_data} ->
+        # [:safe] blocks decoding of funs and creation of new atoms from
+        # untrusted files; raises ArgumentError on suspicious/truncated input.
+        try do
+          case :erlang.binary_to_term(binary_data, [:safe]) do
+            %{__type__: :compiled_mib} = compiled ->
+              {:ok, compiled}
+
+            _ ->
+              {:error, :invalid_compiled_format}
+          end
+        rescue
+          ArgumentError ->
+            {:error,
+             {:invalid_compiled_format,
+              "Could not safely decode #{compiled_path}. The file may be corrupt, " <>
+                "truncated, or contain terms (e.g. functions) that safe decoding rejects. " <>
+                "Recompile the MIB from source instead."}}
         end
 
       {:error, reason} ->

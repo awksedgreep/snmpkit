@@ -57,16 +57,25 @@ end
 
 # SnmpKit handles its own logging configuration
 
-# Ensure no processes are using common test ports before starting tests
+# Warn (never kill) if common test ports are already in use.
+# Pure-OTP probe: portable (no `lsof` dependency) and non-destructive.
+# Stale simulators from a previous run are the usual cause.
 for port <- [161, 1161, 4161] do
-  System.cmd("lsof", ["-i", ":#{port}", "-t"])
-  |> case do
-    {output, 0} ->
-      pids = String.split(output, "\n", trim: true)
-      Enum.each(pids, fn pid -> System.cmd("kill", ["-9", pid]) end)
+  case :gen_udp.open(port, [:binary, active: false]) do
+    {:ok, socket} ->
+      :gen_udp.close(socket)
 
-    _ ->
-      :ok
+    {:error, :eaddrinuse} ->
+      Logger.warning(
+        "Test port #{port} is already in use. Stop stale simulators " <>
+          "before running the suite to avoid port conflicts."
+      )
+
+    {:error, :eacces} ->
+      Logger.debug("Cannot probe privileged test port #{port}, skipping check")
+
+    {:error, reason} ->
+      Logger.debug("Could not probe test port #{port}: #{inspect(reason)}")
   end
 end
 

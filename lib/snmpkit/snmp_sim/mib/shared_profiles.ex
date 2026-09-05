@@ -13,6 +13,7 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
     :profile_tables,
     :behavior_tables,
     :metadata_table,
+    :sorted_oid_cache,
     :stats
   ]
 
@@ -196,6 +197,7 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
       profile_tables: %{},
       behavior_tables: %{},
       metadata_table: metadata_table,
+      sorted_oid_cache: %{},
       stats: init_stats()
     }
 
@@ -280,16 +282,18 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
 
   @impl true
   def handle_call({:get_next_oid, device_type, oid}, _from, state) do
-    result = get_next_oid_impl(device_type, oid, state)
-    {:reply, result, state}
+    {result, new_state} = get_next_oid_impl(device_type, oid, state)
+    {:reply, result, new_state}
   end
 
   @impl true
   def handle_call({:get_bulk_oids, device_type, start_oid, max_repetitions}, _from, state) do
     # CRITICAL FIX: For GETBULK, we should only return OIDs that come AFTER start_oid
     # If start_oid is the last OID, get_next_oid should return :end_of_mib
-    result =
-      case get_next_oid_impl(device_type, start_oid, state) do
+    {next_result, state_after_next} = get_next_oid_impl(device_type, start_oid, state)
+
+    {result, new_state} =
+      case next_result do
         {:ok, _first_oid} ->
           # Start collecting from first_oid, but don't include it in the initial accumulator
           # We'll add it during the collection process
@@ -300,17 +304,17 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
             max_repetitions,
             # Empty accumulator - don't pre-include any OIDs
             [],
-            state
+            state_after_next
           )
 
         :end_of_mib ->
-          {:ok, []}
+          {{:ok, []}, state_after_next}
 
         {:error, reason} ->
-          {:error, reason}
+          {{:error, reason}, state_after_next}
       end
 
-    {:reply, result, state}
+    {:reply, result, new_state}
   end
 
   @impl true
@@ -320,13 +324,10 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
         {:reply, {:error, :device_type_not_found}, state}
 
       table ->
-        # Get all OIDs and return them
-        all_oids =
-          :ets.tab2list(table)
-          |> Enum.map(fn {oid, _data} -> oid end)
-          |> Enum.sort(&compare_oids_lexicographically/2)
+        # Sorted OID list is cached; rebuilt only when the profile reloads
+        {all_oids, new_state} = sorted_oids(device_type, table, state)
 
-        {:reply, {:ok, all_oids}, state}
+        {:reply, {:ok, all_oids}, new_state}
     end
   end
 
@@ -355,7 +356,7 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
 
     :ets.delete_all_objects(state.metadata_table)
 
-    {:reply, :ok, %{state | stats: init_stats()}}
+    {:reply, :ok, %{state | sorted_oid_cache: %{}, stats: init_stats()}}
   end
 
   @impl true
@@ -389,7 +390,7 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
     # Update stats
     updated_stats = update_load_stats(new_state.stats, device_type, object_count)
 
-    {:reply, :ok, %{new_state | stats: updated_stats}}
+    {:reply, :ok, %{invalidate_sorted_oid_cache(new_state, device_type) | stats: updated_stats}}
   end
 
   # Implementation Functions
@@ -430,7 +431,7 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
       # Update stats
       updated_stats = update_load_stats(new_state.stats, device_type, map_size(all_objects))
 
-      {:ok, %{new_state | stats: updated_stats}}
+      {:ok, %{invalidate_sorted_oid_cache(new_state, device_type) | stats: updated_stats}}
     rescue
       error ->
         Logger.error("Failed to load MIB profile for #{device_type}: #{inspect(error)}")
@@ -480,7 +481,7 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
       # Update stats
       updated_stats = update_load_stats(new_state.stats, device_type, map_size(oid_map))
 
-      {:ok, %{new_state | stats: updated_stats}}
+      {:ok, %{invalidate_sorted_oid_cache(new_state, device_type) | stats: updated_stats}}
     rescue
       error ->
         Logger.error("Failed to load walk profile for #{device_type}: #{inspect(error)}")
@@ -533,24 +534,95 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
   defp get_next_oid_impl(device_type, oid, state) do
     case Map.get(state.profile_tables, device_type) do
       nil ->
-        {:error, :device_type_not_found}
+        {{:error, :device_type_not_found}, state}
 
       table ->
-        # Get all OIDs and find the next one
-        all_oids =
-          :ets.tab2list(table)
+        # Sorted OID list is cached per device type; rebuilt only on profile reload
+        {all_oids, new_state} = sorted_oids(device_type, table, state)
+
+        result =
+          case find_next_oid_in_list(all_oids, oid) do
+            nil -> :end_of_mib
+            next_oid -> {:ok, next_oid}
+          end
+
+        {result, new_state}
+    end
+  end
+
+  # Returns the cached lexicographically sorted OID list for a device type,
+  # building and caching it on first use after a (re)load.
+  defp sorted_oids(device_type, table, state) do
+    case Map.get(state.sorted_oid_cache, device_type) do
+      nil ->
+        sorted =
+          table
+          |> :ets.tab2list()
           |> Enum.map(fn {oid, _data} -> oid end)
           |> Enum.sort(&compare_oids_lexicographically/2)
 
-        case find_next_oid_in_list(all_oids, oid) do
-          nil -> :end_of_mib
-          next_oid -> {:ok, next_oid}
-        end
+        {sorted, %{state | sorted_oid_cache: Map.put(state.sorted_oid_cache, device_type, sorted)}}
+
+      cached ->
+        {cached, state}
     end
+  end
+
+  # Drops the cached sorted OID list so the next lookup rebuilds it.
+  defp invalidate_sorted_oid_cache(state, device_type) do
+    %{state | sorted_oid_cache: Map.delete(state.sorted_oid_cache, device_type)}
   end
 
   defp collect_bulk_oids_with_values(device_type, _current_oid, 0, acc, state) do
     # Convert OID list to 3-tuples with actual values from walk file
+    {finalize_bulk_acc(device_type, acc, state), state}
+  end
+
+  defp collect_bulk_oids_with_values(device_type, current_oid, remaining, acc, state) do
+    {next_result, state_after_next} = get_next_oid_impl(device_type, current_oid, state)
+
+    case next_result do
+      {:ok, next_oid} ->
+        # Check if this OID actually exists in the walk file
+        case get_oid_value_impl(device_type, next_oid, %{}, state_after_next) do
+          {:ok, _} ->
+            # OID exists, continue collecting
+            collect_bulk_oids_with_values(
+              device_type,
+              next_oid,
+              remaining - 1,
+              [next_oid | acc],
+              state_after_next
+            )
+
+          {:error, :no_such_name} ->
+            # OID doesn't exist in walk file - this indicates end of MIB
+            # Convert accumulated OIDs to 3-tuples with actual values
+            {finalize_bulk_acc(device_type, acc, state_after_next), state_after_next}
+
+          {:error, _} ->
+            # Other errors - continue with fallback
+            collect_bulk_oids_with_values(
+              device_type,
+              next_oid,
+              remaining - 1,
+              [next_oid | acc],
+              state_after_next
+            )
+        end
+
+      :end_of_mib ->
+        # Convert OID list to 3-tuples with actual values from walk file
+        {finalize_bulk_acc(device_type, acc, state_after_next), state_after_next}
+
+      {:error, _reason} ->
+        # Convert accumulated OIDs to 3-tuples with actual values
+        {finalize_bulk_acc(device_type, acc, state_after_next), state_after_next}
+    end
+  end
+
+  # Converts accumulated bulk OIDs to 3-tuples with actual values from walk file.
+  defp finalize_bulk_acc(device_type, acc, state) do
     oid_tuples =
       Enum.map(Enum.reverse(acc), fn oid ->
         case get_oid_value_impl(device_type, oid, %{}, state) do
@@ -561,74 +633,6 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
       end)
 
     {:ok, oid_tuples}
-  end
-
-  defp collect_bulk_oids_with_values(device_type, current_oid, remaining, acc, state) do
-    case get_next_oid_impl(device_type, current_oid, state) do
-      {:ok, next_oid} ->
-        # Check if this OID actually exists in the walk file
-        case get_oid_value_impl(device_type, next_oid, %{}, state) do
-          {:ok, _} ->
-            # OID exists, continue collecting
-            collect_bulk_oids_with_values(
-              device_type,
-              next_oid,
-              remaining - 1,
-              [next_oid | acc],
-              state
-            )
-
-          {:error, :no_such_name} ->
-            # OID doesn't exist in walk file - this indicates end of MIB
-            # Convert accumulated OIDs to 3-tuples with actual values
-            oid_tuples =
-              Enum.map(Enum.reverse(acc), fn oid ->
-                case get_oid_value_impl(device_type, oid, %{}, state) do
-                  {:ok, {type, value}} -> {oid, type, value}
-                  {:ok, value} -> {oid, :octet_string, value}
-                  {:error, _} -> {oid, :octet_string, "Bulk value for #{oid}"}
-                end
-              end)
-
-            {:ok, oid_tuples}
-
-          {:error, _} ->
-            # Other errors - continue with fallback
-            collect_bulk_oids_with_values(
-              device_type,
-              next_oid,
-              remaining - 1,
-              [next_oid | acc],
-              state
-            )
-        end
-
-      :end_of_mib ->
-        # Convert OID list to 3-tuples with actual values from walk file
-        oid_tuples =
-          Enum.map(Enum.reverse(acc), fn oid ->
-            case get_oid_value_impl(device_type, oid, %{}, state) do
-              {:ok, {type, value}} -> {oid, type, value}
-              {:ok, value} -> {oid, :octet_string, value}
-              {:error, _} -> {oid, :octet_string, "Bulk value for #{oid}"}
-            end
-          end)
-
-        {:ok, oid_tuples}
-
-      {:error, _reason} ->
-        # Convert accumulated OIDs to 3-tuples with actual values
-        oid_tuples =
-          Enum.map(Enum.reverse(acc), fn oid ->
-            case get_oid_value_impl(device_type, oid, %{}, state) do
-              {:ok, {type, value}} -> {oid, type, value}
-              {:ok, value} -> {oid, :octet_string, value}
-              {:error, _} -> {oid, :octet_string, "Bulk value for #{oid}"}
-            end
-          end)
-
-        {:ok, oid_tuples}
-    end
   end
 
   # Helper Functions

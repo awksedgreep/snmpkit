@@ -1,5 +1,6 @@
 defmodule SnmpKit.OidFormatTest do
   use ExUnit.Case, async: true
+  require Logger
   @moduletag :oid_format
 
   alias SnmpKit.SnmpMgr.Multi
@@ -78,20 +79,20 @@ defmodule SnmpKit.OidFormatTest do
           bulk_oid_sample = bulk_data |> List.first() |> elem(0)
           walk_oid_sample = walk_data |> List.first() |> elem(0)
 
-          IO.puts("=== SINGLE OPERATIONS OID FORMATS ===")
-          IO.puts("Single get_bulk OID format: #{inspect(bulk_oid_sample)}")
-          IO.puts("Single get_bulk OID is_binary: #{is_binary(bulk_oid_sample)}")
-          IO.puts("Single walk OID format: #{inspect(walk_oid_sample)}")
-          IO.puts("Single walk OID is_binary: #{is_binary(walk_oid_sample)}")
+          Logger.debug("=== SINGLE OPERATIONS OID FORMATS ===")
+          Logger.debug("Single get_bulk OID format: #{inspect(bulk_oid_sample)}")
+          Logger.debug("Single get_bulk OID is_binary: #{is_binary(bulk_oid_sample)}")
+          Logger.debug("Single walk OID format: #{inspect(walk_oid_sample)}")
+          Logger.debug("Single walk OID is_binary: #{is_binary(walk_oid_sample)}")
 
           # Both should use the same format - let's see what it is
           bulk_is_string = is_binary(bulk_oid_sample)
           walk_is_string = is_binary(walk_oid_sample)
 
           if bulk_is_string == walk_is_string do
-            IO.puts("✅ Single operations use consistent formats")
+            Logger.debug("✅ Single operations use consistent formats")
           else
-            IO.puts("❌ Single operations use different formats")
+            Logger.debug("❌ Single operations use different formats")
           end
 
         _ ->
@@ -116,20 +117,20 @@ defmodule SnmpKit.OidFormatTest do
           bulk_oid_sample = bulk_data |> List.first() |> elem(0)
           walk_oid_sample = walk_data |> List.first() |> elem(0)
 
-          IO.puts("=== MULTI OPERATIONS OID FORMATS ===")
-          IO.puts("Multi get_bulk OID format: #{inspect(bulk_oid_sample)}")
-          IO.puts("Multi get_bulk OID is_binary: #{is_binary(bulk_oid_sample)}")
-          IO.puts("Multi walk OID format: #{inspect(walk_oid_sample)}")
-          IO.puts("Multi walk OID is_binary: #{is_binary(walk_oid_sample)}")
+          Logger.debug("=== MULTI OPERATIONS OID FORMATS ===")
+          Logger.debug("Multi get_bulk OID format: #{inspect(bulk_oid_sample)}")
+          Logger.debug("Multi get_bulk OID is_binary: #{is_binary(bulk_oid_sample)}")
+          Logger.debug("Multi walk OID format: #{inspect(walk_oid_sample)}")
+          Logger.debug("Multi walk OID is_binary: #{is_binary(walk_oid_sample)}")
 
           # Both should use the same format
           bulk_is_string = is_binary(bulk_oid_sample)
           walk_is_string = is_binary(walk_oid_sample)
 
           if bulk_is_string == walk_is_string do
-            IO.puts("✅ Multi operations use consistent formats")
+            Logger.debug("✅ Multi operations use consistent formats")
           else
-            IO.puts("❌ Multi operations use different formats - this needs fixing!")
+            Logger.debug("❌ Multi operations use different formats - this needs fixing!")
           end
 
         _ ->
@@ -157,11 +158,11 @@ defmodule SnmpKit.OidFormatTest do
           mb_oid = mb_data |> List.first() |> elem(0)
           mw_oid = mw_data |> List.first() |> elem(0)
 
-          IO.puts("=== ALL OPERATIONS FORMAT COMPARISON ===")
-          IO.puts("Single bulk: #{inspect(sb_oid)} (binary: #{is_binary(sb_oid)})")
-          IO.puts("Single walk: #{inspect(sw_oid)} (binary: #{is_binary(sw_oid)})")
-          IO.puts("Multi bulk: #{inspect(mb_oid)} (binary: #{is_binary(mb_oid)})")
-          IO.puts("Multi walk: #{inspect(mw_oid)} (binary: #{is_binary(mw_oid)})")
+          Logger.debug("=== ALL OPERATIONS FORMAT COMPARISON ===")
+          Logger.debug("Single bulk: #{inspect(sb_oid)} (binary: #{is_binary(sb_oid)})")
+          Logger.debug("Single walk: #{inspect(sw_oid)} (binary: #{is_binary(sw_oid)})")
+          Logger.debug("Multi bulk: #{inspect(mb_oid)} (binary: #{is_binary(mb_oid)})")
+          Logger.debug("Multi walk: #{inspect(mw_oid)} (binary: #{is_binary(mw_oid)})")
 
           # Check if all operations use the same format
           formats = [
@@ -174,10 +175,10 @@ defmodule SnmpKit.OidFormatTest do
           all_same_format = formats |> Enum.uniq() |> length() == 1
 
           if all_same_format do
-            IO.puts("✅ All operations use consistent OID format")
+            Logger.debug("✅ All operations use consistent OID format")
           else
-            IO.puts("❌ Operations use inconsistent OID formats - this needs fixing!")
-            IO.puts("Format consistency: #{inspect(formats)}")
+            Logger.debug("❌ Operations use inconsistent OID formats - this needs fixing!")
+            Logger.debug("Format consistency: #{inspect(formats)}")
 
             # This should pass once we fix the format issue
             assert all_same_format, "All SNMP operations should return OIDs in the same format"

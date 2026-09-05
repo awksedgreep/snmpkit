@@ -1,5 +1,6 @@
 defmodule SnmpKit.WalkMultiDebugTest do
   use ExUnit.Case, async: false
+  require Logger
 
   @moduletag :walk_multi_debug
 
@@ -25,28 +26,28 @@ defmodule SnmpKit.WalkMultiDebugTest do
   test "debug walk_multi first oid only bug" do
     opts = [community: @test_community, timeout: @test_timeout, version: :v2c]
 
-    IO.puts("=== DEBUGGING WALK_MULTI FIRST-OID BUG ===")
-    IO.puts("Device: #{@test_device}")
-    IO.puts("OID: #{@test_oid}")
+    Logger.debug("=== DEBUGGING WALK_MULTI FIRST-OID BUG ===")
+    Logger.debug("Device: #{@test_device}")
+    Logger.debug("OID: #{@test_oid}")
 
-    IO.puts("\n1. Testing single walk...")
+    Logger.debug("\n1. Testing single walk...")
     single_result = SnmpKit.SNMP.walk(@test_device, @test_oid, opts)
 
     case single_result do
       {:ok, single_data} ->
-        IO.puts("Single walk results: #{length(single_data)}")
+        Logger.debug("Single walk results: #{length(single_data)}")
         print_results(single_data)
 
       {:error, reason} ->
         flunk("single walk failed: #{inspect(reason)}")
     end
 
-    IO.puts("\n2. Testing walk_multi...")
+    Logger.debug("\n2. Testing walk_multi...")
     multi_result = Multi.walk_multi([{@test_device, @test_oid, opts}])
 
     case multi_result do
       [{:ok, multi_data}] ->
-        IO.puts("walk_multi results: #{length(multi_data)}")
+        Logger.debug("walk_multi results: #{length(multi_data)}")
         print_results(multi_data)
 
       [{:error, reason}] ->
@@ -63,30 +64,30 @@ defmodule SnmpKit.WalkMultiDebugTest do
   test "test direct walk vs multi walk" do
     opts = [community: @test_community, timeout: @test_timeout, version: :v2c]
 
-    IO.puts("=== TESTING DIRECT CALL CHAIN ===")
-    IO.puts("1. Direct Walk.walk...")
+    Logger.debug("=== TESTING DIRECT CALL CHAIN ===")
+    Logger.debug("1. Direct Walk.walk...")
     direct_result = SnmpKit.SnmpMgr.Walk.walk(@test_device, @test_oid, opts)
 
     case direct_result do
       {:ok, data} ->
-        IO.puts("Direct Walk.walk results: #{length(data)}")
+        Logger.debug("Direct Walk.walk results: #{length(data)}")
 
       {:error, reason} ->
-        IO.puts("Direct Walk.walk failed: #{inspect(reason)}")
+        Logger.debug("Direct Walk.walk failed: #{inspect(reason)}")
     end
 
-    IO.puts("2. Through Multi.walk_multi...")
+    Logger.debug("2. Through Multi.walk_multi...")
     multi_result = Multi.walk_multi([{@test_device, @test_oid, opts}])
 
     case multi_result do
       [{:ok, data}] ->
-        IO.puts("Multi.walk_multi results: #{length(data)}")
+        Logger.debug("Multi.walk_multi results: #{length(data)}")
 
       [{:error, reason}] ->
-        IO.puts("Multi.walk_multi failed: #{inspect(reason)}")
+        Logger.debug("Multi.walk_multi failed: #{inspect(reason)}")
 
       other ->
-        IO.puts("Multi.walk_multi unexpected: #{inspect(other)}")
+        Logger.debug("Multi.walk_multi unexpected: #{inspect(other)}")
     end
 
     case {direct_result, multi_result} do
@@ -99,19 +100,19 @@ defmodule SnmpKit.WalkMultiDebugTest do
   end
 
   defp compare_results({:ok, single_data}, [{:ok, multi_data}]) do
-    IO.puts("\n3. COMPARISON:")
-    IO.puts("Single walk: #{length(single_data)} results")
-    IO.puts("Multi walk:  #{length(multi_data)} results")
+    Logger.debug("\n3. COMPARISON:")
+    Logger.debug("Single walk: #{length(single_data)} results")
+    Logger.debug("Multi walk:  #{length(multi_data)} results")
 
     cond do
       length(single_data) > 1 and length(multi_data) == 1 ->
         flunk("walk_multi only returned the first OID")
 
       length(single_data) == length(multi_data) ->
-        IO.puts("Counts match")
+        Logger.debug("Counts match")
 
       true ->
-        IO.puts("Counts differ but not in the classic first-OID pattern")
+        Logger.debug("Counts differ but not in the classic first-OID pattern")
     end
   end
 
@@ -123,7 +124,7 @@ defmodule SnmpKit.WalkMultiDebugTest do
     |> Enum.each(fn {oid, type, value} ->
       oid_str = if is_list(oid), do: Enum.join(oid, "."), else: oid
       value_str = String.slice(to_string(value), 0, 20)
-      IO.puts("  #{oid_str} = #{inspect(value_str)} (#{type})")
+      Logger.debug("  #{oid_str} = #{inspect(value_str)} (#{type})")
     end)
   end
 end

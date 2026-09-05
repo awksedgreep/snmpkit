@@ -43,5 +43,31 @@ jobs:
         restore-keys: ${{ runner.os }}-mix-
     - name: Install dependencies
       run: mix deps.get
+    - name: Check for debug IO calls in lib
+      # Enforces AGENTS.md: no IO.puts/IO.inspect in library code (use Logger).
+      # AST-based, so IO calls inside @doc examples are ignored.
+      # test/ is not gated yet; extend the gate there as a follow-up.
+      run: |
+        elixir -e '
+        hits =
+          Path.wildcard("lib/**/*.ex")
+          |> Enum.flat_map(fn file ->
+            quoted = file |> File.read!() |> Code.string_to_quoted!(file: file)
+            {_ast, acc} =
+              Macro.prewalk(quoted, [], fn
+                {{:., _, [{:__aliases__, _, [:IO]}, op]}, _, _} = node, acc
+                when op in [:puts, :inspect] ->
+                  {node, [op | acc]}
+                node, acc ->
+                  {node, acc}
+              end)
+            Enum.map(acc, &{file, &1})
+          end)
+        if hits == [] do
+          IO.puts("No debug IO calls in lib/")
+        else
+          Enum.each(hits, fn {file, op} -> IO.puts("#{file}: IO.#{op} call") end)
+          System.halt(1)
+        end'
     - name: Run tests
       run: mix test

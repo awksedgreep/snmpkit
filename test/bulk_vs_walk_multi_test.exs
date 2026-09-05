@@ -1,5 +1,6 @@
 defmodule SnmpKit.BulkVsWalkMultiTest do
   use ExUnit.Case, async: true
+  require Logger
   @moduletag :bulk_vs_walk_multi
 
   alias SnmpKit.SnmpMgr.Multi
@@ -57,7 +58,7 @@ defmodule SnmpKit.BulkVsWalkMultiTest do
     # Verify simulator is responding
     case SnmpKit.SNMP.get(@sim_host, "1.3.6.1.2.1.1.1.0", port: @sim_port, timeout: 5000) do
       {:ok, _value} ->
-        IO.puts("Simulator ready for bulk vs walk testing")
+        Logger.debug("Simulator ready for bulk vs walk testing")
 
       {:error, reason} ->
         raise "Cannot start bulk vs walk tests - simulator not responding: #{inspect(reason)}"
@@ -80,27 +81,27 @@ defmodule SnmpKit.BulkVsWalkMultiTest do
          [port: @sim_port, timeout: @test_timeout, max_repetitions: 10]}
       ]
 
-      IO.puts("Testing get_bulk_multi...")
+      Logger.debug("Testing get_bulk_multi...")
       start_time = System.monotonic_time(:millisecond)
       results = Multi.get_bulk_multi(targets_and_oids)
       end_time = System.monotonic_time(:millisecond)
       duration = end_time - start_time
 
-      IO.puts("get_bulk_multi completed in #{duration}ms")
+      Logger.debug("get_bulk_multi completed in #{duration}ms")
 
       assert is_list(results)
       assert length(results) == 1
 
       case results do
         [{:ok, bulk_results}] ->
-          IO.puts("get_bulk_multi SUCCESS: Got #{length(bulk_results)} results")
+          Logger.debug("get_bulk_multi SUCCESS: Got #{length(bulk_results)} results")
 
           # Print first few for debugging
           bulk_results
           |> Enum.take(5)
           |> Enum.with_index()
           |> Enum.each(fn {{oid, type, value}, idx} ->
-            IO.puts("  [#{idx}] #{oid || "EMPTY_OID"} = #{inspect(value)} (#{type})")
+            Logger.debug("  [#{idx}] #{oid || "EMPTY_OID"} = #{inspect(value)} (#{type})")
           end)
 
           assert is_list(bulk_results)
@@ -119,26 +120,26 @@ defmodule SnmpKit.BulkVsWalkMultiTest do
         {@sim_host, "1.3.6.1.2.1.1", [port: @sim_port, timeout: @test_timeout]}
       ]
 
-      IO.puts("Testing walk_multi...")
+      Logger.debug("Testing walk_multi...")
       start_time = System.monotonic_time(:millisecond)
       results = Multi.walk_multi(targets_and_oids)
       end_time = System.monotonic_time(:millisecond)
       duration = end_time - start_time
 
-      IO.puts("walk_multi completed in #{duration}ms")
+      Logger.debug("walk_multi completed in #{duration}ms")
 
       assert is_list(results)
       assert length(results) == 1
 
       case results do
         [{:ok, walk_results}] ->
-          IO.puts("walk_multi SUCCESS: Got #{length(walk_results)} results")
+          Logger.debug("walk_multi SUCCESS: Got #{length(walk_results)} results")
 
           # Print first few for debugging
           walk_results
           |> Enum.take(5)
           |> Enum.each(fn {oid, type, value} ->
-            IO.puts("  #{oid} = #{inspect(value)} (#{type})")
+            Logger.debug("  #{oid} = #{inspect(value)} (#{type})")
           end)
 
           assert is_list(walk_results)
@@ -163,9 +164,9 @@ defmodule SnmpKit.BulkVsWalkMultiTest do
 
       case {bulk_results, walk_results} do
         {[{:ok, bulk_data}], [{:ok, walk_data}]} ->
-          IO.puts("=== COMPARISON ===")
-          IO.puts("get_bulk_multi: #{length(bulk_data)} results")
-          IO.puts("walk_multi: #{length(walk_data)} results")
+          Logger.debug("=== COMPARISON ===")
+          Logger.debug("get_bulk_multi: #{length(bulk_data)} results")
+          Logger.debug("walk_multi: #{length(walk_data)} results")
 
           # Both should succeed but potentially return different amounts of data
           assert length(bulk_data) > 0, "bulk should return some results"
@@ -182,10 +183,10 @@ defmodule SnmpKit.BulkVsWalkMultiTest do
               oid when is_binary(oid) -> oid
             end)
 
-          IO.puts("First bulk OID: #{List.first(bulk_oids_display) || "none"}")
-          IO.puts("Last bulk OID: #{List.last(bulk_oids_display) || "none"}")
-          IO.puts("First walk OID: #{List.first(walk_oids) || "none"}")
-          IO.puts("Last walk OID: #{List.last(walk_oids) || "none"}")
+          Logger.debug("First bulk OID: #{List.first(bulk_oids_display) || "none"}")
+          Logger.debug("Last bulk OID: #{List.last(bulk_oids_display) || "none"}")
+          Logger.debug("First walk OID: #{List.first(walk_oids) || "none"}")
+          Logger.debug("Last walk OID: #{List.last(walk_oids) || "none"}")
 
           # get_bulk_multi can return more results than walk_multi when max_repetitions
           # exceeds the subtree size (bulk goes beyond subtree boundary)
@@ -195,8 +196,8 @@ defmodule SnmpKit.BulkVsWalkMultiTest do
 
           # Note: bulk might return OIDs outside the walk subtree due to max_repetitions
           # So we don't assert subset relationship, just that both work correctly
-          IO.puts("Bulk OIDs sample: #{inspect(Enum.take(bulk_oids, 3))}")
-          IO.puts("Walk OIDs sample: #{inspect(Enum.take(walk_oids, 3))}")
+          Logger.debug("Bulk OIDs sample: #{inspect(Enum.take(bulk_oids, 3))}")
+          Logger.debug("Walk OIDs sample: #{inspect(Enum.take(walk_oids, 3))}")
 
           # Format consistency checks - bulk operations return lists, walk operations return strings
           assert Enum.all?(bulk_oids, &is_list/1),
@@ -232,17 +233,17 @@ defmodule SnmpKit.BulkVsWalkMultiTest do
       assert is_list(results)
       assert length(results) == 2
 
-      IO.puts("get_bulk_multi with 2 targets:")
+      Logger.debug("get_bulk_multi with 2 targets:")
 
       Enum.with_index(results, 1)
       |> Enum.each(fn {result, idx} ->
         case result do
           {:ok, bulk_data} ->
-            IO.puts("  Target #{idx}: #{length(bulk_data)} results")
+            Logger.debug("  Target #{idx}: #{length(bulk_data)} results")
             assert length(bulk_data) > 0, "Target #{idx} should return results"
 
           {:error, reason} ->
-            IO.puts("  Target #{idx}: Error - #{inspect(reason)}")
+            Logger.debug("  Target #{idx}: Error - #{inspect(reason)}")
             # Some targets might fail, that's OK for this test
         end
       end)
@@ -267,7 +268,7 @@ defmodule SnmpKit.BulkVsWalkMultiTest do
 
       case results do
         [{:ok, _bulk_data}] ->
-          IO.puts("get_bulk_multi completed successfully in #{duration}ms")
+          Logger.debug("get_bulk_multi completed successfully in #{duration}ms")
 
         [{:error, reason}] ->
           flunk("get_bulk_multi failed: #{inspect(reason)}")
@@ -289,8 +290,8 @@ defmodule SnmpKit.BulkVsWalkMultiTest do
 
       case {single_result, multi_results} do
         {{:ok, single_data}, [{:ok, multi_data}]} ->
-          IO.puts("Single bulk: #{length(single_data)} results")
-          IO.puts("Multi bulk: #{length(multi_data)} results")
+          Logger.debug("Single bulk: #{length(single_data)} results")
+          Logger.debug("Multi bulk: #{length(multi_data)} results")
 
           # Should return the same results
           assert length(single_data) == length(multi_data),
@@ -305,16 +306,16 @@ defmodule SnmpKit.BulkVsWalkMultiTest do
 
         {{:error, single_error}, [{:error, multi_error}]} ->
           # Both failed - might be OK depending on the scenario
-          IO.puts("Both single and multi bulk failed:")
-          IO.puts("  Single: #{inspect(single_error)}")
-          IO.puts("  Multi: #{inspect(multi_error)}")
+          Logger.debug("Both single and multi bulk failed:")
+          Logger.debug("  Single: #{inspect(single_error)}")
+          Logger.debug("  Multi: #{inspect(multi_error)}")
 
         {{:ok, single_data}, [{:error, multi_error}]} ->
-          IO.puts("Single bulk succeeded with #{length(single_data)} results")
+          Logger.debug("Single bulk succeeded with #{length(single_data)} results")
           flunk("Multi bulk failed while single bulk succeeded: #{inspect(multi_error)}")
 
         {{:error, single_error}, [{:ok, multi_data}]} ->
-          IO.puts("Multi bulk succeeded with #{length(multi_data)} results")
+          Logger.debug("Multi bulk succeeded with #{length(multi_data)} results")
           flunk("Single bulk failed while multi bulk succeeded: #{inspect(single_error)}")
       end
     end
@@ -334,11 +335,11 @@ defmodule SnmpKit.BulkVsWalkMultiTest do
         bulk_oid_sample = bulk_data |> List.first() |> elem(0)
         walk_oid_sample = walk_data |> List.first() |> elem(0)
 
-        IO.puts(
+        Logger.debug(
           "Single get_bulk OID format: #{inspect(bulk_oid_sample)} (#{bulk_oid_sample |> is_binary()})"
         )
 
-        IO.puts(
+        Logger.debug(
           "Single walk OID format: #{inspect(walk_oid_sample)} (#{walk_oid_sample |> is_binary()})"
         )
 
@@ -347,10 +348,10 @@ defmodule SnmpKit.BulkVsWalkMultiTest do
         assert is_list(bulk_oid_sample), "get_bulk should return OID lists"
         assert is_binary(walk_oid_sample), "walk should return OID strings"
 
-        IO.puts("✅ Single operations use expected formats for their types")
+        Logger.debug("✅ Single operations use expected formats for their types")
 
       _ ->
-        IO.puts("Single operations failed - skipping format check")
+        Logger.debug("Single operations failed - skipping format check")
     end
   end
 end

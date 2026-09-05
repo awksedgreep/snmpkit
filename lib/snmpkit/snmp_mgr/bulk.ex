@@ -88,10 +88,8 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
       iex> SnmpKit.SnmpMgr.Bulk.get_table_bulk("switch.local", "ifTable")
       {:ok, [
-        {"1.3.6.1.2.1.2.2.1.2.1", "eth0"},
-        {"1.3.6.1.2.1.2.2.1.3.1", 6},
-        {"1.3.6.1.2.1.2.2.1.2.2", "eth1"},
-        {"1.3.6.1.2.1.2.2.1.3.2", 6}
+        %{oid: "1.3.6.1.2.1.2.2.1.2.1", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 1], type: :octet_string, value: "eth0", name: "ifDescr", formatted: "eth0"},
+        %{oid: "1.3.6.1.2.1.2.2.1.3.1", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 3, 1], type: :integer, value: 6, name: "ifType", formatted: "6"}
       ]}
   """
   def get_table_bulk(target, table_oid, opts \\ []) do
@@ -131,9 +129,8 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
       iex> SnmpKit.SnmpMgr.Bulk.walk_bulk("device.local", "system")
       {:ok, [
-        {"1.3.6.1.2.1.1.1.0", "System Description"},
-        {"1.3.6.1.2.1.1.2.0", "1.3.6.1.4.1.9"},
-        {"1.3.6.1.2.1.1.3.0", 12345}
+        %{oid: "1.3.6.1.2.1.1.1.0", oid_list: [1, 3, 6, 1, 2, 1, 1, 1, 0], type: :octet_string, value: "System Description", name: "sysDescr", formatted: "System Description"},
+        %{oid: "1.3.6.1.2.1.1.3.0", oid_list: [1, 3, 6, 1, 2, 1, 1, 3, 0], type: :timeticks, value: 12345, name: "sysUpTime", formatted: "2 minutes 3 seconds 45 centiseconds"}
       ]}
   """
   def walk_bulk(target, root_oid, opts \\ []) do

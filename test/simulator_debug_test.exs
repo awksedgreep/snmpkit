@@ -1,5 +1,6 @@
 defmodule SnmpKit.SimulatorDebugTest do
   use ExUnit.Case, async: true
+  require Logger
   @moduletag :simulator_debug
 
   alias SnmpKit.SnmpSim.{Device, MIB.SharedProfiles}
@@ -70,7 +71,7 @@ defmodule SnmpKit.SimulatorDebugTest do
              timeout: @test_timeout
            ) do
         {:ok, {oid, type, value}} ->
-          IO.puts("GET SUCCESS: #{oid} = #{inspect(value)} (#{type})")
+          Logger.debug("GET SUCCESS: #{oid} = #{inspect(value)} (#{type})")
           assert oid == "1.3.6.1.2.1.1.1.0"
           assert is_binary(value)
 
@@ -98,11 +99,11 @@ defmodule SnmpKit.SimulatorDebugTest do
         Enum.map(system_oids, fn oid ->
           case SnmpKit.SNMP.get(@sim_host, oid, port: @sim_port, timeout: @test_timeout) do
             {:ok, {returned_oid, type, value}} ->
-              IO.puts("GET #{oid}: #{returned_oid} = #{inspect(value)} (#{type})")
+              Logger.debug("GET #{oid}: #{returned_oid} = #{inspect(value)} (#{type})")
               {oid, :ok, returned_oid, type, value}
 
             {:error, reason} ->
-              IO.puts("GET #{oid}: ERROR = #{inspect(reason)}")
+              Logger.debug("GET #{oid}: ERROR = #{inspect(reason)}")
               {oid, :error, reason}
           end
         end)
@@ -110,21 +111,21 @@ defmodule SnmpKit.SimulatorDebugTest do
       successful_count = successful_gets |> Enum.count(&match?({_, :ok, _, _, _}, &1))
 
       assert successful_count > 0, "At least some system OIDs should be accessible"
-      IO.puts("Successfully got #{successful_count}/#{length(system_oids)} system OIDs")
+      Logger.debug("Successfully got #{successful_count}/#{length(system_oids)} system OIDs")
     end
 
     test "simulator responds to single OID walk" do
       # Test basic walk functionality
       case SnmpKit.SNMP.walk(@sim_host, "1.3.6.1.2.1.1", port: @sim_port, timeout: @test_timeout) do
         {:ok, walk_results} ->
-          IO.puts("WALK SUCCESS: Got #{length(walk_results)} results")
+          Logger.debug("WALK SUCCESS: Got #{length(walk_results)} results")
 
           # Print first few results for debugging
           walk_results
           |> Enum.take(5)
           |> Enum.with_index()
           |> Enum.each(fn {{oid, type, value}, idx} ->
-            IO.puts("  [#{idx}] #{oid} = #{inspect(value)} (#{type})")
+            Logger.debug("  [#{idx}] #{oid} = #{inspect(value)} (#{type})")
           end)
 
           assert is_list(walk_results)
@@ -140,13 +141,13 @@ defmodule SnmpKit.SimulatorDebugTest do
           oids = Enum.map(walk_results, fn {oid, _type, _value} -> oid end)
           unique_oids = Enum.uniq(oids)
 
-          IO.puts(
+          Logger.debug(
             "Walk returned #{length(walk_results)} total results with #{length(unique_oids)} unique OIDs"
           )
 
           if length(walk_results) == 1 do
-            IO.puts("WARNING: Walk returned only 1 result - this could indicate a bug")
-            IO.puts("Single result: #{inspect(List.first(walk_results))}")
+            Logger.debug("WARNING: Walk returned only 1 result - this could indicate a bug")
+            Logger.debug("Single result: #{inspect(List.first(walk_results))}")
           end
 
         {:error, reason} ->
@@ -168,14 +169,14 @@ defmodule SnmpKit.SimulatorDebugTest do
 
       case {walk_result, bulk_result} do
         {{:ok, walk_results}, {:ok, bulk_results}} ->
-          IO.puts("WALK: #{length(walk_results)} results")
-          IO.puts("BULK: #{length(bulk_results)} results")
+          Logger.debug("WALK: #{length(walk_results)} results")
+          Logger.debug("BULK: #{length(bulk_results)} results")
 
           walk_oids = Enum.map(walk_results, fn {oid, _type, _value} -> oid end)
           bulk_oids = Enum.map(bulk_results, fn {oid, _type, _value} -> oid end)
 
-          IO.puts("Walk OIDs: #{inspect(Enum.take(walk_oids, 3))}...")
-          IO.puts("Bulk OIDs: #{inspect(Enum.take(bulk_oids, 3))}...")
+          Logger.debug("Walk OIDs: #{inspect(Enum.take(walk_oids, 3))}...")
+          Logger.debug("Bulk OIDs: #{inspect(Enum.take(bulk_oids, 3))}...")
 
           # Both should return multiple results
           assert length(walk_results) > 1, "Walk should return multiple results"
@@ -187,14 +188,14 @@ defmodule SnmpKit.SimulatorDebugTest do
           )
 
         {{:ok, walk_results}, {:error, bulk_error}} ->
-          IO.puts(
+          Logger.debug(
             "Walk succeeded with #{length(walk_results)} results, bulk failed: #{inspect(bulk_error)}"
           )
 
           assert length(walk_results) > 1, "Walk should return multiple results"
 
         {{:error, walk_error}, {:ok, bulk_results}} ->
-          IO.puts(
+          Logger.debug(
             "Bulk succeeded with #{length(bulk_results)} results, walk failed: #{inspect(walk_error)}"
           )
 
@@ -210,19 +211,19 @@ defmodule SnmpKit.SimulatorDebugTest do
         content = File.read!(walk_file_path)
         lines = String.split(content, "\n")
 
-        IO.puts("Walk file has #{length(lines)} lines")
+        Logger.debug("Walk file has #{length(lines)} lines")
 
         # Show first few lines
         lines
         |> Enum.take(10)
         |> Enum.with_index()
         |> Enum.each(fn {line, idx} ->
-          IO.puts("  [#{idx}] #{line}")
+          Logger.debug("  [#{idx}] #{line}")
         end)
 
         # Count system OIDs
         system_lines = Enum.filter(lines, &String.contains?(&1, "1.3.6.1.2.1.1."))
-        IO.puts("System OIDs in walk file: #{length(system_lines)}")
+        Logger.debug("System OIDs in walk file: #{length(system_lines)}")
 
         assert length(system_lines) > 1, "Walk file should contain multiple system OIDs"
       else

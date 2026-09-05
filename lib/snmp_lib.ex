@@ -539,18 +539,6 @@ defmodule SnmpKit.SnmpLib do
         end
       end
 
-      # Example usage:
-      # encoding_perf = SnmpBenchmark.benchmark_encoding(50_000)
-      # IO.puts("Encoding: " <> Integer.to_string(trunc(encoding_perf.encode_ops_per_sec)) <> " ops/sec")
-      # IO.puts("Decoding: " <> Integer.to_string(trunc(encoding_perf.decode_ops_per_sec)) <> " ops/sec")
-
-      # bulk_perf = SnmpBenchmark.benchmark_bulk_operations(200)
-      # IO.puts("Sequential: " <> Float.to_string(bulk_perf.sequential.time_ms) <> "ms")
-      # IO.puts("Concurrent: " <> Float.to_string(bulk_perf.concurrent.time_ms) <> "ms (" <> Float.to_string(bulk_perf.concurrent.speedup) <> "x faster)")
-
-      # oid_perf = SnmpBenchmark.benchmark_oid_operations(100_000)
-      # IO.puts("Average OID conversion: " <> Float.to_string(oid_perf.average_str_to_list_us) <> "μs per operation")
-
   ## RFC Compliance
 
   This library achieves 100% compliance with:
