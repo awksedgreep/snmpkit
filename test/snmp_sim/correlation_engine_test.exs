@@ -408,8 +408,9 @@ defmodule SnmpKit.SnmpSim.CorrelationEngineTest do
       assert result > 0
       # Cable modem base power is ~12W, with activity should be higher
       assert result >= 12.0
-      # Reasonable upper bound
-      assert result <= 25.0
+      # 12W base + 2.4W cpu + 1.44W network + 8W cooling = 23.84W, then a
+      # +/-5% random variation, so the ceiling is just above 25W
+      assert result <= 25.1
     end
 
     test "varies power consumption by device type" do
