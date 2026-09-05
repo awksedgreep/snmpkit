@@ -40,7 +40,7 @@ is unaffected.
 
 | Removed | Replacement |
 |---------|-------------|
-| `SnmpKit.SnmpMgr.Engine` (streaming engine), `Router`, `CircuitBreaker`, `Metrics`, `SnmpMgr.Supervisor`, `SnmpMgr.Application` | The one engine (`SnmpKit.SnmpMgr.Engine`, formerly EngineV2), started on demand. Per-target circuit breaking: `SnmpKit.SnmpLib.ErrorHandler.start_circuit_breaker/2` around `SnmpKit.SNMP` calls, or your own. |
+| `SnmpKit.SnmpMgr.Engine` (the 1.x opt-in request-batching engine; not used by `get`, `walk`, the streams or the default multi-target calls), `Router`, `CircuitBreaker`, `Metrics`, `SnmpMgr.Supervisor`, `SnmpMgr.Application` | The one engine (`SnmpKit.SnmpMgr.Engine`, formerly EngineV2), started on demand. Per-target circuit breaking: `SnmpKit.SnmpLib.ErrorHandler.start_circuit_breaker/2` around `SnmpKit.SNMP` calls, or your own. |
 | `SnmpKit.SnmpMgr.start_engine`, `engine_request`, `engine_batch`, `get_engine_stats`, `with_circuit_breaker`, `record_metric` and the `SnmpKit.SNMP` delegates | `SnmpKit.SNMP.get_multi/2`, `walk_multi/2`, `get_bulk_multi/2` for batches; `SnmpKit.SnmpMgr.Engine.get_stats/1` and `get_buffer_stats/1` for statistics. |
 | The Task-per-target `SnmpKit.SnmpMgr.Multi` and the `strategy: :simple | :concurrent` option | `SnmpKit.SnmpMgr.Multi` is the concurrent implementation; drop the `:strategy` option. |
 | `SnmpKit.SnmpMgr.SocketManager` | `SnmpKit.SnmpMgr.Engine` owns the socket: `Engine.get_socket/1`, `get_port/1`, `get_stats/1`, `get_buffer_stats/1`, `health_check/1`. `SnmpKit.SnmpMgr.ensure_started/0` starts `RequestIdGenerator` and `Engine`. |

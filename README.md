@@ -27,8 +27,9 @@ in 1.4; what changed is which modules exist and a few behaviours:
 - **Renamed:** `SnmpMgr.EngineV2` is now `SnmpMgr.Engine`, `SnmpMgr.MultiV2`
   is now `SnmpMgr.Multi`, `SnmpLib.MIB.*` is now `SnmpKit.MIB.*`, and
   `SnmpSim.Device.ErrorInjector` is now `SnmpSim.Device.ErrorConditions`.
-- **Removed:** the old streaming engine and its `Router`, `CircuitBreaker`,
-  `Metrics` and `SnmpMgr.Supervisor`; `SnmpMgr.SocketManager` (the engine
+- **Removed:** the old opt-in request-batching engine (`start_engine` /
+  `engine_request` / `engine_batch`) with its `Router`, `CircuitBreaker`,
+  `Metrics` and `SnmpMgr.Supervisor`, which no default operation used; `SnmpMgr.SocketManager` (the engine
   owns the socket); the Task-per-target `Multi` and the `strategy:` option;
   `SnmpLib.Config`, `Pool`, `Cache`, `Monitor`, `Dashboard`; the `SnmpLib.MIB`
   facade; `SnmpKit.TestSupport` (use `SnmpKit.SnmpSim`); `Keys.secure_wipe/1`;

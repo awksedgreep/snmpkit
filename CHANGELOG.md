@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Breaking release. See `docs/v2-migration.md` for the rename/removal table.
 
 ### Removed
-- Phase 5 streaming stack: `SnmpMgr.Engine` (old), `Router`, `CircuitBreaker`, `Metrics`, `SnmpMgr.Supervisor`, `SnmpMgr.Application`, and `SnmpMgr.start_engine/engine_request/engine_batch/get_engine_stats/with_circuit_breaker/record_metric` plus their `SnmpKit.SNMP` delegates.
+- The opt-in request-batching engine (no default operation used it): `SnmpMgr.Engine` (old), `Router`, `CircuitBreaker`, `Metrics`, `SnmpMgr.Supervisor`, `SnmpMgr.Application`, and `SnmpMgr.start_engine/engine_request/engine_batch/get_engine_stats/with_circuit_breaker/record_metric` plus their `SnmpKit.SNMP` delegates.
 - Task-per-target `SnmpMgr.Multi` and the `strategy:` option on multi-target calls.
 - `SnmpLib.MIB` facade, `SnmpLib.Config`, `SnmpLib.Pool`, `SnmpLib.Cache`, `SnmpLib.Monitor`, `SnmpLib.Dashboard`.
 - `SnmpKit.TestSupport` (lib) and the deprecated `Keys.secure_wipe/1`.
