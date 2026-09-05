@@ -57,18 +57,8 @@ end
 
 # SnmpKit handles its own logging configuration
 
-# Ensure no processes are using common test ports before starting tests
-for port <- [161, 1161, 4161] do
-  System.cmd("lsof", ["-i", ":#{port}", "-t"])
-  |> case do
-    {output, 0} ->
-      pids = String.split(output, "\n", trim: true)
-      Enum.each(pids, fn pid -> System.cmd("kill", ["-9", pid]) end)
-
-    _ ->
-      :ok
-  end
-end
+# Port isolation is handled by PortAllocator (started below); tests that need a
+# UDP port should request one from it rather than assuming fixed ports are free.
 
 # Test support modules are automatically compiled by Mix - no manual loading needed
 
