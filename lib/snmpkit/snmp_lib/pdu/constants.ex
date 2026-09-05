@@ -91,10 +91,13 @@ defmodule SnmpKit.SnmpLib.PDU.Constants do
 
   # SNMPv3 message format
   @type v3_message :: %{
+          # present on decoded messages: the parsed USM parameters (nil if not USM-shaped)
+          optional(:security_parameters) => map() | nil,
           version: 3,
           msg_id: non_neg_integer(),
           msg_max_size: non_neg_integer(),
-          msg_flags: binary(),
+          # decoded flag map (see msg_flags/0); the wire form is a 1-octet string
+          msg_flags: msg_flags(),
           msg_security_model: non_neg_integer(),
           msg_security_parameters: binary(),
           msg_data: scoped_pdu()

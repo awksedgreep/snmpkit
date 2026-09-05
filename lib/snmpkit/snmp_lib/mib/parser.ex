@@ -49,9 +49,9 @@ defmodule SnmpKit.SnmpLib.MIB.Parser do
 
           {:ok, module_name}
 
-        {:error, reason} ->
-          Logger.error("Failed to compile MIB grammar: #{inspect(reason)}")
-          {:error, {:grammar_compilation_failed, reason}}
+        {:error, errors, _warnings} ->
+          Logger.error("Failed to compile MIB grammar: #{inspect(errors)}")
+          {:error, {:grammar_compilation_failed, errors}}
 
         :error ->
           Logger.error("Grammar compilation failed with error")

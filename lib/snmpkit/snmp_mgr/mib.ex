@@ -1297,17 +1297,16 @@ defmodule SnmpKit.SnmpMgr.MIB do
         })
       end)
 
-    primitives =
-      MapSet.new([
-        :integer,
-        :octet_string,
-        :object_identifier,
-        :timeticks,
-        :counter32,
-        :counter64,
-        :gauge32,
-        :ip_address
-      ])
+    primitives = [
+      :integer,
+      :octet_string,
+      :object_identifier,
+      :timeticks,
+      :counter32,
+      :counter64,
+      :gauge32,
+      :ip_address
+    ]
 
     {name_to_oid_map, name_to_meta} =
       definitions
@@ -1331,7 +1330,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
               case syntax_any do
                 # Named type referencing a TC like :DisplayString
                 t when is_atom(t) ->
-                  if MapSet.member?(primitives, t) do
+                  if t in primitives do
                     {syntax_base_from(syntax_any), textual_convention_from(syntax_any), nil}
                   else
                     tc_key = Atom.to_string(t)

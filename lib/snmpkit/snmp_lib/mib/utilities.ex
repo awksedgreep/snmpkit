@@ -42,7 +42,7 @@ defmodule SnmpKit.SnmpLib.MIB.Utilities do
     # Start with root OIDs (those without parents)
     root_oids = find_root_oids(oid_table)
 
-    case resolve_oid_tree(root_oids, oid_table, MapSet.new()) do
+    case resolve_oid_tree(root_oids, oid_table, %{}) do
       {:ok, resolved_table} -> {:ok, resolved_table}
       {:error, reason} when is_binary(reason) -> {:error, [reason]}
       {:error, unresolved} when is_list(unresolved) -> {:error, unresolved}
@@ -272,12 +272,12 @@ defmodule SnmpKit.SnmpLib.MIB.Utilities do
   defp resolve_oid_tree([], oid_table, _visited), do: {:ok, oid_table}
 
   defp resolve_oid_tree([name | rest], oid_table, visited) do
-    if MapSet.member?(visited, name) do
+    if Map.has_key?(visited, name) do
       resolve_oid_tree(rest, oid_table, visited)
     else
       case resolve_single_oid(name, oid_table) do
         {:ok, updated_table} ->
-          new_visited = MapSet.put(visited, name)
+          new_visited = Map.put(visited, name, true)
           resolve_oid_tree(rest, updated_table, new_visited)
 
         {:error, reason} ->

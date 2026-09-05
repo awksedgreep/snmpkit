@@ -559,7 +559,6 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfiles do
         tuple =
           case read_oid_value(tables, next_oid, device_state) do
             {:ok, {type, value}} -> {next_oid, type, value}
-            {:ok, value} -> {next_oid, :octet_string, value}
             {:error, _} -> {next_oid, :octet_string, "Bulk value for #{next_oid}"}
           end
 
