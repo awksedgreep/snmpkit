@@ -252,46 +252,6 @@ defmodule SnmpKit.SnmpLib.Types do
   # Pass through untyped values
   def decode_value(value), do: value
 
-  @doc """
-  Parses an IP address string into a 4-tuple of integers.
-
-  ## Parameters
-
-  - `ip_string`: IP address as a string like "192.168.1.1"
-
-  ## Returns
-
-  - `{:ok, {a, b, c, d}}` on success
-  - `{:error, reason}` on failure
-
-  ## Examples
-
-      {:ok, {192, 168, 1, 1}} = SnmpKit.SnmpLib.Types.parse_ip_address("192.168.1.1")
-      {:ok, {127, 0, 0, 1}} = SnmpKit.SnmpLib.Types.parse_ip_address("127.0.0.1")
-      {:error, :invalid_format} = SnmpKit.SnmpLib.Types.parse_ip_address("invalid")
-  """
-  @spec parse_ip_address(binary()) :: {:ok, {0..255, 0..255, 0..255, 0..255}} | {:error, atom()}
-  def parse_ip_address(ip_string) when is_binary(ip_string) do
-    try do
-      case :inet.parse_address(String.to_charlist(ip_string)) do
-        {:ok, {a, b, c, d}}
-        when a >= 0 and a <= 255 and b >= 0 and b <= 255 and
-               c >= 0 and c <= 255 and d >= 0 and d <= 255 ->
-          {:ok, {a, b, c, d}}
-
-        {:ok, _} ->
-          {:error, :not_ipv4}
-
-        {:error, _} ->
-          {:error, :invalid_format}
-      end
-    rescue
-      _ -> {:error, :invalid_format}
-    end
-  end
-
-  def parse_ip_address(_), do: {:error, :invalid_input}
-
   ## Type Validation
 
   @doc """
@@ -345,23 +305,6 @@ defmodule SnmpKit.SnmpLib.Types do
   def validate_gauge32(_), do: {:error, :not_integer}
 
   @doc """
-  Validates a TimeTicks value.
-
-  TimeTicks represents time in hundredths of a second (centiseconds).
-  """
-  @spec validate_timeticks(term()) :: :ok | {:error, atom()}
-  def validate_timeticks(value)
-      when is_integer(value) and value >= 0 and value <= @max_timeticks do
-    :ok
-  end
-
-  def validate_timeticks(value) when is_integer(value) do
-    {:error, :out_of_range}
-  end
-
-  def validate_timeticks(_), do: {:error, :not_integer}
-
-  @doc """
   Validates a Counter64 value.
 
   Counter64 is a 64-bit unsigned integer for high-speed interfaces.
@@ -378,136 +321,7 @@ defmodule SnmpKit.SnmpLib.Types do
 
   def validate_counter64(_), do: {:error, :not_integer}
 
-  @doc """
-  Validates an IP address value.
-
-  IP address should be a 4-byte binary or a tuple of 4 integers.
-
-  ## Examples
-
-      :ok = SnmpKit.SnmpLib.Types.validate_ip_address(<<192, 168, 1, 1>>)
-      :ok = SnmpKit.SnmpLib.Types.validate_ip_address({192, 168, 1, 1})
-      {:error, :invalid_length} = SnmpKit.SnmpLib.Types.validate_ip_address(<<192, 168, 1>>)
-  """
-  @spec validate_ip_address(term()) :: :ok | {:error, atom()}
-  def validate_ip_address(<<a, b, c, d>>) when a <= 255 and b <= 255 and c <= 255 and d <= 255 do
-    :ok
-  end
-
-  def validate_ip_address({a, b, c, d})
-      when is_integer(a) and is_integer(b) and
-             is_integer(c) and is_integer(d) and
-             a >= 0 and a <= 255 and b >= 0 and b <= 255 and
-             c >= 0 and c <= 255 and d >= 0 and d <= 255 do
-    :ok
-  end
-
-  def validate_ip_address(value) when is_binary(value) do
-    # Check if it's a printable string (likely an IP address string)
-    if String.printable?(value) do
-      {:error, :invalid_format}
-    else
-      # It's binary data, check length
-      case byte_size(value) do
-        # Valid length but invalid values
-        4 -> {:error, :invalid_format}
-        # Wrong length
-        _ -> {:error, :invalid_length}
-      end
-    end
-  end
-
-  def validate_ip_address(_), do: {:error, :invalid_format}
-
-  @doc """
-  Validates an SNMP integer value.
-
-  SNMP INTEGER is a signed 32-bit integer.
-  """
-  @spec validate_integer(term()) :: :ok | {:error, atom()}
-  def validate_integer(value)
-      when is_integer(value) and value >= @min_integer and value <= @max_integer do
-    :ok
-  end
-
-  def validate_integer(value) when is_integer(value) do
-    {:error, :out_of_range}
-  end
-
-  def validate_integer(_), do: {:error, :not_integer}
-
-  @doc """
-  Validates an OCTET STRING value.
-
-  OCTET STRING should be a binary with reasonable length limits.
-  """
-  @spec validate_octet_string(term()) :: :ok | {:error, atom()}
-  def validate_octet_string(value) when is_binary(value) do
-    case byte_size(value) do
-      size when size <= 65535 -> :ok
-      _ -> {:error, :too_long}
-    end
-  end
-
-  def validate_octet_string(_), do: {:error, :not_binary}
-
-  @doc """
-  Validates an OBJECT IDENTIFIER value.
-
-  OID should be a list of non-negative integers.
-  """
-  @spec validate_oid(term()) :: :ok | {:error, atom()}
-  def validate_oid(oid) when is_list(oid) do
-    case SnmpKit.SnmpLib.OID.valid_oid?(oid) do
-      :ok -> :ok
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  def validate_oid(_), do: {:error, :not_list}
-
-  @doc """
-  Validates an Opaque value.
-
-  Opaque is used for arbitrary binary data.
-  """
-  @spec validate_opaque(term()) :: :ok | {:error, atom()}
-  def validate_opaque(value) when is_binary(value) do
-    case byte_size(value) do
-      size when size <= 65535 -> :ok
-      _ -> {:error, :too_long}
-    end
-  end
-
-  def validate_opaque(_), do: {:error, :not_binary}
-
   ## Formatting Utilities
-
-  @doc """
-  Formats TimeTicks as human-readable uptime string.
-
-  ## Parameters
-
-  - `centiseconds`: Time in centiseconds (hundredths of a second)
-
-  ## Returns
-
-  - Human-readable uptime string
-
-  ## Examples
-
-      "42 centiseconds" = SnmpKit.SnmpLib.Types.format_timeticks_uptime(42)
-      "1 second 50 centiseconds" = SnmpKit.SnmpLib.Types.format_timeticks_uptime(150)
-      "1 minute 30 seconds" = SnmpKit.SnmpLib.Types.format_timeticks_uptime(9000)
-      "2 hours 15 minutes 30 seconds" = SnmpKit.SnmpLib.Types.format_timeticks_uptime(81300)
-  """
-  @spec format_timeticks_uptime(non_neg_integer()) :: binary()
-  def format_timeticks_uptime(centiseconds) when is_integer(centiseconds) and centiseconds >= 0 do
-    total_seconds = div(centiseconds, 100)
-    remaining_centiseconds = rem(centiseconds, 100)
-
-    format_time_components(total_seconds, remaining_centiseconds)
-  end
 
   @doc """
   Formats Counter64 value with appropriate units.
@@ -520,129 +334,6 @@ defmodule SnmpKit.SnmpLib.Types do
   @spec format_counter64(non_neg_integer()) :: binary()
   def format_counter64(value) when is_integer(value) and value >= 0 do
     format_large_number(value)
-  end
-
-  @doc """
-  Formats an IP address from binary format.
-
-  ## Examples
-
-      "192.168.1.1" = SnmpKit.SnmpLib.Types.format_ip_address(<<192, 168, 1, 1>>)
-      "0.0.0.0" = SnmpKit.SnmpLib.Types.format_ip_address(<<0, 0, 0, 0>>)
-  """
-  @spec format_ip_address(binary()) :: binary()
-  def format_ip_address(<<a, b, c, d>>) do
-    "#{a}.#{b}.#{c}.#{d}"
-  end
-
-  def format_ip_address(_), do: "invalid"
-
-  @doc """
-  Formats bytes as human-readable size.
-
-  ## Examples
-
-      "1.5 KB" = SnmpKit.SnmpLib.Types.format_bytes(1536)
-      "2.3 MB" = SnmpKit.SnmpLib.Types.format_bytes(2400000)
-  """
-  @spec format_bytes(non_neg_integer()) :: binary()
-  def format_bytes(bytes) when is_integer(bytes) and bytes >= 0 do
-    cond do
-      bytes < 1024 ->
-        "#{bytes} B"
-
-      bytes < 1024 * 1024 ->
-        kb = Float.round(bytes / 1024, 1)
-        "#{kb} KB"
-
-      bytes < 1024 * 1024 * 1024 ->
-        mb = Float.round(bytes / (1024 * 1024), 1)
-        "#{mb} MB"
-
-      true ->
-        gb = Float.round(bytes / (1024 * 1024 * 1024), 1)
-        "#{gb} GB"
-    end
-  end
-
-  @doc """
-  Formats a rate value with units.
-
-  ## Examples
-
-      "100 bps" = SnmpKit.SnmpLib.Types.format_rate(100, "bps")
-      "1.5 Mbps" = SnmpKit.SnmpLib.Types.format_rate(1500000, "bps")
-  """
-  @spec format_rate(number(), binary()) :: binary()
-  def format_rate(value, unit) when is_number(value) and is_binary(unit) do
-    cond do
-      value < 1_000 ->
-        "#{value} #{unit}"
-
-      value < 1_000_000 ->
-        k_value = Float.round(value / 1_000, 1)
-        "#{k_value} K#{unit}"
-
-      value < 1_000_000_000 ->
-        m_value = Float.round(value / 1_000_000, 1)
-        "#{m_value} M#{unit}"
-
-      true ->
-        g_value = Float.round(value / 1_000_000_000, 1)
-        "#{g_value} G#{unit}"
-    end
-  end
-
-  @doc """
-  Truncates a string to a maximum length with ellipsis.
-
-  ## Examples
-
-      "hello" = SnmpKit.SnmpLib.Types.truncate_string("hello", 10)
-      "hello..." = SnmpKit.SnmpLib.Types.truncate_string("hello world", 8)
-  """
-  @spec truncate_string(binary(), pos_integer()) :: binary()
-  def truncate_string(string, max_length)
-      when is_binary(string) and is_integer(max_length) and max_length > 3 do
-    if String.length(string) <= max_length do
-      string
-    else
-      truncated = String.slice(string, 0, max_length - 3)
-      "#{truncated}..."
-    end
-  end
-
-  def truncate_string(string, max_length) when is_binary(string) and is_integer(max_length) do
-    String.slice(string, 0, max(max_length, 0))
-  end
-
-  @doc """
-  Formats binary data as hexadecimal string.
-
-  ## Examples
-
-      "48656C6C6F" = SnmpKit.SnmpLib.Types.format_hex(<<"Hello">>)
-      "DEADBEEF" = SnmpKit.SnmpLib.Types.format_hex(<<0xDE, 0xAD, 0xBE, 0xEF>>)
-  """
-  @spec format_hex(binary()) :: binary()
-  def format_hex(binary) when is_binary(binary) do
-    Base.encode16(binary)
-  end
-
-  @doc """
-  Parses a hexadecimal string to binary.
-
-  ## Examples
-
-      {:ok, <<"Hello">>} = SnmpKit.SnmpLib.Types.parse_hex_string("48656C6C6F")
-      {:error, :invalid_hex} = SnmpKit.SnmpLib.Types.parse_hex_string("XYZ")
-  """
-  @spec parse_hex_string(binary()) :: {:ok, binary()} | {:error, atom()}
-  def parse_hex_string(hex_string) when is_binary(hex_string) do
-    case Base.decode16(hex_string, case: :mixed) do
-      {:ok, binary} -> {:ok, binary}
-      :error -> {:error, :invalid_hex}
-    end
   end
 
   ## Type Coercion
@@ -668,14 +359,14 @@ defmodule SnmpKit.SnmpLib.Types do
   """
   @spec coerce_value(snmp_type(), term()) :: {:ok, snmp_value()} | {:error, atom()}
   def coerce_value(:integer, value) when is_integer(value) do
-    case validate_integer(value) do
+    case SnmpKit.SnmpLib.Types.Validation.validate_integer(value) do
       :ok -> {:ok, value}
       {:error, reason} -> {:error, reason}
     end
   end
 
   def coerce_value(:string, value) when is_binary(value) do
-    case validate_octet_string(value) do
+    case SnmpKit.SnmpLib.Types.Validation.validate_octet_string(value) do
       :ok -> {:ok, {:string, value}}
       {:error, reason} -> {:error, reason}
     end
@@ -686,7 +377,7 @@ defmodule SnmpKit.SnmpLib.Types do
   end
 
   def coerce_value(:oid, value) when is_list(value) do
-    case validate_oid(value) do
+    case SnmpKit.SnmpLib.Types.Validation.validate_oid(value) do
       :ok -> {:ok, value}
       {:error, reason} -> {:error, reason}
     end
@@ -714,7 +405,7 @@ defmodule SnmpKit.SnmpLib.Types do
   end
 
   def coerce_value(:timeticks, value) when is_integer(value) do
-    case validate_timeticks(value) do
+    case SnmpKit.SnmpLib.Types.Validation.validate_timeticks(value) do
       :ok -> {:ok, {:timeticks, value}}
       {:error, reason} -> {:error, reason}
     end
@@ -728,21 +419,21 @@ defmodule SnmpKit.SnmpLib.Types do
   end
 
   def coerce_value(:ip_address, <<_::32>> = value) do
-    case validate_ip_address(value) do
+    case SnmpKit.SnmpLib.Types.Validation.validate_ip_address(value) do
       :ok -> {:ok, {:ip_address, value}}
       {:error, reason} -> {:error, reason}
     end
   end
 
   def coerce_value(:ip_address, {a, b, c, d} = value) do
-    case validate_ip_address(value) do
+    case SnmpKit.SnmpLib.Types.Validation.validate_ip_address(value) do
       :ok -> {:ok, {:ip_address, <<a, b, c, d>>}}
       {:error, reason} -> {:error, reason}
     end
   end
 
   def coerce_value(:opaque, value) when is_binary(value) do
-    case validate_opaque(value) do
+    case SnmpKit.SnmpLib.Types.Validation.validate_opaque(value) do
       :ok -> {:ok, {:opaque, value}}
       {:error, reason} -> {:error, reason}
     end
@@ -768,14 +459,14 @@ defmodule SnmpKit.SnmpLib.Types do
   end
 
   def coerce_value(:octet_string, value) when is_binary(value) do
-    case validate_octet_string(value) do
+    case SnmpKit.SnmpLib.Types.Validation.validate_octet_string(value) do
       :ok -> {:ok, {:octet_string, value}}
       {:error, reason} -> {:error, reason}
     end
   end
 
   def coerce_value(:object_identifier, value) when is_list(value) do
-    case validate_oid(value) do
+    case SnmpKit.SnmpLib.Types.Validation.validate_oid(value) do
       :ok -> {:ok, {:object_identifier, value}}
       {:error, reason} -> {:error, reason}
     end
@@ -786,7 +477,7 @@ defmodule SnmpKit.SnmpLib.Types do
   end
 
   def coerce_value(:ip_address, value) when is_binary(value) do
-    case parse_ip_address(value) do
+    case SnmpKit.SnmpLib.Types.Format.parse_ip_address(value) do
       {:ok, ip_tuple} -> {:ok, {:ip_address, ip_tuple}}
       {:error, reason} -> {:error, reason}
     end
@@ -926,6 +617,23 @@ defmodule SnmpKit.SnmpLib.Types do
 
   def min_value(_), do: nil
 
+  ## Validation and formatting (implemented in Types.Validation / Types.Format)
+
+  defdelegate validate_timeticks(a1), to: SnmpKit.SnmpLib.Types.Validation
+  defdelegate validate_ip_address(a1), to: SnmpKit.SnmpLib.Types.Validation
+  defdelegate validate_integer(a1), to: SnmpKit.SnmpLib.Types.Validation
+  defdelegate validate_octet_string(a1), to: SnmpKit.SnmpLib.Types.Validation
+  defdelegate validate_oid(a1), to: SnmpKit.SnmpLib.Types.Validation
+  defdelegate validate_opaque(a1), to: SnmpKit.SnmpLib.Types.Validation
+  defdelegate format_timeticks_uptime(a1), to: SnmpKit.SnmpLib.Types.Format
+  defdelegate format_ip_address(a1), to: SnmpKit.SnmpLib.Types.Format
+  defdelegate format_bytes(a1), to: SnmpKit.SnmpLib.Types.Format
+  defdelegate format_rate(a1, a2), to: SnmpKit.SnmpLib.Types.Format
+  defdelegate truncate_string(a1, a2), to: SnmpKit.SnmpLib.Types.Format
+  defdelegate format_hex(a1), to: SnmpKit.SnmpLib.Types.Format
+  defdelegate parse_hex_string(a1), to: SnmpKit.SnmpLib.Types.Format
+  defdelegate parse_ip_address(a1), to: SnmpKit.SnmpLib.Types.Format
+
   ## Private Implementation for Enhanced Type System
 
   # Encode value with a specific type
@@ -972,7 +680,7 @@ defmodule SnmpKit.SnmpLib.Types do
 
   # Handle IP address encoding
   defp perform_encoding(value, :ip_address) when is_binary(value) do
-    case parse_ip_address(value) do
+    case SnmpKit.SnmpLib.Types.Format.parse_ip_address(value) do
       {:ok, ip_tuple} -> {:ok, ip_tuple}
       {:error, reason} -> {:error, reason}
     end
@@ -1003,18 +711,36 @@ defmodule SnmpKit.SnmpLib.Types do
   defp perform_encoding(_, _), do: {:error, :encoding_failed}
 
   # Validate encoded values
-  defp validate_encoded_value(:string, value), do: validate_octet_string(value)
-  defp validate_encoded_value(:octet_string, value), do: validate_octet_string(value)
-  defp validate_encoded_value(:integer, value), do: validate_integer(value)
+  defp validate_encoded_value(:string, value),
+    do: SnmpKit.SnmpLib.Types.Validation.validate_octet_string(value)
+
+  defp validate_encoded_value(:octet_string, value),
+    do: SnmpKit.SnmpLib.Types.Validation.validate_octet_string(value)
+
+  defp validate_encoded_value(:integer, value),
+    do: SnmpKit.SnmpLib.Types.Validation.validate_integer(value)
+
   defp validate_encoded_value(:unsigned32, value), do: validate_unsigned32(value)
   defp validate_encoded_value(:counter32, value), do: validate_counter32(value)
   defp validate_encoded_value(:gauge32, value), do: validate_gauge32(value)
-  defp validate_encoded_value(:timeticks, value), do: validate_timeticks(value)
+
+  defp validate_encoded_value(:timeticks, value),
+    do: SnmpKit.SnmpLib.Types.Validation.validate_timeticks(value)
+
   defp validate_encoded_value(:counter64, value), do: validate_counter64(value)
-  defp validate_encoded_value(:ip_address, value), do: validate_ip_address(value)
-  defp validate_encoded_value(:object_identifier, value), do: validate_oid(value)
-  defp validate_encoded_value(:oid, value), do: validate_oid(value)
-  defp validate_encoded_value(:opaque, value), do: validate_opaque(value)
+
+  defp validate_encoded_value(:ip_address, value),
+    do: SnmpKit.SnmpLib.Types.Validation.validate_ip_address(value)
+
+  defp validate_encoded_value(:object_identifier, value),
+    do: SnmpKit.SnmpLib.Types.Validation.validate_oid(value)
+
+  defp validate_encoded_value(:oid, value),
+    do: SnmpKit.SnmpLib.Types.Validation.validate_oid(value)
+
+  defp validate_encoded_value(:opaque, value),
+    do: SnmpKit.SnmpLib.Types.Validation.validate_opaque(value)
+
   defp validate_encoded_value(:boolean, value) when is_boolean(value), do: :ok
   defp validate_encoded_value(:boolean, _), do: {:error, :not_boolean}
   defp validate_encoded_value(:null, _), do: :ok
@@ -1024,7 +750,7 @@ defmodule SnmpKit.SnmpLib.Types do
   defp ip_address_string?(value) when is_binary(value) do
     # Simple regex check before expensive parsing
     if Regex.match?(~r/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/, value) do
-      case parse_ip_address(value) do
+      case SnmpKit.SnmpLib.Types.Format.parse_ip_address(value) do
         {:ok, _} -> true
         _ -> false
       end
@@ -1051,38 +777,6 @@ defmodule SnmpKit.SnmpLib.Types do
   defp oid_list?(_), do: false
 
   ## Private Helper Functions
-
-  defp format_time_components(0, 0), do: "0 centiseconds"
-  defp format_time_components(0, centiseconds), do: "#{centiseconds} centiseconds"
-
-  defp format_time_components(total_seconds, centiseconds) do
-    days = div(total_seconds, 86400)
-    remaining_seconds = rem(total_seconds, 86400)
-    hours = div(remaining_seconds, 3600)
-    remaining_seconds = rem(remaining_seconds, 3600)
-    minutes = div(remaining_seconds, 60)
-    seconds = rem(remaining_seconds, 60)
-
-    parts = []
-    parts = if days > 0, do: ["#{days} day#{plural(days)}" | parts], else: parts
-    parts = if hours > 0, do: ["#{hours} hour#{plural(hours)}" | parts], else: parts
-    parts = if minutes > 0, do: ["#{minutes} minute#{plural(minutes)}" | parts], else: parts
-    parts = if seconds > 0, do: ["#{seconds} second#{plural(seconds)}" | parts], else: parts
-
-    parts =
-      if centiseconds > 0,
-        do: ["#{centiseconds} centisecond#{plural(centiseconds)}" | parts],
-        else: parts
-
-    case Enum.reverse(parts) do
-      [] -> "0 centiseconds"
-      [single] -> single
-      parts -> Enum.join(parts, " ")
-    end
-  end
-
-  defp plural(1), do: ""
-  defp plural(_), do: "s"
 
   defp format_large_number(number) when is_integer(number) do
     number
