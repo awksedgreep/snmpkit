@@ -8,8 +8,12 @@ defmodule SnmpKit.SnmpMgr.EngineTest do
     {:ok, engine} = Engine.start_link(name: :test_engine_v2)
 
     on_exit(fn ->
-      if Process.alive?(engine) do
+      # The engine traps exits and is linked to the test process, so it may
+      # already be shutting down when on_exit runs.
+      try do
         GenServer.stop(engine)
+      catch
+        :exit, _ -> :ok
       end
     end)
 
