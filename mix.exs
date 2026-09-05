@@ -161,6 +161,9 @@ defmodule Snmpkit.MixProject do
         "MIB Support": [
           SnmpKit.MibParser,
           SnmpKit.SnmpMgr.MIB,
+          SnmpKit.MIB.Builtin,
+          SnmpKit.MIB.Resolver,
+          SnmpKit.MIB.Import,
           SnmpKit.MIB.Compiler,
           SnmpKit.MIB.Parser,
           SnmpKit.MIB.Registry

@@ -32,6 +32,15 @@ is unaffected.
 | `SnmpKit.SnmpLib.Pool`, `Cache`, `Monitor`, `Dashboard` | None. These were unused by the library; copy the 1.4 modules into your application if you depended on them. |
 | `SnmpKit.SnmpLib.Security.Keys.secure_wipe/1` | None (it was a no-op). |
 
+## Internal reorganisation (no call-site changes)
+
+`SnmpKit.SnmpMgr.MIB` keeps its public API but is now ~600 lines: the
+built-in name/OID and syntax tables live in `SnmpKit.MIB.Builtin`, the pure
+lookup functions in `SnmpKit.MIB.Resolver`, and the conversion of parsed or
+compiled MIB data into registry maps in `SnmpKit.MIB.Import`. One behaviour
+change: `SnmpMgr.MIB.load/1` merges the loaded objects into the registry
+(the 1.x fallback path silently discarded them).
+
 ## Behaviour unchanged since 1.4
 
 Enriched result maps, the RFC-compliant SNMPv3 stack, SNMPv1/v2c end-of-MIB
