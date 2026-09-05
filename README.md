@@ -68,7 +68,7 @@ Multi-target defaults (1.0)
 ```elixir
 def deps do
   [
-    {:snmpkit, "~> 1.3"}
+    {:snmpkit, "~> 1.4"}
   ]
 end
 ```
@@ -102,7 +102,8 @@ device_profile = %{
 
 - **`SnmpKit.SNMP`** - Complete SNMP manager protocol operations
 - **`SnmpKit.MIB`** - Comprehensive MIB management  
-- **`SnmpKit.Sim`** - Realistic device simulation
+- **`SnmpKit.Sim`** - Realistic device simulation (single devices)
+- **`SnmpKit.SnmpSim`** - Configuration-driven simulation of whole device groups
 - **`SnmpKit`** - Direct access for convenience
 
 ## 📚 Documentation

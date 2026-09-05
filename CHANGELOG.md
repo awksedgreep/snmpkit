@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-09-05
+
+Final 1.x release. Full notes: `docs/v1.4.0-release-notes.md`.
+
+### Added
+- `SnmpKit.SnmpSim` top-level API: start device groups from a config map or JSON/YAML file; list, count and stop devices.
+- Opt-in per-target circuit breaker in `SnmpMgr.Engine`; `CircuitBreaker.allow?/2`.
+- `SnmpKit.SnmpSim.SafeFile` with size cap and optional directory jail for simulator inputs.
+- `.credo.exs`, `mix lint`, HexDocs module groups, specs on core SnmpMgr modules; CI checks formatting and warnings.
+
+### Changed
+- SNMPv3 authentication, privacy and key derivation follow RFC 3414/3826/7860 (breaks interop with 1.3.x v3 traffic; DES keys are 16 octets).
+- SNMPv2c GET of an unknown object returns `{:error, :no_such_object}`; SNMPv1 end-of-MIB is a noSuchName error, SNMPv2c an endOfMibView exception.
+- Simulator GETBULK honours `max-repetitions` as requested (no 50 cap) and stops at a single endOfMibView.
+- `SnmpMgr.Walk` returns enriched maps on the SNMPv1 path too; docs updated.
+- Manager services start supervised with the application; `Engine.submit_request/3` waits `:timeout` + 1s.
+- `SharedProfiles` reads come straight from ETS with an ordered OID index.
+
+### Fixed
+- OID BER encoding of the first two arcs (X.690 8.19); malformed PDUs are errors, not empty results.
+- `:port` option honoured on every manager request path.
+- Engine double replies, timer/socket leaks, pool saturation; Router crash propagation and atom minting; SocketManager health math.
+- Simulator worker/packet bounds, atom creation from input, frozen bulk counters, hard-coded sysUpTime, `IO.inspect` in lib.
+- Compiled MIBs load with `binary_to_term(:safe)`; MIB grammar compile errors are reported.
+
+### Deprecated
+- `SnmpKit.SnmpLib.Security.Keys.secure_wipe/1` (no-op; removed in 2.0).
+
+### Removed
+- Superseded root `test/walk_*` debug test files and the `lsof`/`kill -9` port sweep in `test_helper.exs`.
+
 ## [1.3.5] - 2025-12-25
 
 ### Fixed
