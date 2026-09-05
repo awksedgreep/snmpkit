@@ -48,25 +48,14 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
       :timer.sleep(100)
     end
 
-    # Benchmark V2 architecture (new)
-    Logger.info("Benchmarking MultiV2 (new architecture)...")
+    Logger.info("Benchmarking Multi...")
 
     v2_results =
       for _ <- 1..benchmark_rounds do
         benchmark_multiv2(targets, max_concurrent, timeout)
       end
 
-    # Benchmark V1 architecture (old) for comparison
-    Logger.info("Benchmarking Multi (old architecture)...")
-
-    v1_results =
-      for _ <- 1..benchmark_rounds do
-        benchmark_multi_old(targets, max_concurrent, timeout)
-      end
-
-    # Analyze results
-    v2_stats = analyze_benchmark_results(v2_results, "MultiV2 (New)")
-    v1_stats = analyze_benchmark_results(v1_results, "Multi (Old)")
+    v2_stats = analyze_benchmark_results(v2_results, "Multi")
 
     # Memory profiling
     Logger.info("Running memory profiling...")
@@ -80,7 +69,7 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
     cleanup_simulation_devices(devices)
 
     # Generate comprehensive report
-    generate_performance_report(v2_stats, v1_stats, memory_stats, buffer_stats, opts)
+    generate_performance_report(v2_stats, memory_stats, buffer_stats, opts)
   end
 
   @doc """
@@ -315,35 +304,6 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
 
     # Run the benchmark
     results =
-      SnmpKit.SnmpMgr.MultiV2.get_multi(targets,
-        max_concurrent: max_concurrent,
-        timeout: timeout
-      )
-
-    end_time = System.monotonic_time(:millisecond)
-    duration = end_time - start_time
-
-    # Count successful vs failed requests
-    {success_count, error_count} =
-      Enum.reduce(results, {0, 0}, fn
-        {:ok, _}, {s, e} -> {s + 1, e}
-        {:error, _}, {s, e} -> {s, e + 1}
-      end)
-
-    %{
-      duration_ms: duration,
-      total_requests: length(results),
-      success_count: success_count,
-      error_count: error_count,
-      requests_per_second: if(duration > 0, do: length(results) / (duration / 1000), else: 0)
-    }
-  end
-
-  defp benchmark_multi_old(targets, max_concurrent, timeout) do
-    start_time = System.monotonic_time(:millisecond)
-
-    # Run the benchmark using old Multi architecture
-    results =
       SnmpKit.SnmpMgr.Multi.get_multi(targets,
         max_concurrent: max_concurrent,
         timeout: timeout
@@ -393,7 +353,7 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
     else
       # Run one batch
       _results =
-        SnmpKit.SnmpMgr.MultiV2.get_multi(targets,
+        SnmpKit.SnmpMgr.Multi.get_multi(targets,
           max_concurrent: max_concurrent,
           timeout: 500
         )
@@ -439,23 +399,7 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
     end
   end
 
-  defp generate_performance_report(v2_stats, v1_stats, memory_stats, buffer_stats, opts) do
-    # Calculate performance improvements
-    throughput_improvement =
-      if v1_stats.avg_throughput_rps > 0 do
-        (v2_stats.avg_throughput_rps - v1_stats.avg_throughput_rps) / v1_stats.avg_throughput_rps *
-          100
-      else
-        0
-      end
-
-    duration_improvement =
-      if v1_stats.avg_duration_ms > 0 do
-        (v1_stats.avg_duration_ms - v2_stats.avg_duration_ms) / v1_stats.avg_duration_ms * 100
-      else
-        0
-      end
-
+  defp generate_performance_report(v2_stats, memory_stats, buffer_stats, opts) do
     report = """
 
     ========================================
@@ -469,22 +413,11 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
       Timeout: #{Keyword.get(opts, :timeout, 5000)}ms
       Benchmark Rounds: #{Keyword.get(opts, :benchmark_rounds, 10)}
 
-    OLD Architecture (Multi) Results:
-      Average Duration: #{safe_round(v1_stats.avg_duration_ms, 2)}ms
-      Average Success Rate: #{safe_round(v1_stats.avg_success_rate * 100, 2)}%
-      Average Throughput: #{safe_round(v1_stats.avg_throughput_rps, 2)} requests/sec
-      Peak Throughput: #{safe_round(v1_stats.max_throughput_rps, 2)} requests/sec
-
-    NEW Architecture (MultiV2) Results:
+    Multi Results:
       Average Duration: #{safe_round(v2_stats.avg_duration_ms, 2)}ms
       Average Success Rate: #{safe_round(v2_stats.avg_success_rate * 100, 2)}%
       Average Throughput: #{safe_round(v2_stats.avg_throughput_rps, 2)} requests/sec
       Peak Throughput: #{safe_round(v2_stats.max_throughput_rps, 2)} requests/sec
-
-    PERFORMANCE IMPROVEMENTS:
-      Duration Improvement: #{safe_round(duration_improvement, 2)}% faster
-      Throughput Improvement: #{safe_round(throughput_improvement, 2)}% higher
-      Speedup Factor: #{safe_round(v2_stats.avg_throughput_rps / v1_stats.avg_throughput_rps, 2)}x
 
     Memory Usage:
       Baseline Memory: #{format_bytes(memory_stats.baseline_memory)}
@@ -497,13 +430,6 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
       Average Utilization: #{safe_round(buffer_stats.avg_utilization, 2)}%
       Buffer Samples: #{length(buffer_stats.buffer_samples)}
 
-    Architecture Benefits Demonstrated:
-      ✓ Eliminated GenServer bottleneck - direct UDP sending
-      ✓ Shared socket reduces overhead vs individual sockets
-      ✓ Atomic request ID generation via ETS
-      ✓ Proper concurrency control via Task.async_stream
-      ✓ Real-time buffer monitoring prevents packet loss
-
     ========================================
     """
 
@@ -511,11 +437,8 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
 
     %{
       v2_stats: v2_stats,
-      v1_stats: v1_stats,
       memory_stats: memory_stats,
       buffer_stats: buffer_stats,
-      throughput_improvement: throughput_improvement,
-      duration_improvement: duration_improvement,
       report: report
     }
   end

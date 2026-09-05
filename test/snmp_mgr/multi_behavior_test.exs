@@ -23,32 +23,11 @@ defmodule SnmpKit.SnmpMgr.MultiBehaviorTest do
 
       assert Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator)
       assert Process.whereis(SnmpKit.SnmpMgr.SocketManager)
-      assert Process.whereis(SnmpKit.SnmpMgr.EngineV2)
+      assert Process.whereis(SnmpKit.SnmpMgr.Engine)
     end
 
-    test "default strategy is :concurrent (EngineV2), returns list of results" do
+    test "default multi returns list of results" do
       results = SnmpKit.SnmpMgr.get_multi([{"invalid.host.test", "sysDescr.0"}], timeout: 50)
-      assert Process.whereis(SnmpKit.SnmpMgr.EngineV2)
-
-      assert is_list(results)
-      assert length(results) == 1
-
-      case hd(results) do
-        {:ok, %{oid: _oid, type: _type, value: _value}} -> :ok
-        {:error, _reason} -> :ok
-        other -> flunk("unexpected result: #{inspect(other)}")
-      end
-    end
-
-    test "strategy: :simple uses legacy multi engine and returns list of results" do
-      results =
-        SnmpKit.SnmpMgr.get_multi(
-          [{"invalid.host.test", "sysDescr.0"}],
-          timeout: 50,
-          strategy: :simple
-        )
-
-      # Legacy engine should be started by legacy path
       assert Process.whereis(SnmpKit.SnmpMgr.Engine)
 
       assert is_list(results)
@@ -90,11 +69,11 @@ defmodule SnmpKit.SnmpMgr.MultiBehaviorTest do
 
     test "auto-ensure is idempotent" do
       _ = SnmpKit.SnmpMgr.get_multi([{"invalid.host.test", "sysName.0"}], timeout: 50)
-      pid1 = Process.whereis(SnmpKit.SnmpMgr.EngineV2)
+      pid1 = Process.whereis(SnmpKit.SnmpMgr.Engine)
       assert is_pid(pid1)
 
       _ = SnmpKit.SnmpMgr.get_multi([{"invalid.host.test", "sysName.0"}], timeout: 50)
-      pid2 = Process.whereis(SnmpKit.SnmpMgr.EngineV2)
+      pid2 = Process.whereis(SnmpKit.SnmpMgr.Engine)
       assert pid1 == pid2
     end
 
@@ -105,7 +84,7 @@ defmodule SnmpKit.SnmpMgr.MultiBehaviorTest do
           max_repetitions: 5
         )
 
-      assert Process.whereis(SnmpKit.SnmpMgr.EngineV2)
+      assert Process.whereis(SnmpKit.SnmpMgr.Engine)
       assert is_list(results)
       assert length(results) == 1
 
@@ -116,13 +95,8 @@ defmodule SnmpKit.SnmpMgr.MultiBehaviorTest do
       end
     end
 
-    test "get_bulk_multi with strategy: :simple still returns ordered results" do
-      results =
-        SnmpKit.SnmpMgr.get_bulk_multi([{"invalid.host.test", "ifTable"}],
-          timeout: 50,
-          max_repetitions: 5,
-          strategy: :simple
-        )
+    test "walk_multi defaults to concurrent strategy" do
+      results = SnmpKit.SnmpMgr.walk_multi([{"invalid.host.test", "system"}], timeout: 50)
 
       assert Process.whereis(SnmpKit.SnmpMgr.Engine)
       assert is_list(results)
@@ -131,38 +105,7 @@ defmodule SnmpKit.SnmpMgr.MultiBehaviorTest do
       case hd(results) do
         {:ok, _} -> :ok
         {:error, _} -> :ok
-        other -> flunk("unexpected get_bulk_multi simple result: #{inspect(other)}")
-      end
-    end
-
-    test "walk_multi defaults to concurrent strategy" do
-      results = SnmpKit.SnmpMgr.walk_multi([{"invalid.host.test", "system"}], timeout: 50)
-
-      assert Process.whereis(SnmpKit.SnmpMgr.EngineV2)
-      assert is_list(results)
-      assert length(results) == 1
-
-      case hd(results) do
-        {:ok, _} -> :ok
-        {:error, _} -> :ok
         other -> flunk("unexpected walk_multi result: #{inspect(other)}")
-      end
-    end
-
-    test "walk_table_multi with strategy: :simple still returns one result per target" do
-      results =
-        SnmpKit.SnmpMgr.walk_table_multi([{"invalid.host.test", "ifTable"}],
-          timeout: 50,
-          strategy: :simple
-        )
-
-      assert is_list(results)
-      assert length(results) == 1
-
-      case hd(results) do
-        {:ok, _} -> :ok
-        {:error, _} -> :ok
-        other -> flunk("unexpected walk_table_multi simple result: #{inspect(other)}")
       end
     end
   end

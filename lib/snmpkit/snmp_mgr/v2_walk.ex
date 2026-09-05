@@ -10,7 +10,7 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
   require Logger
 
   alias SnmpKit.SnmpLib.{PDU, Transport}
-  alias SnmpKit.SnmpMgr.{EngineV2, RequestIdGenerator, SocketManager}
+  alias SnmpKit.SnmpMgr.{Engine, RequestIdGenerator, SocketManager}
 
   @default_timeout 30_000
   @default_walk_timeout 1_200_000
@@ -92,7 +92,7 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
         await_walk_message(state, deadline)
     after
       receive_timeout ->
-        EngineV2.unregister_request(EngineV2, state.request_id)
+        Engine.unregister_request(Engine, state.request_id)
         Logger.warning("SNMP walk internal timeout for target #{inspect(state.request.target)}")
         {:error, :timeout}
     end
@@ -219,7 +219,7 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
     Enum.reduce(state.active, %{state | active: %{}}, fn {request_id, walk_state}, acc ->
       cond do
         walk_expired?(walk_state, now) ->
-          EngineV2.unregister_request(EngineV2, request_id)
+          Engine.unregister_request(Engine, request_id)
 
           Logger.warning(
             "SNMP walk exceeded walk_timeout for target #{inspect(walk_state.request.target)}"
@@ -228,7 +228,7 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
           %{acc | results: Map.put(acc.results, walk_state.index, {:error, :timeout})}
 
         request_expired?(walk_state, now) ->
-          EngineV2.unregister_request(EngineV2, request_id)
+          Engine.unregister_request(Engine, request_id)
 
           Logger.warning(
             "SNMP walk internal timeout for target #{inspect(walk_state.request.target)}"
@@ -267,7 +267,7 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
     if per_pdu_timeout <= 0 do
       {:error, :timeout}
     else
-      EngineV2.register_request(EngineV2, request_id, self(), per_pdu_timeout)
+      Engine.register_request(Engine, request_id, self(), per_pdu_timeout)
 
       case build_and_send_get_bulk(socket, walk_state, request_id) do
         :ok ->
@@ -283,7 +283,7 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
            }}
 
         {:error, reason} ->
-          EngineV2.unregister_request(EngineV2, request_id)
+          Engine.unregister_request(Engine, request_id)
           {:error, reason}
       end
     end

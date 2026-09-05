@@ -4,7 +4,7 @@ defmodule Snmpkit.MixProject do
   def project do
     [
       app: :snmpkit,
-      version: "1.4.0",
+      version: "2.0.0-dev",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -174,7 +174,6 @@ defmodule Snmpkit.MixProject do
           SnmpKit.SnmpMgr.Bulk,
           SnmpKit.SnmpMgr.Table,
           SnmpKit.SnmpMgr.Multi,
-          SnmpKit.SnmpMgr.MultiV2,
           SnmpKit.SnmpMgr.Format,
           SnmpKit.SnmpMgr.Target,
           SnmpKit.SnmpMgr.Types,
@@ -183,13 +182,8 @@ defmodule Snmpkit.MixProject do
         ],
         "Manager Infrastructure": [
           SnmpKit.SnmpMgr.Engine,
-          SnmpKit.SnmpMgr.EngineV2,
-          SnmpKit.SnmpMgr.Router,
-          SnmpKit.SnmpMgr.CircuitBreaker,
-          SnmpKit.SnmpMgr.Metrics,
           SnmpKit.SnmpMgr.SocketManager,
           SnmpKit.SnmpMgr.RequestIdGenerator,
-          SnmpKit.SnmpMgr.Supervisor,
           SnmpKit.SnmpLib.Pool,
           SnmpKit.SnmpLib.Cache,
           SnmpKit.SnmpLib.Monitor,

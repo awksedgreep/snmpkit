@@ -10,7 +10,7 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
     # Ensure a clean slate for each test
     # Stop services if running
     for name <- [
-          SnmpKit.SnmpMgr.EngineV2,
+          SnmpKit.SnmpMgr.Engine,
           SnmpKit.SnmpMgr.SocketManager,
           SnmpKit.SnmpMgr.RequestIdGenerator
         ] do
@@ -31,7 +31,7 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
       Config.reset()
 
       for name <- [
-            SnmpKit.SnmpMgr.EngineV2,
+            SnmpKit.SnmpMgr.Engine,
             SnmpKit.SnmpMgr.SocketManager,
             SnmpKit.SnmpMgr.RequestIdGenerator
           ] do
@@ -49,15 +49,15 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
     Config.set_default_auto_start_services(false)
 
     # Sanity: ensure not running
-    assert Process.whereis(SnmpKit.SnmpMgr.EngineV2) == nil
+    assert Process.whereis(SnmpKit.SnmpMgr.Engine) == nil
     assert Process.whereis(SnmpKit.SnmpMgr.SocketManager) == nil
     assert Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator) == nil
 
     # Run a no-op multi call (empty list) to avoid network, but would auto-start if enabled
-    _ = SnmpKit.SnmpMgr.MultiV2.get_multi([])
+    _ = SnmpKit.SnmpMgr.Multi.get_multi([])
 
     # Should still be not running
-    assert Process.whereis(SnmpKit.SnmpMgr.EngineV2) == nil
+    assert Process.whereis(SnmpKit.SnmpMgr.Engine) == nil
     assert Process.whereis(SnmpKit.SnmpMgr.SocketManager) == nil
     assert Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator) == nil
   end
@@ -69,7 +69,7 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
     :ok = SnmpKit.SnmpMgr.ensure_started()
 
     # Verify
-    assert is_pid(Process.whereis(SnmpKit.SnmpMgr.EngineV2))
+    assert is_pid(Process.whereis(SnmpKit.SnmpMgr.Engine))
     assert is_pid(Process.whereis(SnmpKit.SnmpMgr.SocketManager))
     assert is_pid(Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator))
   end
@@ -79,7 +79,7 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
 
     # Ensure stopped first
     for name <- [
-          SnmpKit.SnmpMgr.EngineV2,
+          SnmpKit.SnmpMgr.Engine,
           SnmpKit.SnmpMgr.SocketManager,
           SnmpKit.SnmpMgr.RequestIdGenerator
         ] do
@@ -90,10 +90,10 @@ defmodule SnmpKit.SnmpMgr.AutoStartConfigTest do
     end
 
     # Trigger auto-start via no-op call
-    _ = SnmpKit.SnmpMgr.MultiV2.get_multi([])
+    _ = SnmpKit.SnmpMgr.Multi.get_multi([])
 
     # Should be running now
-    assert is_pid(Process.whereis(SnmpKit.SnmpMgr.EngineV2))
+    assert is_pid(Process.whereis(SnmpKit.SnmpMgr.Engine))
     assert is_pid(Process.whereis(SnmpKit.SnmpMgr.SocketManager))
     assert is_pid(Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator))
   end

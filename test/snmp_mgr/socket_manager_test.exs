@@ -4,10 +4,10 @@ defmodule SnmpKit.SnmpMgr.SocketManagerTest do
   alias SnmpKit.SnmpMgr.SocketManager
 
   setup do
-    # The application starts EngineV2, which SocketManager prefers as the
+    # The application starts Engine, which SocketManager prefers as the
     # forwarding target. These tests register a mock under the legacy Engine
-    # name, so take EngineV2 down for the duration and restore it afterwards.
-    if pid = Process.whereis(SnmpKit.SnmpMgr.EngineV2), do: GenServer.stop(pid)
+    # name, so take Engine down for the duration and restore it afterwards.
+    if pid = Process.whereis(SnmpKit.SnmpMgr.Engine), do: GenServer.stop(pid)
     unregister_mock_engine()
 
     # Start a test socket manager

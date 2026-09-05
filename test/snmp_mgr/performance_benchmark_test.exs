@@ -1,7 +1,7 @@
 defmodule SnmpKit.SnmpMgr.PerformanceBenchmarkTest do
   use ExUnit.Case, async: false
 
-  alias SnmpKit.SnmpMgr.{PerformanceBenchmark, RequestIdGenerator, SocketManager, EngineV2}
+  alias SnmpKit.SnmpMgr.{PerformanceBenchmark, RequestIdGenerator, SocketManager, Engine}
 
   @moduletag :performance
 
@@ -17,7 +17,7 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmarkTest do
       {:error, {:already_started, _}} -> :ok
     end
 
-    case EngineV2.start_link() do
+    case Engine.start_link() do
       {:ok, _} -> :ok
       {:error, {:already_started, _}} -> :ok
     end
@@ -45,7 +45,7 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmarkTest do
 
     # Verify v2_stats contains expected fields
     v2_stats = result.v2_stats
-    assert v2_stats.name == "MultiV2"
+    assert v2_stats.name == "Multi"
     assert is_number(v2_stats.avg_duration_ms)
     assert is_number(v2_stats.avg_throughput_rps)
     assert v2_stats.sample_count == 2

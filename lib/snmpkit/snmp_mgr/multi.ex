@@ -1,9 +1,10 @@
 defmodule SnmpKit.SnmpMgr.Multi do
   @moduledoc """
-  Concurrent multi-target SNMP operations.
+  High-performance concurrent multi-target SNMP operations.
 
-  Provides functions to perform SNMP operations against multiple targets
-  concurrently, with configurable timeouts and error handling.
+  This module provides efficient SNMP operations against multiple targets
+  using direct UDP sending and centralized response correlation, eliminating
+  GenServer bottlenecks while maintaining proper concurrency control.
   """
 
   require Logger
@@ -16,64 +17,36 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
   ## Parameters
   - `targets_and_oids` - List of {target, oid} or {target, oid, opts} tuples
-  - `opts` - Global options applied to all requests
+  - `opts` - Default options applied to all requests
+    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
+      How long to wait for each individual SNMP response
+    - `:max_concurrent` - Maximum concurrent requests (default: 10)
     - `:return_format` - Format of returned results (default: `:list`)
       - `:list` - Returns list of results in same order as input
       - `:with_targets` - Returns list of {target, oid, result} tuples
       - `:map` - Returns map with {target, oid} keys and result values
 
+  ## Per-Request Options
+  Individual requests can override call-level options by providing a third element:
+  - `{target, oid, opts}` where opts can include:
+    - `:timeout` - Override the default per-PDU timeout for this specific request
+    - `:community` - Override SNMP community string
+    - `:version` - Override SNMP version (:v1, :v2c)
+
   ## Examples
 
       iex> requests = [
       ...>   {"device1", "sysDescr.0"},
-      ...>   {"device2", "sysUpTime.0"},
-      ...>   {"device3", "ifNumber.0"}
+      ...>   {"device2", "sysUpTime.0"}
       ...> ]
-
-      # Default list format
       iex> SnmpKit.SnmpMgr.Multi.get_multi(requests)
       [
         {:ok, "Device 1 Description"},
-        {:ok, 123456},
-        {:error, :timeout}
+        {:ok, 123456}
       ]
-
-      # With targets format - includes host/oid association
-      iex> SnmpKit.SnmpMgr.Multi.get_multi(requests, return_format: :with_targets)
-      [
-        {"device1", "sysDescr.0", {:ok, "Device 1 Description"}},
-        {"device2", "sysUpTime.0", {:ok, 123456}},
-        {"device3", "ifNumber.0", {:error, :timeout}}
-      ]
-
-      # Map format - easy result lookup by host/oid
-      iex> SnmpKit.SnmpMgr.Multi.get_multi(requests, return_format: :map)
-      %{
-        {"device1", "sysDescr.0"} => {:ok, "Device 1 Description"},
-        {"device2", "sysUpTime.0"} => {:ok, 123456},
-        {"device3", "ifNumber.0"} => {:error, :timeout}
-      }
   """
-  @type target :: binary() | tuple() | map()
-  @type oid :: binary() | [non_neg_integer()]
-  @type request :: {target(), oid()} | {target(), oid(), keyword()}
-  @type result :: {:ok, term()} | {:error, term()}
-
-  @spec get_multi([request()], keyword()) :: [result()] | map()
   def get_multi(targets_and_oids, opts \\ []) do
-    timeout = Keyword.get(opts, :timeout, @default_timeout)
-    _max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
-
-    # Use Engine for shared socket operations
-    engine = get_or_start_engine(opts)
-
-    # Convert to engine request format
-    requests = normalize_requests_for_engine(targets_and_oids, :get, opts)
-
-    # Submit batch to engine
-    results = submit_batch_to_engine(engine, requests, timeout)
-
-    format_results(targets_and_oids, results, opts)
+    execute_multi_operation(targets_and_oids, :get, opts)
   end
 
   @doc """
@@ -81,264 +54,401 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
   ## Parameters
   - `targets_and_oids` - List of {target, oid} or {target, oid, opts} tuples
-  - `opts` - Global options applied to all requests
-    - `:return_format` - Format of returned results (default: `:list`)
-      - `:list` - Returns list of results in same order as input
-      - `:with_targets` - Returns list of {target, oid, result} tuples
-      - `:map` - Returns map with {target, oid} keys and result values
+  - `opts` - Default options applied to all requests
+    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
+      How long to wait for each individual SNMP response
+    - `:max_repetitions` - Maximum repetitions for GetBulk (default: 30)
+    - `:max_concurrent` - Maximum concurrent requests (default: 10)
+
+  ## Per-Request Options
+  Individual requests can override call-level options:
+    - `:timeout` - Override the default per-PDU timeout for this specific request
+    - `:max_repetitions` - Override max repetitions for this request
 
   ## Examples
 
       iex> requests = [
       ...>   {"switch1", "ifTable"},
-      ...>   {"switch2", "ifTable"},
-      ...>   {"router1", "ipRouteTable"}
+      ...>   {"switch2", "ifTable"}
       ...> ]
-
-      # Default list format
       iex> SnmpKit.SnmpMgr.Multi.get_bulk_multi(requests, max_repetitions: 20)
       [
-        {:ok, [{[1,3,6,1,2,1,2,2,1,2,1], :octet_string, "eth0"}, ...]},
-        {:ok, [{[1,3,6,1,2,1,2,2,1,2,1], :octet_string, "GigE0/1"}, ...]},
-        {:error, :timeout}
+        {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "eth0"}, ...]},
+        {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "GigE0/1"}, ...]}
       ]
-
-      # With targets format
-      iex> SnmpKit.SnmpMgr.Multi.get_bulk_multi(requests, return_format: :with_targets, max_repetitions: 20)
-      [
-        {"switch1", "ifTable", {:ok, [{[1,3,6,1,2,1,2,2,1,2,1], :octet_string, "eth0"}, ...]}},
-        {"switch2", "ifTable", {:ok, [{[1,3,6,1,2,1,2,2,1,2,1], :octet_string, "GigE0/1"}, ...]}},
-        {"router1", "ipRouteTable", {:error, :timeout}}
-      ]
-
-      # Map format
-      iex> SnmpKit.SnmpMgr.Multi.get_bulk_multi(requests, return_format: :map, max_repetitions: 20)
-      %{
-        {"switch1", "ifTable"} => {:ok, [{[1,3,6,1,2,1,2,2,1,2,1], :octet_string, "eth0"}, ...]},
-        {"switch2", "ifTable"} => {:ok, [{[1,3,6,1,2,1,2,2,1,2,1], :octet_string, "GigE0/1"}, ...]},
-        {"router1", "ipRouteTable"} => {:error, :timeout}
-      }
   """
-  @spec get_bulk_multi([request()], keyword()) :: [result()] | map()
   def get_bulk_multi(targets_and_oids, opts \\ []) do
-    # get_bulk_multi called with #{length(targets_and_oids)} targets
-    timeout = Keyword.get(opts, :timeout, @default_timeout)
-    _max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
-
-    # Use Engine for shared socket operations
-    engine = get_or_start_engine(opts)
-    # Engine obtained: #{inspect(engine)}
-
-    # Convert to engine request format
-    requests = normalize_requests_for_engine(targets_and_oids, :get_bulk, opts)
-    # Normalized #{length(requests)} requests
-
-    # Submit batch to engine
-    results = submit_batch_to_engine(engine, requests, timeout)
-    # Got results: #{inspect(results)}
-
-    format_results(targets_and_oids, results, opts)
+    execute_multi_operation(targets_and_oids, :get_bulk, opts)
   end
 
   @doc """
   Performs walk operations against multiple targets concurrently.
 
+  A walk operation retrieves all OIDs under a given root OID by sending
+  multiple GETBULK requests until the end of the MIB subtree is reached.
+
   ## Parameters
   - `targets_and_oids` - List of {target, root_oid} or {target, root_oid, opts} tuples
-  - `opts` - Global options applied to all requests
-    - `:return_format` - Format of returned results (default: `:list`)
-      - `:list` - Returns list of results in same order as input
-      - `:with_targets` - Returns list of {target, oid, result} tuples
-      - `:map` - Returns map with {target, oid} keys and result values
+  - `opts` - Default options applied to all requests
+    - `:timeout` - Per-PDU timeout in milliseconds (default: 30000)
+      How long to wait for each GETBULK PDU response during the walk.
+      A walk may require many PDUs, so total walk time can exceed this value.
+    - `:walk_timeout` - Whole-walk safety cap in milliseconds
+    - `:max_repetitions` - OIDs requested per GETBULK PDU (default: 30)
+    - `:max_concurrent` - Maximum concurrent walk operations (default: 10)
+
+  ## Per-Request Options
+  Individual walk requests can override call-level options:
+    - `:timeout` - Override per-PDU timeout for this specific walk
+    - `:max_repetitions` - Override max repetitions for this walk
+    - `:community` - Override SNMP community string
+
+  ## Timeout Behavior
+  - Each GETBULK PDU has its own timeout (per-PDU timeout)
+  - Large tables may require 50-200+ PDUs to walk completely
+  - Total walk time can be substantial: N_pdus × per_PDU_timeout
+  - Operations are protected by `:walk_timeout`
 
   ## Examples
 
       iex> requests = [
       ...>   {"device1", "system"},
-      ...>   {"device2", "interfaces"},
-      ...>   {"device3", [1, 3, 6, 1, 2, 1, 4]}
+      ...>   {"device2", "interfaces"}
       ...> ]
-
-      # Default list format
-      iex> SnmpKit.SnmpMgr.Multi.walk_multi(requests, version: :v2c)
+      iex> SnmpKit.SnmpMgr.Multi.walk_multi(requests)
       [
-        {:ok, [{[1,3,6,1,2,1,1,1,0], :octet_string, "Device 1"}, ...]},
-        {:ok, [{[1,3,6,1,2,1,2,1,0], :integer, 24}, ...]},
-        {:error, :timeout}
+        {:ok, [{"1.3.6.1.2.1.1.1.0", "Device 1"}, ...]},
+        {:ok, [{"1.3.6.1.2.1.2.1.0", 24}, ...]}
       ]
-
-      # With targets format
-      iex> SnmpKit.SnmpMgr.Multi.walk_multi(requests, return_format: :with_targets, version: :v2c)
-      [
-        {"device1", "system", {:ok, [{[1,3,6,1,2,1,1,1,0], :octet_string, "Device 1"}, ...]}},
-        {"device2", "interfaces", {:ok, [{[1,3,6,1,2,1,2,1,0], :integer, 24}, ...]}},
-        {"device3", [1, 3, 6, 1, 2, 1, 4], {:error, :timeout}}
-      ]
-
-      # Map format
-      iex> SnmpKit.SnmpMgr.Multi.walk_multi(requests, return_format: :map, version: :v2c)
-      %{
-        {"device1", "system"} => {:ok, [{[1,3,6,1,2,1,1,1,0], :octet_string, "Device 1"}, ...]},
-        {"device2", "interfaces"} => {:ok, [{[1,3,6,1,2,1,2,1,0], :integer, 24}, ...]},
-        {"device3", [1, 3, 6, 1, 2, 1, 4]} => {:error, :timeout}
-      }
   """
-  @spec walk_multi([request()], keyword()) :: [result()] | map()
   def walk_multi(targets_and_oids, opts \\ []) do
-    # Walks take longer
-    timeout = Keyword.get(opts, :timeout, @default_timeout * 3)
-    max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
-
-    # Use direct iterative walks instead of Engine (which only handles single requests)
-    requests = normalize_walk_requests(targets_and_oids, opts)
-
-    # Submit batch using proper iterative walk logic
-    results = submit_walk_batch(requests, timeout, max_concurrent)
-
-    format_results(targets_and_oids, results, opts)
+    # Walks take longer by default
+    opts = Keyword.put_new(opts, :timeout, @default_timeout * 3)
+    execute_multi_operation(targets_and_oids, :walk, opts)
   end
 
   @doc """
   Performs table walk operations against multiple targets concurrently.
 
+  Similar to walk_multi but optimized for SNMP table operations.
+
   ## Parameters
   - `targets_and_tables` - List of {target, table_oid} or {target, table_oid, opts} tuples
-  - `opts` - Global options applied to all requests
-    - `:return_format` - Format of returned results (default: `:list`)
-      - `:list` - Returns list of results in same order as input
-      - `:with_targets` - Returns list of {target, oid, result} tuples
-      - `:map` - Returns map with {target, oid} keys and result values
+  - `opts` - Default options applied to all requests
+    - `:timeout` - Per-PDU timeout in milliseconds (default: 50000)
+      How long to wait for each GETBULK PDU response during table walk.
+      Table walks often require more PDUs than regular walks.
+    - `:max_repetitions` - Rows requested per GETBULK PDU (default: 30)
+    - `:max_concurrent` - Maximum concurrent table walks (default: 10)
+
+  ## Per-Request Options
+  Individual table walk requests can override call-level options:
+    - `:timeout` - Override per-PDU timeout for this specific table walk
+    - `:max_repetitions` - Override max repetitions for this table
 
   ## Examples
 
       iex> requests = [
       ...>   {"switch1", "ifTable"},
-      ...>   {"switch2", "ifTable"},
-      ...>   {"router1", "ipRouteTable"}
+      ...>   {"switch2", "ifTable"}
       ...> ]
-
-      # Default list format
-      iex> SnmpKit.SnmpMgr.Multi.walk_table_multi(requests, version: :v2c)
+      iex> SnmpKit.SnmpMgr.Multi.walk_table_multi(requests)
       [
         {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "eth0"}, ...]},
-        {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "GigE0/1"}, ...]},
-        {:error, :host_unreachable}
+        {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "GigE0/1"}, ...]}
       ]
-
-      # With targets format
-      iex> SnmpKit.SnmpMgr.Multi.walk_table_multi(requests, return_format: :with_targets, version: :v2c)
-      [
-        {"switch1", "ifTable", {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "eth0"}, ...]}},
-        {"switch2", "ifTable", {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "GigE0/1"}, ...]}},
-        {"router1", "ipRouteTable", {:error, :host_unreachable}}
-      ]
-
-      # Map format
-      iex> SnmpKit.SnmpMgr.Multi.walk_table_multi(requests, return_format: :map, version: :v2c)
-      %{
-        {"switch1", "ifTable"} => {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "eth0"}, ...]},
-        {"switch2", "ifTable"} => {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "GigE0/1"}, ...]},
-        {"router1", "ipRouteTable"} => {:error, :host_unreachable}
-      }
   """
-  @spec walk_table_multi([request()], keyword()) :: [result()] | map()
   def walk_table_multi(targets_and_tables, opts \\ []) do
-    # Table walks take longer
-    timeout = Keyword.get(opts, :timeout, @default_timeout * 5)
-    max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
-    requests = normalize_walk_requests(targets_and_tables, opts)
-    results = submit_walk_batch(requests, timeout, max_concurrent)
-
-    format_results(targets_and_tables, results, opts)
+    # Table walks take longer by default
+    opts = Keyword.put_new(opts, :timeout, @default_timeout * 5)
+    execute_multi_operation(targets_and_tables, :walk_table, opts)
   end
 
   @doc """
   Executes mixed SNMP operations against multiple targets concurrently.
 
-  Allows different operation types per target for maximum flexibility.
-
   ## Parameters
   - `operations` - List of {operation, target, oid_or_args, opts} tuples
-  - `opts` - Global options
+    where operation is :get, :get_bulk, :walk, or :walk_table
+  - `opts` - Default options
+    - `:timeout` - Per-PDU timeout in milliseconds (default: 30000)
+      Applied to all operations. Walk operations may require many PDUs.
+    - `:max_concurrent` - Maximum concurrent operations (default: 10)
+
+  ## Per-Operation Options
+  Each operation tuple can include individual options:
+    - `:timeout` - Override per-PDU timeout for this specific operation
+    - `:max_repetitions` - Override for bulk/walk operations
+    - `:community` - Override SNMP community string
+
+  ## Timeout Behavior
+  - GET/GETBULK: Single PDU timeout
+  - WALK operations: Per-PDU timeout, may require many PDUs
+  - Mixed operations with walks use `:walk_timeout` as the whole-walk cap
 
   ## Examples
 
       iex> operations = [
       ...>   {:get, "device1", "sysDescr.0", []},
       ...>   {:get_bulk, "switch1", "ifTable", [max_repetitions: 20]},
-      ...>   {:walk, "router1", "system", [version: :v2c]}
+      ...>   {:walk, "router1", "system", []}
       ...> ]
-
-      # Default list format
       iex> SnmpKit.SnmpMgr.Multi.execute_mixed(operations)
       [
         {:ok, "Device 1 Description"},
         {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "eth0"}, ...]},
         {:ok, [{"1.3.6.1.2.1.1.1.0", "Router 1"}, ...]}
       ]
-
-      # Note: execute_mixed handles different operation types, so return_format
-      # is not applicable here as operations have different target/args structures
   """
-  @spec execute_mixed([tuple()], keyword()) :: [result()]
   def execute_mixed(operations, opts \\ []) do
-    timeout = Keyword.get(opts, :timeout, @default_timeout * 3)
-    _max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
+    case ensure_components_started() do
+      :ok ->
+        timeout = Keyword.get(opts, :timeout, @default_timeout * 3)
+        max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
 
-    # Use Engine for shared socket operations
-    engine = get_or_start_engine(opts)
+        # Normalize mixed operations to standard format
+        normalized_operations = normalize_mixed_operations(operations, opts)
 
-    # Convert operations to engine request format
-    requests = normalize_mixed_operations_for_engine(operations, opts)
+        execute_mixed_without_tasks(normalized_operations, timeout, max_concurrent)
 
-    # Submit batch to engine
-    submit_batch_to_engine(engine, requests, timeout)
-  end
-
-  @doc """
-  Monitors multiple devices for changes by polling at regular intervals.
-
-  ## Parameters
-  - `targets_and_oids` - List of {target, oid} tuples to monitor
-  - `callback` - Function called with {target, oid, old_value, new_value} when changes occur
-  - `opts` - Options including :interval, :initial_poll, :max_concurrent
-
-  ## Examples
-
-      targets = [{"device1", "sysUpTime.0"}, {"device2", "ifInOctets.1"}]
-      callback = fn change -> IO.inspect(change) end
-      {:ok, monitor_pid} = SnmpKit.SnmpMgr.Multi.monitor(targets, callback, interval: 30_000)
-  """
-  @spec monitor([request()], (term() -> any()), keyword()) :: term()
-  def monitor(targets_and_oids, callback, opts \\ []) do
-    interval = Keyword.get(opts, :interval, 30_000)
-    initial_poll = Keyword.get(opts, :initial_poll, true)
-
-    {:ok,
-     spawn_link(fn ->
-       monitor_loop(targets_and_oids, callback, opts, %{}, initial_poll, interval)
-     end)}
+      {:error, reason} ->
+        Enum.map(operations, fn _ -> {:error, reason} end)
+    end
   end
 
   # Private functions
 
-  defp get_or_start_engine(_opts) do
-    # Get or start the SNMP engine for shared socket operations
-    case Process.whereis(SnmpKit.SnmpMgr.Engine) do
-      nil ->
-        # Start engine if not running
-        Logger.debug("Starting new SNMP engine")
-        {:ok, engine} = SnmpKit.SnmpMgr.Engine.start_link(name: SnmpKit.SnmpMgr.Engine)
-        Logger.debug("Started SNMP engine: #{inspect(engine)}")
-        engine
+  defp execute_multi_operation(targets_and_data, operation_type, opts) do
+    case {targets_and_data, ensure_components_started()} do
+      {[], _} ->
+        format_results(targets_and_data, [], opts)
 
-      engine ->
-        Logger.debug("Using existing SNMP engine: #{inspect(engine)}")
-        engine
+      {_, {:error, reason}} ->
+        # Services are down and auto-start is disabled: say so per target
+        # instead of exiting with :noproc deep inside SocketManager.
+        results = Enum.map(targets_and_data, fn _ -> {:error, reason} end)
+        format_results(targets_and_data, results, opts)
+
+      {_, :ok} ->
+        execute_multi_operation_started(targets_and_data, operation_type, opts)
     end
   end
 
-  defp normalize_requests_for_engine(targets_and_data, operation_type, global_opts) do
+  defp execute_multi_operation_started(targets_and_data, operation_type, opts) do
+    timeout = Keyword.get(opts, :timeout, @default_timeout)
+    max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
+
+    # Normalize requests to standard format
+    normalized_requests = normalize_requests(targets_and_data, operation_type, opts)
+
+    results =
+      if operation_type in [:walk, :walk_table] do
+        SnmpKit.SnmpMgr.V2Walk.walk_multi(normalized_requests,
+          timeout: timeout,
+          max_concurrent: max_concurrent
+        )
+      else
+        execute_non_walk_requests(normalized_requests, timeout, max_concurrent)
+      end
+
+    # Format results according to return_format option
+    format_results(targets_and_data, results, opts)
+  end
+
+  defp execute_mixed_without_tasks(requests, timeout, max_concurrent) do
+    indexed_requests = Enum.with_index(requests)
+
+    {walk_requests, non_walk_requests} =
+      Enum.split_with(indexed_requests, fn {request, _index} ->
+        request.type in [:walk, :walk_table]
+      end)
+
+    non_walk_results =
+      non_walk_requests
+      |> Enum.map(&elem(&1, 0))
+      |> execute_non_walk_requests(timeout, max_concurrent)
+
+    walk_results =
+      walk_requests
+      |> Enum.map(&elem(&1, 0))
+      |> SnmpKit.SnmpMgr.V2Walk.walk_multi(timeout: timeout, max_concurrent: max_concurrent)
+
+    result_map =
+      indexed_result_map(non_walk_requests, non_walk_results)
+      |> Map.merge(indexed_result_map(walk_requests, walk_results))
+
+    ordered_results(requests, result_map)
+  end
+
+  defp indexed_result_map(indexed_requests, results) do
+    indexed_requests
+    |> Enum.zip(results)
+    |> Enum.into(%{}, fn {{_request, original_index}, result} -> {original_index, result} end)
+  end
+
+  defp ordered_results([], _result_map), do: []
+
+  defp ordered_results(requests, result_map) do
+    0..(length(requests) - 1)
+    |> Enum.map(fn index -> Map.get(result_map, index, {:error, :timeout}) end)
+  end
+
+  # For high-throughput get/get_bulk paths, keep one caller process and one shared UDP socket.
+  # Requests are launched up to max_concurrent and correlated back through Engine.
+  defp execute_non_walk_requests(requests, global_timeout, max_concurrent) do
+    socket = SnmpKit.SnmpMgr.SocketManager.get_socket()
+    queue = :queue.from_list(Enum.with_index(requests))
+
+    state = %{
+      socket: socket,
+      queue: queue,
+      pending: %{},
+      results: %{},
+      total: length(requests),
+      global_timeout: global_timeout,
+      max_concurrent: max(1, max_concurrent)
+    }
+
+    state
+    |> launch_pending_requests()
+    |> await_pending_requests()
+    |> build_ordered_results()
+  end
+
+  defp launch_pending_requests(state) do
+    if map_size(state.pending) >= state.max_concurrent or :queue.is_empty(state.queue) do
+      state
+    else
+      {{:value, {request, index}}, queue} = :queue.out(state.queue)
+      timeout = request_timeout(request, state.global_timeout)
+      request_id = SnmpKit.SnmpMgr.RequestIdGenerator.next_id()
+
+      # Engine delivers :snmp_timeout at `timeout`; the local deadline is a
+      # safety net one second later in case that message never arrives.
+      pending_entry = %{index: index, timeout: timeout, deadline_ms: now_ms() + timeout + 1000}
+
+      case dispatch_request(state.socket, request, request_id, timeout) do
+        :ok ->
+          launch_pending_requests(%{
+            state
+            | queue: queue,
+              pending: Map.put(state.pending, request_id, pending_entry)
+          })
+
+        {:error, reason} ->
+          launch_pending_requests(%{
+            state
+            | queue: queue,
+              results: Map.put(state.results, index, {:error, reason})
+          })
+      end
+    end
+  end
+
+  defp await_pending_requests(state) do
+    cond do
+      map_size(state.results) == state.total ->
+        state
+
+      map_size(state.pending) == 0 ->
+        state
+
+      true ->
+        receive_timeout = pending_receive_timeout(state.pending)
+
+        receive do
+          {:snmp_response, request_id, response_data} ->
+            state
+            |> complete_pending_request(request_id, {:ok, response_data})
+            |> launch_pending_requests()
+            |> await_pending_requests()
+
+          {:snmp_timeout, request_id} ->
+            state
+            |> complete_pending_request(request_id, {:error, :timeout})
+            |> launch_pending_requests()
+            |> await_pending_requests()
+        after
+          receive_timeout ->
+            state
+            |> fail_stuck_pending_requests()
+            |> launch_pending_requests()
+            |> await_pending_requests()
+        end
+    end
+  end
+
+  defp complete_pending_request(state, request_id, result) do
+    case Map.pop(state.pending, request_id) do
+      {nil, pending} ->
+        %{state | pending: pending}
+
+      {%{index: index}, pending} ->
+        %{state | pending: pending, results: Map.put(state.results, index, result)}
+    end
+  end
+
+  # Only the requests whose own deadline has passed are failed; a single slow
+  # peer must not take the rest of the window down with it.
+  defp fail_stuck_pending_requests(state) do
+    now = now_ms()
+
+    Enum.reduce(state.pending, %{state | pending: %{}}, fn {request_id, entry}, acc ->
+      if entry.deadline_ms <= now do
+        SnmpKit.SnmpMgr.Engine.unregister_request(SnmpKit.SnmpMgr.Engine, request_id)
+        %{acc | results: Map.put(acc.results, entry.index, {:error, :timeout})}
+      else
+        %{acc | pending: Map.put(acc.pending, request_id, entry)}
+      end
+    end)
+  end
+
+  defp build_ordered_results(state) do
+    if state.total == 0 do
+      []
+    else
+      0..(state.total - 1)
+      |> Enum.map(fn index -> Map.get(state.results, index, {:error, :timeout}) end)
+    end
+  end
+
+  # Wake up when the *earliest* pending deadline expires.
+  defp pending_receive_timeout(pending) do
+    now = now_ms()
+
+    pending
+    |> Map.values()
+    |> Enum.map(&(&1.deadline_ms - now))
+    |> Enum.min(fn -> @default_timeout + 1000 end)
+    |> max(0)
+  end
+
+  defp now_ms, do: System.monotonic_time(:millisecond)
+
+  defp dispatch_request(socket, request, request_id, timeout) do
+    SnmpKit.SnmpMgr.Engine.register_request(
+      SnmpKit.SnmpMgr.Engine,
+      request_id,
+      self(),
+      timeout
+    )
+
+    case build_and_send_packet(socket, request, request_id) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        SnmpKit.SnmpMgr.Engine.unregister_request(SnmpKit.SnmpMgr.Engine, request_id)
+        {:error, reason}
+    end
+  end
+
+  defp request_timeout(request, global_timeout) do
+    timeout = Keyword.get(request.opts, :timeout, global_timeout)
+    if is_integer(timeout) and timeout > 0, do: timeout, else: global_timeout
+  end
+
+  defp normalize_requests(targets_and_data, operation_type, global_opts) do
     targets_and_data
     |> Enum.map(fn
       {target, data, request_opts} ->
@@ -353,7 +463,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
             Keyword.get(
               request_opts,
               :max_repetitions,
-              Keyword.get(global_opts, :max_repetitions, 10)
+              Keyword.get(global_opts, :max_repetitions, 30)
             ),
           opts: Keyword.merge(global_opts, request_opts)
         }
@@ -365,13 +475,13 @@ defmodule SnmpKit.SnmpMgr.Multi do
           oid: data,
           community: Keyword.get(global_opts, :community, "public"),
           version: Keyword.get(global_opts, :version, :v2c),
-          max_repetitions: Keyword.get(global_opts, :max_repetitions, 10),
+          max_repetitions: Keyword.get(global_opts, :max_repetitions, 30),
           opts: global_opts
         }
     end)
   end
 
-  defp normalize_mixed_operations_for_engine(operations, global_opts) do
+  defp normalize_mixed_operations(operations, global_opts) do
     operations
     |> Enum.map(fn
       {operation, target, args, request_opts} ->
@@ -386,7 +496,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
             Keyword.get(
               request_opts,
               :max_repetitions,
-              Keyword.get(global_opts, :max_repetitions, 10)
+              Keyword.get(global_opts, :max_repetitions, 30)
             ),
           opts: Keyword.merge(global_opts, request_opts)
         }
@@ -398,79 +508,101 @@ defmodule SnmpKit.SnmpMgr.Multi do
           oid: args,
           community: Keyword.get(global_opts, :community, "public"),
           version: Keyword.get(global_opts, :version, :v2c),
-          max_repetitions: Keyword.get(global_opts, :max_repetitions, 10),
+          max_repetitions: Keyword.get(global_opts, :max_repetitions, 30),
           opts: global_opts
         }
     end)
   end
 
-  defp submit_batch_to_engine(engine, requests, timeout) do
-    Logger.debug("Submitting batch of #{length(requests)} requests to engine #{inspect(engine)}")
+  defp build_and_send_packet(socket, request, request_id) do
+    try do
+      # Resolve target
+      target = resolve_target(request.target)
 
-    case SnmpKit.SnmpMgr.Engine.submit_batch(engine, requests,
-           timeout: timeout,
-           call_timeout: timeout + 1_000
-         ) do
-      {:ok, results} ->
-        Logger.debug("Batch completed with results: #{inspect(results)}")
-        results
+      # Build SNMP message
+      case build_snmp_message(request, request_id) do
+        {:ok, message} ->
+          # Send packet
+          case SnmpKit.SnmpLib.Transport.send_packet(socket, target.host, target.port, message) do
+            :ok ->
+              Logger.debug(
+                "Sent SNMP request #{request_id} to #{format_host(target.host)}:#{target.port}"
+              )
+
+              :ok
+
+            {:error, reason} ->
+              Logger.error("Failed to send SNMP request: #{inspect(reason)}")
+              {:error, reason}
+          end
+
+        {:error, reason} ->
+          Logger.error("Failed to build SNMP message: #{inspect(reason)}")
+          {:error, reason}
+      end
+    rescue
+      error ->
+        Logger.error("Error in build_and_send_packet: #{inspect(error)}")
+        {:error, {:exception, error}}
+    end
+  end
+
+  defp build_snmp_message(request, request_id) do
+    community = Keyword.get(request.opts, :community, "public")
+    version = Keyword.get(request.opts, :version, :v2c)
+
+    # Resolve OID (handles symbolic names like "sysDescr.0")
+    case resolve_oid(request.oid) do
+      {:ok, oid_list} ->
+        case request.type do
+          :get ->
+            pdu = SnmpKit.SnmpLib.PDU.build_get_request(oid_list, request_id)
+            message = SnmpKit.SnmpLib.PDU.build_message(pdu, community, version)
+            SnmpKit.SnmpLib.PDU.encode_message(message)
+
+          :get_bulk ->
+            max_rep = Keyword.get(request.opts, :max_repetitions, 30)
+            pdu = SnmpKit.SnmpLib.PDU.build_get_bulk_request(oid_list, request_id, 0, max_rep)
+            message = SnmpKit.SnmpLib.PDU.build_message(pdu, community, version)
+            SnmpKit.SnmpLib.PDU.encode_message(message)
+
+          # NOTE: :walk and :walk_table operations are handled by V2Walk module
+          # and should not reach this function. They are delegated in execute_single_operation.
+
+          _ ->
+            {:error, {:unsupported_request_type, request.type}}
+        end
 
       {:error, reason} ->
-        List.duplicate({:error, reason}, length(requests))
+        {:error, {:oid_resolution_failed, reason}}
     end
   end
 
-  # Legacy function - now handled by normalize_mixed_operations_for_engine
-  # Kept for backwards compatibility if needed elsewhere
+  # Resolve OID from string (symbolic or numeric) to list format
+  defp resolve_oid(oid) when is_list(oid) and is_integer(hd(oid)), do: {:ok, oid}
 
-  # Legacy execute_operation functions - now handled by Engine
-  # Operations are now processed by SnmpKit.SnmpMgr.Engine
+  defp resolve_oid(oid) when is_binary(oid) do
+    SnmpKit.SnmpMgr.Core.parse_oid(oid)
+  end
 
-  defp monitor_loop(targets_and_oids, callback, opts, previous_values, initial_poll, interval) do
-    if initial_poll do
-      # Get initial values
-      current_values = poll_targets(targets_and_oids, opts)
+  defp resolve_oid(oid), do: {:error, {:invalid_oid, oid}}
 
-      # Sleep and start monitoring loop
-      Process.sleep(interval)
-      monitor_loop(targets_and_oids, callback, opts, current_values, false, interval)
-    else
-      # Poll for current values
-      current_values = poll_targets(targets_and_oids, opts)
+  # Target resolution helper - delegates to canonical Target.resolve
+  defp resolve_target(target), do: SnmpKit.SnmpMgr.Target.resolve(target)
 
-      # Check for changes and call callback
-      check_for_changes(targets_and_oids, previous_values, current_values, callback)
+  defp format_host(host) do
+    case host do
+      {a, b, c, d} when is_integer(a) and is_integer(b) and is_integer(c) and is_integer(d) ->
+        "#{a}.#{b}.#{c}.#{d}"
 
-      # Sleep and continue loop
-      Process.sleep(interval)
-      monitor_loop(targets_and_oids, callback, opts, current_values, false, interval)
+      host when is_binary(host) ->
+        host
+
+      _ ->
+        to_string(host)
     end
   end
 
-  defp poll_targets(targets_and_oids, opts) do
-    # Use updated get_multi with shared socket
-    get_multi(targets_and_oids, opts)
-    |> Enum.zip(targets_and_oids)
-    |> Enum.map(fn {result, {target, oid}} ->
-      {{target, oid}, result}
-    end)
-    |> Enum.into(%{})
-  end
-
-  defp check_for_changes(targets_and_oids, previous_values, current_values, callback) do
-    targets_and_oids
-    |> Enum.each(fn {target, oid} ->
-      key = {target, oid}
-      old_value = Map.get(previous_values, key)
-      new_value = Map.get(current_values, key)
-
-      if old_value != nil and old_value != new_value do
-        callback.({target, oid, old_value, new_value})
-      end
-    end)
-  end
-
-  # Format results based on return_format option
   defp format_results(targets_and_data, results, opts) do
     case Keyword.get(opts, :return_format, :list) do
       :list ->
@@ -478,12 +610,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
       :with_targets ->
         # Normalize targets_and_data to extract target and data parts
-        normalized_targets =
-          targets_and_data
-          |> Enum.map(fn
-            {target, data, _opts} -> {target, data}
-            {target, data} -> {target, data}
-          end)
+        normalized_targets = normalize_targets_and_data(targets_and_data)
 
         normalized_targets
         |> Enum.zip(results)
@@ -493,12 +620,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
       :map ->
         # Normalize targets_and_data to extract target and data parts
-        normalized_targets =
-          targets_and_data
-          |> Enum.map(fn
-            {target, data, _opts} -> {target, data}
-            {target, data} -> {target, data}
-          end)
+        normalized_targets = normalize_targets_and_data(targets_and_data)
 
         normalized_targets
         |> Enum.zip(results)
@@ -513,77 +635,34 @@ defmodule SnmpKit.SnmpMgr.Multi do
     end
   end
 
-  # Enrich any engine result into standardized maps while preserving {:ok, ...} | {:error, ...}
+  # Ensure the V2 components are running; safe to call repeatedly. Honours
+  # auto_start_services: when disabled and the services are not running the
+  # caller gets an explicit error rather than a :noproc exit.
+  defp ensure_components_started() do
+    cond do
+      SnmpKit.SnmpMgr.services_running?() -> :ok
+      SnmpKit.SnmpMgr.Config.get(:auto_start_services) == false -> {:error, :services_not_started}
+      true -> SnmpKit.SnmpMgr.ensure_started()
+    end
+  end
+
+  # Enrich any result to standardized maps, preserving {:ok, ...} | {:error, ...}
   defp enrich_any_result({:ok, %{oid: _}} = result, _opts), do: result
-  defp enrich_any_result({:ok, [%{oid: _} | _] = _already_enriched} = result, _opts), do: result
+  defp enrich_any_result({:ok, [%{oid: _} | _] = _already} = result, _opts), do: result
 
   defp enrich_any_result({:ok, {oid, type, value}}, opts),
     do: {:ok, SnmpKit.SnmpMgr.Format.enrich_varbind({oid, type, value}, opts)}
 
-  defp enrich_any_result({:ok, list}, opts) when is_list(list) do
-    {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(list, opts)}
-  end
+  defp enrich_any_result({:ok, list}, opts) when is_list(list),
+    do: {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(list, opts)}
 
   defp enrich_any_result(other, _opts), do: other
 
-  # Walk-specific request normalization for proper iterative walks
-  defp normalize_walk_requests(targets_and_data, global_opts) do
+  defp normalize_targets_and_data(targets_and_data) do
     targets_and_data
     |> Enum.map(fn
-      {target, data, request_opts} ->
-        %{
-          target: target,
-          oid: data,
-          opts: Keyword.merge(global_opts, request_opts)
-        }
-
-      {target, data} ->
-        %{
-          target: target,
-          oid: data,
-          opts: global_opts
-        }
+      {target, data, _opts} -> {target, data}
+      {target, data} -> {target, data}
     end)
   end
-
-  # Submit walk requests using proper iterative walk logic
-  defp submit_walk_batch(requests, timeout, max_concurrent) do
-    SnmpKit.SnmpMgr.ensure_started()
-
-    task_timeout =
-      requests
-      |> Enum.map(fn request -> walk_timeout(request, timeout) end)
-      |> Enum.max(fn -> timeout end)
-      |> Kernel.+(1000)
-
-    requests
-    |> Task.async_stream(
-      fn request ->
-        request_timeout = Keyword.get(request.opts, :timeout, timeout)
-        SnmpKit.SnmpMgr.V2Walk.walk(request, request_timeout)
-      end,
-      max_concurrency: max_concurrent,
-      timeout: task_timeout,
-      on_timeout: :kill_task
-    )
-    |> Enum.map(fn
-      {:ok, result} -> result
-      {:exit, :timeout} -> {:error, :timeout}
-      {:exit, reason} -> {:error, {:task_failed, reason}}
-    end)
-  end
-
-  defp walk_timeout(request, global_timeout) do
-    default_timeout = max(global_timeout * 10, 1_200_000)
-
-    request.opts
-    |> Keyword.get(:walk_timeout, default_timeout)
-    |> normalize_walk_timeout(default_timeout)
-  end
-
-  defp normalize_walk_timeout(timeout, _fallback) when is_integer(timeout) and timeout > 0 do
-    min(timeout, 1_800_000)
-  end
-
-  defp normalize_walk_timeout(_, fallback), do: min(fallback, 1_800_000)
 end

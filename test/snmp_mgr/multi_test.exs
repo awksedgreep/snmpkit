@@ -1,7 +1,7 @@
-defmodule SnmpKit.SnmpMgr.MultiV2Test do
+defmodule SnmpKit.SnmpMgr.MultiTest do
   use ExUnit.Case, async: false
 
-  alias SnmpKit.SnmpMgr.{MultiV2, RequestIdGenerator, SocketManager, EngineV2}
+  alias SnmpKit.SnmpMgr.{Multi, RequestIdGenerator, SocketManager, Engine}
 
   setup do
     # Start all required services (or use existing ones)
@@ -15,7 +15,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
       {:error, {:already_started, _}} -> :ok
     end
 
-    case EngineV2.start_link() do
+    case Engine.start_link() do
       {:ok, _} -> :ok
       {:error, {:already_started, _}} -> :ok
     end
@@ -28,11 +28,11 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
 
   describe "get_multi/2" do
     test "returns empty results for empty request lists" do
-      assert [] = MultiV2.get_multi([], timeout: 1000)
-      assert [] = MultiV2.get_bulk_multi([], timeout: 1000)
-      assert [] = MultiV2.walk_multi([], timeout: 1000)
-      assert [] = MultiV2.walk_table_multi([], timeout: 1000)
-      assert [] = MultiV2.execute_mixed([], timeout: 1000)
+      assert [] = Multi.get_multi([], timeout: 1000)
+      assert [] = Multi.get_bulk_multi([], timeout: 1000)
+      assert [] = Multi.walk_multi([], timeout: 1000)
+      assert [] = Multi.walk_table_multi([], timeout: 1000)
+      assert [] = Multi.execute_mixed([], timeout: 1000)
     end
 
     test "handles single request" do
@@ -42,7 +42,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
       requests = [{"127.0.0.1", "1.3.6.1.2.1.1.1.0"}]
 
       # Since we're mocking, we expect the mock response
-      results = MultiV2.get_multi(requests, timeout: 1000)
+      results = Multi.get_multi(requests, timeout: 1000)
 
       assert length(results) == 1
       # Results will be error because we don't have a real SNMP agent
@@ -56,7 +56,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
         {"127.0.0.1", "1.3.6.1.2.1.1.4.0"}
       ]
 
-      results = MultiV2.get_multi(requests, max_concurrent: 2, timeout: 1000)
+      results = Multi.get_multi(requests, max_concurrent: 2, timeout: 1000)
 
       assert length(results) == 3
       # All should timeout since there's no real SNMP agent
@@ -74,18 +74,18 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
       ]
 
       # Test :list format (default)
-      list_results = MultiV2.get_multi(requests, timeout: 500)
+      list_results = Multi.get_multi(requests, timeout: 500)
       assert length(list_results) == 2
 
       # Test :with_targets format
       with_targets_results =
-        MultiV2.get_multi(requests, return_format: :with_targets, timeout: 500)
+        Multi.get_multi(requests, return_format: :with_targets, timeout: 500)
 
       assert length(with_targets_results) == 2
       assert match?([{_, _, _}, {_, _, _}], with_targets_results)
 
       # Test :map format
-      map_results = MultiV2.get_multi(requests, return_format: :map, timeout: 500)
+      map_results = Multi.get_multi(requests, return_format: :map, timeout: 500)
       assert is_map(map_results)
       assert map_size(map_results) == 2
     end
@@ -97,7 +97,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
         {"127.0.0.1", "1.3.6.1.2.1.2.2.1"}
       ]
 
-      results = MultiV2.get_bulk_multi(requests, max_repetitions: 5, timeout: 1000)
+      results = Multi.get_bulk_multi(requests, max_repetitions: 5, timeout: 1000)
 
       assert length(results) == 1
       assert [{:error, _}] = results
@@ -112,7 +112,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
 
       # Walk should have longer default timeout
       start_time = System.monotonic_time(:millisecond)
-      results = MultiV2.walk_multi(requests, timeout: 2000)
+      results = Multi.walk_multi(requests, timeout: 2000)
       end_time = System.monotonic_time(:millisecond)
 
       assert length(results) == 1
@@ -129,7 +129,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
          [adaptive_max_repetitions: true, min_max_repetitions: 4, max_max_repetitions: 64]}
       ]
 
-      assert [{:error, _reason}] = MultiV2.walk_multi(requests, timeout: 100)
+      assert [{:error, _reason}] = Multi.walk_multi(requests, timeout: 100)
     end
   end
 
@@ -141,7 +141,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
         {:walk, "127.0.0.1", "1.3.6.1.2.1.1", []}
       ]
 
-      results = MultiV2.execute_mixed(operations, timeout: 1000)
+      results = Multi.execute_mixed(operations, timeout: 1000)
 
       assert length(results) == 3
       # All should fail since there's no real SNMP agent
@@ -158,7 +158,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
         {:walk, "192.0.2.1", "1.3.6.1.2.1.1", []}
       ]
 
-      [first, second, third] = MultiV2.execute_mixed(operations, timeout: 100)
+      [first, second, third] = Multi.execute_mixed(operations, timeout: 100)
 
       assert match?({:error, _}, first)
       assert second == {:error, {:oid_resolution_failed, :not_found}}
@@ -176,7 +176,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
 
       # Set low concurrency limit
       start_time = System.monotonic_time(:millisecond)
-      results = MultiV2.get_multi(requests, max_concurrent: 2, timeout: 500)
+      results = Multi.get_multi(requests, max_concurrent: 2, timeout: 500)
       end_time = System.monotonic_time(:millisecond)
 
       assert length(results) == 10
@@ -193,7 +193,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
       # This should fail due to unreachable host
       requests = [{"192.168.255.254", "1.3.6.1.2.1.1.1.0"}]
 
-      results = MultiV2.get_multi(requests, timeout: 100)
+      results = Multi.get_multi(requests, timeout: 100)
 
       assert length(results) == 1
       assert [{:error, _}] = results
@@ -203,7 +203,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
       # Force a task failure by using invalid OID
       requests = [{"127.0.0.1", "invalid.oid"}]
 
-      results = MultiV2.get_multi(requests, timeout: 1000)
+      results = Multi.get_multi(requests, timeout: 1000)
 
       assert length(results) == 1
       assert [{:error, _}] = results
@@ -213,7 +213,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
       # Use very short timeout
       requests = [{"127.0.0.1", "1.3.6.1.2.1.1.1.0"}]
 
-      results = MultiV2.get_multi(requests, timeout: 10)
+      results = Multi.get_multi(requests, timeout: 10)
 
       assert length(results) == 1
       assert [{:error, :timeout}] = results
@@ -233,7 +233,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2Test do
       assert length(Enum.uniq(ids)) == 50
 
       requests = for i <- 1..5, do: {"127.0.0.1", "1.3.6.1.2.1.1.#{i}.0"}
-      results = MultiV2.get_multi(requests, max_concurrent: 5, timeout: 500)
+      results = Multi.get_multi(requests, max_concurrent: 5, timeout: 500)
       assert length(results) == 5
     end
   end

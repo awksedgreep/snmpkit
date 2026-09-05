@@ -1,7 +1,7 @@
-defmodule SnmpKit.SnmpMgr.MultiV2TimeoutTest do
+defmodule SnmpKit.SnmpMgr.MultiTimeoutTest do
   use ExUnit.Case, async: false
 
-  alias SnmpKit.SnmpMgr.MultiV2
+  alias SnmpKit.SnmpMgr.Multi
 
   @moduletag :unit
   @moduletag :timeout_fix
@@ -28,7 +28,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2TimeoutTest do
       # Mock a target that doesn't exist to test timeout behavior
       # This should fail with proper SNMP timeout, not task timeout
       result =
-        MultiV2.walk_multi(
+        Multi.walk_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1", [community: "nonexistent"]}
           ],
@@ -52,7 +52,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2TimeoutTest do
       short_timeout = 100
 
       result =
-        MultiV2.get_multi(
+        Multi.get_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1.1.0", [community: "nonexistent"]}
           ],
@@ -75,7 +75,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2TimeoutTest do
       timeout = 2_000
 
       result =
-        MultiV2.walk_multi(
+        Multi.walk_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1", [community: "nonexistent"]}
           ],
@@ -95,7 +95,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2TimeoutTest do
 
       # Test with short per-PDU timeout - should still fail with proper timeout
       result =
-        MultiV2.walk_multi(
+        Multi.walk_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1", [community: "test1"]},
             {"192.0.2.2", "1.3.6.1.2.1.1", [community: "test2"]},
@@ -121,7 +121,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2TimeoutTest do
     test "walk operations respect walk_timeout option" do
       # Test that walk_timeout option is respected when provided
       result =
-        MultiV2.walk_multi(
+        Multi.walk_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1", [community: "test"]}
           ],
@@ -139,7 +139,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2TimeoutTest do
       # Even if user sets a very high walk_timeout, it should be capped
       # This test verifies the safety mechanism exists (we can't easily test the actual cap)
       result =
-        MultiV2.walk_multi(
+        Multi.walk_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1", [community: "test"]}
           ],
@@ -163,7 +163,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2TimeoutTest do
         {:get_bulk, "192.0.2.3", "1.3.6.1.2.1.2.2.1.1", [community: "test"]}
       ]
 
-      result = MultiV2.execute_mixed(operations, timeout: 1000)
+      result = Multi.execute_mixed(operations, timeout: 1000)
 
       # All should fail with proper SNMP/network errors, not task timeouts
       assert [
@@ -185,7 +185,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2TimeoutTest do
         {:get_bulk, "192.0.2.2", "1.3.6.1.2.1.2.2.1.1", [community: "test"]}
       ]
 
-      result = MultiV2.execute_mixed(operations, timeout: 1000)
+      result = Multi.execute_mixed(operations, timeout: 1000)
 
       # Should fail appropriately
       assert [
@@ -201,7 +201,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2TimeoutTest do
         {:walk, "192.0.2.2", "1.3.6.1.2.1.1", [community: "test"]}
       ]
 
-      result = MultiV2.execute_mixed(operations, timeout: 1000, walk_timeout: 5000)
+      result = Multi.execute_mixed(operations, timeout: 1000, walk_timeout: 5000)
 
       # Should complete without task timeout errors
       assert [
@@ -218,7 +218,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2TimeoutTest do
 
       # Test with a reasonable timeout
       result =
-        MultiV2.walk_multi(
+        Multi.walk_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1", [community: "public"]}
           ],
@@ -233,7 +233,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2TimeoutTest do
     test "default timeout behavior unchanged" do
       # Verify default timeout behavior is preserved but use short timeout for testing
       result =
-        MultiV2.walk_multi(
+        Multi.walk_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1", [community: "public"]}
           ],
@@ -253,7 +253,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2TimeoutTest do
       # The key is that we should never see :infinity timeout in real usage
       # and operations should always have some reasonable upper bound
       result =
-        MultiV2.walk_multi(
+        Multi.walk_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1", [community: "test"]}
           ],
@@ -267,7 +267,7 @@ defmodule SnmpKit.SnmpMgr.MultiV2TimeoutTest do
     test "explicit walk_timeout overrides default calculation" do
       # Test that users can explicitly control maximum walk time
       result =
-        MultiV2.walk_multi(
+        Multi.walk_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1", [community: "test"]}
           ],

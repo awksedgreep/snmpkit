@@ -329,11 +329,11 @@ defmodule SnmpKit.SnmpMgr.SocketManager do
     }
   end
 
-  # EngineV2 (new) first, Engine (old) as fallback; cached until it goes down.
+  # Cached until the engine goes down.
   defp resolve_engine(%{engine_pid: pid} = state) when is_pid(pid), do: {state, pid}
 
   defp resolve_engine(state) do
-    case Process.whereis(SnmpKit.SnmpMgr.EngineV2) || Process.whereis(SnmpKit.SnmpMgr.Engine) do
+    case Process.whereis(SnmpKit.SnmpMgr.Engine) do
       nil -> {state, nil}
       pid -> {%{state | engine_pid: pid, engine_monitor: Process.monitor(pid)}, pid}
     end

@@ -16,7 +16,7 @@ defmodule SnmpKit.SnmpMgr.Core do
   - **Not applicable to**: Multi-PDU operations (use walk functions for those)
 
   For operations that may require multiple PDUs (like walking large tables),
-  consider using the higher-level walk functions in `SnmpKit.SnmpMgr.MultiV2`
+  consider using the higher-level walk functions in `SnmpKit.SnmpMgr.Multi`
   which handle multi-PDU timeouts appropriately.
   """
 

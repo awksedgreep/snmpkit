@@ -17,7 +17,7 @@ defmodule Snmpkit.Application do
       # Core supervisor for managing device processes
       {DynamicSupervisor, name: SnmpSim.DeviceSupervisor, strategy: :one_for_one},
       # Supervisor for the concurrent manager services (RequestIdGenerator,
-      # SocketManager, EngineV2). They are started here rather than linked to
+      # SocketManager, Engine). They are started here rather than linked to
       # whichever caller happened to touch them first.
       {DynamicSupervisor, name: SnmpKit.SnmpMgr.ServiceSupervisor, strategy: :one_for_one}
     ]

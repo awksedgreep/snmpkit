@@ -198,22 +198,6 @@ defmodule SnmpKit do
     defdelegate bulk_pretty(target, oid, opts), to: SnmpKit.SnmpMgr
     defdelegate bulk_walk_pretty(target, oid), to: SnmpKit.SnmpMgr
     defdelegate bulk_walk_pretty(target, oid, opts), to: SnmpKit.SnmpMgr
-
-    # Engine Management
-    defdelegate start_engine(), to: SnmpKit.SnmpMgr
-    defdelegate start_engine(opts), to: SnmpKit.SnmpMgr
-    defdelegate engine_request(request), to: SnmpKit.SnmpMgr
-    defdelegate engine_request(request, opts), to: SnmpKit.SnmpMgr
-    defdelegate engine_batch(requests), to: SnmpKit.SnmpMgr
-    defdelegate engine_batch(requests, opts), to: SnmpKit.SnmpMgr
-    defdelegate get_engine_stats(), to: SnmpKit.SnmpMgr
-    defdelegate get_engine_stats(opts), to: SnmpKit.SnmpMgr
-
-    # Circuit Breaker and Metrics
-    defdelegate with_circuit_breaker(target, fun), to: SnmpKit.SnmpMgr
-    defdelegate with_circuit_breaker(target, fun, opts), to: SnmpKit.SnmpMgr
-    defdelegate record_metric(metric_type, metric_name, value), to: SnmpKit.SnmpMgr
-    defdelegate record_metric(metric_type, metric_name, value, tags), to: SnmpKit.SnmpMgr
   end
 
   defmodule MIB do

@@ -1,7 +1,7 @@
 defmodule SnmpKit.SnmpMgr.SimplePerRequestTimeoutTest do
   use ExUnit.Case, async: false
 
-  alias SnmpKit.SnmpMgr.MultiV2
+  alias SnmpKit.SnmpMgr.Multi
 
   @moduletag :unit
   @moduletag :simple_timeout_test
@@ -15,7 +15,7 @@ defmodule SnmpKit.SnmpMgr.SimplePerRequestTimeoutTest do
       # inconsistent behavior or internal errors due to timeout mismatches
 
       result =
-        MultiV2.get_multi(
+        Multi.get_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1.1.0", [community: "test", timeout: 2000]}
           ],
@@ -43,7 +43,7 @@ defmodule SnmpKit.SnmpMgr.SimplePerRequestTimeoutTest do
     test "walk operations use per-request timeout without errors" do
       # Test that walk operations can use per-request timeouts
       result =
-        MultiV2.walk_multi(
+        Multi.walk_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1", [community: "test", timeout: 3000]}
           ],
@@ -63,7 +63,7 @@ defmodule SnmpKit.SnmpMgr.SimplePerRequestTimeoutTest do
     test "mixed timeout values work without internal errors" do
       # Test multiple requests with different per-request timeouts
       result =
-        MultiV2.get_multi(
+        Multi.get_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1.1.0", [timeout: 1500]},
             {"192.0.2.2", "1.3.6.1.2.1.1.1.0", [timeout: 2500]},
@@ -84,7 +84,7 @@ defmodule SnmpKit.SnmpMgr.SimplePerRequestTimeoutTest do
     test "fallback to global timeout works" do
       # Test that when no per-request timeout is specified, global is used
       result =
-        MultiV2.get_multi(
+        Multi.get_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1.1.0", [community: "test"]}
           ],
@@ -101,7 +101,7 @@ defmodule SnmpKit.SnmpMgr.SimplePerRequestTimeoutTest do
     test "zero and negative timeouts are handled safely" do
       # Edge case: invalid timeout values should fall back to global
       result =
-        MultiV2.get_multi(
+        Multi.get_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1.1.0", [timeout: 0]},
             {"192.0.2.2", "1.3.6.1.2.1.1.1.0", [timeout: -1000]}
@@ -122,7 +122,7 @@ defmodule SnmpKit.SnmpMgr.SimplePerRequestTimeoutTest do
     test "non-integer timeout values fall back safely" do
       # Edge case: non-integer timeout should fall back to global
       result =
-        MultiV2.get_multi(
+        Multi.get_multi(
           [
             {"192.0.2.1", "1.3.6.1.2.1.1.1.0", [timeout: "invalid"]},
             {"192.0.2.2", "1.3.6.1.2.1.1.1.0", [timeout: :atom]}
@@ -150,7 +150,7 @@ defmodule SnmpKit.SnmpMgr.SimplePerRequestTimeoutTest do
 
       # Use very short timeouts to make test faster
       _result =
-        MultiV2.get_multi(
+        Multi.get_multi(
           [
             # Very short
             {"192.0.2.1", "1.3.6.1.2.1.1.1.0", [timeout: 100]},

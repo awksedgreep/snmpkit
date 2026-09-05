@@ -40,7 +40,6 @@ Multi-target defaults (1.0)
 - Opt-in walk tuning is available with `adaptive_max_repetitions: true` plus optional `min_max_repetitions:` and `max_max_repetitions:` bounds
 - Default SNMP version for multi-target operations is :v2c (override with version: :v1 if needed)
 - No manual engine/service start is required — components are ensured at call time
-- Legacy/simple behavior is still available via `strategy: :simple`
 - Note: Single-target operations default to :v1 (configurable via SnmpKit.SnmpMgr.Config)
 
 ```elixir
@@ -48,7 +47,6 @@ Multi-target defaults (1.0)
 {:ok, results} = SnmpKit.get_multi([{"h1", "sysDescr.0"}, {"h2", "sysUpTime.0"}])
 
 # Legacy/simple path (opt-in)
-{:ok, results} = SnmpKit.get_multi([{"h1", "sysDescr.0"}, {"h2", "sysUpTime.0"}], strategy: :simple)
 
 # Multi-target table walk
 {:ok, results} = SnmpKit.walk_table_multi([{"h1", "ifTable"}, {"h2", "ifTable"}])

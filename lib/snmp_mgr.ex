@@ -9,13 +9,13 @@ defmodule SnmpKit.SnmpMgr do
   @concurrent_services [
     SnmpKit.SnmpMgr.RequestIdGenerator,
     SnmpKit.SnmpMgr.SocketManager,
-    SnmpKit.SnmpMgr.EngineV2
+    SnmpKit.SnmpMgr.Engine
   ]
 
   @doc """
   Ensures internal manager services are started.
 
-  Starts RequestIdGenerator, SocketManager, and EngineV2 if they are not running.
+  Starts RequestIdGenerator, SocketManager, and Engine if they are not running.
   Safe to call multiple times and from concurrent callers: the services are
   started under `SnmpKit.SnmpMgr.ServiceSupervisor` (part of the application
   tree), so a start race resolves to `{:error, {:already_started, _}}` inside
@@ -411,12 +411,7 @@ defmodule SnmpKit.SnmpMgr do
   """
   def get_multi(targets_and_oids, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-    strategy = Keyword.get(merged_opts, :strategy, :concurrent)
-
-    case strategy do
-      :simple -> SnmpKit.SnmpMgr.Multi.get_multi(targets_and_oids, merged_opts)
-      _ -> SnmpKit.SnmpMgr.MultiV2.get_multi(targets_and_oids, merged_opts)
-    end
+    SnmpKit.SnmpMgr.Multi.get_multi(targets_and_oids, merged_opts)
   end
 
   @doc """
@@ -432,12 +427,7 @@ defmodule SnmpKit.SnmpMgr do
       |> Keyword.put(:version, :v2c)
       |> (&SnmpKit.SnmpMgr.Config.merge_opts/1).()
 
-    strategy = Keyword.get(merged_opts, :strategy, :concurrent)
-
-    case strategy do
-      :simple -> SnmpKit.SnmpMgr.Multi.get_bulk_multi(targets_and_oids, merged_opts)
-      _ -> SnmpKit.SnmpMgr.MultiV2.get_bulk_multi(targets_and_oids, merged_opts)
-    end
+    SnmpKit.SnmpMgr.Multi.get_bulk_multi(targets_and_oids, merged_opts)
   end
 
   @doc """
@@ -449,12 +439,7 @@ defmodule SnmpKit.SnmpMgr do
   """
   def walk_multi(targets_and_oids, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-    strategy = Keyword.get(merged_opts, :strategy, :concurrent)
-
-    case strategy do
-      :simple -> SnmpKit.SnmpMgr.Multi.walk_multi(targets_and_oids, merged_opts)
-      _ -> SnmpKit.SnmpMgr.MultiV2.walk_multi(targets_and_oids, merged_opts)
-    end
+    SnmpKit.SnmpMgr.Multi.walk_multi(targets_and_oids, merged_opts)
   end
 
   @doc """
@@ -466,12 +451,7 @@ defmodule SnmpKit.SnmpMgr do
   """
   def walk_table_multi(targets_and_tables, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-    strategy = Keyword.get(merged_opts, :strategy, :concurrent)
-
-    case strategy do
-      :simple -> SnmpKit.SnmpMgr.Multi.walk_table_multi(targets_and_tables, merged_opts)
-      _ -> SnmpKit.SnmpMgr.MultiV2.walk_table_multi(targets_and_tables, merged_opts)
-    end
+    SnmpKit.SnmpMgr.Multi.walk_table_multi(targets_and_tables, merged_opts)
   end
 
   @doc """
@@ -576,177 +556,6 @@ defmodule SnmpKit.SnmpMgr do
   """
   def benchmark_device(target, test_oid, opts \\ []) do
     SnmpKit.SnmpMgr.AdaptiveWalk.benchmark_device(target, test_oid, opts)
-  end
-
-  @doc """
-  Starts the streaming PDU engine infrastructure.
-
-  Initializes all Phase 5 components including engines, routers, connection pools,
-  circuit breakers, and metrics collection for high-performance SNMP operations.
-
-  ## Options
-  - `:engine` - Engine configuration options
-  - `:router` - Router configuration options
-  - `:pool` - Connection pool options
-  - `:circuit_breaker` - Circuit breaker options
-  - `:metrics` - Metrics collection options
-
-  ## Examples
-
-      {:ok, _pid} = SnmpMgr.start_engine(
-        engine: [pool_size: 20, max_rps: 500],
-        router: [strategy: :least_connections],
-        pool: [pool_size: 50],
-        metrics: [window_size: 120]
-      )
-  """
-  def start_engine(opts \\ []) do
-    SnmpKit.SnmpMgr.Supervisor.start_link(opts)
-  end
-
-  @doc """
-  Submits a request through the streaming engine.
-
-  Routes the request through the high-performance engine infrastructure
-  with automatic load balancing, circuit breaking, and metrics collection.
-
-  ## Parameters
-  - `request` - Request specification map
-  - `opts` - Request options
-
-  ## Examples
-
-      request = %{
-        type: :get,
-        target: "192.0.2.1",
-        oid: "sysDescr.0",
-        community: "public"
-      }
-
-      {:ok, result} = SnmpMgr.engine_request(request)
-  """
-  def engine_request(request, opts \\ []) do
-    router = Keyword.get(opts, :router, SnmpKit.SnmpMgr.Router)
-    SnmpKit.SnmpMgr.Router.route_request(router, request, opts)
-  end
-
-  @doc """
-  Submits multiple requests as a batch through the streaming engine.
-
-  ## Parameters
-  - `requests` - List of request specification maps
-  - `opts` - Batch options
-
-  ## Examples
-
-      requests = [
-        %{type: :get, target: "device1", oid: "sysDescr.0"},
-        %{type: :get, target: "device2", oid: "sysUpTime.0"}
-      ]
-
-      {:ok, results} = SnmpMgr.engine_batch(requests)
-  """
-  def engine_batch(requests, opts \\ []) do
-    router = Keyword.get(opts, :router, SnmpKit.SnmpMgr.Router)
-    SnmpKit.SnmpMgr.Router.route_batch(router, requests, opts)
-  end
-
-  @doc """
-  Gets comprehensive system metrics and statistics.
-
-  ## Parameters
-  - `opts` - Options including which components to include
-
-  ## Examples
-
-      {:ok, stats} = SnmpMgr.get_engine_stats()
-      IO.inspect(stats.router.requests_routed)
-      IO.inspect(stats.metrics.current_metrics)
-  """
-  def get_engine_stats(opts \\ []) do
-    components = Keyword.get(opts, :components, [:router, :pool, :circuit_breaker, :metrics])
-
-    stats = %{}
-
-    stats =
-      if :router in components do
-        Map.put(stats, :router, SnmpKit.SnmpMgr.Router.get_stats(SnmpKit.SnmpMgr.Router))
-      else
-        stats
-      end
-
-    # Pool component no longer exists after snmp_lib migration
-    # Connection pooling is handled internally by SnmpKit.SnmpLib.Manager
-    stats =
-      if :pool in components do
-        Map.put(stats, :pool, %{status: :delegated_to_snmp_lib})
-      else
-        stats
-      end
-
-    stats =
-      if :circuit_breaker in components do
-        Map.put(
-          stats,
-          :circuit_breaker,
-          SnmpKit.SnmpMgr.CircuitBreaker.get_stats(SnmpKit.SnmpMgr.CircuitBreaker)
-        )
-      else
-        stats
-      end
-
-    stats =
-      if :metrics in components do
-        Map.put(stats, :metrics, SnmpKit.SnmpMgr.Metrics.get_summary(SnmpKit.SnmpMgr.Metrics))
-      else
-        stats
-      end
-
-    {:ok, stats}
-  end
-
-  @doc """
-  Executes a function with circuit breaker protection.
-
-  ## Parameters
-  - `target` - Target device identifier
-  - `fun` - Function to execute with protection
-  - `opts` - Circuit breaker options
-
-  ## Examples
-
-      result = SnmpMgr.with_circuit_breaker("192.0.2.1", fn ->
-        SnmpMgr.get("192.0.2.1", "sysDescr.0")
-      end)
-  """
-  def with_circuit_breaker(target, fun, opts \\ []) do
-    circuit_breaker = Keyword.get(opts, :circuit_breaker, SnmpKit.SnmpMgr.CircuitBreaker)
-    timeout = Keyword.get(opts, :timeout, 5000)
-    SnmpKit.SnmpMgr.CircuitBreaker.call(circuit_breaker, target, fun, timeout)
-  end
-
-  @doc """
-  Records a custom metric.
-
-  ## Parameters
-  - `metric_type` - Type of metric (:counter, :gauge, :histogram)
-  - `metric_name` - Name of the metric
-  - `value` - Value to record
-  - `tags` - Optional tags
-
-  ## Examples
-
-      SnmpMgr.record_metric(:counter, :custom_requests, 1, %{device: "switch1"})
-      SnmpMgr.record_metric(:histogram, :custom_latency, 150, %{operation: "bulk"})
-  """
-  def record_metric(metric_type, metric_name, value, tags \\ %{}) do
-    metrics = SnmpKit.SnmpMgr.Metrics
-
-    case metric_type do
-      :counter -> SnmpKit.SnmpMgr.Metrics.counter(metrics, metric_name, value, tags)
-      :gauge -> SnmpKit.SnmpMgr.Metrics.gauge(metrics, metric_name, value, tags)
-      :histogram -> SnmpKit.SnmpMgr.Metrics.histogram(metrics, metric_name, value, tags)
-    end
   end
 
   @doc """
