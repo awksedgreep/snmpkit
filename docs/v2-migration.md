@@ -5,7 +5,23 @@ concern has one module. The SNMP facade (`SnmpKit`, `SnmpKit.SNMP`,
 `SnmpKit.MIB`, `SnmpKit.Sim`) keeps its request/response shapes from 1.4;
 most applications only need to update module names they referenced directly.
 
-This document is updated as the `2.x` branch progresses.
+## Summary
+
+If your code only uses `SnmpKit`, `SnmpKit.SNMP`, `SnmpKit.MIB` and
+`SnmpKit.Sim`, the changes that can reach you are:
+
+1. `SnmpKit.SNMP.get_async/3` and `get_bulk_async/3` return a `Task`.
+2. Manager defaults come from `config :snmpkit, ...` (see the README);
+   `:snmp_mgr` keys still work.
+3. `SnmpKit.Sim.start_device_population/2` pre-warms devices and returns
+   `[%{type, port, pid, target}]`.
+4. `SnmpKit.MIB.load/1` accepts the compiled map directly; parsed MIBs carry
+   `warnings` and use binaries where 1.x used atoms.
+5. `SnmpKit.SNMP.with_circuit_breaker/3` and the other engine delegates are
+   gone; use the multi-target calls.
+
+If you referenced internal modules, use the tables below: everything renamed
+or removed is listed with its replacement.
 
 ## Renamed modules
 
@@ -24,8 +40,8 @@ is unaffected.
 
 | Removed | Replacement |
 |---------|-------------|
-| `SnmpKit.SnmpMgr.Engine` (streaming engine), `Router`, `CircuitBreaker`, `Metrics`, `SnmpMgr.Supervisor`, `SnmpMgr.Application` | The one engine (`SnmpKit.SnmpMgr.Engine`, formerly EngineV2) plus `SocketManager`; they start with the application. Per-target circuit breaking: implement in the caller around `SnmpKit.SNMP` calls. |
-| `SnmpKit.SnmpMgr.start_engine`, `engine_request`, `engine_batch`, `get_engine_stats`, `with_circuit_breaker`, `record_metric` and the `SnmpKit.SNMP` delegates | `SnmpKit.SNMP.get_multi/2`, `walk_multi/2`, `get_bulk_multi/2` for batches; `SnmpKit.SnmpMgr.Engine.get_stats/1` and `SocketManager.get_stats/1` for statistics. |
+| `SnmpKit.SnmpMgr.Engine` (streaming engine), `Router`, `CircuitBreaker`, `Metrics`, `SnmpMgr.Supervisor`, `SnmpMgr.Application` | The one engine (`SnmpKit.SnmpMgr.Engine`, formerly EngineV2), started on demand. Per-target circuit breaking: `SnmpKit.SnmpLib.ErrorHandler.start_circuit_breaker/2` around `SnmpKit.SNMP` calls, or your own. |
+| `SnmpKit.SnmpMgr.start_engine`, `engine_request`, `engine_batch`, `get_engine_stats`, `with_circuit_breaker`, `record_metric` and the `SnmpKit.SNMP` delegates | `SnmpKit.SNMP.get_multi/2`, `walk_multi/2`, `get_bulk_multi/2` for batches; `SnmpKit.SnmpMgr.Engine.get_stats/1` and `get_buffer_stats/1` for statistics. |
 | The Task-per-target `SnmpKit.SnmpMgr.Multi` and the `strategy: :simple | :concurrent` option | `SnmpKit.SnmpMgr.Multi` is the concurrent implementation; drop the `:strategy` option. |
 | `SnmpKit.SnmpMgr.SocketManager` | `SnmpKit.SnmpMgr.Engine` owns the socket: `Engine.get_socket/1`, `get_port/1`, `get_stats/1`, `get_buffer_stats/1`, `health_check/1`. `SnmpKit.SnmpMgr.ensure_started/0` starts `RequestIdGenerator` and `Engine`. |
 | `SnmpKit.SnmpLib.MIB` (facade) | `SnmpKit.MIB.compile_raw/2`, `compile_string/2`, `load_compiled/1`, `compile_all/2`, or `SnmpKit.MIB.Compiler` directly. |

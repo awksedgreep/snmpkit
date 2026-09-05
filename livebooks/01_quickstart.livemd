@@ -2,6 +2,8 @@
 
 Get up and running with SnmpKit in 5 minutes.
 
+> Upgrading from 1.x? See the breaking-changes summary in the [README](../README.md#breaking-changes-in-20).
+
 ## Setup
 
 ```elixir

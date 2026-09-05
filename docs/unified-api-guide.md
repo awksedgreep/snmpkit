@@ -3,6 +3,10 @@
 SnmpKit groups its functionality into a few context modules. This guide walks
 through each of them with the exact shapes the functions return.
 
+> Coming from 1.x? The breaking changes are summarised at the top of the
+> [README](../README.md#breaking-changes-in-20) and detailed in the
+> [migration guide](v2-migration.md).
+
 | Module | Purpose |
 |--------|---------|
 | `SnmpKit.SNMP` | Manager operations: get, set, walks, bulk, tables, streams, async, multi-target, pretty output |

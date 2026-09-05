@@ -19,7 +19,30 @@ def deps do
 end
 ```
 
-Upgrading from 1.x? See the [2.0 migration guide](docs/v2-migration.md).
+## Breaking changes in 2.0
+
+2.0 is a consolidation release. Request and response shapes are the same as
+in 1.4; what changed is which modules exist and a few behaviours:
+
+- **Renamed:** `SnmpMgr.EngineV2` is now `SnmpMgr.Engine`, `SnmpMgr.MultiV2`
+  is now `SnmpMgr.Multi`, `SnmpLib.MIB.*` is now `SnmpKit.MIB.*`, and
+  `SnmpSim.Device.ErrorInjector` is now `SnmpSim.Device.ErrorConditions`.
+- **Removed:** the old streaming engine and its `Router`, `CircuitBreaker`,
+  `Metrics` and `SnmpMgr.Supervisor`; `SnmpMgr.SocketManager` (the engine
+  owns the socket); the Task-per-target `Multi` and the `strategy:` option;
+  `SnmpLib.Config`, `Pool`, `Cache`, `Monitor`, `Dashboard`; the `SnmpLib.MIB`
+  facade; `SnmpKit.TestSupport` (use `SnmpKit.SnmpSim`); `Keys.secure_wipe/1`;
+  and `SnmpMgr.start_engine`, `engine_request`, `engine_batch`,
+  `get_engine_stats`, `with_circuit_breaker`, `record_metric`.
+- **Behaviour:** `get_async`/`get_bulk_async` return a `Task`; manager
+  defaults are read from `config :snmpkit` (the `:snmp_mgr` key still works);
+  `MIB.load/1` takes the map `compile/1` returns; `Sim.start_device_population/2`
+  pre-warms devices and returns `[%{type, port, pid, target}]`; parsed MIBs
+  carry a `warnings` list and identifiers are binaries instead of atoms.
+- **Tooling:** Elixir 1.18+ on OTP 28.
+
+The [2.0 migration guide](docs/v2-migration.md) has the full rename and
+removal tables with replacements for each entry.
 
 ## Quick start
 
