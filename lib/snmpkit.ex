@@ -224,7 +224,7 @@ defmodule SnmpKit do
     defdelegate compile(mib_file, opts), to: SnmpKit.SnmpMgr.MIB
     defdelegate compile_dir(directory), to: SnmpKit.SnmpMgr.MIB
     defdelegate compile_dir(directory, opts), to: SnmpKit.SnmpMgr.MIB
-    defdelegate load(compiled_mib_path), to: SnmpKit.SnmpMgr.MIB
+    defdelegate load(compiled_mib_or_path), to: SnmpKit.SnmpMgr.MIB
     defdelegate parse_mib_file(mib_file), to: SnmpKit.SnmpMgr.MIB
     defdelegate parse_mib_file(mib_file, opts), to: SnmpKit.SnmpMgr.MIB
     defdelegate parse_mib_content(content), to: SnmpKit.SnmpMgr.MIB

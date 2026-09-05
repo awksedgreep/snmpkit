@@ -15,6 +15,29 @@ defmodule SnmpKit.SnmpSim.ProfileLoader do
     :metadata
   ]
 
+  @type t :: %__MODULE__{}
+
+  @bundled_profiles [:cable_modem, :router, :switch]
+
+  @doc """
+  Loads one of the walk files bundled with the library (`priv/walks`):
+  `:cable_modem`, `:router` or `:switch`.
+
+      {:ok, profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(:router)
+  """
+  @spec load_profile(atom()) :: {:ok, t()} | {:error, term()}
+  def load_profile(device_type) when device_type in @bundled_profiles do
+    load_profile(device_type, {:walk_file, bundled_walk(device_type)})
+  end
+
+  def load_profile(device_type), do: {:error, {:no_bundled_profile, device_type}}
+
+  @doc "Path of a bundled walk file (see `load_profile/1`)."
+  @spec bundled_walk(atom()) :: Path.t()
+  def bundled_walk(device_type) when device_type in @bundled_profiles do
+    Path.join([:code.priv_dir(:snmpkit), "walks", "#{device_type}.walk"])
+  end
+
   @doc """
   Load a device profile from various source types.
 

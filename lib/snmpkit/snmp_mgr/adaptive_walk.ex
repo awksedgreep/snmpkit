@@ -351,13 +351,12 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
       results
       |> Enum.min_by(fn {_size, time} -> time end)
 
-    # Calculate statistics (avg_time not currently used but available for future enhancements)
-    _avg_time =
-      results |> Enum.map(fn {_size, time} -> time end) |> Enum.sum() |> div(length(results))
+    avg_time = (results |> Enum.map(fn {_size, time} -> time end) |> Enum.sum()) / length(results)
 
     %{
       optimal_bulk_size: optimal_size,
-      avg_response_time: optimal_time,
+      avg_response_time: avg_time,
+      optimal_response_time: optimal_time,
       # We filtered out errors above
       error_rate: 0.0,
       all_results: results,

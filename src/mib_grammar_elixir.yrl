@@ -1000,9 +1000,6 @@ make_module_identity(Name, LU, Org, CI, Desc, Revs, NA) ->
 make_revision(Rev, Desc) ->
     {mc_revision, Rev, Desc}.
 
-make_object_type(Name, Syntax, MaxAcc, Status, Desc, Ref, Kind, NA) ->
-    {mc_object_type, Name, Syntax, undefined, MaxAcc, Status, Desc, Ref, Kind, NA}.
-
 make_object_type(Name, Syntax, Units, MaxAcc, Status, Desc, Ref, Kind, NA) ->
     {mc_object_type, Name, Syntax, Units, MaxAcc, Status, Desc, Ref, Kind, NA}.
 

@@ -1,279 +1,103 @@
 # SnmpKit Examples
 
-This directory contains practical examples demonstrating SnmpKit's features and capabilities.
+Runnable scripts that demonstrate SnmpKit against simulated devices. Run
+them from a checkout with the library compiled:
 
-## Quick Start
-
-If you're new to SnmpKit, start with:
-
-1. **[getting_started.exs](getting_started.exs)** - Comprehensive introduction to all major features
-2. **[unified_api_demo.exs](unified_api_demo.exs)** - Overview of the unified API design
-
-## Examples Overview
-
-### Basic Usage
-- **[getting_started.exs](getting_started.exs)** - Complete introduction with simulated device
-- **[unified_api_demo.exs](unified_api_demo.exs)** - Demonstrates the clean, organized API
-
-### Device Simulation
-- **[cable_modem_simulation.exs](cable_modem_simulation.exs)** - DOCSIS cable modem simulation
-- **[quick_cable_modem.exs](quick_cable_modem.exs)** - Simple cable modem example
-- **[cable_modem_profile.json](cable_modem_profile.json)** - Device profile configuration
-
-### DOCSIS/Cable Networks
-- **[docsis_mib_example.exs](docsis_mib_example.exs)** - Working with DOCSIS MIBs
-
-## Running Examples
-
-### Prerequisites
-
-Make sure you have Elixir 1.14+ installed:
-
-```bash
-elixir --version
+```sh
+mix run examples/getting_started.exs
+mix run examples/unified_api_demo.exs
+mix run examples/cable_modem_simulation.exs
 ```
 
-### Running Individual Examples
-
-Most examples are self-contained and can be run directly:
-
-```bash
-# Run the getting started example
-elixir examples/getting_started.exs
-
-# Run the unified API demo
-elixir examples/unified_api_demo.exs
-
-# Run the cable modem simulation
-elixir examples/cable_modem_simulation.exs
-```
-
-### Adding SnmpKit to Your Project
-
-Add SnmpKit to your `mix.exs` dependencies:
+To use SnmpKit in your own project add it to `mix.exs`:
 
 ```elixir
 def deps do
-  [
-    {:snmpkit, "~> 1.3"}
-  ]
+  [{:snmpkit, "~> 2.0"}]
 end
 ```
 
-Then run:
+## The scripts
 
-```bash
-mix deps.get
-```
+| Script | Shows |
+|--------|-------|
+| `getting_started.exs` | a simulated device, GET, WALK, bulk, MIB resolution, error handling |
+| `unified_api_demo.exs` | the `SnmpKit.SNMP`, `SnmpKit.MIB` and `SnmpKit.Sim` modules and the `SnmpKit` shortcuts |
+| `oid_formats_demo.exs` | the OID forms every call accepts (names, dotted strings, lists) |
+| `multi_return_format_demo.exs` | `:list`, `:with_targets` and `:map` results from multi-target calls |
+| `single_socket_demo.exs` | the shared-socket engine behind multi-target calls |
+| `scalable_high_concurrency_polling.exs` | polling thousands of cable modems with `SnmpKit.SnmpMgr.Multi` |
+| `cable_modem_simulation.exs`, `quick_cable_modem.exs` | DOCSIS cable modem simulation |
+| `cable_modem_profile.json` | a JSON device profile for `{:json_profile, path}` |
+| `docsis_mib_example.exs` | compiling and querying DOCSIS MIBs |
 
-## Example Categories
+## Patterns worth copying
 
-### 🚀 Getting Started
-Perfect for newcomers to SnmpKit or SNMP in general.
-
-**[getting_started.exs](getting_started.exs)**
-- Creates a simulated SNMP device
-- Demonstrates GET, WALK, and bulk operations
-- Shows MIB resolution and reverse lookup
-- Includes error handling examples
-- Performance timing demonstrations
-
-### 🎯 Unified API
-Shows the clean, context-based API design.
-
-**[unified_api_demo.exs](unified_api_demo.exs)**
-- `SnmpKit.SNMP` for protocol operations
-- `SnmpKit.MIB` for MIB management
-- `SnmpKit.Sim` for device simulation
-- Direct access functions for convenience
-
-### 🖥️ Device Simulation
-Learn how to create realistic SNMP devices for testing.
-
-**[cable_modem_simulation.exs](cable_modem_simulation.exs)**
-- Comprehensive DOCSIS cable modem simulation
-- Realistic device behavior and responses
-- Integration with testing frameworks
-
-**[quick_cable_modem.exs](quick_cable_modem.exs)**
-- Simple cable modem setup
-- Quick testing scenarios
-- Basic DOCSIS operations
-
-### 📡 DOCSIS/Cable Networks
-Specialized examples for cable network management.
-
-**[docsis_mib_example.exs](docsis_mib_example.exs)**
-- Loading DOCSIS MIBs
-- Cable modem status monitoring
-- Signal quality measurements
-- Upstream/downstream channel information
-
-### ⚡ High-Performance Polling
-Examples for scalable, high-concurrency SNMP operations.
-
-**[scalable_high_concurrency_polling.exs](scalable_high_concurrency_polling.exs)**
-- Poll thousands of devices efficiently
-- Demonstrates new MultiV2 architecture
-- Eliminates GenServer bottlenecks
-- Cable modem fleet management patterns
-- Performance benchmarking and monitoring
-
-## Code Patterns
-
-### Basic SNMP Operations
+### Operations return enriched maps
 
 ```elixir
-# Simple GET (enriched map)
-{:ok, %{formatted: description}} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
+{:ok, %{value: descr, formatted: formatted, type: :octet_string}} =
+  SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
 
-# Walk a subtree (list of enriched maps)
-{:ok, interfaces} = SnmpKit.SNMP.walk("192.168.1.1", "ifTable")
-
-# Bulk operations for efficiency (list of enriched maps)
-{:ok, results} = SnmpKit.SNMP.bulk_walk("192.168.1.1", "system")
+{:ok, rows} = SnmpKit.SNMP.walk("192.168.1.1", "ifTable")
+{:ok, rows} = SnmpKit.SNMP.bulk_walk("192.168.1.1", "system")
 ```
 
-### MIB Operations
+### MIB lookups
 
 ```elixir
-# Resolve OID names
 {:ok, oid} = SnmpKit.MIB.resolve("sysDescr.0")
-
-# Reverse lookup
 {:ok, name} = SnmpKit.MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1, 0])
-
-# Tree navigation
 {:ok, children} = SnmpKit.MIB.children([1, 3, 6, 1, 2, 1, 1])
 ```
 
-### Device Simulation
+### A simulated device in a test
 
 ```elixir
-# Create device profile
-profile = %{
-  name: "Test Device",
-  objects: %{
-    [1, 3, 6, 1, 2, 1, 1, 1, 0] => "Test Device Description"
-  }
-}
+setup do
+  {:ok, profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(:router)
+  {:ok, _device} = SnmpKit.Sim.start_device(profile, port: 30161)
+  %{target: "127.0.0.1:30161"}
+end
 
-# Start simulated device
-{:ok, device} = SnmpKit.Sim.start_device(profile, port: 1161)
-```
-
-## Testing Integration
-
-Many examples show how to integrate SnmpKit with testing frameworks:
-
-```elixir
-defmodule MyAppTest do
-  use ExUnit.Case
-  
-  setup do
-    # Start simulated device for testing
-    {:ok, profile} = load_device_profile(:router)
-    {:ok, device} = SnmpKit.Sim.start_device(profile, port: 30161)
-    
-    %{target: "127.0.0.1:30161", device: device}
-  end
-  
-  test "can query device", %{target: target} do
-{:ok, %{formatted: description}} = SnmpKit.SNMP.get(target, "sysDescr.0")
-    assert String.contains?(description, "Router")
-  end
+test "can query the device", %{target: target} do
+  assert {:ok, %{value: "Cisco Router"}} = SnmpKit.SNMP.get(target, "sysDescr.0")
 end
 ```
 
-## Performance Examples
-
-Several examples include performance measurements and optimization techniques:
+### Many targets at once
 
 ```elixir
-# Measure operation timing
-{time, {:ok, results}} = :timer.tc(fn ->
-  SnmpKit.SNMP.walk("192.168.1.1", "interfaces")
-end)
-
-IO.puts("Walk completed in #{time/1000}ms")
-
-# Concurrent operations
-tasks = for target <- targets do
-  Task.async(fn -> SnmpKit.SNMP.get(target, "sysDescr.0") end)
-end
-
-results = Task.await_many(tasks, 10_000)
+requests = for target <- targets, do: {target, "sysUpTime.0"}
+results = SnmpKit.SNMP.get_multi(requests, max_concurrent: 50)
+# [{:ok, [%{value: ...}]}, {:error, :timeout}, ...] in request order
 ```
 
-## Error Handling Patterns
+### Streaming a large table
 
-Examples demonstrate robust error handling:
+```elixir
+"192.168.1.1"
+|> SnmpKit.SNMP.walk_stream("ipRouteTable")
+|> Stream.each(&process_entry/1)
+|> Stream.run()
+```
+
+### Error handling
 
 ```elixir
 case SnmpKit.SNMP.get(target, oid) do
-  {:ok, %{value: value}} -> 
-    process_value(value)
-  {:error, :timeout} ->
-    Logger.warn("Device #{target} timeout")
-    {:error, :device_unreachable}
-  {:error, :no_such_name} ->
-    Logger.warn("OID #{oid} not found on #{target}")
-    {:error, :oid_not_found}
-  {:error, reason} ->
-    Logger.error("SNMP error: #{inspect(reason)}")
-    {:error, reason}
+  {:ok, %{value: value}} -> {:ok, value}
+  {:error, :timeout} -> {:error, :device_unreachable}
+  {:error, :no_such_object} -> {:error, :oid_not_found}
+  {:error, reason} -> {:error, reason}
 end
 ```
 
-## Advanced Features
+## More
 
-### Streaming Large Results
+- [Livebooks](../livebooks/01_quickstart.livemd) for an interactive tour
+- [Unified API guide](../docs/unified-api-guide.md), [timeouts](../TIMEOUT_DOCUMENTATION.md), [MIB guide](../docs/mib-guide.md), [testing guide](../docs/testing-guide.md)
+- [Issues](https://github.com/awksedgreep/snmpkit/issues)
 
-```elixir
-# Stream large walks to avoid memory issues
-SnmpKit.SNMP.walk_stream("192.168.1.1", "largeTable")
-|> Stream.take(1000)
-|> Enum.each(&process_entry/1)
-```
-
-### Circuit Breakers
-
-```elixir
-# Automatic failure handling
-{:ok, result} = SnmpKit.SNMP.with_circuit_breaker("unreliable.host", fn ->
-  SnmpKit.SNMP.get("unreliable.host", "sysDescr.0")
-end)
-```
-
-### Custom Device Profiles
-
-```elixir
-# Load device behavior from files
-{:ok, profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(
-  :custom_device,
-  {:walk_file, "priv/walks/device.walk"}
-)
-```
-
-## Getting Help
-
-- **Documentation**: [https://hexdocs.pm/snmpkit](https://hexdocs.pm/snmpkit)
-- **Quickstart**: [../livebooks/01_quickstart.livemd](../livebooks/01_quickstart.livemd)
-- **Guides**: [docs/](https://github.com/awksedgreep/snmpkit/tree/main/docs)
-- **Issues**: [GitHub Issues](https://github.com/awksedgreep/snmpkit/issues)
-
-## Contributing Examples
-
-We welcome contributions of new examples! Please:
-
-1. Follow the existing code style
-2. Include comprehensive comments
-3. Add error handling
-4. Test your example before submitting
-5. Update this README if adding new categories
-
-See [../CONTRIBUTING.md](../CONTRIBUTING.md) for detailed guidelines.
-
----
-
-**Happy SNMP monitoring with SnmpKit!** 🚀
+New examples are welcome; keep them runnable with `mix run`, self-contained
+(start their own simulated devices), and add them to the table above.

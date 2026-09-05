@@ -1,12 +1,12 @@
 # High Performance Polling
 
-Scale SNMP polling to hundreds or thousands of devices with SnmpKit's V2 engine.
+Scale SNMP polling to hundreds or thousands of devices with SnmpKit's shared-socket engine.
 
 ## Setup
 
 ```elixir
 Mix.install([
-  {:snmpkit, "~> 1.3"}
+  {:snmpkit, "~> 2.0"}
 ])
 
 alias SnmpKit.{SNMP, Sim}
@@ -15,16 +15,20 @@ alias SnmpKit.SnmpSim.ProfileLoader
 IO.puts("High performance modules ready!")
 ```
 
-## The V2 Engine
+## The shared-socket engine
 
-SnmpKit's concurrent multi-target engine (`SnmpKit.SnmpMgr.Multi`) provides:
+Multi-target calls (`SNMP.get_multi/2`, `SNMP.walk_multi/2`, `SNMP.get_bulk_multi/2`,
+`SNMP.walk_table_multi/2`) are run by `SnmpKit.SnmpMgr.Multi` on top of
+`SnmpKit.SnmpMgr.Engine`:
 
-- **Direct UDP sending** - No GenServer bottlenecks
-- **Centralized response correlation** - Efficient request tracking
-- **Configurable concurrency** - Control parallel requests
-- **Per-request options** - Fine-grained timeout/community control
+- **One UDP socket** with a large receive buffer, shared by every request
+- **Direct sending** - no GenServer in the send path
+- **Centralized response correlation** by request id
+- **Configurable concurrency** (`max_concurrent:`) and **per-request options**
 
-The V2 engine is used automatically by `SNMP.get_multi/2`, `SNMP.walk_multi/2`, etc.
+Nothing has to be started by hand; the engine comes up on the first call.
+Results are a plain list in request order, one `{:ok, varbinds}` or
+`{:error, reason}` per request.
 
 ## Create a Device Fleet
 

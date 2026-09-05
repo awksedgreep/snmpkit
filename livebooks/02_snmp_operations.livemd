@@ -6,7 +6,7 @@ A comprehensive guide to all SNMP operations in SnmpKit.
 
 ```elixir
 Mix.install([
-  {:snmpkit, "~> 1.3"}
+  {:snmpkit, "~> 2.0"}
 ])
 
 alias SnmpKit.{SNMP, Sim}

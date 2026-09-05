@@ -187,7 +187,11 @@ defmodule SnmpKit.SnmpMgr.MIB do
   @doc """
   Loads a compiled MIB file using SnmpKit.MIB.load_compiled with fallback.
   """
-  def load(compiled_mib_path) do
+  def load(%{symbols: _} = compiled_mib) do
+    GenServer.call(__MODULE__, {:register_loaded_mib, compiled_mib})
+  end
+
+  def load(compiled_mib_path) when is_binary(compiled_mib_path) do
     # Try SnmpKit.MIB.load_compiled first for enhanced loading
     case load_with_snmp_lib(compiled_mib_path) do
       {:ok, result} ->

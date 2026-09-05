@@ -347,7 +347,18 @@ defmodule SnmpKit.SnmpMgr.Table do
         column_types: %{2 => :string, 3 => :integer}
       }}
   """
-  def analyze(table_data, opts \\ []) when is_map(table_data) do
+  def analyze(table_data, opts \\ [])
+
+  def analyze(varbinds, opts) when is_list(varbinds) do
+    # walk_table/3 output: index rows first, then analyze the map form
+    {:ok, rows} = to_rows(varbinds)
+
+    rows
+    |> Map.new(fn row -> {row.index, Map.delete(row, :index)} end)
+    |> analyze(opts)
+  end
+
+  def analyze(table_data, opts) when is_map(table_data) do
     analyze_types = Keyword.get(opts, :analyze_types, true)
     find_missing = Keyword.get(opts, :find_missing, true)
 

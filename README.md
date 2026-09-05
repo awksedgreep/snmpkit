@@ -1,129 +1,167 @@
-# SnmpKit 🚀
-
-IMPORTANT: Breaking changes in 1.0
-- Standardized result shape: all SNMP operations now return enriched maps per varbind: `%{name?, oid, type, value, formatted?}`
-- `include_names: true` by default (can be disabled per call or globally)
-- `include_formatted: true` by default (can be disabled to avoid formatting overhead)
-- Pretty helpers now preserve type and raw value and return the same enriched map shape
-- Migration guide: see docs/enriched-output-migration.md
-- Removed deprecated functions: `get_with_type/3` and `get_next_with_type/3` (use `get/3` and `get_next/3` which now always include type in the enriched map)
-- Multi-target APIs keep their outer return_format but inner items are enriched maps
+# SnmpKit
 
 [![Hex.pm](https://img.shields.io/hexpm/v/snmpkit.svg)](https://hex.pm/packages/snmpkit)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/snmpkit)
 [![License](https://img.shields.io/github/license/awksedgreep/snmpkit.svg)](LICENSE)
 [![Elixir CI](https://github.com/awksedgreep/snmpkit/actions/workflows/elixir.yml/badge.svg)](https://github.com/awksedgreep/snmpkit/actions/workflows/elixir.yml)
 
-**A modern, comprehensive SNMP toolkit for Elixir - featuring a unified API, pure Elixir implementation, and powerful device simulation.**
+A pure Elixir SNMP toolkit: manager operations for SNMPv1, v2c and v3, a
+native MIB compiler, and simulated devices for tests. It does not depend on
+Erlang's `:snmp` application.
 
-SnmpKit is a complete SNMP (Simple Network Management Protocol) solution built from the ground up in pure Elixir. It provides a clean, organized API for SNMP operations, MIB management, and realistic device simulation.
-
-## ✨ Key Features
-
-Performance and result toggles
-- include_names: true by default; set include_names: false per call or via application config to skip reverse lookup and speed up response processing
-- include_formatted: true by default; set include_formatted: false to skip formatting and return raw values only
-
-Examples
-- High-throughput walk without formatting or name resolution:
-
-```elixir
-{:ok, rows} = SnmpKit.SNMP.walk("192.168.1.1", "ifTable", include_names: false, include_formatted: false)
-# rows: [%{oid: "1.3.6...", type: :integer, value: 1}, ...]
-```
-
-Multi-target defaults (1.0)
-- Concurrent Multi is the default for multi-target operations (get_multi, get_bulk_multi, walk_multi, walk_table_multi)
-- Default concurrent multi operations use a shared UDP socket and centralized response correlation rather than one task per request
-- `walk_multi` and `walk_table_multi` keep one in-flight GETBULK per target and enforce bounded total walk time via `walk_timeout:`
-- `execute_mixed` preserves input ordering while routing walk and non-walk work through the same shared-socket coordinators
-- Opt-in walk tuning is available with `adaptive_max_repetitions: true` plus optional `min_max_repetitions:` and `max_max_repetitions:` bounds
-- Default SNMP version for multi-target operations is :v2c (override with version: :v1 if needed)
-- No manual engine/service start is required — components are ensured at call time
-- Note: Single-target operations default to :v1 (configurable via SnmpKit.SnmpMgr.Config)
-
-```elixir
-# Default: Concurrent Multi
-{:ok, results} = SnmpKit.get_multi([{"h1", "sysDescr.0"}, {"h2", "sysUpTime.0"}])
-
-# Legacy/simple path (opt-in)
-
-# Multi-target table walk
-{:ok, results} = SnmpKit.walk_table_multi([{"h1", "ifTable"}, {"h2", "ifTable"}])
-```
-
-- 🎯 **Unified API** - Clean, context-based modules (`SnmpKit.SNMP`, `SnmpKit.MIB`, `SnmpKit.Sim`)
-- 🧬 **Pure Elixir Implementation** - No Erlang SNMP dependencies
-- 📋 **Advanced MIB Support** - Native parsing, compilation, and object resolution
-- 🖥️ **Realistic Device Simulation** - Create SNMP devices for testing and development
-- ⚡ **High Performance** - Optimized for large-scale operations and concurrent requests
-- 🧪 **Testing Friendly** - Comprehensive test helpers and simulated devices
-
-## 🚀 Quick Start
-
-### Installation
+## Installation
 
 ```elixir
 def deps do
   [
-    {:snmpkit, "~> 1.4"}
+    {:snmpkit, "~> 2.0"}
   ]
 end
 ```
 
-### Basic Usage
+Upgrading from 1.x? See the [2.0 migration guide](docs/v2-migration.md).
+
+## Quick start
+
+Everything below runs against a simulated device, so it works offline.
 
 ```elixir
-# Basic SNMP operations return enriched maps
-{:ok, %{name: name, oid: oid, type: type, value: description, formatted: formatted}} =
-  SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
+# A simulated router on localhost:1161, built from a walk file that ships
+# with the library (also :cable_modem and :switch)
+{:ok, profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(:router)
+{:ok, _device} = SnmpKit.Sim.start_device(profile, port: 1161)
+target = "127.0.0.1:1161"
 
-{:ok, system_info} = SnmpKit.SNMP.walk("192.168.1.1", "system")
-# system_info: [
-#   %{name: "sysDescr.0", oid: "1.3.6.1.2.1.1.1.0", type: :octet_string, value: "...", formatted: "..."},
-#   ...
-# ]
+# GET returns one enriched varbind map
+{:ok, %{value: descr, type: :octet_string, oid: "1.3.6.1.2.1.1.1.0"}} =
+  SnmpKit.SNMP.get(target, "sysDescr.0")
 
-# MIB operations
-{:ok, oid} = SnmpKit.MIB.resolve("sysDescr.0")
-{:ok, name} = SnmpKit.MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1, 0])
+# WALK returns a list of them, in OID order
+{:ok, system} = SnmpKit.SNMP.walk(target, "system")
+Enum.each(system, fn %{name: name, formatted: value} -> IO.puts("#{name} = #{value}") end)
 
-# Device simulation
-device_profile = %{
-  name: "Test Router",
-  objects: %{[1, 3, 6, 1, 2, 1, 1, 1, 0] => "Test Router v1.0"}
-}
-{:ok, device} = SnmpKit.Sim.start_device(device_profile, port: 1161)
+# Multi-target calls return one result per request, in request order
+[{:ok, [%{value: ^descr}]}, {:ok, [%{name: "sysName.0"}]}] =
+  SnmpKit.SNMP.get_multi([{target, "sysDescr.0"}, {target, "sysName.0"}])
+
+# MIB lookups work without any loading; the common IETF MIBs are built in
+{:ok, [1, 3, 6, 1, 2, 1, 1, 1, 0]} = SnmpKit.MIB.resolve("sysDescr.0")
+{:ok, "sysDescr.0"} = SnmpKit.MIB.reverse_lookup([1, 3, 6, 1, 2, 1, 1, 1, 0])
+
+# Your own MIBs
+{:ok, compiled} = SnmpKit.MIB.compile("priv/mibs/MY-ENTERPRISE-MIB.mib")
+:ok = SnmpKit.MIB.load(compiled)
 ```
 
-## 🏗️ Architecture
+## The API in one screen
 
-- **`SnmpKit.SNMP`** - Complete SNMP manager protocol operations
-- **`SnmpKit.MIB`** - Comprehensive MIB management  
-- **`SnmpKit.Sim`** - Realistic device simulation (single devices)
-- **`SnmpKit.SnmpSim`** - Configuration-driven simulation of whole device groups
-- **`SnmpKit`** - Direct access for convenience
+| Module | What it is for |
+|--------|----------------|
+| `SnmpKit.SNMP` | Manager operations: get, get_next, set, walk, get_bulk, bulk walks, tables, streams, async, multi-target, pretty formatting |
+| `SnmpKit.MIB` | Name/OID resolution, tree navigation, MIB compilation and loading |
+| `SnmpKit.Sim` | Start one simulated device, or a population of them |
+| `SnmpKit.SnmpSim` | Configuration-driven simulation of whole device groups |
+| `SnmpKit` | Shortcuts for the most common calls (`get`, `walk`, `resolve`, ...) |
 
-## 📚 Documentation
+Lower layers are public too when you need them: `SnmpKit.SnmpLib` (PDU
+encoding, ASN.1, transport, SNMPv3 security), `SnmpKit.SnmpMgr` (engine,
+multi-target coordinator, walk strategies) and `SnmpKit.MIB.Parser` /
+`SnmpKit.MIB.Compiler` (the native MIB toolchain).
 
-- **[Complete API Documentation](https://hexdocs.pm/snmpkit)** - Full function reference
-- **[Concurrent Multi (High-Throughput Multi-Target)](https://hexdocs.pm/snmpkit/concurrent-multi.html)** - Concepts, defaults, and return formats
-- **[Enriched Output Migration Guide](https://hexdocs.pm/snmpkit/enriched-output-migration.html)** - Migrate from 0.x to 1.x
-- **[Quickstart Livebook](https://hexdocs.pm/snmpkit/01_quickstart.html)** - Get running in 5 minutes
-- **[High Performance Guide](https://hexdocs.pm/snmpkit/05_high_performance.html)** - Polling at scale
-- **[Timeout Documentation](TIMEOUT_DOCUMENTATION.md)** - Understanding timeout behavior and configuration
-- **[MIB Guide](https://hexdocs.pm/snmpkit/mib-guide.html)** - Working with MIBs
-- **[Testing Guide](https://hexdocs.pm/snmpkit/testing-guide.html)** - Testing strategies
-- **[Contributing Guide](https://hexdocs.pm/snmpkit/contributing.html)** - Development guidelines
+## Results
 
-## 🤝 Contributing
+Every operation returns enriched varbind maps:
 
-We welcome contributions! Please see the [Contributing Guide](https://hexdocs.pm/snmpkit/contributing.html) for guidelines.
+```elixir
+%{
+  name: "sysUpTime.0",            # nil when no MIB name is known
+  oid: "1.3.6.1.2.1.1.3.0",
+  oid_list: [1, 3, 6, 1, 2, 1, 1, 3, 0],
+  type: :timeticks,
+  value: 12345678,
+  formatted: "1 day, 10:17:36.78"
+}
+```
 
-## 📄 License
+Name resolution and formatting can be switched off per call
+(`include_names: false`, `include_formatted: false`) or globally through
+configuration, which matters on hot paths that walk large tables.
+
+Errors are tagged tuples: `{:error, :timeout}`, `{:error, :no_such_object}`
+(SNMPv2c), `{:error, :no_such_name}` (SNMPv1), `{:error, :not_writable}`, and
+so on.
+
+## Multi-target operations
+
+`get_multi`, `get_bulk_multi`, `walk_multi` and `walk_table_multi` run every
+request concurrently over one shared UDP socket with centralized response
+correlation. Nothing needs to be started by hand; the engine comes up on the
+first call.
+
+```elixir
+requests = [
+  {"switch-1", "ifTable"},
+  {"switch-2", "ifTable", timeout: 30_000},   # per-request options
+  {"router-1", "ipRouteTable"}
+]
+
+results = SnmpKit.SNMP.walk_multi(requests, max_concurrent: 20, walk_timeout: 120_000)
+# [{:ok, [...]}, {:ok, [...]}, {:error, :timeout}]   (request order)
+
+SnmpKit.SNMP.get_multi(requests, return_format: :map)
+# %{{"switch-1", "ifTable"} => {:ok, [...]}, ...}
+```
+
+See [Concurrent Multi](docs/concurrent-multi.md) and the
+[timeout guide](TIMEOUT_DOCUMENTATION.md).
+
+## Configuration
+
+Defaults are read from the application environment at startup and can be
+changed at runtime through `SnmpKit.SnmpMgr.Config`:
+
+```elixir
+# config/config.exs
+config :snmpkit,
+  community: "public",
+  timeout: 5_000,          # per-PDU timeout for single-target calls, ms
+  retries: 1,
+  port: 161,
+  version: :v2c,
+  include_names: true,
+  include_formatted: true,
+  auto_start_services: true
+
+# Limits applied when reading walk files and MIBs
+config :snmpkit,
+  max_input_file_bytes: 50_000_000,
+  max_compiled_mib_bytes: 50_000_000,
+  input_roots: ["priv"]   # optional jail for user-supplied file paths
+```
+
+## Documentation
+
+- [2.0 migration guide](docs/v2-migration.md)
+- [Unified API guide](docs/unified-api-guide.md)
+- [Concurrent multi-target operations](docs/concurrent-multi.md)
+- [Timeouts and retries](TIMEOUT_DOCUMENTATION.md)
+- [MIB guide](docs/mib-guide.md) and [checking the parser against libsmi and net-snmp](docs/mib-parser-oracle.md)
+- [Testing guide](docs/testing-guide.md)
+- Livebooks: [quickstart](livebooks/01_quickstart.livemd), [SNMP operations](livebooks/02_snmp_operations.livemd), [MIB management](livebooks/03_mib_management.livemd), [device simulation](livebooks/04_device_simulation.livemd), [high performance](livebooks/05_high_performance.livemd)
+- [Examples](examples/README.md)
+- [Full API reference](https://hexdocs.pm/snmpkit)
+
+## Development
+
+```sh
+mix test                       # unit + integration suite
+mix test --include snmpv3      # SNMPv3 suites
+mix test --include mib_oracle  # cross-check the MIB parser (needs smilint / snmptranslate)
+mix lint                       # format check, credo --strict, dialyzer
+```
+
+Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
 
 SnmpKit is released under the [MIT License](LICENSE).
-
----
-
-**Ready to simplify your SNMP operations?** Get started with SnmpKit today! 🚀

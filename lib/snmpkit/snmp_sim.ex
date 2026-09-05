@@ -37,7 +37,7 @@ defmodule SnmpKit.SnmpSim do
       :ok = SnmpKit.SnmpSim.stop()
   """
 
-  alias SnmpKit.SnmpSim.{Config, Device, LazyDevicePool}
+  alias SnmpKit.SnmpSim.{Config, Device, LazyDevicePool, ProfileLoader}
 
   @supervisor SnmpSim.DeviceSupervisor
 
@@ -115,17 +115,36 @@ defmodule SnmpKit.SnmpSim do
       {:ok, device} = SnmpKit.SnmpSim.start_device(profile, port: 9001)
   """
   @spec start_device(map(), keyword()) :: GenServer.on_start()
-  def start_device(profile, opts \\ []) do
+  def start_device(profile, opts \\ [])
+
+  # A plain `%{objects: %{oid => value}}` map (as in the README quick start)
+  # is turned into a manual profile first.
+  def start_device(%{objects: objects} = profile, opts)
+      when not is_map_key(profile, :device_type) do
+    oid_map = Map.new(objects, fn {oid, value} -> {oid_key(oid), value} end)
+
+    case ProfileLoader.load_profile(:custom, {:manual, oid_map}) do
+      {:ok, loaded} -> start_device(loaded, opts)
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def start_device(profile, opts) do
     port = Keyword.fetch!(opts, :port)
     device_type = profile.device_type
 
-    Device.start_link(%{
+    device_config = %{
       port: port,
       device_type: device_type,
       device_id: Keyword.get(opts, :device_id, "#{device_type}_#{port}"),
       profile: profile,
       community: Keyword.get(opts, :community, "public")
-    })
+    }
+
+    # Linked to the caller: the device stops when the test or script that
+    # started it exits. Devices started from a config (`start/1`) or by
+    # `start_device_population/2` run under the device supervisor instead.
+    Device.start_link(device_config)
   end
 
   @doc """
@@ -139,9 +158,88 @@ defmodule SnmpKit.SnmpSim do
         port_range: 30_000..39_999
       )
   """
-  def start_device_population(device_configs, opts \\ []) do
-    LazyDevicePool.start_device_population(device_configs, opts)
+  def start_device_population(device_configs, opts \\ [])
+
+  def start_device_population([%{} | _] = device_configs, _opts) do
+    # Explicit per-device maps: %{type: :router, port: 30001, community: "public"}
+    results =
+      Enum.map(device_configs, fn config ->
+        type = Map.fetch!(config, :type)
+        port = Map.fetch!(config, :port)
+
+        with {:ok, profile} <- population_profile(config),
+             {:ok, pid} <-
+               start_device(profile, port: port, community: Map.get(config, :community, "public")) do
+          {:ok, %{type: type, port: port, pid: pid, target: "127.0.0.1:#{port}"}}
+        end
+      end)
+
+    case Enum.find(results, &match?({:error, _}, &1)) do
+      nil -> {:ok, Enum.map(results, fn {:ok, device} -> device end)}
+      error -> error
+    end
   end
+
+  def start_device_population(device_configs, opts) do
+    # `{type, source, count: n}` tuples go through the lazy pool; devices are
+    # pre-warmed unless `pre_warm: false` is given.
+    opts = Keyword.put_new(opts, :pre_warm, true)
+
+    with :ok <- ensure_pool_started(),
+         {:ok, started} <- LazyDevicePool.start_device_population(device_configs, opts) do
+      {:ok, describe_started(started, device_configs)}
+    end
+  end
+
+  defp population_profile(%{profile: %ProfileLoader{} = profile}), do: {:ok, profile}
+
+  defp population_profile(%{objects: objects}) do
+    ProfileLoader.load_profile(
+      :custom,
+      {:manual, Map.new(objects, fn {k, v} -> {oid_key(k), v} end)}
+    )
+  end
+
+  defp population_profile(%{type: type}), do: ProfileLoader.load_profile(type)
+
+  defp ensure_pool_started do
+    case Process.whereis(LazyDevicePool) do
+      nil ->
+        result =
+          case supervisor() do
+            {:ok, sup} -> DynamicSupervisor.start_child(sup, {LazyDevicePool, []})
+            {:error, :not_started} -> LazyDevicePool.start_link()
+          end
+
+        case result do
+          {:ok, _} -> :ok
+          {:error, {:already_started, _}} -> :ok
+          {:error, reason} -> {:error, {:device_pool, reason}}
+        end
+
+      _pid ->
+        :ok
+    end
+  end
+
+  # pre_warm returns [{port, pid}] in config order; pair each with its type
+  defp describe_started(:lazy_pool_configured, _configs), do: []
+
+  defp describe_started(started, configs) when is_list(started) do
+    types =
+      Enum.flat_map(configs, fn {type, _source, config_opts} ->
+        List.duplicate(type, Keyword.get(config_opts, :count, 1))
+      end)
+
+    started
+    |> Enum.zip(types ++ List.duplicate(nil, max(length(started) - length(types), 0)))
+    |> Enum.map(fn {{port, pid}, type} ->
+      %{type: type, port: port, pid: pid, target: "127.0.0.1:#{port}"}
+    end)
+  end
+
+  defp oid_key(oid) when is_list(oid), do: Enum.join(oid, ".")
+  defp oid_key(oid) when is_binary(oid), do: oid
 
   ## Inspection and shutdown
 

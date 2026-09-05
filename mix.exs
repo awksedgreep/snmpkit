@@ -97,6 +97,7 @@ defmodule Snmpkit.MixProject do
       main: "api-reference",
       extras: [
         "README.md",
+        "docs/v2-migration.md",
         "CONTRIBUTING.md",
         "LICENSE",
         "docs/mib-guide.md",
@@ -104,6 +105,7 @@ defmodule Snmpkit.MixProject do
         "docs/unified-api-guide.md",
         "docs/enriched-output-migration.md",
         "docs/concurrent-multi.md",
+        "docs/mib-parser-oracle.md",
         "docs/v1.4.0-release-notes.md",
         "docs/v1.3.24-release-notes.md",
         "docs/v1.3.23-release-notes.md",
@@ -163,7 +165,6 @@ defmodule Snmpkit.MixProject do
           SnmpKit.SnmpLib.Security.USM
         ],
         "MIB Support": [
-          SnmpKit.MibParser,
           SnmpKit.SnmpMgr.MIB,
           SnmpKit.MIB.Builtin,
           SnmpKit.MIB.Resolver,

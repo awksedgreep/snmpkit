@@ -101,6 +101,16 @@ defmodule SnmpKit.SnmpSim.MIB.SharedProfilesTest do
   end
 
   test "device types and value types never mint atoms" do
+    # Warm up so lazily loaded modules (DateTime, Inspect, ...) do not count
+    :ok =
+      SharedProfiles.store_profile(
+        "warm_up_type",
+        %{"1.3.6.1.4.1.9.9.1.0" => %{type: "WarmUp", value: "x"}},
+        %{}
+      )
+
+    {:ok, _} = SharedProfiles.get_oid_value("warm_up_type", "1.3.6.1.4.1.9.9.1.0", %{})
+
     before = :erlang.system_info(:atom_count)
     unique = "device_type_#{System.unique_integer([:positive])}"
 

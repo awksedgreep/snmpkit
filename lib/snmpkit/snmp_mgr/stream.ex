@@ -299,8 +299,7 @@ defmodule SnmpKit.SnmpMgr.Stream do
           chunk_size: chunk_size,
           columns: columns,
           finished: false,
-          opts: opts,
-          row_buffer: %{}
+          opts: opts
         }
 
       {:error, reason} ->
@@ -321,23 +320,42 @@ defmodule SnmpKit.SnmpMgr.Stream do
 
     case SnmpKit.SnmpMgr.Core.send_get_bulk_request(state.target, state.current_oid, bulk_opts) do
       {:ok, results} ->
-        # Filter and organize table results
-        {table_entries, next_oid} = process_table_results(results, state.table_oid, state.columns)
+        {in_scope, next_oid} = filter_stream_results(results, state.table_oid)
+        in_scope = filter_table_columns(in_scope, state.table_oid, state.columns)
 
-        if Enum.empty?(table_entries) or next_oid == nil do
-          # Return any remaining buffered rows
-          remaining_rows = Map.values(state.row_buffer)
-          {remaining_rows, %{state | finished: true}}
+        merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+        enriched = SnmpKit.SnmpMgr.Format.enrich_varbinds(in_scope, merged_opts)
+
+        if Enum.empty?(in_scope) or next_oid == nil do
+          {enriched, %{state | finished: true}}
         else
-          # Update row buffer and return complete rows
-          {complete_rows, new_buffer} = update_table_buffer(state.row_buffer, table_entries)
-          new_state = %{state | current_oid: next_oid, row_buffer: new_buffer}
-          {complete_rows, new_state}
+          {enriched, %{state | current_oid: next_oid}}
         end
 
       {:error, reason} ->
         {[{:error, reason}], %{state | finished: true}}
     end
+  end
+
+  # Keep only the requested columns (`columns: [2, 8]`), addressed by the
+  # sub-identifier that follows the table entry: table.1.<column>.<index>.
+  defp filter_table_columns(results, _table_oid, nil), do: results
+
+  defp filter_table_columns(results, table_oid, columns) do
+    column_at = length(table_oid) + 1
+
+    Enum.filter(results, fn varbind ->
+      case elem(varbind, 0) do
+        oid_list when is_list(oid_list) ->
+          Enum.at(oid_list, column_at) in columns
+
+        oid_string when is_binary(oid_string) ->
+          case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
+            {:ok, oid_list} -> Enum.at(oid_list, column_at) in columns
+            _ -> false
+          end
+      end
+    end)
   end
 
   defp cleanup_table_stream(_state), do: :ok
@@ -618,17 +636,5 @@ defmodule SnmpKit.SnmpMgr.Stream do
       end
 
     {in_scope_results, next_oid}
-  end
-
-  defp process_table_results(results, _table_oid, _columns) do
-    # Process results into table entries
-    # This is a simplified version - real implementation would be more sophisticated
-    {results, List.last(results) |> elem(0) |> SnmpKit.SnmpLib.OID.string_to_list() |> elem(1)}
-  end
-
-  defp update_table_buffer(buffer, entries) do
-    # Update row buffer and return complete rows
-    # Simplified implementation
-    {[], Map.merge(buffer, Enum.into(entries, %{}))}
   end
 end

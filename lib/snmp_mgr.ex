@@ -164,7 +164,8 @@ defmodule SnmpKit.SnmpMgr do
   @doc """
   Performs an asynchronous SNMP GET request.
 
-  Returns immediately with a reference. The caller will receive a message
+  Returns a `Task` whose result is the same `{:ok, varbind}` or `{:error, reason}`
+  tuple `get/3` returns.
   with the result.
 
   ## Parameters
@@ -175,18 +176,11 @@ defmodule SnmpKit.SnmpMgr do
   ## Examples
 
       # Note: This function makes actual network calls and is not suitable for doctests
-      ref = SnmpMgr.get_async("device.local", "sysDescr.0")
-      receive do
-        {^ref, {:ok, description}} -> description
-        {^ref, {:error, reason}} -> {:error, reason}
-      after
-        5000 -> {:error, :timeout}
-      end
-      # "Linux server 5.4.0-42-generic"
+      task = SnmpMgr.get_async("device.local", "sysDescr.0")
+      {:ok, %{value: description}} = Task.await(task, 5000)
   """
   def get_async(target, oid, opts \\ []) do
-    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-    SnmpKit.SnmpMgr.Core.send_get_request_async(target, oid, merged_opts)
+    Task.async(fn -> get(target, oid, opts) end)
   end
 
   @doc """
@@ -240,8 +234,12 @@ defmodule SnmpKit.SnmpMgr do
   @doc """
   Performs an asynchronous SNMP GETBULK request.
 
-  Returns immediately with a reference. The caller will receive a message
-  with the result.
+  Returns a `Task`; await it with `Task.await/2` for the same result
+  `get_bulk/3` returns. `{:error, {:unsupported_operation, _}}` is returned
+  directly when `version: :v1` or `:v3` is requested.
+
+      task = SnmpMgr.get_bulk_async("device.local", "ifTable")
+      {:ok, rows} = Task.await(task, 5000)
   """
   def get_bulk_async(target, oid, opts \\ []) do
     # Check if user explicitly specified a version other than v2c
@@ -253,13 +251,7 @@ defmodule SnmpKit.SnmpMgr do
         {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
 
       _ ->
-        # Force version to v2c for GETBULK
-        merged_opts =
-          opts
-          |> Keyword.put(:version, :v2c)
-          |> (&SnmpKit.SnmpMgr.Config.merge_opts/1).()
-
-        SnmpKit.SnmpMgr.Core.send_get_bulk_request_async(target, oid, merged_opts)
+        Task.async(fn -> get_bulk(target, oid, Keyword.put(opts, :version, :v2c)) end)
     end
   end
 

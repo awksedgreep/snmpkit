@@ -205,29 +205,22 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
   # Private functions
 
   defp start_simulation_devices(device_count) do
-    # Start simulated SNMP devices for realistic testing
-    sim_mod = Module.concat([SnmpKit, TestSupport, SNMPSimulator])
+    # Start simulated cable modems on consecutive ports from 40000
+    walk = SnmpKit.SnmpSim.ProfileLoader.bundled_walk(:cable_modem)
+    port_range = 40_000..(40_000 + device_count - 1)
 
-    if Code.ensure_loaded?(sim_mod) and function_exported?(sim_mod, :create_device_fleet, 1) do
-      case apply(sim_mod, :create_device_fleet, [
-             [
-               count: device_count,
-               device_type: :cable_modem,
-               port_start: 40000
-             ]
-           ]) do
-        {:ok, devices} ->
-          # Wait for devices to be ready using SNMP ping
-          wait_for_devices_ready(devices)
-          {:ok, devices}
+    case SnmpKit.SnmpSim.start_device_population(
+           [{:cable_modem, {:walk_file, walk}, count: device_count}],
+           port_range: port_range
+         ) do
+      {:ok, devices} ->
+        devices = Enum.map(devices, &Map.put(&1, :host, "127.0.0.1"))
+        wait_for_devices_ready(devices)
+        {:ok, devices}
 
-        {:error, reason} ->
-          Logger.error("Failed to start simulation devices: #{inspect(reason)}")
-          {:error, reason}
-      end
-    else
-      Logger.warning("SNMPSimulator not available; cannot start simulated devices")
-      {:error, :simulator_not_available}
+      {:error, reason} ->
+        Logger.error("Failed to start simulation devices: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 
@@ -280,13 +273,7 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
   end
 
   defp cleanup_simulation_devices(devices) do
-    sim_mod = Module.concat([SnmpKit, TestSupport, SNMPSimulator])
-
-    if Code.ensure_loaded?(sim_mod) and function_exported?(sim_mod, :stop_devices, 1) do
-      apply(sim_mod, :stop_devices, [devices])
-    else
-      :ok
-    end
+    Enum.each(devices, fn %{pid: pid} -> SnmpKit.SnmpSim.stop_device(pid) end)
   end
 
   defp generate_real_targets(devices, requests_per_target) do

@@ -2,7 +2,7 @@
 
 # Scalable High Concurrency SNMP Polling Example
 # 
-# This demonstrates the Concurrent Multi architecture (formerly MultiV2)
+# This demonstrates the Concurrent Multi architecture
 # for polling thousands of devices efficiently without GenServer bottlenecks.
 # Perfect for cable modem management.
 #
@@ -20,7 +20,7 @@ defmodule ScalablePollingExample do
   Demonstrates scalable SNMP polling for thousands of cable modems.
   
   This example shows how to efficiently poll 5,000+ cable modems using
-  the Concurrent Multi architecture (formerly MultiV2) that eliminates
+  the Concurrent Multi architecture that eliminates
   GenServer bottlenecks.
   """
 
@@ -46,18 +46,11 @@ defmodule ScalablePollingExample do
   end
   
   defp start_snmp_architecture() do
-    IO.puts("Starting SNMP architecture components (advanced example)...")
-    
-    # Advanced: Explicit start for demonstration purposes. In normal app usage,
-    # a future auto-ensure flow will remove the need to start these manually.
-    {:ok, _} = SnmpKit.SnmpMgr.RequestIdGenerator.start_link()
-    {:ok, _} = SnmpKit.SnmpMgr.SocketManager.start_link()
-    {:ok, _} = SnmpKit.SnmpMgr.EngineV2.start_link()
-    
-    IO.puts("✓ RequestIdGenerator started (ETS atomic counter)")
-    IO.puts("✓ SocketManager started (shared 4MB UDP socket)")
-    IO.puts("✓ EngineV2 started (response correlator)")
-    IO.puts("")
+    # The request-id generator and the shared-socket engine are started on
+    # demand by every multi-target call; ensure_started/0 only makes that
+    # explicit for the demo output.
+    :ok = SnmpKit.SnmpMgr.ensure_started()
+    IO.puts("✓ Engine started (shared UDP socket + response correlator)\n")
   end
   
   defp generate_cable_modem_targets() do
@@ -97,8 +90,8 @@ defmodule ScalablePollingExample do
     
     start_time = System.monotonic_time(:millisecond)
     
-    # Use MultiV2 for high concurrency without GenServer bottleneck
-    results = SnmpKit.SnmpMgr.MultiV2.get_multi(targets,
+    # Use SnmpKit.SnmpMgr.Multi for high concurrency without GenServer bottleneck
+    results = SnmpKit.SnmpMgr.Multi.get_multi(targets,
       max_concurrent: 50,    # High concurrency
       timeout: 3000,         # 3 second timeout
       return_format: :list   # Simple list format
@@ -131,7 +124,7 @@ success_count = Enum.count(results, fn
       
       start_time = System.monotonic_time(:millisecond)
       
-      results = SnmpKit.SnmpMgr.MultiV2.get_multi(targets,
+      results = SnmpKit.SnmpMgr.Multi.get_multi(targets,
         max_concurrent: concurrency,
         timeout: 2000
       )
@@ -150,7 +143,7 @@ success_count = Enum.count(results, fn
     
     # Format 1: Simple list (default)
     IO.puts("  1. List format (default):")
-    list_results = SnmpKit.SnmpMgr.MultiV2.get_multi(small_targets, 
+    list_results = SnmpKit.SnmpMgr.Multi.get_multi(small_targets, 
       max_concurrent: 10,
       timeout: 1000
     )
@@ -159,7 +152,7 @@ success_count = Enum.count(results, fn
     
     # Format 2: With targets (includes device info)
     IO.puts("  2. With targets format:")
-    target_results = SnmpKit.SnmpMgr.MultiV2.get_multi(small_targets,
+    target_results = SnmpKit.SnmpMgr.Multi.get_multi(small_targets,
       max_concurrent: 10,
       timeout: 1000,
       return_format: :with_targets
@@ -169,7 +162,7 @@ success_count = Enum.count(results, fn
     
     # Format 3: Map format (device -> result)
     IO.puts("  3. Map format:")
-    map_results = SnmpKit.SnmpMgr.MultiV2.get_multi(small_targets,
+    map_results = SnmpKit.SnmpMgr.Multi.get_multi(small_targets,
       max_concurrent: 10,
       timeout: 1000,
       return_format: :map
@@ -183,14 +176,14 @@ success_count = Enum.count(results, fn
     IO.puts("Monitoring UDP buffer and performance...")
     
     # Get initial buffer stats
-    initial_stats = SnmpKit.SnmpMgr.SocketManager.get_buffer_stats()
+    initial_stats = SnmpKit.SnmpMgr.Engine.get_buffer_stats()
     IO.puts("  Initial buffer size: #{div(initial_stats.buffer_size, 1024 * 1024)}MB")
     IO.puts("  Initial utilization: #{initial_stats.recv_utilization_percent}%")
     
     # Run polling with monitoring
     start_time = System.monotonic_time(:millisecond)
     
-    results = SnmpKit.SnmpMgr.MultiV2.get_multi(targets,
+    results = SnmpKit.SnmpMgr.Multi.get_multi(targets,
       max_concurrent: 30,
       timeout: 2000
     )
@@ -198,7 +191,7 @@ success_count = Enum.count(results, fn
     end_time = System.monotonic_time(:millisecond)
     
     # Get final buffer stats
-    final_stats = SnmpKit.SnmpMgr.SocketManager.get_buffer_stats()
+    final_stats = SnmpKit.SnmpMgr.Engine.get_buffer_stats()
     
     # Show results
 success_count = Enum.count(results, fn {:ok, %{oid: _, type: _, value: _}} -> true; _ -> false end)
@@ -250,7 +243,7 @@ defmodule CableModemPolling do
     
     start_time = System.monotonic_time(:millisecond)
     
-    results = SnmpKit.SnmpMgr.MultiV2.get_multi(cable_modems,
+    results = SnmpKit.SnmpMgr.Multi.get_multi(cable_modems,
       max_concurrent: max_concurrent,
       timeout: timeout,
       return_format: :with_targets
@@ -298,7 +291,7 @@ defmodule CableModemPolling do
     
     start_time = System.monotonic_time(:millisecond)
     
-    results = SnmpKit.SnmpMgr.MultiV2.get_multi(targets,
+    results = SnmpKit.SnmpMgr.Multi.get_multi(targets,
       max_concurrent: max_concurrent,
       timeout: timeout,
       return_format: :with_targets

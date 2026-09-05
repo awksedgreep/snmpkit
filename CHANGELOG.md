@@ -28,6 +28,19 @@ Breaking release. See `docs/v2-migration.md` for the rename/removal table.
 - MIB tokenizer reports libsmi-style lexical warnings (`SnmpTokenizer.scan/1`; `warnings` key on parsed MIBs; `Compiler` honours `warnings_as_errors`): underscores or trailing hyphens in identifiers, odd-length hex strings, binary strings not a multiple of 8 bits. Non-UTF-8 MIB files are decoded as Latin-1 with a warning instead of raising. Backslashes inside quoted strings are literal (SMI has no escapes) and `--` ends an identifier. Illegal-character errors are `{:illegal, char, line}`. A `:mib_oracle`-tagged test cross-checks the parser against libsmi and net-snmp (`docs/mib-parser-oracle.md`).
 - MIB grammar accepts, with a warning, vendor constructs net-snmp loads: enumerations on `Integer32`/`Unsigned32` (treated as `INTEGER`), uppercase enumeration labels, `MAX-ACCESS write-only`, and `UNITS` on SMIv1 objects. Impossible `LAST-UPDATED`/`REVISION` dates are reported as warnings.
 
+### Added
+- `SnmpKit.SnmpSim.ProfileLoader.load_profile/1` loads the bundled walks (`:cable_modem`, `:router`, `:switch`).
+- `SnmpKit.Sim.start_device/2` accepts a plain `%{objects: %{oid => value}}` map; `SnmpKit.Sim.start_device_population/2` accepts `%{type:, port:, community:}` maps as well as `{type, source, count: n}` tuples, starts the device pool itself and returns `[%{type, port, pid, target}]`.
+- `config :snmpkit, ...` is read for manager defaults (`community`, `timeout`, `retries`, `port`, `version`, `include_names`, `include_formatted`, `auto_start_services`); the old `:snmp_mgr` application key still works.
+- `SnmpKit.MIB.load/1` accepts the compiled MIB map returned by `compile/1` as well as a path.
+- `SnmpKit.SNMP.table_bulk_stream/3` supports `columns:`.
+
+### Fixed
+- `SnmpKit.SNMP.get_async/3` and `get_bulk_async/3` return a `Task` (they returned a bare reference and a message the docs never described).
+- `SnmpKit.SNMP.benchmark_device/3` raised on integer division; `analyze_table/2` rejected the list `walk_table/3` returns; `table_bulk_stream/3` raised on its first chunk and walked past the table.
+- `SnmpKit.SnmpMgr.PerformanceBenchmark` referenced the removed `TestSupport` simulator.
+- Documentation sweep for 2.0: README, guides, livebooks and examples describe the current API and return shapes (multi-target calls return a plain list; simulated devices answer SET with `{:error, :not_writable}`; no more references to removed modules).
+
 ## [1.4.0] - 2026-09-05
 
 Final 1.x release. Full notes: `docs/v1.4.0-release-notes.md`.

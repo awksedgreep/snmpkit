@@ -25,13 +25,13 @@ is unaffected.
 | Removed | Replacement |
 |---------|-------------|
 | `SnmpKit.SnmpMgr.Engine` (streaming engine), `Router`, `CircuitBreaker`, `Metrics`, `SnmpMgr.Supervisor`, `SnmpMgr.Application` | The one engine (`SnmpKit.SnmpMgr.Engine`, formerly EngineV2) plus `SocketManager`; they start with the application. Per-target circuit breaking: implement in the caller around `SnmpKit.SNMP` calls. |
-| `SnmpKit.SnmpMgr.start_engine/1`, `engine_request/2`, `engine_batch/2`, `get_engine_stats/1`, `with_circuit_breaker/3`, `record_metric/4` and the `SnmpKit.SNMP` delegates | `SnmpKit.SNMP.get_multi/2`, `walk_multi/2`, `get_bulk_multi/2` for batches; `SnmpKit.SnmpMgr.Engine.get_stats/1` and `SocketManager.get_stats/1` for statistics. |
+| `SnmpKit.SnmpMgr.start_engine`, `engine_request`, `engine_batch`, `get_engine_stats`, `with_circuit_breaker`, `record_metric` and the `SnmpKit.SNMP` delegates | `SnmpKit.SNMP.get_multi/2`, `walk_multi/2`, `get_bulk_multi/2` for batches; `SnmpKit.SnmpMgr.Engine.get_stats/1` and `SocketManager.get_stats/1` for statistics. |
 | The Task-per-target `SnmpKit.SnmpMgr.Multi` and the `strategy: :simple | :concurrent` option | `SnmpKit.SnmpMgr.Multi` is the concurrent implementation; drop the `:strategy` option. |
 | `SnmpKit.SnmpMgr.SocketManager` | `SnmpKit.SnmpMgr.Engine` owns the socket: `Engine.get_socket/1`, `get_port/1`, `get_stats/1`, `get_buffer_stats/1`, `health_check/1`. `SnmpKit.SnmpMgr.ensure_started/0` starts `RequestIdGenerator` and `Engine`. |
 | `SnmpKit.SnmpLib.MIB` (facade) | `SnmpKit.MIB.compile_raw/2`, `compile_string/2`, `load_compiled/1`, `compile_all/2`, or `SnmpKit.MIB.Compiler` directly. |
 | `SnmpKit.SnmpLib.Config` | `SnmpKit.SnmpMgr.Config` (manager defaults) and `SnmpKit.SnmpSim.Config` (simulator). |
 | `SnmpKit.SnmpLib.Pool`, `Cache`, `Monitor`, `Dashboard` | None. These were unused by the library; copy the 1.4 modules into your application if you depended on them. |
-| `SnmpKit.SnmpLib.Security.Keys.secure_wipe/1` | None (it was a no-op). |
+| `SnmpKit.SnmpLib.Security.Keys.secure_wipe` | None (it was a no-op). |
 
 ## Internal reorganisation (no call-site changes)
 
@@ -51,6 +51,20 @@ its public functions (as implementations or delegates):
 | `SnmpKit.SnmpSim.ValueSimulator` | `ValueSimulator.Patterns`, `.Counters`, `.Variance` |
 | `SnmpKit.SnmpLib.Types` | `Types.Validation`, `Types.Format` (delegates kept on `Types`) |
 | `SnmpKit.SnmpLib.Manager` | `Manager.Request` (socket, send/receive/retries), `Manager.Response` (result extraction, error-status decoding) |
+
+## Behaviour changes you may notice
+
+- `SnmpKit.SNMP.get_async/3` and `get_bulk_async/3` return a `Task`; await it
+  with `Task.await/2`. In 1.x they returned a reference and sent
+  `{ref, result}` to the caller.
+- Manager defaults are read from `config :snmpkit` (the 1.x `:snmp_mgr` key
+  is still honoured).
+- `SnmpKit.MIB.load/1` takes the compiled map from `compile/1` directly; a
+  path to a `:binary` compiled file still works.
+- `SnmpKit.Sim.start_device_population/2` pre-warms devices by default and
+  returns `[%{type, port, pid, target}]` instead of the raw pool reply.
+- `SnmpKit.SNMP.benchmark_device/3` returns `avg_response_time` as the mean
+  over all tested bulk sizes and adds `optimal_response_time`.
 
 ## MIB parser
 

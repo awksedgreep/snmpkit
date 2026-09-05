@@ -295,22 +295,29 @@ defmodule SnmpKit.SnmpMgr.Config do
 
   ## GenServer Implementation
 
+  # Application environment lookup: `config :snmpkit, key: value` (the
+  # pre-2.0 `:snmp_mgr` application key is still honoured as a fallback).
+  defp app_env(key) do
+    Application.get_env(
+      :snmpkit,
+      key,
+      Application.get_env(:snmp_mgr, key, Map.fetch!(@default_config, key))
+    )
+  end
+
   @impl true
   def init(opts) do
     # Start with defaults, then merge application environment, then passed options
     app_env_config = %{
-      community: Application.get_env(:snmp_mgr, :community, @default_config.community),
-      timeout: Application.get_env(:snmp_mgr, :timeout, @default_config.timeout),
-      retries: Application.get_env(:snmp_mgr, :retries, @default_config.retries),
-      port: Application.get_env(:snmp_mgr, :port, @default_config.port),
-      version: Application.get_env(:snmp_mgr, :version, @default_config.version),
-      mib_paths: Application.get_env(:snmp_mgr, :mib_paths, @default_config.mib_paths),
-      include_names:
-        Application.get_env(:snmp_mgr, :include_names, @default_config.include_names),
-      include_formatted:
-        Application.get_env(:snmp_mgr, :include_formatted, @default_config.include_formatted),
-      auto_start_services:
-        Application.get_env(:snmp_mgr, :auto_start_services, @default_config.auto_start_services)
+      community: app_env(:community),
+      timeout: app_env(:timeout),
+      retries: app_env(:retries),
+      port: app_env(:port),
+      version: app_env(:version),
+      mib_paths: app_env(:mib_paths),
+      include_names: app_env(:include_names),
+      include_formatted: app_env(:include_formatted),
+      auto_start_services: app_env(:auto_start_services)
     }
 
     config =
@@ -366,9 +373,6 @@ defmodule SnmpKit.SnmpMgr.Config do
   ## Private Functions
 
   defp get_from_app_config(key) do
-    case Application.get_env(:snmp_mgr, key) do
-      nil -> Map.get(@default_config, key)
-      value -> value
-    end
+    app_env(key)
   end
 end

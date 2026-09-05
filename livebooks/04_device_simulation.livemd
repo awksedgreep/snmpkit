@@ -6,7 +6,7 @@ Build realistic SNMP device simulations for testing and development.
 
 ```elixir
 Mix.install([
-  {:snmpkit, "~> 1.3"}
+  {:snmpkit, "~> 2.0"}
 ])
 
 alias SnmpKit.{SNMP, Sim}
@@ -173,7 +173,7 @@ IO.puts("Interface descriptions: #{length(if_descr)} entries")
 
 ## Device Behaviors
 
-Add dynamic behaviors to make devices more realistic:
+Behaviors make counters grow and sysUpTime advance between polls:
 
 ```elixir
 # Device with behaviors enabled
@@ -234,24 +234,38 @@ end)
 
 ## Device Populations
 
-For large-scale testing, use the population API:
+For larger fleets, start many devices in one call. Explicit maps pick a
+bundled profile per device (`:cable_modem`, `:router`, `:switch`):
 
 ```elixir
-# This would start many devices efficiently
-# device_configs = [
-#   {:cable_modem, {:walk_file, "priv/walks/cm.walk"}, count: 100},
-#   {:switch, {:walk_file, "priv/walks/switch.walk"}, count: 20}
-# ]
-#
-# {:ok, devices} = Sim.start_device_population(
-#   device_configs,
-#   port_range: 30_000..39_999
-# )
+{:ok, devices} =
+  Sim.start_device_population([
+    %{type: :router, port: 2021},
+    %{type: :switch, port: 2022},
+    %{type: :cable_modem, port: 2023, community: "public"}
+  ])
 
-IO.puts("Device population API available for large-scale simulation")
-IO.puts("See 05_high_performance.livemd for examples")
+Enum.each(devices, fn %{type: type, target: target} ->
+  {:ok, %{formatted: descr}} = SNMP.get(target, "sysDescr.0")
+  IO.puts("#{type} on #{target}: #{descr}")
+end)
 ```
+
+Counted groups take a profile source and a port range:
+
+```elixir
+{:ok, fleet} =
+  Sim.start_device_population(
+    [{:cable_modem, {:walk_file, "priv/walks/cable_modem.walk"}, count: 10}],
+    port_range: 2100..2109
+  )
+
+IO.puts("Started #{length(fleet)} cable modems on ports 2100-2109")
+```
+
+Population devices run under the simulator's supervisor; `SnmpKit.SnmpSim.list_devices/0`
+shows them and `SnmpKit.SnmpSim.stop/0` removes them.
 
 ## Next Steps
 
-- **[High Performance](05_high_performance.livemd)** - Poll many devices efficiently with the V2 engine
+- **[High Performance](05_high_performance.livemd)** - Poll many devices efficiently with the shared-socket engine
