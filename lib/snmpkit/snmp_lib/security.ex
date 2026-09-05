@@ -1,6 +1,6 @@
 defmodule SnmpKit.SnmpLib.Security do
   @moduledoc """
-  SNMPv3 Security Framework - Phase 5.1A Implementation
+  SNMPv3 security framework.
 
   Provides comprehensive SNMPv3 User Security Model (USM) implementation including
   authentication and privacy protocols for secure SNMP communications.

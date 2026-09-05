@@ -15,7 +15,8 @@ defmodule SnmpKit do
 
   ### PDU Timeout (`:timeout` parameter)
   - Controls how long to wait for each individual SNMP PDU response
-  - Default: 10 seconds for GET/GETBULK, 30 seconds for walks
+  - Default: 5 seconds for single-target calls (`config :snmpkit, timeout:`),
+    30 seconds per PDU for walks, 10 seconds for multi-target calls
   - Applied per SNMP packet, not per operation
   - Retries, when configured, are additional attempts for the same PDU
 
@@ -33,12 +34,12 @@ defmodule SnmpKit do
 
   ## Quick Examples
 
-      # SNMP Operations
-      {:ok, value} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
+      # SNMP Operations (enriched varbind maps)
+      {:ok, %{value: value, type: :octet_string}} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0")
       {:ok, results} = SnmpKit.SNMP.walk("192.168.1.1", "system")
 
       # With custom PDU timeout
-      {:ok, value} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0", timeout: 15_000)
+      {:ok, %{value: value}} = SnmpKit.SNMP.get("192.168.1.1", "sysDescr.0", timeout: 15_000)
       {:ok, results} = SnmpKit.SNMP.walk("192.168.1.1", "ifTable", timeout: 30_000)
 
       # MIB Operations
@@ -48,8 +49,8 @@ defmodule SnmpKit do
       # Simulation
       {:ok, device} = SnmpKit.Sim.start_device(profile, port: 1161)
 
-  For backward compatibility, many common operations are also available
-  directly on the main SnmpKit module.
+  The most common operations are also available directly on `SnmpKit`
+  (`get/3`, `walk/3`, `get_bulk/3`, `get_multi/2`, `resolve/1`, ...).
   """
 
   # Direct API for most common operations (backward compatibility)

@@ -2,15 +2,14 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
   @moduledoc """
   Performance benchmarking and profiling tools for SNMP operations.
 
-  Provides tools to measure and compare performance between different
-  SNMP architectures, including throughput, latency, memory usage,
-  and resource utilization.
+  Measures throughput, latency and memory usage of the multi-target engine
+  against simulated devices.
   """
 
   require Logger
 
   @doc """
-  Runs a comprehensive benchmark comparing old vs new Multi architecture.
+  Benchmarks the multi-target engine (`SnmpKit.SnmpMgr.Multi`) against simulated devices.
 
   ## Options
   - `:target_count` - Number of targets to test (default: 10)
@@ -44,7 +43,7 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
     Logger.info("Warming up...")
 
     for _ <- 1..warmup_rounds do
-      benchmark_multiv2(targets, max_concurrent, timeout)
+      benchmark_multi(targets, max_concurrent, timeout)
       :timer.sleep(100)
     end
 
@@ -52,7 +51,7 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
 
     v2_results =
       for _ <- 1..benchmark_rounds do
-        benchmark_multiv2(targets, max_concurrent, timeout)
+        benchmark_multi(targets, max_concurrent, timeout)
       end
 
     v2_stats = analyze_benchmark_results(v2_results, "Multi")
@@ -130,7 +129,7 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
 
     # Run benchmark
     start_time = System.monotonic_time(:millisecond)
-    _result = benchmark_multiv2(targets, max_concurrent, timeout)
+    _result = benchmark_multi(targets, max_concurrent, timeout)
     end_time = System.monotonic_time(:millisecond)
 
     # Stop monitoring
@@ -171,7 +170,7 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
 
     # Run benchmark
     start_time = System.monotonic_time(:millisecond)
-    _result = benchmark_multiv2(targets, max_concurrent, timeout)
+    _result = benchmark_multi(targets, max_concurrent, timeout)
     end_time = System.monotonic_time(:millisecond)
 
     # Stop monitoring
@@ -286,7 +285,7 @@ defmodule SnmpKit.SnmpMgr.PerformanceBenchmark do
     |> List.flatten()
   end
 
-  defp benchmark_multiv2(targets, max_concurrent, timeout) do
+  defp benchmark_multi(targets, max_concurrent, timeout) do
     start_time = System.monotonic_time(:millisecond)
 
     # Run the benchmark
