@@ -20,10 +20,20 @@ defmodule SnmpKit.SnmpSim.Core.Server do
     :port,
     :device_handler,
     :community,
-    :stats
+    :stats,
+    :in_flight,
+    :max_in_flight,
+    :max_packet_size
   ]
 
   @default_community "public"
+  # Upper bound on request handlers running at once; datagrams arriving past
+  # it are dropped (and counted) instead of spawning yet another process.
+  @default_max_in_flight 256
+  # Largest datagram accepted. RFC 3416 only requires agents to handle 484
+  # octets; this leaves ample room for large SETs while refusing junk before
+  # it is decoded or hex-dumped.
+  @default_max_packet_size 16_384
   @socket_opts [:binary, {:active, true}, {:reuseaddr, false}, {:ip, {0, 0, 0, 0}}]
 
   @doc """
@@ -34,6 +44,10 @@ defmodule SnmpKit.SnmpSim.Core.Server do
   - `:community` - SNMP community string (default: "public")
   - `:device_handler` - Module or function to handle device requests
   - `:socket_opts` - Additional socket options
+  - `:max_concurrent_requests` - Handlers allowed in flight at once (default: 256);
+    excess datagrams are dropped and counted in `:dropped_overload`
+  - `:max_packet_size` - Largest datagram accepted in bytes (default: 16384);
+    larger ones are dropped and counted in `:oversized_packets`
 
   ## Examples
 
@@ -68,6 +82,8 @@ defmodule SnmpKit.SnmpSim.Core.Server do
     community = Keyword.get(opts, :community, @default_community)
     device_handler = Keyword.get(opts, :device_handler)
     socket_opts = Keyword.get(opts, :socket_opts, []) ++ @socket_opts
+    max_in_flight = Keyword.get(opts, :max_concurrent_requests, @default_max_in_flight)
+    max_packet_size = Keyword.get(opts, :max_packet_size, @default_max_packet_size)
 
     case :gen_udp.open(port, socket_opts) do
       {:ok, socket} ->
@@ -87,7 +103,10 @@ defmodule SnmpKit.SnmpSim.Core.Server do
           port: port,
           device_handler: device_handler,
           community: community,
-          stats: init_stats()
+          stats: init_stats(),
+          in_flight: 0,
+          max_in_flight: max_in_flight,
+          max_packet_size: max_packet_size
         }
 
         {:ok, state}
@@ -111,23 +130,46 @@ defmodule SnmpKit.SnmpSim.Core.Server do
 
   @impl true
   def handle_info({:udp, socket, client_ip, client_port, packet}, %{socket: socket} = state) do
-    Logger.debug(
+    Logger.debug(fn ->
       "Received UDP packet from #{:inet.ntoa(client_ip)}:#{client_port}, #{byte_size(packet)} bytes"
-    )
-
-    # Update stats
-    new_stats = update_stats(state.stats, :packets_received)
-    final_state = %{state | stats: new_stats}
-
-    # Process SNMP packet asynchronously for better throughput
-    # Pass server PID to avoid process identity issues
-    server_pid = self()
-
-    Task.start(fn ->
-      handle_snmp_packet_async(server_pid, state, client_ip, client_port, packet)
     end)
 
-    {:noreply, final_state}
+    state = %{state | stats: update_stats(state.stats, :packets_received)}
+
+    cond do
+      byte_size(packet) > state.max_packet_size ->
+        Logger.warning(
+          "Dropping #{byte_size(packet)}-byte packet from #{:inet.ntoa(client_ip)}:#{client_port} (limit #{state.max_packet_size})"
+        )
+
+        {:noreply, %{state | stats: update_stats(state.stats, :oversized_packets)}}
+
+      state.in_flight >= state.max_in_flight ->
+        # Bounded concurrency: shed rather than spawn without limit
+        Logger.debug("Request handler limit #{state.max_in_flight} reached, dropping datagram")
+        {:noreply, %{state | stats: update_stats(state.stats, :dropped_overload)}}
+
+      true ->
+        # Process SNMP packet in a monitored worker so the in-flight count can
+        # be released when it finishes or crashes.
+        server_pid = self()
+
+        spawn_monitor(fn ->
+          handle_snmp_packet_async(server_pid, state, client_ip, client_port, packet)
+        end)
+
+        {:noreply, %{state | in_flight: state.in_flight + 1}}
+    end
+  end
+
+  @impl true
+  def handle_info({:DOWN, _ref, :process, _pid, reason}, state) do
+    state = %{state | in_flight: max(state.in_flight - 1, 0)}
+
+    case reason do
+      :normal -> {:noreply, state}
+      _ -> {:noreply, %{state | stats: update_stats(state.stats, :processing_errors)}}
+    end
   end
 
   @impl true
@@ -165,12 +207,10 @@ defmodule SnmpKit.SnmpSim.Core.Server do
   defp handle_snmp_packet_async(server_pid, state, client_ip, client_port, packet) do
     start_time = :erlang.monotonic_time()
 
-    # Debug: Log raw packet information
     packet_size = byte_size(packet)
-    packet_hex = Base.encode16(packet)
-    Logger.debug("Received SNMP packet from #{format_ip(client_ip)}:#{client_port}")
-    Logger.debug("Packet size: #{packet_size} bytes")
-    Logger.debug("Packet hex: #{packet_hex}")
+    # Hex dumps double the packet in memory; only build them when debug logging is on
+    Logger.debug(fn -> "Received SNMP packet from #{format_ip(client_ip)}:#{client_port}" end)
+    Logger.debug(fn -> "Packet size: #{packet_size} bytes, hex: #{Base.encode16(packet)}" end)
 
     try do
       case PDU.decode_message(packet) do
@@ -214,7 +254,7 @@ defmodule SnmpKit.SnmpSim.Core.Server do
             "Failed to decode SNMP packet from #{format_ip(client_ip)}:#{client_port}: #{inspect(reason)}"
           )
 
-          Logger.warning("Raw packet (#{packet_size} bytes): #{packet_hex}")
+          Logger.debug(fn -> "Raw packet (#{packet_size} bytes): #{Base.encode16(packet)}" end)
           send(server_pid, {:update_stats, :decode_errors})
       end
     rescue
@@ -240,18 +280,27 @@ defmodule SnmpKit.SnmpSim.Core.Server do
         send(server_pid, {:update_stats, :error_responses})
 
       handler when is_function(handler, 2) ->
-        # Function handler
-        case handler.(pdu, %{client_ip: client_ip, client_port: client_port}) do
+        # Function handler. A handler that raises or exits (e.g. it calls a
+        # device process that timed out) must not kill the worker silently;
+        # answer with genErr like the pid branch does.
+        result =
+          try do
+            handler.(pdu, %{client_ip: client_ip, client_port: client_port})
+          rescue
+            error -> {:handler_crashed, error}
+          catch
+            :exit, reason -> {:handler_exited, reason}
+          end
+
+        case result do
           {:ok, response_pdu} ->
-            Logger.debug("Device returned response: #{inspect(response_pdu)}")
-            Logger.debug("Server: Device returned response PDU: #{inspect(response_pdu)}")
+            Logger.debug(fn -> "Device returned response: #{inspect(response_pdu)}" end)
             send_response_async(state, client_ip, client_port, response_pdu)
             send(server_pid, {:update_stats, :successful_responses})
 
           %{type: _type} = response_pdu when is_map(response_pdu) ->
             # Direct PDU response from walk processors
-            Logger.debug("Device returned direct response: #{inspect(response_pdu)}")
-            Logger.debug("Server: Device returned direct response PDU: #{inspect(response_pdu)}")
+            Logger.debug(fn -> "Device returned direct response: #{inspect(response_pdu)}" end)
             send_response_async(state, client_ip, client_port, response_pdu)
             send(server_pid, {:update_stats, :successful_responses})
 
@@ -259,6 +308,13 @@ defmodule SnmpKit.SnmpSim.Core.Server do
             error_response = PDU.create_error_response(pdu, error_status, 0)
             send_response_async(state, client_ip, client_port, error_response)
             send(server_pid, {:update_stats, :error_responses})
+
+          {failure, reason} when failure in [:handler_crashed, :handler_exited] ->
+            Logger.warning("Device handler #{failure}: #{inspect(reason)}")
+            # genErr
+            error_response = PDU.create_error_response(pdu, 5, 0)
+            send_response_async(state, client_ip, client_port, error_response)
+            send(server_pid, {:update_stats, :processing_errors})
         end
 
       {module, function} ->
@@ -418,6 +474,8 @@ defmodule SnmpKit.SnmpSim.Core.Server do
       auth_failures: 0,
       decode_errors: 0,
       encode_errors: 0,
+      dropped_overload: 0,
+      oversized_packets: 0,
       send_errors: 0,
       processing_errors: 0,
       timeout_errors: 0,
