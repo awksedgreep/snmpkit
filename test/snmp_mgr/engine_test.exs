@@ -36,13 +36,13 @@ defmodule SnmpKit.SnmpMgr.EngineTest do
   test "unregisters requests", %{engine: engine} do
     # Register a request
     Engine.register_request(engine, 12345, self(), 5000)
-    Process.sleep(1)
+    _ = :sys.get_state(engine)
 
     assert Engine.pending_count(engine) == 1
 
     # Unregister it
     Engine.unregister_request(engine, 12345)
-    Process.sleep(1)
+    _ = :sys.get_state(engine)
 
     assert Engine.pending_count(engine) == 0
   end
@@ -64,7 +64,7 @@ defmodule SnmpKit.SnmpMgr.EngineTest do
   test "correlates responses to correct processes", %{engine: engine} do
     # Register a request
     Engine.register_request(engine, 12345, self(), 5000)
-    Process.sleep(1)
+    _ = :sys.get_state(engine)
 
     # Simulate receiving a UDP response by sending a pre-built message
     # This bypasses the UDP decoding and directly tests the correlation logic
@@ -86,8 +86,8 @@ defmodule SnmpKit.SnmpMgr.EngineTest do
     mock_response_data = [{[1, 3, 6, 1, 2, 1, 1, 1, 0], :octet_string, "unknown_value"}]
     send(engine, {:mock_response, 99999, mock_response_data})
 
-    # Give it time to process
-    Process.sleep(1)
+    # Synchronise on the engine mailbox so the message has been handled
+    _ = :sys.get_state(engine)
 
     stats = Engine.get_stats(engine)
     assert stats.metrics.unknown_responses == 1
@@ -97,8 +97,8 @@ defmodule SnmpKit.SnmpMgr.EngineTest do
     # Send malformed UDP data
     send(engine, {:udp, nil, {127, 0, 0, 1}, 161, "invalid_snmp_data"})
 
-    # Give it time to process
-    Process.sleep(1)
+    # Synchronise on the engine mailbox so the message has been handled
+    _ = :sys.get_state(engine)
 
     stats = Engine.get_stats(engine)
     assert stats.metrics.decode_failures == 1
@@ -110,7 +110,7 @@ defmodule SnmpKit.SnmpMgr.EngineTest do
       Engine.register_request(engine, i, self(), 5000)
     end
 
-    Process.sleep(1)
+    _ = :sys.get_state(engine)
     assert Engine.pending_count(engine) == 5
 
     # Send responses for some of them
@@ -124,7 +124,7 @@ defmodule SnmpKit.SnmpMgr.EngineTest do
       assert_receive {:snmp_response, ^i, _data}, 100
     end
 
-    Process.sleep(1)
+    _ = :sys.get_state(engine)
 
     # Should have 2 pending (2 and 4)
     assert Engine.pending_count(engine) == 2
