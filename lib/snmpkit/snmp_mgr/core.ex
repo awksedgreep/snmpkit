@@ -39,24 +39,7 @@ defmodule SnmpKit.SnmpMgr.Core do
   """
   @spec send_get_request(target(), oid(), opts()) :: snmp_result()
   def send_get_request(target, oid, opts \\ []) do
-    # Parse target to extract host and port
-    {host, updated_opts} =
-      case SnmpKit.SnmpMgr.Target.parse(target) do
-        {:ok, %{host: host, port: port}} ->
-          # Only use parsed port if the target actually contained a port specification
-          if target_contains_port?(target) do
-            # Target contained port - use parsed port
-            opts_with_port = Keyword.put(opts, :port, port)
-            {host, opts_with_port}
-          else
-            # Target didn't contain port - preserve user's port option
-            {host, opts}
-          end
-
-        {:error, _reason} ->
-          # Failed to parse, use as-is
-          {target, opts}
-      end
+    {host, updated_opts} = split_target(target, opts)
 
     # Convert oid to proper format
     oid_parsed =
@@ -93,18 +76,7 @@ defmodule SnmpKit.SnmpMgr.Core do
   @spec send_get_request_with_type(target(), oid(), opts()) ::
           {:ok, {String.t(), atom(), any()}} | {:error, any()}
   def send_get_request_with_type(target, oid, opts \\ []) do
-    # Parse target to extract host and port
-    {host, updated_opts} =
-      case SnmpKit.SnmpMgr.Target.parse(target) do
-        {:ok, %{host: host, port: port}} ->
-          # Use parsed port, overriding any default
-          opts_with_port = Keyword.put(opts, :port, port)
-          {host, opts_with_port}
-
-        {:error, _reason} ->
-          # Failed to parse, use as-is
-          {target, opts}
-      end
+    {host, updated_opts} = split_target(target, opts)
 
     # Convert oid to proper format - always work with lists internally
     oid_parsed =
@@ -143,18 +115,7 @@ defmodule SnmpKit.SnmpMgr.Core do
   """
   @spec send_get_next_request(target(), oid(), opts()) :: snmp_result()
   def send_get_next_request(target, oid, opts \\ []) do
-    # Parse target to extract host and port
-    {host, updated_opts} =
-      case SnmpKit.SnmpMgr.Target.parse(target) do
-        {:ok, %{host: host, port: port}} ->
-          # Use parsed port, overriding any default
-          opts_with_port = Keyword.put(opts, :port, port)
-          {host, opts_with_port}
-
-        {:error, _reason} ->
-          # Failed to parse, use as-is
-          {target, opts}
-      end
+    {host, updated_opts} = split_target(target, opts)
 
     # Convert oid to proper format
     oid_parsed =
@@ -213,24 +174,7 @@ defmodule SnmpKit.SnmpMgr.Core do
   """
   @spec send_set_request(target(), oid(), term(), opts()) :: snmp_result()
   def send_set_request(target, oid, value, opts \\ []) do
-    # Parse target to extract host and port
-    {host, updated_opts} =
-      case SnmpKit.SnmpMgr.Target.parse(target) do
-        {:ok, %{host: host, port: port}} ->
-          # Only use parsed port if the target actually contained a port specification
-          if target_contains_port?(target) do
-            # Target contained port - use parsed port
-            opts_with_port = Keyword.put(opts, :port, port)
-            {host, opts_with_port}
-          else
-            # Target didn't contain port - preserve user's port option
-            {host, opts}
-          end
-
-        {:error, _reason} ->
-          # Failed to parse, use as-is
-          {target, opts}
-      end
+    {host, updated_opts} = split_target(target, opts)
 
     # Convert oid to proper format
     oid_parsed =
@@ -322,23 +266,7 @@ defmodule SnmpKit.SnmpMgr.Core do
     case version do
       :v2c ->
         # Parse target to extract host and port
-        {host, updated_opts} =
-          case SnmpKit.SnmpMgr.Target.parse(target) do
-            {:ok, %{host: host, port: port}} ->
-              # Only use parsed port if the target actually contained a port specification
-              if target_contains_port?(target) do
-                # Target contained port - use parsed port
-                opts_with_port = Keyword.put(opts, :port, port)
-                {host, opts_with_port}
-              else
-                # Target didn't contain port - preserve user's port option
-                {host, opts}
-              end
-
-            {:error, _reason} ->
-              # Failed to parse, use as-is
-              {target, opts}
-          end
+        {host, updated_opts} = split_target(target, opts)
 
         # Convert oid to proper format
         oid_parsed =
@@ -544,6 +472,24 @@ defmodule SnmpKit.SnmpMgr.Core do
   # Any SNMP operation that does not preserve type information should fail with an error
 
   # Private helper to check if target contains port specification
+  # Splits "host:port" targets into host and a :port option. A port given in
+  # the target string wins; otherwise the caller's :port option (or the
+  # configured default) is kept. Several request paths used to overwrite the
+  # :port option with Target.parse/1's default of 161, so `port:` was ignored.
+  defp split_target(target, opts) do
+    case SnmpKit.SnmpMgr.Target.parse(target) do
+      {:ok, %{host: host, port: port}} ->
+        if target_contains_port?(target) do
+          {host, Keyword.put(opts, :port, port)}
+        else
+          {host, opts}
+        end
+
+      {:error, _reason} ->
+        {target, opts}
+    end
+  end
+
   defp target_contains_port?(target) when is_binary(target) do
     cond do
       # RFC 3986 bracket notation: [IPv6]:port
