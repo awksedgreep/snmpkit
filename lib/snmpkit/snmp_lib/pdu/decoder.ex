@@ -272,50 +272,38 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
         0xA5 -> :get_bulk_request
       end
 
-    case parse_ber_length_and_remaining(rest) do
-      {:ok, {_length, pdu_content, _remaining}} ->
-        case pdu_type do
-          :get_bulk_request ->
-            case parse_bulk_pdu_fields(pdu_content) do
-              {:ok, {request_id, non_repeaters, max_repetitions, varbinds}} ->
-                {:ok,
-                 %{
-                   type: pdu_type,
-                   request_id: request_id,
-                   non_repeaters: non_repeaters,
-                   max_repetitions: max_repetitions,
-                   varbinds: varbinds
-                 }}
+    # A PDU whose fields or varbinds cannot be parsed is reported as an error.
+    # Earlier versions returned an empty varbind list here, which downstream
+    # code interpreted as end-of-MIB and silently terminated walks on
+    # truncated or corrupted packets.
+    with {:ok, {_length, pdu_content, _remaining}} <- parse_ber_length_and_remaining(rest) do
+      case pdu_type do
+        :get_bulk_request ->
+          with {:ok, {request_id, non_repeaters, max_repetitions, varbinds}} <-
+                 parse_bulk_pdu_fields(pdu_content) do
+            {:ok,
+             %{
+               type: pdu_type,
+               request_id: request_id,
+               non_repeaters: non_repeaters,
+               max_repetitions: max_repetitions,
+               varbinds: varbinds
+             }}
+          end
 
-              {:error, _reason} ->
-                {:ok, %{type: pdu_type, varbinds: [], non_repeaters: 0, max_repetitions: 0}}
-            end
-
-          _ ->
-            case parse_standard_pdu_fields(pdu_content) do
-              {:ok, {request_id, error_status, error_index, varbinds}} ->
-                {:ok,
-                 %{
-                   type: pdu_type,
-                   request_id: request_id,
-                   error_status: error_status,
-                   error_index: error_index,
-                   varbinds: varbinds
-                 }}
-
-              {:error, _reason} ->
-                {:ok, %{type: pdu_type, varbinds: [], error_status: 0, error_index: 0}}
-            end
-        end
-
-      {:error, _reason} ->
-        case pdu_type do
-          :get_bulk_request ->
-            {:ok, %{type: pdu_type, varbinds: [], non_repeaters: 0, max_repetitions: 0}}
-
-          _ ->
-            {:ok, %{type: pdu_type, varbinds: [], error_status: 0, error_index: 0}}
-        end
+        _ ->
+          with {:ok, {request_id, error_status, error_index, varbinds}} <-
+                 parse_standard_pdu_fields(pdu_content) do
+            {:ok,
+             %{
+               type: pdu_type,
+               request_id: request_id,
+               error_status: error_status,
+               error_index: error_index,
+               varbinds: varbinds
+             }}
+          end
+      end
     end
   end
 
@@ -342,7 +330,7 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
   defp parse_varbinds(data) do
     case parse_sequence(data) do
       {:ok, {varbind_data, _rest}} -> parse_varbind_list(varbind_data, [])
-      {:error, _} -> {:ok, []}
+      {:error, reason} -> {:error, {:invalid_varbind_list, reason}}
     end
   end
 
@@ -360,16 +348,14 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
 
   defp parse_varbind_list(<<>>, acc), do: {:ok, Enum.reverse(acc)}
 
+  # BER gives no license to skip a varbind that fails to parse: a bad element
+  # means the enclosing VarBindList (and PDU) is malformed.
   defp parse_varbind_list(data, acc) do
-    case parse_sequence(data) do
-      {:ok, {varbind_data, rest}} ->
-        case parse_single_varbind(varbind_data) do
-          {:ok, varbind} -> parse_varbind_list(rest, [varbind | acc])
-          {:error, _} -> parse_varbind_list(rest, acc)
-        end
-
-      {:error, _} ->
-        {:ok, Enum.reverse(acc)}
+    with {:ok, {varbind_data, rest}} <- parse_sequence(data),
+         {:ok, varbind} <- parse_single_varbind(varbind_data) do
+      parse_varbind_list(rest, [varbind | acc])
+    else
+      {:error, reason} -> {:error, {:invalid_varbind, length(acc) + 1, reason}}
     end
   end
 
@@ -377,8 +363,6 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
     with {:ok, {oid, rest1}} <- parse_oid(data),
          {:ok, {type, value, _rest2}} <- parse_value_with_type(rest1) do
       {:ok, {oid, type, value}}
-    else
-      _ -> {:error, :invalid_varbind}
     end
   end
 
@@ -522,6 +506,18 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
     {:ok, {:end_of_mib_view, nil, rest}}
   end
 
+  # A well-formed TLV with a tag this decoder does not know (e.g. the obsolete
+  # NsapAddress 0x45 or vendor application types) is preserved rather than
+  # rejected, so one exotic value cannot take down an otherwise valid PDU.
+  defp parse_value_with_type(<<tag, rest::binary>>)
+       when tag not in [@null, @no_such_object, @no_such_instance, @end_of_mib_view] do
+    case parse_ber_length_and_remaining(rest) do
+      {:ok, {_len, value, rest2}} -> {:ok, {:unknown, {tag, value}, rest2}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp parse_value_with_type(<<>>), do: {:error, :missing_value}
   defp parse_value_with_type(_), do: {:error, :invalid_value}
 
   defp decode_integer_value(<<byte>>) when byte < 128, do: byte

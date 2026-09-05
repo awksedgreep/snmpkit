@@ -414,6 +414,67 @@ defmodule SnmpKit.SnmpLib.PDUTest do
     end
   end
 
+  describe "Malformed PDU detection" do
+    # Builds a v2c GET-RESPONSE packet around a raw, already-encoded varbind list body
+    defp packet_with_varbinds(varbinds_body) do
+      varbinds = <<0x30, byte_size(varbinds_body)>> <> varbinds_body
+      pdu_body = <<0x02, 0x01, 0x01, 0x02, 0x01, 0x00, 0x02, 0x01, 0x00>> <> varbinds
+      pdu = <<0xA2, byte_size(pdu_body)>> <> pdu_body
+      msg_body = <<0x02, 0x01, 0x01, 0x04, 0x06, "public">> <> pdu
+      <<0x30, byte_size(msg_body)>> <> msg_body
+    end
+
+    test "a truncated PDU is an error, not an empty varbind list" do
+      pdu = PDU.build_get_request([1, 3, 6, 1, 2, 1, 1, 1, 0], 42)
+      message = PDU.build_message(pdu, "public", :v2c)
+      {:ok, encoded} = PDU.encode_message(message)
+
+      # Cut inside the varbind list but keep the outer lengths self-consistent by
+      # re-wrapping: the inner varbind becomes shorter than its declared length.
+      for cut <- 1..6 do
+        truncated = binary_part(encoded, 0, byte_size(encoded) - cut)
+        assert {:error, _} = PDU.decode_message(truncated)
+      end
+    end
+
+    test "a varbind with an undecodable value is an error" do
+      # OID 1.3.6.1 followed by an INTEGER whose declared length exceeds the data
+      bad_varbind = <<0x06, 0x03, 0x2B, 0x06, 0x01, 0x02, 0x05, 0x01>>
+      body = <<0x30, byte_size(bad_varbind)>> <> bad_varbind
+
+      assert {:error, {:pdu_parse_error, {:invalid_varbind, 1, _}}} =
+               PDU.decode_message(packet_with_varbinds(body))
+    end
+
+    test "a bad varbind after good ones is still an error" do
+      good = <<0x30, 0x07, 0x06, 0x03, 0x2B, 0x06, 0x01, 0x05, 0x00>>
+      bad = <<0x30, 0x04, 0x06, 0x03, 0x2B, 0x06>>
+
+      assert {:error, {:pdu_parse_error, {:invalid_varbind, 2, _}}} =
+               PDU.decode_message(packet_with_varbinds(good <> bad))
+    end
+
+    test "a missing varbind list is an error" do
+      pdu_body = <<0x02, 0x01, 0x01, 0x02, 0x01, 0x00, 0x02, 0x01, 0x00>>
+      pdu = <<0xA2, byte_size(pdu_body)>> <> pdu_body
+      msg_body = <<0x02, 0x01, 0x01, 0x04, 0x06, "public">> <> pdu
+      packet = <<0x30, byte_size(msg_body)>> <> msg_body
+      assert {:error, {:pdu_parse_error, {:invalid_varbind_list, _}}} = PDU.decode_message(packet)
+    end
+
+    test "a well-formed value with an unknown tag is preserved as :unknown" do
+      # NsapAddress (0x45) is obsolete and not otherwise decoded
+      varbind = <<0x30, 0x09, 0x06, 0x03, 0x2B, 0x06, 0x01, 0x45, 0x02, 0xAB, 0xCD>>
+      {:ok, decoded} = PDU.decode_message(packet_with_varbinds(varbind))
+      assert [{[1, 3, 6, 1], :unknown, {0x45, <<0xAB, 0xCD>>}}] = decoded.pdu.varbinds
+    end
+
+    test "a NULL with a non-zero length is rejected" do
+      varbind = <<0x30, 0x08, 0x06, 0x03, 0x2B, 0x06, 0x01, 0x05, 0x01, 0x00>>
+      assert {:error, _} = PDU.decode_message(packet_with_varbinds(varbind))
+    end
+  end
+
   describe "Error conditions and boundary testing" do
     test "handles zero-length input gracefully" do
       assert {:error, _} = PDU.decode_message(<<>>)
