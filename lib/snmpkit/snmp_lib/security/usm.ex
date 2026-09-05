@@ -365,9 +365,38 @@ defmodule SnmpKit.SnmpLib.Security.USM do
   end
 
   defp decode_usm_security_params(params) when is_binary(params) and byte_size(params) > 0 do
-    # Simple USM parameter decoding - in a full implementation this would use proper ASN.1 decoding
-    # For now, return mock values
-    {:ok, %{engine_boots: 1, engine_time: System.system_time(:second)}}
+    # UsmSecurityParameters ::= SEQUENCE {
+    #   authoritativeEngineID OCTET STRING,
+    #   authoritativeEngineBoots INTEGER,
+    #   authoritativeEngineTime INTEGER,
+    #   userName OCTET STRING,
+    #   authenticationParameters OCTET STRING,
+    #   privacyParameters OCTET STRING }
+    # Mirrors V3Encoder.decode_usm_security_params so both modules share one vocabulary.
+    case SnmpKit.SnmpLib.ASN1.decode_sequence(params) do
+      {:ok, {content, _remaining}} ->
+        with {:ok, {engine_id, rest1}} <- SnmpKit.SnmpLib.ASN1.decode_octet_string(content),
+             {:ok, {engine_boots, rest2}} <- SnmpKit.SnmpLib.ASN1.decode_integer(rest1),
+             {:ok, {engine_time, rest3}} <- SnmpKit.SnmpLib.ASN1.decode_integer(rest2),
+             {:ok, {security_name, rest4}} <- SnmpKit.SnmpLib.ASN1.decode_octet_string(rest3),
+             {:ok, {auth_params, rest5}} <- SnmpKit.SnmpLib.ASN1.decode_octet_string(rest4),
+             {:ok, {priv_params, _rest6}} <- SnmpKit.SnmpLib.ASN1.decode_octet_string(rest5) do
+          {:ok,
+           %{
+             engine_id: engine_id,
+             engine_boots: engine_boots,
+             engine_time: engine_time,
+             security_name: security_name,
+             auth_params: auth_params,
+             priv_params: priv_params
+           }}
+        else
+          {:error, reason} -> {:error, reason}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   defp decode_usm_security_params(_) do
@@ -710,21 +739,24 @@ defmodule SnmpKit.SnmpLib.Security.USM do
   end
 
   defp get_scoped_pdu(decoded) do
-    case Map.get(decoded, :scoped_pdu) do
+    # Accepts both the legacy key and the V3Encoder key (:msg_data).
+    case Map.get(decoded, :scoped_pdu, Map.get(decoded, :msg_data)) do
       nil -> {:error, :missing_scoped_pdu}
       scoped_pdu -> {:ok, scoped_pdu}
     end
   end
 
   defp get_security_parameters(decoded) do
-    case Map.get(decoded, :security_parameters) do
+    # Accepts both the legacy key and the V3Encoder key (:msg_security_parameters).
+    case Map.get(decoded, :security_parameters, Map.get(decoded, :msg_security_parameters)) do
       nil -> {:error, :missing_security_parameters}
       security_params -> {:ok, security_params}
     end
   end
 
   defp get_message_flags(decoded) do
-    case Map.get(decoded, :flags) do
+    # Accepts both the legacy key and the V3Encoder key (:msg_flags).
+    case Map.get(decoded, :flags, Map.get(decoded, :msg_flags)) do
       nil -> {:error, :missing_message_flags}
       flags -> {:ok, flags}
     end

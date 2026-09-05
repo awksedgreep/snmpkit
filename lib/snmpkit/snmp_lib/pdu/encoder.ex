@@ -533,7 +533,8 @@ defmodule SnmpKit.SnmpLib.PDU.Encoder do
   defp encode_oid_fast(oid_list) when is_list(oid_list) and length(oid_list) >= 2 do
     [first, second | rest] = oid_list
 
-    if first >= 0 and first < 3 and second >= 0 and second < 40 do
+    # X.690 8.19: the second arc is unbounded when the first arc is 2.
+    if first in 0..2 and second >= 0 and (first == 2 or second < 40) do
       first_encoded = first * 40 + second
 
       case encode_oid_subids_fast([first_encoded | rest], []) do

@@ -681,9 +681,12 @@ defmodule SnmpKit.SnmpLib.ASN1 do
     {:ok, encode_oid_subidentifier(first)}
   end
 
-  defp encode_oid_content([first, second | rest]) when first < 3 and second < 40 do
-    first_byte = first * 40 + second
-    first_encoded = encode_oid_subidentifier(first_byte)
+  defp encode_oid_content([first, second | rest])
+       when first in 0..2 and second >= 0 and (first == 2 or second < 40) do
+    # X.690 8.19: first two arcs form a single sub-identifier 40*first+second.
+    # The second arc is unbounded when the first arc is 2 (e.g. [2, 999, ...]).
+    first_subid = first * 40 + second
+    first_encoded = encode_oid_subidentifier(first_subid)
     rest_encoded = Enum.map(rest, &encode_oid_subidentifier/1)
     content = :binary.list_to_bin([first_encoded | rest_encoded])
     {:ok, content}
@@ -722,21 +725,31 @@ defmodule SnmpKit.SnmpLib.ASN1 do
     build_multibyte_chunks(remaining, [seven_bits | acc])
   end
 
-  # OID content decoding
-  defp decode_oid_content(<<first_byte, rest::binary>>) do
-    first_subid = div(first_byte, 40)
-    second_subid = rem(first_byte, 40)
+  # OID content decoding (X.690 8.19). The first sub-identifier may span
+  # multiple bytes and encodes 40*first+second, so it must be parsed as a
+  # full base-128 value before splitting -- not as a single byte.
+  defp decode_oid_content(data) do
+    case decode_oid_subidentifier(data, 0) do
+      {:ok, {first_combined, rest}} ->
+        {first_arc, second_arc} = split_first_subidentifier(first_combined)
 
-    case decode_oid_subidentifiers(rest, []) do
-      {:ok, remaining_subids} ->
-        {:ok, [first_subid, second_subid | remaining_subids]}
+        case decode_oid_subidentifiers(rest, []) do
+          {:ok, remaining_subids} ->
+            {:ok, [first_arc, second_arc | remaining_subids]}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
 
       {:error, reason} ->
         {:error, reason}
     end
   end
 
-  defp decode_oid_content(_), do: {:error, :invalid_oid_content}
+  # X.690 8.19 split: values 0..39 -> arc 0, 40..79 -> arc 1, 80+ -> arc 2.
+  defp split_first_subidentifier(first_combined) when first_combined < 40, do: {0, first_combined}
+  defp split_first_subidentifier(first_combined) when first_combined < 80, do: {1, first_combined - 40}
+  defp split_first_subidentifier(first_combined), do: {2, first_combined - 80}
 
   defp decode_oid_subidentifiers(<<>>, acc) do
     {:ok, Enum.reverse(acc)}

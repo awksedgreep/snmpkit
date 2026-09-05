@@ -1,5 +1,6 @@
 defmodule SnmpKit.Integration.HostParserMibStubsIntegrationTest do
   use ExUnit.Case, async: false
+  require Logger
 
   alias SnmpKit.SnmpLib.HostParser
   alias SnmpKit.SnmpMgr.MIB
@@ -114,7 +115,7 @@ defmodule SnmpKit.Integration.HostParserMibStubsIntegrationTest do
         end
 
         # Log successful scenario for visibility
-        IO.puts("✓ #{desc}: #{HostParser.format({ip_tuple, port})}")
+        Logger.debug("✓ #{desc}: #{HostParser.format({ip_tuple, port})}")
       end
     end
 
@@ -183,7 +184,7 @@ defmodule SnmpKit.Integration.HostParserMibStubsIntegrationTest do
         formatted_host = HostParser.format({ip_tuple, port})
         oid_string = Enum.join(oid_prefix, ".")
 
-        IO.puts("✓ #{description}: #{formatted_host} → #{oid_string}")
+        Logger.debug("✓ #{description}: #{formatted_host} → #{oid_string}")
       end
     end
 
@@ -260,7 +261,7 @@ defmodule SnmpKit.Integration.HostParserMibStubsIntegrationTest do
       assert total_time < 50_000
 
       operations_per_ms = 1200 / (total_time / 1000)
-      IO.puts("Performance: #{Float.round(operations_per_ms, 1)} operations/ms")
+      Logger.debug("Performance: #{Float.round(operations_per_ms, 1)} operations/ms")
     end
 
     test "real-world SNMP operation readiness" do
@@ -341,12 +342,12 @@ defmodule SnmpKit.Integration.HostParserMibStubsIntegrationTest do
       }
 
       for {category, objects} <- essential_categories do
-        IO.puts("Testing #{category}:")
+        Logger.debug("Testing #{category}:")
 
         for object <- objects do
           assert {:ok, oid_list} = MIB.resolve(object)
           oid_string = Enum.join(oid_list, ".")
-          IO.puts("  ✓ #{object} → #{oid_string}")
+          Logger.debug("  ✓ #{object} → #{oid_string}")
         end
       end
     end
@@ -364,7 +365,7 @@ defmodule SnmpKit.Integration.HostParserMibStubsIntegrationTest do
       for {group, description} <- bulk_groups do
         assert {:ok, oid_prefix} = MIB.resolve(group)
         oid_string = Enum.join(oid_prefix, ".")
-        IO.puts("✓ #{group}: #{description} → #{oid_string}")
+        Logger.debug("✓ #{group}: #{description} → #{oid_string}")
 
         # Verify it's a valid MIB-II prefix
         assert String.starts_with?(oid_string, "1.3.6.1.2.1.")
