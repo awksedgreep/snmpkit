@@ -519,32 +519,21 @@ defmodule SnmpKit.SnmpLib.PDU.Encoder do
     end
   end
 
-  defp encode_oid_fast([first]) when first >= 0 and first < 3 do
-    # Single component OID - encode directly
-    case encode_oid_subids_fast([first], []) do
+  # X.690 8.19: the first two arcs are packed into one (possibly multibyte)
+  # sub-identifier. A single-arc OID is tolerated and encoded as `first.0`.
+  defp encode_oid_fast([first]) when is_integer(first) and first >= 0 and first < 3 do
+    encode_oid_fast([first, 0])
+  end
+
+  defp encode_oid_fast([first, second | rest])
+       when is_integer(first) and is_integer(second) and first >= 0 and second >= 0 and
+              ((first < 2 and second < 40) or first == 2) do
+    case encode_oid_subids_fast([first * 40 + second | rest], []) do
       {:ok, content} ->
         {:ok, encode_tag_length_value(@object_identifier, byte_size(content), content)}
 
       error ->
         error
-    end
-  end
-
-  defp encode_oid_fast(oid_list) when is_list(oid_list) and length(oid_list) >= 2 do
-    [first, second | rest] = oid_list
-
-    if first >= 0 and first < 3 and second >= 0 and second < 40 do
-      first_encoded = first * 40 + second
-
-      case encode_oid_subids_fast([first_encoded | rest], []) do
-        {:ok, content} ->
-          {:ok, encode_tag_length_value(@object_identifier, byte_size(content), content)}
-
-        error ->
-          error
-      end
-    else
-      {:error, :invalid_oid_format}
     end
   end
 

@@ -142,9 +142,46 @@ defmodule SnmpKit.SnmpLib.ASN1Test do
 
     test "rejects invalid OIDs" do
       assert {:error, :invalid_oid} = ASN1.encode_oid([])
-      # Single-component OIDs are valid
-      assert {:ok, _} = ASN1.encode_oid([1])
+      # Single-component OIDs are tolerated and encoded as `n.0` (X.690 needs 2 arcs)
+      assert {:ok, <<6, 1, 40>>} = ASN1.encode_oid([1])
+      assert {:ok, {[1, 0], <<>>}} = ASN1.decode_oid(<<6, 1, 40>>)
       assert {:error, :invalid_oid} = ASN1.encode_oid(:not_a_list)
+      # First arc must be 0..2, second arc < 40 unless first arc is 2 (X.690 8.19)
+      assert {:error, :invalid_oid} = ASN1.encode_oid([3, 1])
+      assert {:error, :invalid_oid} = ASN1.encode_oid([1, 40])
+      assert {:error, :invalid_oid} = ASN1.encode_oid([0, 40, 1])
+      assert {:error, :invalid_oid} = ASN1.encode_oid([1, 3, -1])
+    end
+
+    test "encodes and decodes first two arcs per X.690 8.19" do
+      # 2.999 -> single sub-identifier 1079 -> multibyte <<0x88, 0x37>>
+      assert {:ok, <<6, 3, 0x88, 0x37, 1>>} = ASN1.encode_oid([2, 999, 1])
+      assert {:ok, {[2, 999, 1], <<>>}} = ASN1.decode_oid(<<6, 3, 0x88, 0x37, 1>>)
+
+      # 2.100 -> 180 -> base-128 <<0x81, 0x34>>; must NOT decode via div/rem 40
+      assert {:ok, <<6, 2, 0x81, 0x34>>} = ASN1.encode_oid([2, 100])
+      assert {:ok, {[2, 100], <<>>}} = ASN1.decode_oid(<<6, 2, 0x81, 0x34>>)
+
+      # 1.39 -> 79 fits in one byte; 2.47 -> 127 is the largest single-byte value
+      assert {:ok, <<6, 1, 79>>} = ASN1.encode_oid([1, 39])
+      assert {:ok, <<6, 1, 127>>} = ASN1.encode_oid([2, 47])
+      assert {:ok, {[2, 47], <<>>}} = ASN1.decode_oid(<<6, 1, 127>>)
+
+      # Boundary values for the 0.x / 1.x / 2.x split
+      for oid <- [
+            [0, 0],
+            [0, 39],
+            [1, 0],
+            [1, 39],
+            [2, 0],
+            [2, 39],
+            [2, 40],
+            [2, 16_383],
+            [2, 1_000_000]
+          ] do
+        {:ok, encoded} = ASN1.encode_oid(oid)
+        assert {:ok, {^oid, <<>>}} = ASN1.decode_oid(encoded)
+      end
     end
 
     test "rejects invalid OID tags" do

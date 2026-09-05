@@ -373,6 +373,47 @@ defmodule SnmpKit.SnmpLib.PDUTest do
     end
   end
 
+  describe "OID first-arc encoding (X.690 8.19)" do
+    test "round-trips OIDs whose first sub-identifier is multibyte" do
+      for oid <- [[2, 999, 1], [2, 100], [2, 40, 5], [0, 39, 1], [1, 39]] do
+        pdu = PDU.build_get_request(oid, 7)
+        message = PDU.build_message(pdu, "public", :v2c)
+        {:ok, encoded} = PDU.encode_message(message)
+        {:ok, decoded} = PDU.decode_message(encoded)
+        assert [{^oid, :null, :null}] = decoded.pdu.varbinds
+      end
+    end
+
+    test "decodes a wire-format 2.100 OID instead of the invalid 4.20" do
+      # 06 02 81 34 : OBJECT IDENTIFIER, length 2, sub-identifier 180 = 2*40 + 100
+      varbind = <<0x30, 0x06, 0x06, 0x02, 0x81, 0x34, 0x05, 0x00>>
+      varbinds = <<0x30, byte_size(varbind)>> <> varbind
+      pdu_body = <<0x02, 0x01, 0x01, 0x02, 0x01, 0x00, 0x02, 0x01, 0x00>> <> varbinds
+      pdu = <<0xA0, byte_size(pdu_body)>> <> pdu_body
+      msg_body = <<0x02, 0x01, 0x01, 0x04, 0x06, "public">> <> pdu
+      packet = <<0x30, byte_size(msg_body)>> <> msg_body
+
+      {:ok, decoded} = PDU.decode_message(packet)
+      assert [{[2, 100], :null, :null}] = decoded.pdu.varbinds
+    end
+
+    test "rejects OIDs with an invalid first or second arc" do
+      for oid <- [[3, 1], [1, 40], [0, 40, 1]] do
+        pdu = PDU.build_get_request(oid, 7)
+        message = PDU.build_message(pdu, "public", :v2c)
+        assert {:error, _} = PDU.encode_message(message)
+      end
+    end
+
+    test "encodes a single-arc OID as n.0" do
+      pdu = PDU.build_get_next_request([1], 7)
+      message = PDU.build_message(pdu, "public", :v2c)
+      {:ok, encoded} = PDU.encode_message(message)
+      {:ok, decoded} = PDU.decode_message(encoded)
+      assert [{[1, 0], :null, :null}] = decoded.pdu.varbinds
+    end
+  end
+
   describe "Error conditions and boundary testing" do
     test "handles zero-length input gracefully" do
       assert {:error, _} = PDU.decode_message(<<>>)

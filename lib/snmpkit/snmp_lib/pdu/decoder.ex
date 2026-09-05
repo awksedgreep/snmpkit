@@ -397,17 +397,21 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
 
   defp parse_oid(_), do: {:error, :invalid_oid}
 
-  defp decode_oid_data(<<first, rest::binary>>) do
-    first_subid = div(first, 40)
-    second_subid = rem(first, 40)
-
-    case decode_oid_subids(rest, [second_subid, first_subid]) do
-      {:ok, subids} -> {:ok, Enum.reverse(subids)}
-      error -> error
+  # The first sub-identifier packs two arcs (X.690 8.19.4) and may be multibyte,
+  # so decode it with the base-128 routine before splitting it.
+  defp decode_oid_data(<<_, _::binary>> = data) do
+    with {:ok, {first_subid, rest}} <- decode_oid_subid(data, 0),
+         {:ok, subids} <- decode_oid_subids(rest, []) do
+      {first, second} = split_first_subid(first_subid)
+      {:ok, [first, second | Enum.reverse(subids)]}
     end
   end
 
   defp decode_oid_data(_), do: {:error, :invalid_oid_data}
+
+  defp split_first_subid(value) when value < 40, do: {0, value}
+  defp split_first_subid(value) when value < 80, do: {1, value - 40}
+  defp split_first_subid(value), do: {2, value - 80}
 
   defp decode_oid_subids(<<>>, acc), do: {:ok, acc}
 

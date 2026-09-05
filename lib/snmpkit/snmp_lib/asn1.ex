@@ -180,7 +180,8 @@ defmodule SnmpKit.SnmpLib.ASN1 do
 
   ## Parameters
 
-  - `oid_list`: List of non-negative integers representing the OID (minimum 2 components)
+  - `oid_list`: List of non-negative integers representing the OID. X.690 requires at
+    least two arcs; a single-arc OID `[n]` is tolerated and encoded as `n.0`.
 
   ## Returns
 
@@ -189,8 +190,10 @@ defmodule SnmpKit.SnmpLib.ASN1 do
 
   ## Encoding Rules
 
-  - First two components are combined: `first * 40 + second`
-  - Remaining components use 7-bit encoding with continuation bits
+  - First two components are combined into one sub-identifier: `first * 40 + second`
+    (X.690 8.19). The first arc must be 0, 1 or 2; the second must be < 40 unless
+    the first arc is 2. The combined value may itself be multibyte (e.g. `2.999`).
+  - All sub-identifiers use 7-bit encoding with continuation bits
   - Values 0-127: single byte
   - Values 128+: multibyte with high bit indicating continuation
 
@@ -212,8 +215,19 @@ defmodule SnmpKit.SnmpLib.ASN1 do
       iex> SnmpKit.SnmpLib.ASN1.encode_oid([])
       {:error, :invalid_oid}
 
+      iex> SnmpKit.SnmpLib.ASN1.encode_oid([3, 1])
+      {:error, :invalid_oid}
+
+      # Single-arc OIDs are encoded as `n.0` (X.690 needs two arcs)
       iex> SnmpKit.SnmpLib.ASN1.encode_oid([1])
-      {:ok, <<6, 1, 1>>}
+      {:ok, <<6, 1, 40>>}
+
+      # Arcs under 2.x may exceed 39 and produce a multibyte first sub-identifier
+      iex> {:ok, encoded} = SnmpKit.SnmpLib.ASN1.encode_oid([2, 999, 1])
+      iex> encoded
+      <<6, 3, 136, 55, 1>>
+      iex> SnmpKit.SnmpLib.ASN1.decode_oid(encoded)
+      {:ok, {[2, 999, 1], <<>>}}
   """
   @spec encode_oid(oid()) :: {:ok, binary()} | {:error, atom()}
   def encode_oid(oid_list) when is_list(oid_list) and length(oid_list) >= 1 do
@@ -676,17 +690,27 @@ defmodule SnmpKit.SnmpLib.ASN1 do
   end
 
   # OID content encoding
-  defp encode_oid_content([first]) when first < 3 do
-    # Single component OID - encode directly
-    {:ok, encode_oid_subidentifier(first)}
+  #
+  # X.690 8.19: the first two arcs are packed into a single sub-identifier
+  # (40 * first + second) which, like every other sub-identifier, is base-128
+  # encoded and may span multiple bytes (e.g. 2.999 -> 1079 -> <<0x88, 0x37>>).
+  # A single-arc OID has no valid X.690 encoding; like net-snmp we treat it as
+  # `first.0` rather than rejecting it, so callers walking from "1" still work.
+  defp encode_oid_content([first]) when is_integer(first) and first >= 0 and first < 3 do
+    encode_oid_content([first, 0])
   end
 
-  defp encode_oid_content([first, second | rest]) when first < 3 and second < 40 do
-    first_byte = first * 40 + second
-    first_encoded = encode_oid_subidentifier(first_byte)
-    rest_encoded = Enum.map(rest, &encode_oid_subidentifier/1)
-    content = :binary.list_to_bin([first_encoded | rest_encoded])
-    {:ok, content}
+  defp encode_oid_content([first, second | rest])
+       when is_integer(first) and is_integer(second) and first >= 0 and second >= 0 and
+              ((first < 2 and second < 40) or first == 2) do
+    if Enum.all?(rest, &(is_integer(&1) and &1 >= 0)) do
+      first_encoded = encode_oid_subidentifier(first * 40 + second)
+      rest_encoded = Enum.map(rest, &encode_oid_subidentifier/1)
+      content = :binary.list_to_bin([first_encoded | rest_encoded])
+      {:ok, content}
+    else
+      {:error, :invalid_oid}
+    end
   end
 
   defp encode_oid_content(_), do: {:error, :invalid_oid}
@@ -723,20 +747,23 @@ defmodule SnmpKit.SnmpLib.ASN1 do
   end
 
   # OID content decoding
-  defp decode_oid_content(<<first_byte, rest::binary>>) do
-    first_subid = div(first_byte, 40)
-    second_subid = rem(first_byte, 40)
-
-    case decode_oid_subidentifiers(rest, []) do
-      {:ok, remaining_subids} ->
-        {:ok, [first_subid, second_subid | remaining_subids]}
-
-      {:error, reason} ->
-        {:error, reason}
+  #
+  # The first sub-identifier encodes two arcs (X.690 8.19.4) and may itself be
+  # multibyte, so it must be decoded with the same base-128 routine as the rest
+  # before being split back into the two leading arcs.
+  defp decode_oid_content(<<_, _::binary>> = data) do
+    with {:ok, {first_subid, rest}} <- decode_oid_subidentifier(data, 0),
+         {:ok, remaining_subids} <- decode_oid_subidentifiers(rest, []) do
+      {first, second} = split_first_subidentifier(first_subid)
+      {:ok, [first, second | remaining_subids]}
     end
   end
 
   defp decode_oid_content(_), do: {:error, :invalid_oid_content}
+
+  defp split_first_subidentifier(value) when value < 40, do: {0, value}
+  defp split_first_subidentifier(value) when value < 80, do: {1, value - 40}
+  defp split_first_subidentifier(value), do: {2, value - 80}
 
   defp decode_oid_subidentifiers(<<>>, acc) do
     {:ok, Enum.reverse(acc)}
