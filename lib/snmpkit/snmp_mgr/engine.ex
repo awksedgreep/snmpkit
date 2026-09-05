@@ -15,6 +15,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
   @default_request_timeout 5000
   @default_batch_size 50
   @default_batch_timeout 100
+  @default_circuit_breaker_recovery_timeout 30_000
 
   defstruct [
     :name,
@@ -32,7 +33,8 @@ defmodule SnmpKit.SnmpMgr.Engine do
     :shared_socket,
     :pending_requests,
     :pending_batches,
-    :request_counter
+    :request_counter,
+    :circuit_breaker_config
   ]
 
   @doc """
@@ -44,6 +46,11 @@ defmodule SnmpKit.SnmpMgr.Engine do
   - `:request_timeout` - Individual request timeout in ms (default: 5000)
   - `:batch_size` - Maximum requests per batch (default: 50)
   - `:batch_timeout` - Maximum time to wait for batch in ms (default: 100)
+  - `:circuit_breaker` - Per-target circuit breaker, off unless configured.
+    `[threshold: n, recovery_timeout: ms]` opens a target after `n`
+    consecutive failures (timeouts / send errors) and fails requests to it
+    with `{:error, :circuit_breaker_open}` for `recovery_timeout` ms
+    (default 30_000) before letting one request through to probe it.
 
   ## Examples
 
@@ -78,8 +85,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
       {:ok, ref} = SnmpKit.SnmpMgr.Engine.submit_request(engine, request)
   """
   def submit_request(engine, request, opts \\ []) do
-    timeout = Keyword.get(opts, :timeout, 5000)
-    GenServer.call(engine, {:submit_request, request, opts}, timeout)
+    GenServer.call(engine, {:submit_request, request, opts}, call_timeout(opts))
   end
 
   @doc """
@@ -100,8 +106,26 @@ defmodule SnmpKit.SnmpMgr.Engine do
       {:ok, batch_ref} = SnmpKit.SnmpMgr.Engine.submit_batch(engine, requests)
   """
   def submit_batch(engine, requests, opts \\ []) do
-    call_timeout = Keyword.get(opts, :call_timeout, Keyword.get(opts, :timeout, :infinity))
-    GenServer.call(engine, {:submit_batch, requests, opts}, call_timeout)
+    GenServer.call(engine, {:submit_batch, requests, opts}, call_timeout(opts))
+  end
+
+  # The engine always answers a request by its own `:timeout`; the caller must
+  # wait a little longer than that or it exits at the very moment the reply is
+  # sent. `:call_timeout` overrides the computed value.
+  @call_timeout_margin 1_000
+
+  defp call_timeout(opts) do
+    case Keyword.get(opts, :call_timeout) do
+      nil ->
+        case Keyword.get(opts, :timeout, @default_request_timeout) do
+          :infinity -> :infinity
+          timeout when is_integer(timeout) -> timeout + @call_timeout_margin
+          _ -> @default_request_timeout + @call_timeout_margin
+        end
+
+      call_timeout ->
+        call_timeout
+    end
   end
 
   @doc """
@@ -136,10 +160,11 @@ defmodule SnmpKit.SnmpMgr.Engine do
     batch_size = Keyword.get(opts, :batch_size, @default_batch_size)
     batch_timeout = Keyword.get(opts, :batch_timeout, @default_batch_timeout)
 
-    # Creating shared socket
-    # Initialize shared socket
+    # Trap exits so terminate/2 runs on supervisor shutdown and the UDP
+    # sockets are closed rather than leaked across restarts.
+    Process.flag(:trap_exit, true)
+
     {:ok, shared_socket} = SnmpKit.SnmpLib.Transport.create_client_socket([{:active, true}])
-    # Shared socket created: #{inspect(shared_socket)}
 
     state = %__MODULE__{
       name: Keyword.get(opts, :name, __MODULE__),
@@ -157,20 +182,45 @@ defmodule SnmpKit.SnmpMgr.Engine do
       shared_socket: shared_socket,
       pending_requests: %{},
       pending_batches: %{},
-      request_counter: 0
+      request_counter: 0,
+      circuit_breaker_config: circuit_breaker_config(Keyword.get(opts, :circuit_breaker))
     }
 
     Logger.info("SnmpMgr Engine started with pool_size=#{pool_size}, max_rps=#{max_rps}")
-    # Engine init completed successfully
 
     {:ok, state}
   end
 
   @impl true
-  def handle_call({:submit_request, request, opts}, from, state) do
-    # Engine handle_call submit_request called
+  def terminate(_reason, state) do
+    # Fail anything still in flight so callers are not left hanging, then
+    # release every socket the engine owns.
+    Enum.each(state.pending_requests, fn {_id, request} ->
+      cancel_timer(request)
+
+      if not Map.has_key?(request, :batch_ref) do
+        safe_reply(request.from, {:error, :engine_stopped})
+      end
+    end)
+
+    Enum.each(state.pending_batches, fn {_ref, batch} ->
+      safe_reply(batch.from, {:error, :engine_stopped})
+    end)
+
+    if state.shared_socket, do: SnmpKit.SnmpLib.Transport.close_socket(state.shared_socket)
+
+    Enum.each(state.connections, fn {_id, conn} ->
+      if conn.socket, do: :gen_udp.close(conn.socket)
+    end)
+
+    :ok
+  end
+
+  @impl true
+  def handle_call({:submit_request, request, opts}, {caller, _tag} = from, state) do
     {request_id, new_counter} = next_request_id(state.request_counter)
     ref = make_ref()
+    timeout = Keyword.get(opts, :timeout, state.request_timeout)
 
     enriched_request =
       Map.merge(request, %{
@@ -178,30 +228,37 @@ defmodule SnmpKit.SnmpMgr.Engine do
         ref: ref,
         from: from,
         submitted_at: System.monotonic_time(:millisecond),
-        opts: opts
+        opts: opts,
+        conn_id: nil,
+        # The timer carries request_id + ref so a stale timer for a recycled
+        # request id can never complete a newer request.
+        timer_ref: Process.send_after(self(), {:request_timeout, request_id, ref}, timeout),
+        monitor_ref: Process.monitor(caller)
       })
 
-    # Add to pending requests for correlation
-    pending_requests = Map.put(state.pending_requests, request_id, enriched_request)
+    state = %{
+      state
+      | pending_requests: Map.put(state.pending_requests, request_id, enriched_request),
+        request_counter: new_counter,
+        metrics: update_metrics(state.metrics, :requests_submitted, 1)
+    }
 
-    # Send request immediately using shared socket
-    send_snmp_request_shared(state.shared_socket, enriched_request)
+    cond do
+      not circuit_breaker_allows?(state, request.target) ->
+        {:noreply, complete_request(state, request_id, {:error, :circuit_breaker_open})}
 
-    # Schedule timeout
-    schedule_request_timeout(ref, state.request_timeout)
-
-    # Update state
-    new_state = %{state | pending_requests: pending_requests, request_counter: new_counter}
-
-    # Update metrics
-    metrics = update_metrics(state.metrics, :requests_submitted, 1)
-    new_state = %{new_state | metrics: metrics}
-
-    {:noreply, new_state}
+      true ->
+        # Every exit path goes through complete_request/3, which removes the
+        # pending entry before replying, so a caller is answered exactly once.
+        case send_snmp_request_shared(state.shared_socket, enriched_request) do
+          :ok -> {:noreply, state}
+          {:error, reason} -> {:noreply, complete_request(state, request_id, {:error, reason})}
+        end
+    end
   end
 
   @impl true
-  def handle_call({:submit_batch, requests, opts}, from, state) do
+  def handle_call({:submit_batch, requests, opts}, {caller, _tag} = from, state) do
     if requests == [] do
       {:reply, {:ok, []}, state}
     else
@@ -222,7 +279,10 @@ defmodule SnmpKit.SnmpMgr.Engine do
               batch_index: index,
               from: from,
               submitted_at: submitted_at,
-              opts: opts
+              opts: opts,
+              conn_id: nil,
+              timer_ref: nil,
+              monitor_ref: nil
             })
 
           {enriched_request, next_counter}
@@ -242,7 +302,8 @@ defmodule SnmpKit.SnmpMgr.Engine do
         Map.put(state.pending_batches, batch_ref, %{
           from: from,
           total: length(enriched_requests),
-          results: %{}
+          results: %{},
+          monitor_ref: Process.monitor(caller)
         })
 
       new_state = %{
@@ -269,7 +330,9 @@ defmodule SnmpKit.SnmpMgr.Engine do
       active_connections: count_active_connections(state.connections),
       total_connections: map_size(state.connections),
       metrics: state.metrics,
-      circuit_breakers: map_size(state.circuit_breakers)
+      circuit_breakers: map_size(state.circuit_breakers),
+      open_circuit_breakers:
+        Enum.count(state.circuit_breakers, fn {_t, cb} -> cb.opened_at != nil end)
     }
 
     {:reply, stats, state}
@@ -294,13 +357,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
   @impl true
   def handle_call(:stop, _from, state) do
-    # Clean up connections
-    Enum.each(state.connections, fn {_id, conn} ->
-      if conn.socket do
-        :gen_udp.close(conn.socket)
-      end
-    end)
-
+    # Sockets and pending callers are cleaned up in terminate/2
     {:stop, :normal, :ok, state}
   end
 
@@ -323,15 +380,55 @@ defmodule SnmpKit.SnmpMgr.Engine do
   end
 
   @impl true
-  def handle_info({:request_timeout, ref}, state) do
-    # Handle request timeouts for shared socket
-    new_state = handle_request_timeout_shared(state, ref)
-    {:noreply, new_state}
+  def handle_info({:request_timeout, request_id, ref}, state) do
+    case Map.get(state.pending_requests, request_id) do
+      %{ref: ^ref} -> {:noreply, complete_request(state, request_id, {:error, :timeout})}
+      _ -> {:noreply, state}
+    end
+  end
+
+  @impl true
+  def handle_info({:DOWN, _monitor_ref, :process, pid, _reason}, state) do
+    # A caller died: drop everything it was waiting on so the pending map and
+    # connection slots do not fill with work nobody will collect.
+    dead_requests =
+      state.pending_requests
+      |> Enum.filter(fn {_id, %{from: {from_pid, _}}} -> from_pid == pid end)
+      |> Enum.map(fn {id, _} -> id end)
+
+    state = Enum.reduce(dead_requests, state, &discard_request(&2, &1))
+
+    dead_batches =
+      state.pending_batches
+      |> Enum.filter(fn {_ref, %{from: {from_pid, _}}} -> from_pid == pid end)
+      |> Enum.map(fn {ref, _} -> ref end)
+
+    {:noreply, %{state | pending_batches: Map.drop(state.pending_batches, dead_batches)}}
+  end
+
+  @impl true
+  def handle_info({:EXIT, _pid, _reason}, state) do
+    # Linked sockets/ports exiting are handled via normal error paths
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info({:udp_error, _socket, reason}, state) do
+    # ICMP errors (e.g. port unreachable) surface here on an active socket;
+    # the affected request will still time out normally.
+    Logger.debug("Engine socket reported #{inspect(reason)}")
+    {:noreply, state}
   end
 
   @impl true
   def handle_info({:mock_response, request_id, response_data}, state) do
     {:noreply, complete_request(state, request_id, {:ok, response_data})}
+  end
+
+  @impl true
+  def handle_info(other, state) do
+    Logger.debug("Engine ignoring unexpected message: #{inspect(other)}")
+    {:noreply, state}
   end
 
   # Private functions
@@ -431,8 +528,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
   end
 
   defp execute_target_requests(state, target, requests) do
-    # Check circuit breaker
-    if circuit_breaker_allows?(state.circuit_breakers, target) do
+    if circuit_breaker_allows?(state, target) do
       # Get available connection
       case get_available_connection(state.connections, target) do
         {:ok, conn_id, connection} ->
@@ -449,29 +545,98 @@ defmodule SnmpKit.SnmpMgr.Engine do
   end
 
   defp execute_requests_on_connection(state, conn_id, connection, requests) do
-    # Ensure socket is open
-    {:ok, socket} = ensure_socket_open(connection)
+    case ensure_socket_open(connection) do
+      {:ok, socket} ->
+        request_ids = Enum.map(requests, & &1.request_id)
 
-    # Send requests
-    updated_connection = %{
-      connection
-      | # Store the socket in the connection
-        socket: socket,
-        status: :active,
-        active_requests: connection.active_requests ++ requests,
-        last_used: System.monotonic_time(:millisecond)
-    }
+        updated_connection = %{
+          connection
+          | socket: socket,
+            status: :active,
+            active_requests: connection.active_requests ++ request_ids,
+            last_used: System.monotonic_time(:millisecond)
+        }
 
-    new_connections = Map.put(state.connections, conn_id, updated_connection)
-    new_state = %{state | connections: new_connections}
+        state = %{state | connections: Map.put(state.connections, conn_id, updated_connection)}
 
-    # Actually send the SNMP requests
-    Enum.each(requests, fn request ->
-      send_snmp_request(socket, request)
-      schedule_request_timeout(request.ref, state.request_timeout)
-    end)
+        Enum.reduce(requests, state, fn request, acc ->
+          # Requests may have completed (e.g. caller died) while queued
+          case Map.get(acc.pending_requests, request.request_id) do
+            nil ->
+              release_connection(acc, conn_id, request.request_id, :ok)
 
-    new_state
+            pending ->
+              timeout = Keyword.get(pending.opts, :timeout, acc.request_timeout)
+
+              pending = %{
+                pending
+                | conn_id: conn_id,
+                  timer_ref:
+                    Process.send_after(
+                      self(),
+                      {:request_timeout, pending.request_id, pending.ref},
+                      timeout
+                    )
+              }
+
+              acc = %{
+                acc
+                | pending_requests: Map.put(acc.pending_requests, pending.request_id, pending)
+              }
+
+              case send_snmp_request(socket, pending) do
+                :ok -> acc
+                {:error, reason} -> complete_request(acc, pending.request_id, {:error, reason})
+              end
+          end
+        end)
+
+      {:error, reason} ->
+        Logger.error("Failed to open pool socket #{conn_id}: #{inspect(reason)}")
+        state = bump_connection_errors(state, conn_id)
+        fail_requests(state, requests, {:error, {:socket_error, reason}})
+    end
+  end
+
+  # Return a request's slot to its pool connection and update the connection's
+  # bookkeeping so the pool can be reused instead of saturating.
+  defp release_connection(state, nil, _request_id, _result), do: state
+
+  defp release_connection(state, conn_id, request_id, result) do
+    case Map.get(state.connections, conn_id) do
+      nil ->
+        state
+
+      conn ->
+        remaining = List.delete(conn.active_requests, request_id)
+
+        conn = %{
+          conn
+          | active_requests: remaining,
+            status: if(remaining == [], do: :idle, else: :active),
+            error_count:
+              case result do
+                {:error, _} -> conn.error_count + 1
+                _ -> conn.error_count
+              end
+        }
+
+        %{state | connections: Map.put(state.connections, conn_id, conn)}
+    end
+  end
+
+  defp bump_connection_errors(state, conn_id) do
+    case Map.get(state.connections, conn_id) do
+      nil ->
+        state
+
+      conn ->
+        %{
+          state
+          | connections:
+              Map.put(state.connections, conn_id, %{conn | error_count: conn.error_count + 1})
+        }
+    end
   end
 
   defp get_available_connection(connections, _target) do
@@ -526,12 +691,12 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
           {:error, reason} ->
             Logger.error("Failed to send SNMP request: #{inspect(reason)}")
-            GenServer.reply(request.from, {:error, reason})
+            {:error, reason}
         end
 
       {:error, reason} ->
         Logger.error("Failed to build SNMP message: #{inspect(reason)}")
-        GenServer.reply(request.from, {:error, reason})
+        {:error, reason}
     end
   end
 
@@ -580,10 +745,6 @@ defmodule SnmpKit.SnmpMgr.Engine do
   # Target resolution helper - delegates to canonical Target.resolve
   defp resolve_target(target), do: SnmpKit.SnmpMgr.Target.resolve(target)
 
-  defp schedule_request_timeout(ref, timeout) do
-    Process.send_after(self(), {:request_timeout, ref}, timeout)
-  end
-
   defp handle_udp_response_shared(state, socket, _ip, _port, data) do
     case SnmpKit.SnmpLib.PDU.decode_message(data) do
       {:ok, message} ->
@@ -609,16 +770,6 @@ defmodule SnmpKit.SnmpMgr.Engine do
     end
   end
 
-  defp handle_request_timeout_shared(state, ref) do
-    case find_request_by_ref(state.pending_requests, ref) do
-      {request_id, _request} ->
-        complete_request(state, request_id, {:error, :timeout})
-
-      nil ->
-        state
-    end
-  end
-
   defp handle_no_connections(state, requests) do
     Enum.reduce(requests, state, fn request, acc ->
       complete_request(acc, request.request_id, {:error, :no_available_connections})
@@ -631,10 +782,63 @@ defmodule SnmpKit.SnmpMgr.Engine do
     end)
   end
 
-  defp circuit_breaker_allows?(_circuit_breakers, _target) do
-    # Simplified - always allow for now
-    # Real implementation would check circuit breaker state
-    true
+  # Per-target circuit breaker (opt-in via the :circuit_breaker option).
+  defp circuit_breaker_config(nil), do: nil
+
+  defp circuit_breaker_config(opts) when is_list(opts) do
+    case Keyword.get(opts, :threshold) do
+      threshold when is_integer(threshold) and threshold > 0 ->
+        %{
+          threshold: threshold,
+          recovery_timeout:
+            Keyword.get(opts, :recovery_timeout, @default_circuit_breaker_recovery_timeout)
+        }
+
+      _ ->
+        nil
+    end
+  end
+
+  defp circuit_breaker_config(_), do: nil
+
+  defp circuit_breaker_allows?(%{circuit_breaker_config: nil}, _target), do: true
+
+  defp circuit_breaker_allows?(state, target) do
+    case Map.get(state.circuit_breakers, target) do
+      %{opened_at: opened_at} when is_integer(opened_at) ->
+        # Open: block until the recovery timeout passes, then allow one probe
+        System.monotonic_time(:millisecond) - opened_at >=
+          state.circuit_breaker_config.recovery_timeout
+
+      _ ->
+        true
+    end
+  end
+
+  defp record_circuit_breaker_result(%{circuit_breaker_config: nil} = state, _target, _result),
+    do: state
+
+  defp record_circuit_breaker_result(state, target, {:ok, _}) do
+    %{state | circuit_breakers: Map.delete(state.circuit_breakers, target)}
+  end
+
+  defp record_circuit_breaker_result(state, _target, {:error, :circuit_breaker_open}), do: state
+
+  defp record_circuit_breaker_result(state, target, {:error, _reason}) do
+    cb = Map.get(state.circuit_breakers, target, %{failures: 0, opened_at: nil})
+    failures = cb.failures + 1
+
+    cb =
+      if failures >= state.circuit_breaker_config.threshold do
+        if cb.opened_at == nil,
+          do: Logger.warning("Circuit breaker opened for #{inspect(target)}")
+
+        %{failures: failures, opened_at: System.monotonic_time(:millisecond)}
+      else
+        %{cb | failures: failures}
+      end
+
+    %{state | circuit_breakers: Map.put(state.circuit_breakers, target, cb)}
   end
 
   defp count_active_connections(connections) do
@@ -665,39 +869,67 @@ defmodule SnmpKit.SnmpMgr.Engine do
     Map.put(metrics, :avg_response_time, new_avg)
   end
 
-  defp find_request_by_ref(pending_requests, ref) do
-    Enum.find_value(pending_requests, fn {request_id, request} ->
-      if request.ref == ref do
-        {request_id, request}
-      else
-        nil
-      end
-    end)
-  end
-
   defp complete_request(state, request_id, result) do
-    case Map.get(state.pending_requests, request_id) do
-      nil ->
+    case Map.pop(state.pending_requests, request_id) do
+      {nil, _} ->
         state
 
-      request ->
-        pending_requests = Map.delete(state.pending_requests, request_id)
+      {request, pending_requests} ->
+        cancel_timer(request)
+        demonitor(request)
 
         state =
           %{state | pending_requests: pending_requests}
+          |> release_connection(request.conn_id, request_id, result)
+          |> record_circuit_breaker_result(request.target, result)
           |> update_completion_metrics(request, result)
 
         if Map.has_key?(request, :batch_ref) do
           complete_batch_member(state, request, result)
         else
-          GenServer.reply(request.from, result)
+          safe_reply(request.from, result)
           state
         end
     end
   end
 
+  # Drop a request whose caller is gone: no reply, no batch accounting.
+  defp discard_request(state, request_id) do
+    case Map.pop(state.pending_requests, request_id) do
+      {nil, _} ->
+        state
+
+      {request, pending_requests} ->
+        cancel_timer(request)
+        demonitor(request)
+
+        %{state | pending_requests: pending_requests}
+        |> release_connection(request.conn_id, request_id, :ok)
+    end
+  end
+
+  defp cancel_timer(%{timer_ref: ref}) when is_reference(ref), do: Process.cancel_timer(ref)
+  defp cancel_timer(_), do: :ok
+
+  defp demonitor(%{monitor_ref: ref}) when is_reference(ref),
+    do: Process.demonitor(ref, [:flush])
+
+  defp demonitor(_), do: :ok
+
+  defp safe_reply(from, reply) do
+    GenServer.reply(from, reply)
+  catch
+    _, _ -> :ok
+  end
+
   defp complete_batch_member(state, request, result) do
-    batch = Map.fetch!(state.pending_batches, request.batch_ref)
+    case Map.get(state.pending_batches, request.batch_ref) do
+      nil -> state
+      batch -> complete_batch_member(state, request, result, batch)
+    end
+  end
+
+  defp complete_batch_member(state, request, result, batch) do
     results = Map.put(batch.results, request.batch_index, result)
 
     if map_size(results) == batch.total do
@@ -705,7 +937,8 @@ defmodule SnmpKit.SnmpMgr.Engine do
         0..(batch.total - 1)
         |> Enum.map(fn index -> Map.fetch!(results, index) end)
 
-      GenServer.reply(batch.from, {:ok, ordered_results})
+      demonitor(batch)
+      safe_reply(batch.from, {:ok, ordered_results})
       %{state | pending_batches: Map.delete(state.pending_batches, request.batch_ref)}
     else
       pending_batches =

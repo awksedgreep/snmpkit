@@ -63,39 +63,38 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
   defp walk_loop(state) do
     case send_walk_request(SocketManager.get_socket(), state) do
       {:ok, state} ->
-        receive_timeout = min(state.timeout, remaining_walk_time(state))
-
-        receive do
-          {:snmp_response, request_id, response_data} ->
-            if request_id == state.request_id do
-              handle_walk_response(state, response_data, &walk_loop/1)
-            else
-              walk_loop(state)
-            end
-
-          {:snmp_timeout, request_id} ->
-            if request_id == state.request_id do
-              Logger.warning(
-                "SNMP walk request timeout for target #{inspect(state.request.target)}"
-              )
-
-              {:error, :timeout}
-            else
-              walk_loop(state)
-            end
-        after
-          receive_timeout ->
-            EngineV2.unregister_request(EngineV2, state.request_id)
-
-            Logger.warning(
-              "SNMP walk internal timeout for target #{inspect(state.request.target)}"
-            )
-
-            {:error, :timeout}
-        end
+        deadline = now_ms() + min(state.timeout, remaining_walk_time(state))
+        await_walk_message(state, deadline)
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  # Waits for the response to *this* request. Messages for other request ids
+  # (late replies to an earlier step) are dropped; re-sending here would put a
+  # duplicate PDU on the wire and orphan the outstanding registration.
+  defp await_walk_message(state, deadline) do
+    receive_timeout = max(deadline - now_ms(), 0)
+
+    receive do
+      {:snmp_response, request_id, response_data} when request_id == state.request_id ->
+        handle_walk_response(state, response_data, &walk_loop/1)
+
+      {:snmp_timeout, request_id} when request_id == state.request_id ->
+        Logger.warning("SNMP walk request timeout for target #{inspect(state.request.target)}")
+        {:error, :timeout}
+
+      {:snmp_response, _stale_id, _data} ->
+        await_walk_message(state, deadline)
+
+      {:snmp_timeout, _stale_id} ->
+        await_walk_message(state, deadline)
+    after
+      receive_timeout ->
+        EngineV2.unregister_request(EngineV2, state.request_id)
+        Logger.warning("SNMP walk internal timeout for target #{inspect(state.request.target)}")
+        {:error, :timeout}
     end
   end
 

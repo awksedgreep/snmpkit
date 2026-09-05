@@ -312,7 +312,9 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
       timeout = request_timeout(request, state.global_timeout)
       request_id = SnmpKit.SnmpMgr.RequestIdGenerator.next_id()
 
-      pending_entry = %{index: index, timeout: timeout}
+      # EngineV2 delivers :snmp_timeout at `timeout`; the local deadline is a
+      # safety net one second later in case that message never arrives.
+      pending_entry = %{index: index, timeout: timeout, deadline_ms: now_ms() + timeout + 1000}
 
       case dispatch_request(state.socket, request, request_id, timeout) do
         :ok ->
@@ -375,10 +377,18 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
     end
   end
 
+  # Only the requests whose own deadline has passed are failed; a single slow
+  # peer must not take the rest of the window down with it.
   defp fail_stuck_pending_requests(state) do
-    Enum.reduce(state.pending, %{state | pending: %{}}, fn {request_id, %{index: index}}, acc ->
-      SnmpKit.SnmpMgr.EngineV2.unregister_request(SnmpKit.SnmpMgr.EngineV2, request_id)
-      %{acc | results: Map.put(acc.results, index, {:error, :timeout})}
+    now = now_ms()
+
+    Enum.reduce(state.pending, %{state | pending: %{}}, fn {request_id, entry}, acc ->
+      if entry.deadline_ms <= now do
+        SnmpKit.SnmpMgr.EngineV2.unregister_request(SnmpKit.SnmpMgr.EngineV2, request_id)
+        %{acc | results: Map.put(acc.results, entry.index, {:error, :timeout})}
+      else
+        %{acc | pending: Map.put(acc.pending, request_id, entry)}
+      end
     end)
   end
 
@@ -391,13 +401,18 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
     end
   end
 
+  # Wake up when the *earliest* pending deadline expires.
   defp pending_receive_timeout(pending) do
+    now = now_ms()
+
     pending
     |> Map.values()
-    |> Enum.map(& &1.timeout)
-    |> Enum.max(fn -> @default_timeout end)
-    |> Kernel.+(1000)
+    |> Enum.map(&(&1.deadline_ms - now))
+    |> Enum.min(fn -> @default_timeout + 1000 end)
+    |> max(0)
   end
+
+  defp now_ms, do: System.monotonic_time(:millisecond)
 
   defp dispatch_request(socket, request, request_id, timeout) do
     SnmpKit.SnmpMgr.EngineV2.register_request(

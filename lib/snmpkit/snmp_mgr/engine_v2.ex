@@ -96,10 +96,12 @@ defmodule SnmpKit.SnmpMgr.EngineV2 do
 
   @impl true
   def handle_call({:register_request, request_id, caller_pid, timeout_ms}, _from, state) do
-    # Register the request for correlation
+    # Register the request for correlation. The caller is monitored so a crash
+    # releases its registrations instead of leaving them until timeout.
     pending_requests =
       Map.put(state.pending_requests, request_id, %{
         caller_pid: caller_pid,
+        monitor_ref: Process.monitor(caller_pid),
         registered_at: System.monotonic_time(:millisecond)
       })
 
@@ -195,6 +197,16 @@ defmodule SnmpKit.SnmpMgr.EngineV2 do
   end
 
   @impl true
+  def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
+    dead =
+      state.pending_requests
+      |> Enum.filter(fn {_id, info} -> info.caller_pid == pid end)
+      |> Enum.map(fn {id, _} -> id end)
+
+    {:noreply, Enum.reduce(dead, state, &remove_request(&2, &1))}
+  end
+
+  @impl true
   def handle_info({:mock_response, request_id, response_data}, state) do
     # Handle mock response for testing
     new_state = handle_correlated_response(state, request_id, response_data)
@@ -241,8 +253,12 @@ defmodule SnmpKit.SnmpMgr.EngineV2 do
   end
 
   defp remove_request(state, request_id) do
-    # Remove from pending requests
-    pending_requests = Map.delete(state.pending_requests, request_id)
+    {info, pending_requests} = Map.pop(state.pending_requests, request_id)
+
+    case info do
+      %{monitor_ref: ref} when is_reference(ref) -> Process.demonitor(ref, [:flush])
+      _ -> :ok
+    end
 
     # Cancel and remove timeout
     case Map.get(state.timeout_refs, request_id) do
