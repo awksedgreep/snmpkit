@@ -18,7 +18,6 @@ defmodule SnmpKit.SnmpSim.Device do
   alias SnmpKit.SnmpSim.Core.Server
   alias SnmpKit.SnmpSim.Device.ErrorConditions, as: ErrorInjector
   alias SnmpKit.SnmpSim.Device.OidHandler
-  import SnmpKit.SnmpSim.Device.OidHandler
   import SnmpKit.SnmpSim.Device.PduProcessor, only: [process_snmp_pdu: 2]
 
   defstruct [
@@ -383,7 +382,7 @@ defmodule SnmpKit.SnmpSim.Device do
       port: state.port,
       device_type: state.device_type,
       mac_address: state.mac_address,
-      uptime: calculate_uptime(state),
+      uptime: SnmpKit.SnmpSim.Device.Metrics.calculate_uptime(state),
       oid_count: oid_count,
       counters: map_size(state.counters),
       gauges: map_size(state.gauges),
@@ -625,7 +624,7 @@ defmodule SnmpKit.SnmpSim.Device do
           Map.merge(state.status_vars, %{
             "admin_status" => 1,
             "oper_status" => 1,
-            "last_change" => calculate_uptime(state)
+            "last_change" => SnmpKit.SnmpSim.Device.Metrics.calculate_uptime(state)
           })
 
         {:noreply,
