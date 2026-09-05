@@ -562,12 +562,12 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
       :end_of_mib ->
         Logger.debug("WalkPduProcessor: End of MIB reached for #{oid_string}")
         oid_list = normalize_oid_to_list(oid)
-        # SNMPv2c+
-        # SNMPv1
+        # v1 has no exception varbinds: end of MIB is noSuchName.
+        # v2c+ uses endOfMibView (RFC 1905).
         if pdu_version == 1 do
-          {oid_list, :end_of_mib_view, {:end_of_mib_view, nil}}
+          {oid_list, :no_such_name, {:no_such_name, nil}}
         else
-          {oid_list, :no_such_object, {:no_such_object, nil}}
+          {oid_list, :end_of_mib_view, {:end_of_mib_view, nil}}
         end
 
       {:error, reason} ->
