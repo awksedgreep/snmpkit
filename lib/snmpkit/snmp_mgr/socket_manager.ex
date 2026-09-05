@@ -20,8 +20,15 @@ defmodule SnmpKit.SnmpMgr.SocketManager do
     :buffer_size,
     :port,
     :stats,
-    :created_at
+    :created_at,
+    :engine_pid,
+    :engine_monitor,
+    :max_queue_depth
   ]
+
+  # Datagrams are forwarded to the engine only while its mailbox is below this
+  # depth; beyond it they are dropped (and counted) rather than queued forever.
+  @default_max_queue_depth 10_000
 
   @doc """
   Starts the SocketManager GenServer.
@@ -91,6 +98,7 @@ defmodule SnmpKit.SnmpMgr.SocketManager do
   def init(opts) do
     buffer_size = Keyword.get(opts, :buffer_size, @default_buffer_size)
     port = Keyword.get(opts, :port, @default_port)
+    max_queue_depth = Keyword.get(opts, :max_queue_depth, @default_max_queue_depth)
 
     case create_socket(buffer_size, port) do
       {:ok, socket} ->
@@ -105,7 +113,10 @@ defmodule SnmpKit.SnmpMgr.SocketManager do
           buffer_size: buffer_size,
           port: actual_port,
           stats: initialize_stats(),
-          created_at: System.monotonic_time(:millisecond)
+          created_at: System.monotonic_time(:millisecond),
+          engine_pid: nil,
+          engine_monitor: nil,
+          max_queue_depth: max_queue_depth
         }
 
         {:ok, state}
@@ -130,12 +141,9 @@ defmodule SnmpKit.SnmpMgr.SocketManager do
         {:error, _} -> []
       end
 
-    # Get receive queue length
-    recv_queue =
-      case :inet.getstat(state.socket, [:recv_q]) do
-        {:ok, [{:recv_q, count}]} -> count
-        {:error, _} -> 0
-      end
+    # Datagrams received but not yet forwarded (:recv_q is not a valid
+    # inet:getstat/2 option; the mailbox depth is the real queue here)
+    recv_queue = mailbox_depth(self())
 
     stats = %{
       socket_stats: socket_stats,
@@ -153,22 +161,25 @@ defmodule SnmpKit.SnmpMgr.SocketManager do
   def handle_call(:get_buffer_stats, _from, state) do
     # Get detailed buffer statistics
     buffer_stats =
-      case :inet.getstat(state.socket, [:recv_q, :send_q, :recv_max, :send_max]) do
+      case :inet.getstat(state.socket, [:recv_max, :send_max, :recv_oct, :send_oct]) do
         {:ok, stats} -> stats
         {:error, _} -> []
       end
 
-    recv_queue = Keyword.get(buffer_stats, :recv_q, 0)
-    send_queue = Keyword.get(buffer_stats, :send_q, 0)
+    recv_queue = mailbox_depth(self())
+    send_queue = 0
 
-    # Calculate utilization percentages
-    recv_utilization = if state.buffer_size > 0, do: recv_queue / state.buffer_size * 100, else: 0
+    # Largest datagram seen relative to the socket buffer: bytes against bytes
+    recv_max = Keyword.get(buffer_stats, :recv_max, 0)
+    recv_utilization = if state.buffer_size > 0, do: recv_max / state.buffer_size * 100, else: 0
 
     detailed_stats = %{
       buffer_size: state.buffer_size,
       recv_queue_length: recv_queue,
       send_queue_length: send_queue,
       recv_utilization_percent: recv_utilization,
+      max_queue_depth: state.max_queue_depth,
+      engine_queue_length: mailbox_depth(state.engine_pid),
       buffer_stats: buffer_stats,
       port: state.port,
       uptime_ms: System.monotonic_time(:millisecond) - state.created_at
@@ -184,27 +195,24 @@ defmodule SnmpKit.SnmpMgr.SocketManager do
 
   @impl true
   def handle_call(:health_check, _from, state) do
+    # Health is the number of datagrams waiting (here and in the engine)
+    # relative to the configured queue depth: like units on both sides.
+    queue_depth = mailbox_depth(self()) + mailbox_depth(state.engine_pid)
+    queue_ratio = if state.max_queue_depth > 0, do: queue_depth / state.max_queue_depth, else: 0
+
     health =
-      case :inet.getstat(state.socket, [:recv_q]) do
-        {:ok, [{:recv_q, queue_length}]} ->
-          # Consider healthy if receive queue is not full
-          # (rough heuristic: less than 80% of buffer size)
-          queue_ratio = queue_length / state.buffer_size
-
-          cond do
-            queue_ratio < 0.5 -> :healthy
-            queue_ratio < 0.8 -> :warning
-            true -> :critical
-          end
-
-        {:error, reason} ->
-          Logger.warning("Socket health check failed: #{inspect(reason)}")
-          :error
+      cond do
+        Port.info(state.socket) == nil -> :error
+        queue_ratio < 0.5 -> :healthy
+        queue_ratio < 0.8 -> :warning
+        true -> :critical
       end
 
     result = %{
       status: health,
       port: state.port,
+      queue_depth: queue_depth,
+      max_queue_depth: state.max_queue_depth,
       uptime_ms: System.monotonic_time(:millisecond) - state.created_at
     }
 
@@ -228,25 +236,44 @@ defmodule SnmpKit.SnmpMgr.SocketManager do
 
   @impl true
   def handle_info({:udp, socket, ip, port, data}, state) do
-    # Forward UDP messages to the Engine for response correlation
-    # This ensures all UDP responses go through the Engine
-    # Try both EngineV2 (new) and Engine (old) for compatibility
-    engine_pid =
-      Process.whereis(SnmpKit.SnmpMgr.EngineV2) || Process.whereis(SnmpKit.SnmpMgr.Engine)
+    # Forward datagrams to the engine for response correlation. The engine pid
+    # is cached and monitored instead of looked up per packet, and forwarding
+    # sheds load once the engine's mailbox is past max_queue_depth.
+    state = %{state | stats: update_stats(state.stats, :responses_received, 1)}
+    {state, engine_pid} = resolve_engine(state)
 
-    case engine_pid do
-      nil ->
-        Logger.warning("Engine not found, dropping UDP response from #{:inet.ntoa(ip)}:#{port}")
+    stats =
+      cond do
+        engine_pid == nil ->
+          Logger.warning("Engine not found, dropping UDP response from #{:inet.ntoa(ip)}:#{port}")
+          update_stats(state.stats, :dropped_no_engine, 1)
 
-      pid ->
-        send(pid, {:udp, socket, ip, port, data})
-    end
+        mailbox_depth(engine_pid) >= state.max_queue_depth ->
+          Logger.debug("Engine mailbox over #{state.max_queue_depth}, shedding datagram")
+          update_stats(state.stats, :dropped_overload, 1)
 
-    # Update stats
-    updated_stats = update_stats(state.stats, :responses_received, 1)
-    new_state = %{state | stats: updated_stats}
+        true ->
+          send(engine_pid, {:udp, socket, ip, port, data})
+          state.stats
+      end
 
-    {:noreply, new_state}
+    {:noreply, %{state | stats: stats}}
+  end
+
+  @impl true
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, %{engine_monitor: ref} = state) do
+    {:noreply, %{state | engine_pid: nil, engine_monitor: nil}}
+  end
+
+  @impl true
+  def handle_info({:udp_error, _socket, reason}, state) do
+    Logger.debug("SocketManager socket reported #{inspect(reason)}")
+    {:noreply, %{state | stats: update_stats(state.stats, :icmp_errors_dropped, 1)}}
+  end
+
+  @impl true
+  def handle_info(_other, state) do
+    {:noreply, state}
   end
 
   @impl true
@@ -296,8 +323,29 @@ defmodule SnmpKit.SnmpMgr.SocketManager do
       responses_received: 0,
       icmp_errors_dropped: 0,
       empty_packets_dropped: 0,
+      dropped_no_engine: 0,
+      dropped_overload: 0,
       last_reset: System.monotonic_time(:second)
     }
+  end
+
+  # EngineV2 (new) first, Engine (old) as fallback; cached until it goes down.
+  defp resolve_engine(%{engine_pid: pid} = state) when is_pid(pid), do: {state, pid}
+
+  defp resolve_engine(state) do
+    case Process.whereis(SnmpKit.SnmpMgr.EngineV2) || Process.whereis(SnmpKit.SnmpMgr.Engine) do
+      nil -> {state, nil}
+      pid -> {%{state | engine_pid: pid, engine_monitor: Process.monitor(pid)}, pid}
+    end
+  end
+
+  defp mailbox_depth(nil), do: 0
+
+  defp mailbox_depth(pid) do
+    case Process.info(pid, :message_queue_len) do
+      {:message_queue_len, n} -> n
+      nil -> 0
+    end
   end
 
   defp update_stats(stats, key, increment) do

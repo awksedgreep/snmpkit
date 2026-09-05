@@ -4,6 +4,12 @@ defmodule SnmpKit.SnmpMgr.SocketManagerTest do
   alias SnmpKit.SnmpMgr.SocketManager
 
   setup do
+    # The application starts EngineV2, which SocketManager prefers as the
+    # forwarding target. These tests register a mock under the legacy Engine
+    # name, so take EngineV2 down for the duration and restore it afterwards.
+    if pid = Process.whereis(SnmpKit.SnmpMgr.EngineV2), do: GenServer.stop(pid)
+    unregister_mock_engine()
+
     # Start a test socket manager
     {:ok, pid} = SocketManager.start_link(name: :test_socket_manager)
 
@@ -11,9 +17,33 @@ defmodule SnmpKit.SnmpMgr.SocketManagerTest do
       if Process.alive?(pid) do
         GenServer.stop(pid)
       end
+
+      unregister_mock_engine()
+      SnmpKit.SnmpMgr.ensure_started()
     end)
 
     {:ok, manager: pid}
+  end
+
+  defp unregister_mock_engine do
+    case Process.whereis(SnmpKit.SnmpMgr.Engine) do
+      nil -> :ok
+      pid -> Process.exit(pid, :kill)
+    end
+
+    # Wait for the name to be released
+    wait_unregistered(SnmpKit.SnmpMgr.Engine, 50)
+  end
+
+  defp wait_unregistered(_name, 0), do: :ok
+
+  defp wait_unregistered(name, attempts) do
+    if Process.whereis(name) do
+      Process.sleep(10)
+      wait_unregistered(name, attempts - 1)
+    else
+      :ok
+    end
   end
 
   test "starts with default configuration", %{manager: manager} do

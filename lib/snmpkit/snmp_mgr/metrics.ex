@@ -25,7 +25,8 @@ defmodule SnmpKit.SnmpMgr.Metrics do
     :metrics,
     :time_windows,
     :collection_timer,
-    :subscribers
+    :subscribers,
+    :subscriber_monitors
   ]
 
   @doc """
@@ -205,7 +206,8 @@ defmodule SnmpKit.SnmpMgr.Metrics do
       metrics: %{},
       time_windows: :queue.new(),
       collection_timer: nil,
-      subscribers: MapSet.new()
+      subscribers: MapSet.new(),
+      subscriber_monitors: %{}
     }
 
     # Start collection timer
@@ -253,8 +255,17 @@ defmodule SnmpKit.SnmpMgr.Metrics do
 
   @impl true
   def handle_cast({:subscribe, subscriber_pid}, state) do
+    # Monitor so a subscriber that exits without unsubscribing is dropped
+    # instead of accumulating forever.
+    monitors =
+      if MapSet.member?(state.subscribers, subscriber_pid) do
+        state.subscriber_monitors
+      else
+        Map.put(state.subscriber_monitors, subscriber_pid, Process.monitor(subscriber_pid))
+      end
+
     new_subscribers = MapSet.put(state.subscribers, subscriber_pid)
-    new_state = %{state | subscribers: new_subscribers}
+    new_state = %{state | subscribers: new_subscribers, subscriber_monitors: monitors}
 
     Logger.debug("Added metrics subscriber: #{inspect(subscriber_pid)}")
 
@@ -263,8 +274,11 @@ defmodule SnmpKit.SnmpMgr.Metrics do
 
   @impl true
   def handle_cast({:unsubscribe, subscriber_pid}, state) do
+    {monitor, monitors} = Map.pop(state.subscriber_monitors, subscriber_pid)
+    if monitor, do: Process.demonitor(monitor, [:flush])
+
     new_subscribers = MapSet.delete(state.subscribers, subscriber_pid)
-    new_state = %{state | subscribers: new_subscribers}
+    new_state = %{state | subscribers: new_subscribers, subscriber_monitors: monitors}
 
     Logger.debug("Removed metrics subscriber: #{inspect(subscriber_pid)}")
 
@@ -316,7 +330,12 @@ defmodule SnmpKit.SnmpMgr.Metrics do
   def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
     # Remove dead subscriber
     new_subscribers = MapSet.delete(state.subscribers, pid)
-    new_state = %{state | subscribers: new_subscribers}
+
+    new_state = %{
+      state
+      | subscribers: new_subscribers,
+        subscriber_monitors: Map.delete(state.subscriber_monitors, pid)
+    }
 
     {:noreply, new_state}
   end

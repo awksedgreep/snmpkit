@@ -22,7 +22,8 @@ defmodule SnmpKit.SnmpMgr.Router do
     :health_check_interval,
     :max_retries,
     :metrics,
-    :affinity_table
+    :affinity_table,
+    :workers
   ]
 
   @doc """
@@ -196,7 +197,8 @@ defmodule SnmpKit.SnmpMgr.Router do
       health_check_interval: health_check_interval,
       max_retries: max_retries,
       metrics: initialize_metrics(),
-      affinity_table: %{}
+      affinity_table: %{},
+      workers: %{}
     }
 
     # Schedule health checks
@@ -213,15 +215,14 @@ defmodule SnmpKit.SnmpMgr.Router do
   def handle_call({:route_request, request, opts}, from, state) do
     case select_engine(state, request, opts) do
       {:ok, engine} ->
-        # Route request to selected engine
-        spawn_link(fn ->
-          result = route_to_engine(engine, request, opts, state.max_retries)
-          GenServer.reply(from, result)
-        end)
+        max_retries = state.max_retries
 
-        # Update metrics
-        metrics = update_metrics(state.metrics, :requests_routed, 1)
-        new_state = %{state | metrics: metrics}
+        new_state =
+          state
+          |> dispatch_worker(from, %{engine.name => 1}, fn ->
+            route_to_engine(engine, request, opts, max_retries)
+          end)
+          |> Map.update!(:metrics, &update_metrics(&1, :requests_routed, 1))
 
         {:noreply, new_state}
 
@@ -236,16 +237,23 @@ defmodule SnmpKit.SnmpMgr.Router do
   def handle_call({:route_batch, requests, opts}, from, state) do
     case route_batch_requests(state, requests, opts) do
       {:ok, routing_plan} ->
-        # Execute routing plan
-        spawn_link(fn ->
-          results = execute_routing_plan(routing_plan, opts, state.max_retries)
-          GenServer.reply(from, {:ok, results})
-        end)
+        max_retries = state.max_retries
 
-        # Update metrics
-        metrics = update_metrics(state.metrics, :batches_routed, 1)
-        metrics = update_metrics(metrics, :requests_routed, length(requests))
-        new_state = %{state | metrics: metrics}
+        loads =
+          Enum.reduce(routing_plan, %{}, fn {:ok, engine, reqs}, acc ->
+            Map.update(acc, engine.name, length(reqs), &(&1 + length(reqs)))
+          end)
+
+        new_state =
+          state
+          |> dispatch_worker(from, loads, fn ->
+            {:ok, execute_routing_plan(routing_plan, opts, max_retries)}
+          end)
+          |> Map.update!(:metrics, fn m ->
+            m
+            |> update_metrics(:batches_routed, 1)
+            |> update_metrics(:requests_routed, length(requests))
+          end)
 
         {:noreply, new_state}
 
@@ -297,31 +305,35 @@ defmodule SnmpKit.SnmpMgr.Router do
 
   @impl true
   def handle_call({:configure_engines, config}, _from, state) do
-    new_state =
-      cond do
-        Keyword.has_key?(config, :engines) ->
-          engines = Keyword.get(config, :engines, [])
-          backup_engines = Keyword.get(config, :backup_engines, [])
-          all_engines = engines ++ backup_engines
-          # Convert string names to atoms for proper GenServer handling
-          engine_specs =
-            Enum.map(all_engines, fn engine_name ->
-              name = if is_binary(engine_name), do: String.to_atom(engine_name), else: engine_name
-              %{name: name}
-            end)
+    cond do
+      Keyword.has_key?(config, :engines) ->
+        engines = Keyword.get(config, :engines, [])
+        backup_engines = Keyword.get(config, :backup_engines, [])
+        all_engines = engines ++ backup_engines
 
-          new_engines = initialize_engines(engine_specs)
-          %{state | engines: new_engines}
+        # Engine names must be registered process names. Strings are accepted
+        # only when the atom already exists (a running/known engine); minting
+        # atoms from external input would let callers exhaust the atom table.
+        case Enum.reduce_while(all_engines, {:ok, []}, fn engine_name, {:ok, acc} ->
+               case engine_name_to_atom(engine_name) do
+                 {:ok, name} -> {:cont, {:ok, [%{name: name} | acc]}}
+                 {:error, reason} -> {:halt, {:error, reason}}
+               end
+             end) do
+          {:ok, specs} ->
+            {:reply, :ok, %{state | engines: initialize_engines(Enum.reverse(specs))}}
 
-        Keyword.has_key?(config, :max_engines) or Keyword.has_key?(config, :min_engines) ->
-          # Engine limits configuration - just store in state for now
-          state
+          {:error, reason} ->
+            {:reply, {:error, reason}, state}
+        end
 
-        true ->
-          state
-      end
+      Keyword.has_key?(config, :max_engines) or Keyword.has_key?(config, :min_engines) ->
+        # Engine limits configuration - just store in state for now
+        {:reply, :ok, state}
 
-    {:reply, :ok, new_state}
+      true ->
+        {:reply, :ok, state}
+    end
   end
 
   @impl true
@@ -378,6 +390,21 @@ defmodule SnmpKit.SnmpMgr.Router do
   def handle_call({:configure_batch_strategy, strategy_config}, _from, state) do
     {:ok, new_state} = apply_batch_strategy_config(state, strategy_config)
     {:reply, :ok, new_state}
+  end
+
+  @impl true
+  def handle_info({:route_result, job, result, elapsed_ms}, state) do
+    {:noreply, finish_worker(state, job, result, elapsed_ms)}
+  end
+
+  @impl true
+  def handle_info({:DOWN, monitor, :process, _pid, reason}, state) do
+    # A worker died before reporting (it was killed); release its load and
+    # count it as an error against the engines it was using.
+    case Enum.find(state.workers, fn {_job, w} -> w.monitor == monitor end) do
+      nil -> {:noreply, state}
+      {job, _} -> {:noreply, finish_worker(state, job, {:error, {:worker_down, reason}}, 0)}
+    end
   end
 
   @impl true
@@ -644,13 +671,16 @@ defmodule SnmpKit.SnmpMgr.Router do
   defp route_to_engine(engine, request, opts, max_retries, attempt) when attempt < max_retries do
     start_time = System.monotonic_time(:millisecond)
 
-    # Convert engine name to atom if it's a string
-    engine_identifier =
-      case engine.pid || engine.name do
-        name when is_binary(name) -> String.to_atom(name)
-        name -> name
-      end
+    with {:ok, engine_identifier} <- engine_identifier(engine) do
+      route_to_engine(engine, engine_identifier, request, opts, max_retries, attempt, start_time)
+    end
+  end
 
+  defp route_to_engine(_engine, _request, _opts, max_retries, max_retries) do
+    {:error, :max_retries_exceeded}
+  end
+
+  defp route_to_engine(engine, engine_identifier, request, opts, max_retries, attempt, start_time) do
     case SnmpKit.SnmpMgr.Engine.submit_request(engine_identifier, request, opts) do
       {:ok, result} ->
         end_time = System.monotonic_time(:millisecond)
@@ -671,8 +701,110 @@ defmodule SnmpKit.SnmpMgr.Router do
     end
   end
 
-  defp route_to_engine(_engine, _request, _opts, max_retries, max_retries) do
-    {:error, :max_retries_exceeded}
+  # Resolve the process identifier an engine entry points at. String names are
+  # accepted only for existing atoms (see configure_engines).
+  defp engine_identifier(engine) do
+    engine_name_to_atom(engine.pid || engine.name)
+  end
+
+  defp engine_name_to_atom(name) when is_binary(name) do
+    {:ok, String.to_existing_atom(name)}
+  rescue
+    ArgumentError -> {:error, {:unknown_engine, name}}
+  end
+
+  defp engine_name_to_atom(name) when is_atom(name) or is_pid(name), do: {:ok, name}
+  defp engine_name_to_atom(other), do: {:error, {:invalid_engine_name, other}}
+
+  # Runs `work` in an unlinked, monitored process that replies to the caller
+  # itself and reports back so load/latency/error accounting stays live. An
+  # engine exiting mid-call therefore surfaces as an error to that caller
+  # instead of taking the router (and every other routed request) down.
+  defp dispatch_worker(state, from, loads, work) do
+    router = self()
+    job = make_ref()
+    started = System.monotonic_time(:millisecond)
+
+    {_pid, monitor} =
+      spawn_monitor(fn ->
+        result =
+          try do
+            work.()
+          catch
+            kind, reason -> {:error, {:routing_failed, {kind, reason}}}
+          end
+
+        GenServer.reply(from, result)
+        send(router, {:route_result, job, result, System.monotonic_time(:millisecond) - started})
+      end)
+
+    engines =
+      Enum.reduce(loads, state.engines, fn {name, n}, acc ->
+        Map.update(acc, name, nil, fn
+          nil ->
+            nil
+
+          engine ->
+            %{
+              engine
+              | current_load: engine.current_load + n,
+                total_requests: engine.total_requests + n
+            }
+        end)
+      end)
+
+    %{
+      state
+      | engines: engines,
+        workers: Map.put(state.workers, job, %{monitor: monitor, loads: loads, from: from})
+    }
+  end
+
+  defp finish_worker(state, job, result, elapsed_ms) do
+    case Map.pop(state.workers, job) do
+      {nil, _} ->
+        state
+
+      {%{monitor: monitor, loads: loads}, workers} ->
+        Process.demonitor(monitor, [:flush])
+
+        engines =
+          Enum.reduce(loads, state.engines, fn {name, n}, acc ->
+            Map.update(acc, name, nil, fn
+              nil -> nil
+              engine -> record_engine_result(engine, n, result, elapsed_ms)
+            end)
+          end)
+
+        %{state | engines: engines, workers: workers}
+    end
+  end
+
+  @response_time_window 100
+
+  defp record_engine_result(engine, n, result, elapsed_ms) do
+    times = :queue.in(elapsed_ms, engine.response_times)
+
+    times =
+      if :queue.len(times) > @response_time_window do
+        {_, trimmed} = :queue.out(times)
+        trimmed
+      else
+        times
+      end
+
+    error_count =
+      case result do
+        {:error, _} -> engine.error_count + 1
+        _ -> engine.error_count
+      end
+
+    %{
+      engine
+      | current_load: max(engine.current_load - n, 0),
+        response_times: times,
+        error_count: error_count
+    }
   end
 
   defp execute_routing_plan(routing_plan, opts, _max_retries) do
@@ -680,15 +812,11 @@ defmodule SnmpKit.SnmpMgr.Router do
     tasks =
       Enum.map(routing_plan, fn {:ok, engine, requests} ->
         Task.async(fn ->
-          # Convert engine name to atom if it's a string
-          engine_identifier =
-            case engine.pid || engine.name do
-              name when is_binary(name) -> String.to_atom(name)
-              name -> name
-            end
-
-          case SnmpKit.SnmpMgr.Engine.submit_batch(engine_identifier, requests, opts) do
-            {:ok, results} -> {:ok, engine.name, results}
+          with {:ok, engine_identifier} <- engine_identifier(engine),
+               {:ok, results} <-
+                 SnmpKit.SnmpMgr.Engine.submit_batch(engine_identifier, requests, opts) do
+            {:ok, engine.name, results}
+          else
             {:error, reason} -> {:error, engine.name, reason}
           end
         end)

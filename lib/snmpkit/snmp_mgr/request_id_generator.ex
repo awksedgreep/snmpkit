@@ -89,17 +89,27 @@ defmodule SnmpKit.SnmpMgr.RequestIdGenerator do
     # :public allows other processes to access directly
     # :set ensures single counter entry
     # :named_table allows access by atom name
-    ^table_name =
-      :ets.new(table_name, [
-        :public,
-        :set,
-        :named_table,
-        {:read_concurrency, true},
-        {:write_concurrency, true}
-      ])
+    #
+    # The table may already exist (another generator instance owns it, or a
+    # previous owner is still shutting down); in that case it is shared rather
+    # than crashing this process with a badarg.
+    case :ets.whereis(table_name) do
+      :undefined ->
+        ^table_name =
+          :ets.new(table_name, [
+            :public,
+            :set,
+            :named_table,
+            {:read_concurrency, true},
+            {:write_concurrency, true}
+          ])
 
-    # Initialize counter to 0
-    :ets.insert(table_name, {:counter, 0})
+        # Initialize counter to 0
+        :ets.insert(table_name, {:counter, 0})
+
+      _existing ->
+        :ets.insert_new(table_name, {:counter, 0})
+    end
 
     Logger.info("RequestIdGenerator started with table: #{table_name}")
 

@@ -7,8 +7,12 @@ defmodule SnmpKit.SnmpMgr.EngineBatchTest do
     {:ok, engine} = Engine.start_link(name: :test_engine_batch)
 
     on_exit(fn ->
-      if Process.alive?(engine) do
+      # The engine is linked to the test process and shuts down when it exits,
+      # so it may already be gone here.
+      try do
         GenServer.stop(engine)
+      catch
+        :exit, _ -> :ok
       end
     end)
 

@@ -17,7 +17,15 @@ defmodule SnmpKit.SnmpMgr.EngineLifecycleTest do
   defp start_engine(opts \\ []) do
     name = :"engine_lifecycle_#{System.unique_integer([:positive])}"
     {:ok, pid} = Engine.start_link(Keyword.merge([name: name, request_timeout: 100], opts))
-    on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid) end)
+
+    on_exit(fn ->
+      try do
+        GenServer.stop(pid)
+      catch
+        :exit, _ -> :ok
+      end
+    end)
+
     pid
   end
 

@@ -6,29 +6,73 @@ defmodule SnmpKit.SnmpMgr do
   without requiring heavyweight management processes or configurations.
   """
 
+  @concurrent_services [
+    SnmpKit.SnmpMgr.RequestIdGenerator,
+    SnmpKit.SnmpMgr.SocketManager,
+    SnmpKit.SnmpMgr.EngineV2
+  ]
+
   @doc """
   Ensures internal manager services are started.
 
   Starts RequestIdGenerator, SocketManager, and EngineV2 if they are not running.
-  Safe to call multiple times.
+  Safe to call multiple times and from concurrent callers: the services are
+  started under `SnmpKit.SnmpMgr.ServiceSupervisor` (part of the application
+  tree), so a start race resolves to `{:error, {:already_started, _}}` inside
+  the supervisor and the winner is used, and a caller exiting does not take
+  the services down with it.
+
+  This call ignores the `auto_start_services` configuration; it is the explicit
+  way to start the services when auto-start is disabled.
   """
+  @spec ensure_started() :: :ok | {:error, term()}
   def ensure_started() do
-    # RequestIdGenerator
-    unless Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator) do
-      _ = SnmpKit.SnmpMgr.RequestIdGenerator.start_link(name: SnmpKit.SnmpMgr.RequestIdGenerator)
-    end
+    Enum.reduce_while(@concurrent_services, :ok, fn module, :ok ->
+      case start_service(module) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, {module, reason}}}
+      end
+    end)
+  end
 
-    # SocketManager
-    unless Process.whereis(SnmpKit.SnmpMgr.SocketManager) do
-      _ = SnmpKit.SnmpMgr.SocketManager.start_link(name: SnmpKit.SnmpMgr.SocketManager)
-    end
+  @doc """
+  Returns `true` when all concurrent manager services are running.
+  """
+  @spec services_running?() :: boolean()
+  def services_running? do
+    Enum.all?(@concurrent_services, &is_pid(Process.whereis(&1)))
+  end
 
-    # EngineV2
-    unless Process.whereis(SnmpKit.SnmpMgr.EngineV2) do
-      _ = SnmpKit.SnmpMgr.EngineV2.start_link(name: SnmpKit.SnmpMgr.EngineV2)
-    end
+  defp start_service(module) do
+    if Process.whereis(module) do
+      :ok
+    else
+      spec = %{
+        id: module,
+        start: {module, :start_link, [[name: module]]},
+        # :transient so an explicit GenServer.stop/1 is honoured (the service
+        # stays down) while a crash is restarted.
+        restart: :transient
+      }
 
-    :ok
+      case Process.whereis(SnmpKit.SnmpMgr.ServiceSupervisor) do
+        nil ->
+          # Application tree not running (e.g. library used without its
+          # application); fall back to an unsupervised start.
+          case GenServer.start(module, [name: module], name: module) do
+            {:ok, _} -> :ok
+            {:error, {:already_started, _}} -> :ok
+            {:error, reason} -> {:error, reason}
+          end
+
+        supervisor ->
+          case DynamicSupervisor.start_child(supervisor, spec) do
+            {:ok, _} -> :ok
+            {:error, {:already_started, _}} -> :ok
+            {:error, reason} -> {:error, reason}
+          end
+      end
+    end
   end
 
   @type target :: binary() | tuple() | map()

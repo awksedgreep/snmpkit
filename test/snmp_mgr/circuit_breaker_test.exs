@@ -34,7 +34,15 @@ defmodule SnmpKit.SnmpMgr.CircuitBreakerIntegrationTest do
       nil ->
         case CircuitBreaker.start_link(circuit_breaker_opts) do
           {:ok, pid} ->
-            on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid) end)
+            on_exit(fn ->
+              # Linked to the test process, so it may already be gone here
+              try do
+                GenServer.stop(pid)
+              catch
+                :exit, _ -> :ok
+              end
+            end)
+
             %{circuit_breaker: pid}
 
           {:error, {:already_started, pid}} ->

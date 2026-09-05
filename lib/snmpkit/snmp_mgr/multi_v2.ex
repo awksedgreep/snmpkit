@@ -201,47 +201,58 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
       ]
   """
   def execute_mixed(operations, opts \\ []) do
-    # Ensure required components are running (idempotent)
-    ensure_components_started()
+    case ensure_components_started() do
+      :ok ->
+        timeout = Keyword.get(opts, :timeout, @default_timeout * 3)
+        max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
 
-    timeout = Keyword.get(opts, :timeout, @default_timeout * 3)
-    max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
+        # Normalize mixed operations to standard format
+        normalized_operations = normalize_mixed_operations(operations, opts)
 
-    # Normalize mixed operations to standard format
-    normalized_operations = normalize_mixed_operations(operations, opts)
+        execute_mixed_without_tasks(normalized_operations, timeout, max_concurrent)
 
-    execute_mixed_without_tasks(normalized_operations, timeout, max_concurrent)
+      {:error, reason} ->
+        Enum.map(operations, fn _ -> {:error, reason} end)
+    end
   end
 
   # Private functions
 
   defp execute_multi_operation(targets_and_data, operation_type, opts) do
-    if targets_and_data == [] do
-      ensure_components_started()
-      format_results(targets_and_data, [], opts)
-    else
-      # Ensure required components are running (idempotent)
-      ensure_components_started()
+    case {targets_and_data, ensure_components_started()} do
+      {[], _} ->
+        format_results(targets_and_data, [], opts)
 
-      timeout = Keyword.get(opts, :timeout, @default_timeout)
-      max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
+      {_, {:error, reason}} ->
+        # Services are down and auto-start is disabled: say so per target
+        # instead of exiting with :noproc deep inside SocketManager.
+        results = Enum.map(targets_and_data, fn _ -> {:error, reason} end)
+        format_results(targets_and_data, results, opts)
 
-      # Normalize requests to standard format
-      normalized_requests = normalize_requests(targets_and_data, operation_type, opts)
-
-      results =
-        if operation_type in [:walk, :walk_table] do
-          SnmpKit.SnmpMgr.V2Walk.walk_multi(normalized_requests,
-            timeout: timeout,
-            max_concurrent: max_concurrent
-          )
-        else
-          execute_non_walk_requests(normalized_requests, timeout, max_concurrent)
-        end
-
-      # Format results according to return_format option
-      format_results(targets_and_data, results, opts)
+      {_, :ok} ->
+        execute_multi_operation_started(targets_and_data, operation_type, opts)
     end
+  end
+
+  defp execute_multi_operation_started(targets_and_data, operation_type, opts) do
+    timeout = Keyword.get(opts, :timeout, @default_timeout)
+    max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
+
+    # Normalize requests to standard format
+    normalized_requests = normalize_requests(targets_and_data, operation_type, opts)
+
+    results =
+      if operation_type in [:walk, :walk_table] do
+        SnmpKit.SnmpMgr.V2Walk.walk_multi(normalized_requests,
+          timeout: timeout,
+          max_concurrent: max_concurrent
+        )
+      else
+        execute_non_walk_requests(normalized_requests, timeout, max_concurrent)
+      end
+
+    # Format results according to return_format option
+    format_results(targets_and_data, results, opts)
   end
 
   defp execute_mixed_without_tasks(requests, timeout, max_concurrent) do
@@ -624,33 +635,14 @@ defmodule SnmpKit.SnmpMgr.MultiV2 do
     end
   end
 
-  # Ensure the V2 components are running; safe to call repeatedly
+  # Ensure the V2 components are running; safe to call repeatedly. Honours
+  # auto_start_services: when disabled and the services are not running the
+  # caller gets an explicit error rather than a :noproc exit.
   defp ensure_components_started() do
-    # Honor auto_start_services toggle; if disabled, do nothing.
-    case SnmpKit.SnmpMgr.Config.get(:auto_start_services) do
-      false ->
-        :ok
-
-      _true ->
-        # RequestIdGenerator
-        unless Process.whereis(SnmpKit.SnmpMgr.RequestIdGenerator) do
-          _ =
-            SnmpKit.SnmpMgr.RequestIdGenerator.start_link(
-              name: SnmpKit.SnmpMgr.RequestIdGenerator
-            )
-        end
-
-        # SocketManager
-        unless Process.whereis(SnmpKit.SnmpMgr.SocketManager) do
-          _ = SnmpKit.SnmpMgr.SocketManager.start_link(name: SnmpKit.SnmpMgr.SocketManager)
-        end
-
-        # EngineV2
-        unless Process.whereis(SnmpKit.SnmpMgr.EngineV2) do
-          _ = SnmpKit.SnmpMgr.EngineV2.start_link(name: SnmpKit.SnmpMgr.EngineV2)
-        end
-
-        :ok
+    cond do
+      SnmpKit.SnmpMgr.services_running?() -> :ok
+      SnmpKit.SnmpMgr.Config.get(:auto_start_services) == false -> {:error, :services_not_started}
+      true -> SnmpKit.SnmpMgr.ensure_started()
     end
   end
 
