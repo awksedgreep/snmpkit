@@ -393,7 +393,7 @@ defmodule SnmpKit.SnmpLib.PDU.V3Encoder do
 
   defp splice(binary, offset, replacement) do
     len = byte_size(replacement)
-    <<before::binary-size(offset), _::binary-size(len), rest::binary>> = binary
+    <<before::binary-size(^offset), _::binary-size(^len), rest::binary>> = binary
     <<before::binary, replacement::binary, rest::binary>>
   end
 

@@ -493,7 +493,7 @@ defmodule SnmpKit.SnmpLib.PDU.V3EncoderTest do
     defp zero_auth_params(packet, auth_params) do
       # The MAC bytes appear exactly once; replace them with zeros in place.
       {pos, len} = :binary.match(packet, auth_params)
-      <<pre::binary-size(pos), _::binary-size(len), post::binary>> = packet
+      <<pre::binary-size(^pos), _::binary-size(^len), post::binary>> = packet
       pre <> :binary.copy(<<0>>, len) <> post
     end
 
@@ -540,7 +540,7 @@ defmodule SnmpKit.SnmpLib.PDU.V3EncoderTest do
 
       # Flip a byte in the ciphertext (last byte) and one in the header (msgID area)
       for pos <- [byte_size(packet) - 1, 6] do
-        <<pre::binary-size(pos), byte, post::binary>> = packet
+        <<pre::binary-size(^pos), byte, post::binary>> = packet
         tampered = pre <> <<Bitwise.bxor(byte, 0x55)>> <> post
         assert {:error, _} = V3Encoder.decode_message(tampered, user)
       end
@@ -570,7 +570,7 @@ defmodule SnmpKit.SnmpLib.PDU.V3EncoderTest do
       zeroed = zero_auth_params(relaxed, auth_params)
       {:ok, mac} = Auth.authenticate(:md5, user.auth_key, zeroed)
       {pos, 12} = :binary.match(relaxed, auth_params)
-      <<pre::binary-size(pos), _::binary-size(12), post::binary>> = relaxed
+      <<pre::binary-size(^pos), _::binary-size(12), post::binary>> = relaxed
       resigned = pre <> mac <> post
 
       assert {:ok, decoded} = V3Encoder.decode_message(resigned, user)
