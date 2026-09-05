@@ -130,12 +130,12 @@ defmodule SnmpKit.MIB.Parser do
         processed_content = mib_content
 
         # Tokenize the input
-        case tokenize(processed_content) do
-          {:ok, tokens} ->
+        case scan_tokens(processed_content) do
+          {:ok, tokens, warnings} ->
             # Parse using the generated parser
             case apply(parser_module, :parse, [tokens]) do
               {:ok, parse_tree} ->
-                {:ok, convert_to_elixir_format(parse_tree)}
+                {:ok, parse_tree |> convert_to_elixir_format() |> Map.put(:warnings, warnings)}
 
               {:error, reason} ->
                 Logger.debug("Parse failed: #{inspect(reason)}")
@@ -182,24 +182,33 @@ defmodule SnmpKit.MIB.Parser do
   Uses the SnmpKit.MIB.SnmpTokenizer module for complete MIB tokenization.
   """
   def tokenize(mib_content) when is_binary(mib_content) do
-    # Convert to charlist for Erlang compatibility
-    char_content = to_charlist(mib_content)
+    case scan_tokens(mib_content) do
+      {:ok, tokens, _warnings} -> {:ok, tokens}
+      {:error, reason} -> {:error, reason}
+    end
+  end
 
-    # Use the native SNMP tokenizer
-    case SnmpKit.MIB.SnmpTokenizer.tokenize(
-           char_content,
-           &SnmpKit.MIB.SnmpTokenizer.null_get_line/0
-         ) do
-      {:ok, tokens} ->
+  # Tokenize and keep the lexer's warnings (`{line, message}` tuples). They
+  # are returned under `:warnings` in the parsed MIB map.
+  defp scan_tokens(mib_content) do
+    case SnmpKit.MIB.SnmpTokenizer.scan(mib_content) do
+      {:ok, tokens, warnings} ->
         Logger.debug("Tokenized MIB content successfully")
-        # Apply hex atom conversion to tokens from the tokenizer
-        converted_tokens = apply_hex_conversion(tokens)
-        {:ok, converted_tokens}
+        log_warnings(warnings)
+        {:ok, apply_hex_conversion(tokens), warnings}
 
       {:error, reason} ->
         Logger.error("Tokenization failed: #{inspect(reason)}")
         {:error, reason}
     end
+  end
+
+  defp log_warnings([]), do: :ok
+
+  defp log_warnings([{line, message} | _] = warnings) do
+    Logger.debug(
+      "MIB tokenizer: #{length(warnings)} warning(s); first at line #{line}: #{message}"
+    )
   end
 
   # Apply hex identifier conversion to tokens from the tokenizer.

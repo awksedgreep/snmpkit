@@ -67,6 +67,15 @@ grow the atom table. Effects visible to callers:
   `snmpc_tok`: `DEFVAL` decodes to a byte list (`[192, 168]`) and the literals
   are accepted inside `SIZE` ranges. In 1.x the radix suffix was dropped and a
   `'..'b` literal was a syntax error.
+- Parsed MIB maps carry a `warnings` list of `{line, message}` lexical
+  findings modelled on libsmi (see `docs/mib-parser-oracle.md`);
+  `SnmpKit.MIB.Compiler` turns them into errors under `warnings_as_errors: true`.
+- Files that are not valid UTF-8 are decoded as Latin-1 (with a warning)
+  instead of raising `ArgumentError`.
+- Backslashes in quoted strings are no longer treated as escapes, and a `--`
+  directly after an identifier starts a comment instead of joining the name.
+- Tokenizer illegal-character errors are `{:illegal, char, line}` (was
+  `{:illegal, char}`).
 
 ## Behaviour unchanged since 1.4
 

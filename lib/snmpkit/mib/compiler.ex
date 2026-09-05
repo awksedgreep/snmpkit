@@ -57,7 +57,8 @@ defmodule SnmpKit.MIB.Compiler do
           metadata: map(),
           oid_tree: SnmpKit.MIB.AST.oid_tree(),
           symbols: map(),
-          dependencies: [binary()]
+          dependencies: [binary()],
+          warnings: [{non_neg_integer(), binary()}]
         }
 
   @default_opts [
@@ -129,13 +130,22 @@ defmodule SnmpKit.MIB.Compiler do
           metadata: %{},
           oid_tree: %{},
           symbols: build_symbol_table(mib),
-          dependencies: extract_dependencies(mib)
+          dependencies: extract_dependencies(mib),
+          warnings: Map.get(mib, :warnings, [])
         }
 
-        if opts[:validate] do
-          validate_compiled_mib(compiled, opts)
-        else
-          {:ok, compiled}
+        cond do
+          opts[:warnings_as_errors] and compiled.warnings != [] ->
+            {:error,
+             Enum.map(compiled.warnings, fn {line, message} ->
+               Error.new(:syntax_error, message: "Line #{line}: #{message}", line: line)
+             end)}
+
+          opts[:validate] ->
+            validate_compiled_mib(compiled, opts)
+
+          true ->
+            {:ok, compiled}
         end
 
       {:error, error} when is_binary(error) ->

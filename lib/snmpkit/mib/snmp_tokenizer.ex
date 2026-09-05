@@ -11,7 +11,7 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
   use GenServer
 
   # State record equivalent
-  defstruct line: 1, chars: [], get_line_fun: nil
+  defstruct line: 1, chars: [], get_line_fun: nil, warnings: []
 
   @type state() :: %__MODULE__{
           line: pos_integer(),
@@ -28,6 +28,9 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
   charlist, matching the OTP `snmpc_tok` convention the grammar expects.
   """
   @type token() :: {atom(), pos_integer()} | {atom(), pos_integer(), any()}
+
+  @typedoc "A lexical warning: `{line, message}`. Modelled on libsmi's lexer diagnostics."
+  @type warning() :: {non_neg_integer(), String.t()}
 
   # API Functions - exact equivalents from Erlang
 
@@ -64,28 +67,67 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
   """
   @spec tokenize(charlist(), function()) :: {:ok, [token()]} | {:error, term()}
   def tokenize(chars, _get_line_fun) when is_list(chars) do
-    # For direct tokenization, we don't need the gen_server complexity
-    # Just tokenize the input directly
-    state = %__MODULE__{
-      line: 1,
-      chars: chars,
-      get_line_fun: &null_get_line/0
-    }
-
-    case tokenize_all_direct(state, []) do
-      {:ok, tokens} -> {:ok, Enum.reverse(tokens)}
+    case scan(chars) do
+      {:ok, tokens, _warnings} -> {:ok, tokens}
       {:error, reason} -> {:error, reason}
     end
   end
 
+  @doc """
+  Tokenize MIB text and return lexical warnings alongside the tokens.
+
+  Accepts a binary or a charlist. A binary that is not valid UTF-8 is decoded
+  as Latin-1 with a warning instead of failing, since vendor MIBs are often
+  saved in legacy code pages. Warnings follow libsmi's lexer checks:
+  underscores or trailing hyphens in identifiers, hex strings with an odd
+  digit count, binary strings whose length is not a multiple of eight, and
+  non-radix characters inside those literals.
+  """
+  @spec scan(binary() | charlist()) :: {:ok, [token()], [warning()]} | {:error, term()}
+  def scan(input) when is_binary(input) do
+    {chars, warnings} = decode_input(input)
+    do_scan(chars, warnings)
+  end
+
+  def scan(chars) when is_list(chars), do: do_scan(chars, [])
+
+  defp do_scan(chars, warnings) do
+    state = %__MODULE__{line: 1, chars: chars, get_line_fun: &null_get_line/0, warnings: warnings}
+
+    case tokenize_all_direct(state, []) do
+      {:ok, tokens, final_state} ->
+        {:ok, Enum.reverse(tokens), Enum.reverse(final_state.warnings)}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp decode_input(binary) do
+    if String.valid?(binary) do
+      {String.to_charlist(binary), []}
+    else
+      line = invalid_utf8_line(binary, 1)
+
+      {:binary.bin_to_list(binary),
+       [{line, "input is not valid UTF-8; bytes decoded as Latin-1"}]}
+    end
+  end
+
+  defp invalid_utf8_line(<<?\n, rest::binary>>, line), do: invalid_utf8_line(rest, line + 1)
+  defp invalid_utf8_line(<<_::utf8, rest::binary>>, line), do: invalid_utf8_line(rest, line)
+  defp invalid_utf8_line(_, line), do: line
+
+  defp warn(state, line, message), do: %{state | warnings: [{line, message} | state.warnings]}
+
   # Direct tokenization without gen_server
   defp tokenize_all_direct(state, acc) do
     case tokenise(state) do
-      {{:"$end", _line}, _new_state} ->
-        {:ok, [{:"$end", state.line} | acc]}
+      {{:"$end", _line}, new_state} ->
+        {:ok, [{:"$end", state.line} | acc], new_state}
 
-      {{:eof, _line}, _new_state} ->
-        {:ok, [{:"$end", state.line} | acc]}
+      {{:eof, _line}, new_state} ->
+        {:ok, [{:"$end", state.line} | acc], new_state}
 
       {token, new_state} ->
         tokenize_all_direct(new_state, [token | acc])
@@ -113,6 +155,9 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
     case error do
       {:illegal, char} ->
         :io_lib.format(~c"illegal character '~c'", [char])
+
+      {:illegal, char, line} ->
+        :io_lib.format(~c"illegal character '~c' on line ~p", [char, line])
 
       {:unterminated_string, line} ->
         :io_lib.format(~c"unterminated string starting at line ~p", [line])
@@ -385,7 +430,7 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
   defp tokenise(%__MODULE__{chars: [char | chars]} = state) do
     # Illegal character
     new_state = %{state | chars: chars}
-    {:error, {:illegal, char}, new_state}
+    {:error, {:illegal, char, state.line}, new_state}
   end
 
   # Skip comment until end of line
@@ -415,18 +460,6 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
     {{:string, state.line, string_value}, new_state}
   end
 
-  defp scan_string([?\\ | chars], acc, start_line, state) do
-    # Handle escape sequences
-    case chars do
-      [escaped_char | rest] ->
-        new_acc = [escaped_char | acc]
-        scan_string(rest, new_acc, start_line, state)
-
-      [] ->
-        {:error, {:unterminated_string, start_line}, state}
-    end
-  end
-
   defp scan_string([?\n | chars], acc, start_line, state) do
     # Newline in string
     new_state = %{state | chars: chars, line: state.line + 1}
@@ -450,7 +483,8 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
       # 'FF'H / 'FF'h / '0101'B / '0101'b: emit the quoted characters as a
       # :quote token (reversed, as snmpc_tok does) and leave the radix
       # letter in the stream so the grammar sees `quote atom|variable`.
-      {{:quote, state.line, acc}, new_state}
+      text = acc |> Enum.reverse() |> List.to_string()
+      {{:quote, state.line, acc}, check_radix_literal(new_state, hd(chars), text)}
     else
       {{:atom, state.line, acc |> Enum.reverse() |> List.to_string()}, new_state}
     end
@@ -481,6 +515,31 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
     do: not name_char?(next)
 
   defp radix_suffix?(_), do: false
+
+  # libsmi's ERR_HEX_STRING_MUL2 / ERR_BIN_STRING_MUL8 checks, as warnings
+  defp check_radix_literal(state, radix, text) when radix in [?H, ?h] do
+    state
+    |> warn_unless(
+      rem(String.length(text), 2) == 0,
+      "length of hexadecimal string '#{text}' is not a multiple of 2"
+    )
+    |> warn_unless(
+      text =~ ~r/^[0-9A-Fa-f]*$/,
+      "illegal character in hexadecimal string '#{text}'"
+    )
+  end
+
+  defp check_radix_literal(state, _radix, text) do
+    state
+    |> warn_unless(
+      rem(String.length(text), 8) == 0,
+      "length of binary string '#{text}' is not a multiple of 8"
+    )
+    |> warn_unless(text =~ ~r/^[01]*$/, "illegal character in binary string '#{text}'")
+  end
+
+  defp warn_unless(state, true, _message), do: state
+  defp warn_unless(state, false, message), do: warn(state, state.line, message)
 
   defp name_char?(c),
     do: (c >= ?a and c <= ?z) or (c >= ?A and c <= ?Z) or (c >= ?0 and c <= ?9) or c in [?_, ?-]
@@ -535,7 +594,12 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
     end
   end
 
-  # Scan identifier/atom name
+  # Scan identifier/atom name. A `--` inside a name starts a comment
+  # (libsmi: identifiers are [a-z](-?[a-zA-Z0-9_]+)*), so stop before it.
+  defp scan_name([?-, ?- | _] = chars, acc, line, state) when acc != [] do
+    finish_name(chars, acc, line, state)
+  end
+
   defp scan_name([char | chars], acc, line, state)
        when (char >= ?a and char <= ?z) or
               (char >= ?A and char <= ?Z) or
@@ -544,8 +608,9 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
     scan_name(chars, [char | acc], line, state)
   end
 
-  defp scan_name(chars, acc, line, state) do
-    # End of name
+  defp scan_name(chars, acc, line, state), do: finish_name(chars, acc, line, state)
+
+  defp finish_name(chars, acc, line, state) do
     name_chars = Enum.reverse(acc)
     name_string = List.to_string(name_chars)
 
@@ -563,7 +628,30 @@ defmodule SnmpKit.MIB.SnmpTokenizer do
       end
 
     new_state = %{state | chars: chars}
-    {token, new_state}
+    {token, check_identifier(new_state, token, name_string)}
+  end
+
+  # libsmi's ERR_UNDERSCORE_IN_IDENTIFIER / ERR_ID_ENDS_IN_HYPHEN, as warnings
+  defp check_identifier(state, {kind, line, _}, name) when kind in [:atom, :variable] do
+    state
+    |> warn_unless(
+      not String.contains?(name, "_"),
+      "identifier '#{name}' must not contain an underscore"
+    )
+    |> warn_unless(
+      not String.ends_with?(name, "-"),
+      "identifier '#{name}' must not end in a hyphen"
+    )
+    |> then(fn s -> if s.warnings != state.warnings, do: retag_line(s, state, line), else: s end)
+  end
+
+  defp check_identifier(state, _token, _name), do: state
+
+  # warn_unless stamps state.line; identifier warnings belong to the token line
+  defp retag_line(new_state, old_state, line) do
+    added = length(new_state.warnings) - length(old_state.warnings)
+    {fresh, rest} = Enum.split(new_state.warnings, added)
+    %{new_state | warnings: Enum.map(fresh, fn {_, m} -> {line, m} end) ++ rest}
   end
 
   # Classify name as reserved word, variable, or atom

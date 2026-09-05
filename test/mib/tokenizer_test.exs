@@ -86,3 +86,64 @@ defmodule SnmpKit.MIB.SnmpTokenizerTest do
     assert %{kind: {:variable, [defval: "true"]}} = object(mib, "tokFlag")
   end
 end
+
+defmodule SnmpKit.MIB.SnmpTokenizerWarningsTest do
+  use ExUnit.Case, async: true
+
+  alias SnmpKit.MIB.{Parser, SnmpTokenizer}
+
+  defp scan(text) do
+    {:ok, toks, warnings} = SnmpTokenizer.scan(text)
+    {Enum.reject(toks, &match?({:"$end", _}, &1)), warnings}
+  end
+
+  test "identifier checks mirror libsmi" do
+    {_, warnings} = scan("good_name\nbad-")
+
+    assert [
+             {1, "identifier 'good_name' must not contain an underscore"},
+             {2, "identifier 'bad-' must not end in a hyphen"}
+           ] = warnings
+  end
+
+  test "hex and binary literal lengths are checked" do
+    {toks, warnings} = scan("'ABC'H '0101'B 'FG'h")
+    assert length(toks) == 6
+
+    assert Enum.map(warnings, &elem(&1, 1)) == [
+             "length of hexadecimal string 'ABC' is not a multiple of 2",
+             "length of binary string '0101' is not a multiple of 8",
+             "illegal character in hexadecimal string 'FG'"
+           ]
+  end
+
+  test "a comment start terminates an identifier" do
+    assert {[{:atom, 1, "ifIndex"}, {:atom, 2, "next"}], []} =
+             scan("ifIndex-- trailing comment\nnext")
+  end
+
+  test "backslashes in strings are literal characters" do
+    assert {[{:string, 1, "C:\\\\path"}], []} = scan(~S("C:\\path"))
+  end
+
+  test "invalid UTF-8 is decoded as Latin-1 with a warning instead of raising" do
+    {toks, warnings} = scan(<<"a \"caf", 0xE9, "\"">>)
+    assert [{:atom, 1, "a"}, {:string, 1, "café"}] = toks
+    assert [{1, "input is not valid UTF-8; bytes decoded as Latin-1"}] = warnings
+  end
+
+  test "illegal characters report their line" do
+    assert {:error, {:illegal, ?#, 2}} = SnmpTokenizer.scan("a\n#")
+  end
+
+  test "parser exposes lexer warnings on the parsed MIB" do
+    {:ok, mib} =
+      Parser.parse("""
+      W-MIB DEFINITIONS ::= BEGIN
+      my_node OBJECT IDENTIFIER ::= { enterprises 1 }
+      END
+      """)
+
+    assert [{2, "identifier 'my_node' must not contain an underscore"}] = mib.warnings
+  end
+end
