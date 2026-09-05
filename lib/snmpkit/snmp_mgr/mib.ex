@@ -689,7 +689,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
   ## Private Functions
 
   defp compile_with_snmp_lib(mib_file, opts) do
-    case SnmpKit.MIB.compile(mib_file, opts) do
+    case SnmpKit.MIB.Compiler.compile(mib_file, opts) do
       {:ok, result} -> {:ok, result}
       {:error, reason} -> {:error, {:snmp_lib_compilation_failed, reason}}
     end
@@ -705,7 +705,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
           |> Enum.filter(&String.ends_with?(&1, ".mib"))
           |> Enum.map(&Path.join(directory, &1))
 
-        case SnmpKit.MIB.compile_all(mib_files, opts) do
+        case SnmpKit.MIB.Compiler.compile_all(mib_files, opts) do
           {:ok, results} -> {:ok, results}
           {:error, reason} -> {:error, {:snmp_lib_batch_compilation_failed, reason}}
         end
@@ -813,7 +813,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
   end
 
   defp load_with_snmp_lib(compiled_mib_path) do
-    case SnmpKit.MIB.load_compiled(compiled_mib_path) do
+    case SnmpKit.MIB.Compiler.load_compiled(compiled_mib_path) do
       {:ok, result} -> {:ok, result}
       {:error, reason} -> {:error, {:snmp_lib_load_failed, reason}}
     end
