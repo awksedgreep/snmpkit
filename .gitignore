@@ -64,3 +64,6 @@ snmpkit-*.tar
 *.bak
 *.tmp
 *~
+
+# Dialyzer PLTs are specific to the local OTP/Elixir build; rebuild with `mix dialyzer`
+/priv/plts/
