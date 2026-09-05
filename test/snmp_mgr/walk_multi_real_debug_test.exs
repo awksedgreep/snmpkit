@@ -49,7 +49,7 @@ defmodule SnmpKit.WalkMultiRealDebugTest do
 
       {:error, reason} ->
         Logger.debug("❌ Single walk failed: #{inspect(reason)}")
-        Logger.configure(level: :warn)
+        Logger.configure(level: :warning)
         flunk("Single walk failed - cannot proceed with debugging")
     end
 
@@ -152,71 +152,66 @@ defmodule SnmpKit.WalkMultiRealDebugTest do
     {:ok, root_oid} = SnmpKit.SnmpLib.OID.string_to_list(@test_oid)
     Logger.debug("Root OID: #{inspect(root_oid)}")
 
-    current_oid = root_oid
-    acc = []
-    iteration = 1
-    max_iterations = 5
-
     Logger.debug("\nStarting manual iteration...")
 
-    while iteration <= max_iterations do
-      Logger.debug("\n--- ITERATION #{iteration} ---")
-      Logger.debug("Current OID: #{inspect(current_oid)}")
+    {_final_oid, acc} =
+      Enum.reduce_while(1..5, {root_oid, []}, fn iteration, {current_oid, acc} ->
+        Logger.debug("\n--- ITERATION #{iteration} ---")
+        Logger.debug("Current OID: #{inspect(current_oid)}")
 
-      bulk_opts =
-        opts
-        |> Keyword.put(:max_repetitions, 10)
-        |> Keyword.put(:version, :v2c)
+        bulk_opts =
+          opts
+          |> Keyword.put(:max_repetitions, 10)
+          |> Keyword.put(:version, :v2c)
 
-      case SnmpKit.SnmpMgr.Core.send_get_bulk_request(@test_device, current_oid, bulk_opts) do
-        {:ok, results} ->
-          Logger.debug("Got #{length(results)} raw results")
+        case SnmpKit.SnmpMgr.Core.send_get_bulk_request(@test_device, current_oid, bulk_opts) do
+          {:ok, results} ->
+            Logger.debug("Got #{length(results)} raw results")
 
-          # Filter in-scope results
-          in_scope =
-            Enum.filter(results, fn {oid_list, _type, _value} ->
-              List.starts_with?(oid_list, root_oid)
-            end)
+            # Filter in-scope results
+            in_scope =
+              Enum.filter(results, fn {oid_list, _type, _value} ->
+                List.starts_with?(oid_list, root_oid)
+              end)
 
-          Logger.debug("#{length(in_scope)} results in scope")
+            Logger.debug("#{length(in_scope)} results in scope")
 
-          if length(in_scope) > 0 do
-            in_scope
-            |> Enum.take(2)
-            |> Enum.each(fn {oid, type, value} ->
-              Logger.debug(
-                "  #{inspect(oid)} = #{inspect(String.slice(to_string(value), 0, 20))} (#{type})"
-              )
-            end)
-          end
-
-          # Determine next OID
-          next_oid =
-            case List.last(in_scope) do
-              {oid_list, _type, _value} -> oid_list
-              _ -> nil
+            if length(in_scope) > 0 do
+              in_scope
+              |> Enum.take(2)
+              |> Enum.each(fn {oid, type, value} ->
+                Logger.debug(
+                  "  #{inspect(oid)} = #{inspect(String.slice(to_string(value), 0, 20))} (#{type})"
+                )
+              end)
             end
 
-          Logger.debug("Next OID: #{inspect(next_oid)}")
+            # Determine next OID
+            next_oid =
+              case List.last(in_scope) do
+                {oid_list, _type, _value} -> oid_list
+                _ -> nil
+              end
 
-          if Enum.empty?(in_scope) or next_oid == nil do
-            Logger.debug(
-              "❌ STOPPING: empty_in_scope=#{Enum.empty?(in_scope)}, next_oid_nil=#{next_oid == nil}"
-            )
+            Logger.debug("Next OID: #{inspect(next_oid)}")
 
-            break
-          else
-            acc = Enum.reverse(in_scope) ++ acc
-            current_oid = next_oid
-            iteration = iteration + 1
-            Logger.debug("✅ CONTINUING: #{length(acc)} total results so far")
-          end
+            if Enum.empty?(in_scope) or next_oid == nil do
+              Logger.debug(
+                "❌ STOPPING: empty_in_scope=#{Enum.empty?(in_scope)}, next_oid_nil=#{next_oid == nil}"
+              )
 
-        {:error, reason} ->
-          Logger.debug("❌ Request failed: #{inspect(reason)}")
-          break
-      end
-    end
+              {:halt, {current_oid, acc}}
+            else
+              acc = Enum.reverse(in_scope) ++ acc
+              Logger.debug("✅ CONTINUING: #{length(acc)} total results so far")
+              {:cont, {next_oid, acc}}
+            end
+
+          {:error, reason} ->
+            Logger.debug("❌ Request failed: #{inspect(reason)}")
+            {:halt, {current_oid, acc}}
+        end
+      end)
 
     Logger.debug("\nFinal result: #{length(acc)} total results")
 
