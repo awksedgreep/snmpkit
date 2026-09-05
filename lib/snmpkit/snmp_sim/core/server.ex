@@ -20,10 +20,18 @@ defmodule SnmpKit.SnmpSim.Core.Server do
     :port,
     :device_handler,
     :community,
+    :in_flight,
+    :max_in_flight,
+    :max_packet_size,
     :stats
   ]
 
   @default_community "public"
+  # Caps concurrent packet tasks so a UDP flood cannot exhaust the process
+  # table; excess packets are dropped and counted. Generous by default.
+  @default_max_in_flight 1000
+  # Largest SNMP-over-UDP packet; larger datagrams are dropped and counted.
+  @default_max_packet_size 65_535
   @socket_opts [:binary, {:active, true}, {:reuseaddr, false}, {:ip, {0, 0, 0, 0}}]
 
   @doc """
@@ -34,6 +42,8 @@ defmodule SnmpKit.SnmpSim.Core.Server do
   - `:community` - SNMP community string (default: "public")
   - `:device_handler` - Module or function to handle device requests
   - `:socket_opts` - Additional socket options
+  - `:max_in_flight` - Max concurrent packet tasks (default: 1000)
+  - `:max_packet_size` - Max accepted datagram size in bytes (default: 65535)
 
   ## Examples
 
@@ -68,6 +78,8 @@ defmodule SnmpKit.SnmpSim.Core.Server do
     community = Keyword.get(opts, :community, @default_community)
     device_handler = Keyword.get(opts, :device_handler)
     socket_opts = Keyword.get(opts, :socket_opts, []) ++ @socket_opts
+    max_in_flight = Keyword.get(opts, :max_in_flight, @default_max_in_flight)
+    max_packet_size = Keyword.get(opts, :max_packet_size, @default_max_packet_size)
 
     case :gen_udp.open(port, socket_opts) do
       {:ok, socket} ->
@@ -87,6 +99,9 @@ defmodule SnmpKit.SnmpSim.Core.Server do
           port: port,
           device_handler: device_handler,
           community: community,
+          in_flight: 0,
+          max_in_flight: max_in_flight,
+          max_packet_size: max_packet_size,
           stats: init_stats()
         }
 
@@ -117,17 +132,46 @@ defmodule SnmpKit.SnmpSim.Core.Server do
 
     # Update stats
     new_stats = update_stats(state.stats, :packets_received)
-    final_state = %{state | stats: new_stats}
+    state = %{state | stats: new_stats}
 
-    # Process SNMP packet asynchronously for better throughput
-    # Pass server PID to avoid process identity issues
-    server_pid = self()
+    cond do
+      byte_size(packet) > state.max_packet_size ->
+        # Oversize datagram: drop before any processing or hex logging to
+        # bound memory use on hostile input.
+        new_stats = update_stats(state.stats, :packets_dropped_oversize)
+        {:noreply, %{state | stats: new_stats}}
 
-    Task.start(fn ->
-      handle_snmp_packet_async(server_pid, state, client_ip, client_port, packet)
-    end)
+      state.in_flight >= state.max_in_flight ->
+        # Overload shed: drop and count instead of spawning unbounded tasks.
+        new_stats = update_stats(state.stats, :packets_dropped_overload)
+        {:noreply, %{state | stats: new_stats}}
 
-    {:noreply, final_state}
+      true ->
+        # Process SNMP packet asynchronously for better throughput
+        # Pass server PID to avoid process identity issues
+        server_pid = self()
+        handler_state = state
+
+        case Task.start(fn ->
+               try do
+                 handle_snmp_packet_async(server_pid, handler_state, client_ip, client_port, packet)
+               after
+                 send(server_pid, {:packet_task_done})
+               end
+             end) do
+          {:ok, _pid} ->
+            {:noreply, %{state | in_flight: state.in_flight + 1}}
+
+          {:error, _reason} ->
+            new_stats = update_stats(state.stats, :packets_dropped_overload)
+            {:noreply, %{state | stats: new_stats}}
+        end
+    end
+  end
+
+  @impl true
+  def handle_info({:packet_task_done}, state) do
+    {:noreply, %{state | in_flight: max(state.in_flight - 1, 0)}}
   end
 
   @impl true
@@ -413,6 +457,8 @@ defmodule SnmpKit.SnmpSim.Core.Server do
     %{
       packets_received: 0,
       packets_sent: 0,
+      packets_dropped_oversize: 0,
+      packets_dropped_overload: 0,
       successful_responses: 0,
       error_responses: 0,
       auth_failures: 0,

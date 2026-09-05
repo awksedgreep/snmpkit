@@ -51,6 +51,10 @@ defmodule SnmpKit.SnmpMgr.CircuitBreaker do
   @doc """
   Executes a function with circuit breaker protection.
 
+  The function runs in the caller process (never inside the breaker
+  server), so one slow target cannot block other targets sharing the
+  breaker. Admission is checked first; the outcome is recorded back.
+
   ## Parameters
   - `cb` - Circuit breaker PID or name
   - `target` - Target identifier (device address/name)
@@ -64,7 +68,36 @@ defmodule SnmpKit.SnmpMgr.CircuitBreaker do
       end, 5000)
   """
   def call(cb, target, fun, timeout \\ 5000) do
-    GenServer.call(cb, {:call, target, fun, timeout})
+    case allow_request(cb, target) do
+      :ok ->
+        task = Task.async(fun)
+
+        case Task.yield(task, timeout) do
+          {:ok, result} ->
+            record_success(cb, target)
+            {:ok, result}
+
+          nil ->
+            _ = Task.shutdown(task)
+            record_failure(cb, target, :timeout_or_crash)
+            {:error, :timeout_or_crash}
+        end
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  @doc """
+  Checks whether a call for a target is admitted right now.
+
+  Returns `:ok` when the breaker is closed (or half-open with capacity),
+  `{:error, :circuit_breaker_open}` when the call must fail fast. Prefer
+  this with `record_success/2` / `record_failure/3` over `call/4` when the
+  work cannot be wrapped in a zero-arity function.
+  """
+  def allow_request(cb, target) do
+    GenServer.call(cb, {:allow_request, target})
   end
 
   @doc """
@@ -206,12 +239,12 @@ defmodule SnmpKit.SnmpMgr.CircuitBreaker do
   end
 
   @impl true
-  def handle_call({:call, target, fun, timeout}, _from, state) do
+  def handle_call({:allow_request, target}, _from, state) do
     breaker = get_or_create_breaker(state.breakers, target, state)
 
     case breaker.state do
       :closed ->
-        execute_with_breaker(state, target, breaker, fun, timeout)
+        {:reply, :ok, state}
 
       :open ->
         if should_attempt_reset?(breaker, state.recovery_timeout) do
@@ -226,7 +259,7 @@ defmodule SnmpKit.SnmpMgr.CircuitBreaker do
           new_breakers = Map.put(state.breakers, target, new_breaker)
           new_state = %{state | breakers: new_breakers}
 
-          execute_with_breaker(new_state, target, new_breaker, fun, timeout)
+          {:reply, :ok, new_state}
         else
           # Circuit is open, fail fast
           metrics = update_metrics(state.metrics, :fast_failures, 1)
@@ -236,7 +269,7 @@ defmodule SnmpKit.SnmpMgr.CircuitBreaker do
 
       :half_open ->
         if breaker.half_open_calls < state.half_open_max_calls do
-          execute_with_breaker(state, target, breaker, fun, timeout)
+          {:reply, :ok, state}
         else
           # Too many calls in half-open, stay open
           new_breaker = %{breaker | state: :open}
@@ -438,6 +471,15 @@ defmodule SnmpKit.SnmpMgr.CircuitBreaker do
     new_breakers = Map.put(state.breakers, target, new_breaker)
     metrics = update_metrics(state.metrics, :failures, 1)
 
+    # Timeouts are also counted as timeouts (matches the call/4 timeout path,
+    # which historically bumped both counters).
+    metrics =
+      if reason == :timeout_or_crash do
+        update_metrics(metrics, :timeouts, 1)
+      else
+        metrics
+      end
+
     new_state = %{state | breakers: new_breakers, metrics: metrics}
     {:noreply, new_state}
   end
@@ -566,77 +608,6 @@ defmodule SnmpKit.SnmpMgr.CircuitBreaker do
       half_open_calls: 0,
       created_at: System.monotonic_time(:millisecond)
     }
-  end
-
-  defp execute_with_breaker(state, target, breaker, fun, timeout) do
-    start_time = System.monotonic_time(:millisecond)
-
-    # Execute with timeout
-    task = Task.async(fun)
-
-    case Task.yield(task, timeout) do
-      {:ok, result} ->
-        end_time = System.monotonic_time(:millisecond)
-        _execution_time = end_time - start_time
-
-        # Record success
-        new_breaker =
-          case breaker.state do
-            :half_open ->
-              updated = %{
-                breaker
-                | success_count: breaker.success_count + 1,
-                  last_success_time: end_time,
-                  half_open_calls: breaker.half_open_calls + 1
-              }
-
-              # If enough successes in half-open, close circuit
-              if updated.success_count >= 3 do
-                Logger.info("Closing circuit breaker for #{target} after successful recovery")
-                %{updated | state: :closed, failure_count: 0, half_open_calls: 0}
-              else
-                updated
-              end
-
-            _ ->
-              %{breaker | success_count: breaker.success_count + 1, last_success_time: end_time}
-          end
-
-        new_breakers = Map.put(state.breakers, target, new_breaker)
-        metrics = update_metrics(state.metrics, :successes, 1)
-
-        new_state = %{state | breakers: new_breakers, metrics: metrics}
-
-        {:reply, {:ok, result}, new_state}
-
-      nil ->
-        # Timeout or task crashed
-        Task.shutdown(task)
-
-        new_breaker = %{
-          breaker
-          | failure_count: breaker.failure_count + 1,
-            last_failure_time: System.monotonic_time(:millisecond),
-            last_failure_reason: :timeout_or_crash
-        }
-
-        # Check if we should open circuit
-        new_breaker =
-          if new_breaker.failure_count >= state.failure_threshold do
-            Logger.warning("Opening circuit breaker for #{target} due to timeout or crash")
-            %{new_breaker | state: :open}
-          else
-            new_breaker
-          end
-
-        new_breakers = Map.put(state.breakers, target, new_breaker)
-        metrics = update_metrics(state.metrics, :timeouts, 1)
-        metrics = update_metrics(metrics, :failures, 1)
-
-        new_state = %{state | breakers: new_breakers, metrics: metrics}
-
-        {:reply, {:error, :timeout_or_crash}, new_state}
-    end
   end
 
   defp should_attempt_reset?(breaker, recovery_timeout) do

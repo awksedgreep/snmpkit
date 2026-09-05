@@ -314,14 +314,17 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
   @impl true
   def handle_call(:stop, _from, state) do
-    # Clean up connections
-    Enum.each(state.connections, fn {_id, conn} ->
-      if conn.socket do
-        :gen_udp.close(conn.socket)
-      end
-    end)
+    # Clean up all sockets (shared + pooled) and the batch timer
+    new_state = close_all_sockets(state)
 
-    {:stop, :normal, :ok, state}
+    {:stop, :normal, :ok, new_state}
+  end
+
+  @impl true
+  def terminate(reason, state) do
+    Logger.info("SnmpMgr Engine terminating: #{inspect(reason)}")
+    _ = close_all_sockets(state)
+    :ok
   end
 
   @impl true
@@ -484,6 +487,16 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
     new_connections = Map.put(state.connections, conn_id, updated_connection)
     new_state = %{state | connections: new_connections}
+
+    # Tag pooled requests with their connection so completion releases it.
+    # Entries always exist here: batch requests enter pending at submit and
+    # carry no timeout until they are sent on a connection.
+    pending_requests =
+      Enum.reduce(requests, new_state.pending_requests, fn request, acc ->
+        Map.update!(acc, request.request_id, fn req -> Map.put(req, :conn_id, conn_id) end)
+      end)
+
+    new_state = %{new_state | pending_requests: pending_requests}
 
     # Actually send the SNMP requests. Immediate send failures complete
     # (and reply) here so no stale pending entry or orphaned timer remains.
@@ -670,6 +683,26 @@ defmodule SnmpKit.SnmpMgr.Engine do
     true
   end
 
+  # Closes the shared socket, all pooled sockets, and cancels the batch timer.
+  # Used by both :stop and terminate/2 so restarts never leak sockets.
+  defp close_all_sockets(state) do
+    if state.shared_socket do
+      :gen_udp.close(state.shared_socket)
+    end
+
+    Enum.each(state.connections, fn {_id, conn} ->
+      if conn.socket do
+        :gen_udp.close(conn.socket)
+      end
+    end)
+
+    if state.batch_timer do
+      Process.cancel_timer(state.batch_timer)
+    end
+
+    %{state | shared_socket: nil, batch_timer: nil}
+  end
+
   defp count_active_connections(connections) do
     Enum.count(connections, fn {_id, conn} -> conn.status == :active end)
   end
@@ -726,6 +759,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
         state =
           %{state | pending_requests: pending_requests}
           |> update_completion_metrics(request, result)
+          |> release_connection(request, result)
 
         if Map.has_key?(request, :batch_ref) do
           complete_batch_member(state, request, result)
@@ -770,6 +804,45 @@ defmodule SnmpKit.SnmpMgr.Engine do
   defp update_completion_metrics(state, _request, {:error, _reason}) do
     metrics = update_metrics(state.metrics, :requests_failed, 1)
     %{state | metrics: metrics}
+  end
+
+  # Returns a pooled connection toward idle as its requests complete, so the
+  # pool drains instead of saturating. Shared-socket requests carry no
+  # :conn_id and pass through untouched.
+  defp release_connection(state, request, result) do
+    case Map.get(request, :conn_id) do
+      nil ->
+        state
+
+      conn_id ->
+        case Map.get(state.connections, conn_id) do
+          nil ->
+            state
+
+          connection ->
+            active_requests =
+              Enum.reject(connection.active_requests, fn req ->
+                req.request_id == request.request_id
+              end)
+
+            error_count =
+              case result do
+                {:ok, _} -> 0
+                {:error, _} -> connection.error_count + 1
+              end
+
+            status = if active_requests == [], do: :idle, else: :active
+
+            updated_connection = %{
+              connection
+              | active_requests: active_requests,
+                error_count: error_count,
+                status: status
+            }
+
+            %{state | connections: Map.put(state.connections, conn_id, updated_connection)}
+        end
+    end
   end
 
   defp extract_response_data(response_data, request_type) do
