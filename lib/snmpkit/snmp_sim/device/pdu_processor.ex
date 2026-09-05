@@ -14,7 +14,8 @@ defmodule SnmpKit.SnmpSim.Device.PduProcessor do
 
   # SNMP Error Status constants
   @no_error 0
-  @no_such_name 2
+  # Same GETBULK repetition bound as WalkPduProcessor / Device / OIDTree
+  @max_bulk_repetitions 50
   @read_only 4
   @gen_err 5
 
@@ -54,7 +55,7 @@ defmodule SnmpKit.SnmpSim.Device.PduProcessor do
         :get_bulk_request ->
           varbinds = Map.get(pdu, :varbinds, Map.get(pdu, :variable_bindings, []))
           non_repeaters = Map.get(pdu, :non_repeaters, 0)
-          max_repetitions = Map.get(pdu, :max_repetitions, 0)
+          max_repetitions = max(0, min(Map.get(pdu, :max_repetitions, 0), @max_bulk_repetitions))
           processed = process_getbulk_request(varbinds, state, non_repeaters, max_repetitions)
           response = create_getbulk_response(pdu, processed)
           response
@@ -291,61 +292,49 @@ defmodule SnmpKit.SnmpSim.Device.PduProcessor do
   end
 
   defp create_get_response_with_fields(request_pdu, variable_bindings) do
-    # Initialize error status and index
-    {error_status, error_index, converted_bindings} =
-      Enum.reduce(Enum.with_index(variable_bindings), {@no_error, 0, []}, fn
-        {{oid, :end_of_mib_view, _}, index}, {_, _, acc} ->
-          oid_list =
-            case oid do
-              oid when is_list(oid) -> oid
-              oid when is_binary(oid) -> string_to_oid_list(oid)
-              _ -> oid
-            end
+    # Normalise OIDs to lists; SNMPv2c carries exceptions in the varbinds with
+    # error-status 0 (RFC 3416), SNMPv1 turns the first exception into a
+    # noSuchName error with the request echoed (RFC 1157 4.1.2/4.1.3).
+    converted_bindings =
+      Enum.map(variable_bindings, fn
+        {oid, type, _value} when type in [:end_of_mib_view, :no_such_object, :no_such_instance] ->
+          {to_oid_list(oid), type, {type, nil}}
 
-          # Set error status and index for end_of_mib_view, use a special atom for encoding
-          {@no_error, index + 1, [{oid_list, :end_of_mib_view, {:end_of_mib_view, nil}} | acc]}
+        {oid, type, value} ->
+          {to_oid_list(oid), type, value}
 
-        {{oid, :no_such_object, _}, index}, {_, _, acc} ->
-          oid_list =
-            case oid do
-              oid when is_list(oid) -> oid
-              oid when is_binary(oid) -> string_to_oid_list(oid)
-              _ -> oid
-            end
-
-          # Set error status and index for no_such_object, use a special atom for encoding
-          {@no_such_name, index + 1, [{oid_list, :no_such_object, {:no_such_object, nil}} | acc]}
-
-        {{oid, :no_such_instance, _}, index}, {_, _, acc} ->
-          oid_list =
-            case oid do
-              oid when is_list(oid) -> oid
-              oid when is_binary(oid) -> string_to_oid_list(oid)
-              _ -> oid
-            end
-
-          # Set error status and index for no_such_instance, use a special atom for encoding
-          {@no_such_name, index + 1,
-           [{oid_list, :no_such_instance, {:no_such_instance, nil}} | acc]}
-
-        {{oid, type, value}, _index}, {status, err_index, acc} ->
-          oid_list =
-            case oid do
-              oid when is_list(oid) -> oid
-              oid when is_binary(oid) -> string_to_oid_list(oid)
-              _ -> oid
-            end
-
-          # Keep track of error status if already set, otherwise no error
-          {status, err_index, [{oid_list, type, value} | acc]}
-
-        {varbind, _index}, {status, err_index, acc} ->
-          # Keep track of error status if already set
-          {status, err_index, [varbind | acc]}
+        varbind ->
+          varbind
       end)
 
-    converted_bindings = Enum.reverse(converted_bindings)
+    request_varbinds =
+      request_pdu
+      |> Map.get(:varbinds, Map.get(request_pdu, :variable_bindings, []))
+      |> Enum.map(fn
+        {oid, type, value} -> {to_oid_list(oid), type, value}
+        {oid, value} -> {to_oid_list(oid), :null, value}
+        oid -> {to_oid_list(oid), :null, :null}
+      end)
 
+    %{varbinds: converted_bindings, error_status: @no_error, error_index: 0}
+    |> SnmpKit.SnmpSim.PDUHelper.apply_v1_error_semantics(
+      SnmpKit.SnmpSim.PDUHelper.snmp_version(request_pdu),
+      request_varbinds
+    )
+    |> then(fn %{
+                 varbinds: converted_bindings,
+                 error_status: error_status,
+                 error_index: error_index
+               } ->
+      build_get_response(request_pdu, converted_bindings, error_status, error_index)
+    end)
+  end
+
+  defp to_oid_list(oid) when is_list(oid), do: oid
+  defp to_oid_list(oid) when is_binary(oid), do: string_to_oid_list(oid)
+  defp to_oid_list(oid), do: oid
+
+  defp build_get_response(request_pdu, converted_bindings, error_status, error_index) do
     # Create response format expected by tests (with :type and :varbinds fields)
     response_pdu = %{
       type: :get_response,

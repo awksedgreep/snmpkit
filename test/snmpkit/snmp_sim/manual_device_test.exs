@@ -271,7 +271,10 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
       target = "127.0.0.1:#{port}"
 
       # Test GET on non-existent OID
-      assert {:error, :no_such_name} = SNMP.get(target, "1.3.6.1.2.1.1.99.0")
+      # SNMPv2c reports an unknown object as a noSuchObject exception (RFC 3416
+      # 4.2.1); only SNMPv1 uses the noSuchName error.
+      assert {:error, reason} = SNMP.get(target, "1.3.6.1.2.1.1.99.0")
+      assert reason in [:no_such_object, :no_such_name]
 
       # Test GET_NEXT at potential end of MIB
       case SNMP.get_next(target, "1.3.6.1.2.1.2.2.1.2.2") do
@@ -437,7 +440,8 @@ defmodule SnmpKit.SnmpSim.ManualDeviceTest do
 
       # Should handle gracefully even with no OIDs
       target1 = "127.0.0.1:#{port1}"
-      assert {:error, :no_such_name} = SNMP.get(target1, "1.3.6.1.2.1.1.1.0")
+      assert {:error, reason} = SNMP.get(target1, "1.3.6.1.2.1.1.1.0")
+      assert reason in [:no_such_object, :no_such_name]
 
       Device.stop(empty_device)
 

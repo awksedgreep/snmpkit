@@ -19,47 +19,37 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
         {oid, _} -> get_varbind_value(oid, state)
       end)
 
-    error_status = if Enum.any?(varbinds, &is_error_varbind?/1), do: 2, else: 0
-    error_index = find_error_index(varbinds)
-
-    %{
-      pdu
-      | type: :get_response,
-        varbinds: varbinds,
-        error_status: error_status,
-        error_index: error_index
-    }
+    # SNMPv2c: exceptions (noSuchObject/noSuchInstance) travel in the varbinds
+    # with error-status 0. SNMPv1: noSuchName error with the request echoed.
+    %{pdu | type: :get_response, varbinds: varbinds, error_status: 0, error_index: 0}
+    |> PduHelper.apply_v1_error_semantics(PduHelper.snmp_version(pdu), pdu.varbinds)
   end
 
   @doc """
   Process a GETNEXT request for walk-based devices.
   """
   def process_getnext_request(pdu, state) do
-    pdu_version_int = PduHelper.pdu_version_to_int(pdu.version)
-
     varbinds =
       Enum.map(pdu.varbinds, fn
         {oid, _, _} ->
-          get_next_varbind_value(oid, state, pdu_version_int)
+          get_next_varbind_value(oid, state)
 
         {oid, _} ->
-          get_next_varbind_value(oid, state, pdu_version_int)
+          get_next_varbind_value(oid, state)
 
         oid when is_list(oid) ->
-          get_next_varbind_value(oid, state, pdu_version_int)
+          get_next_varbind_value(oid, state)
 
         other ->
           Logger.debug("WalkPduProcessor: Unexpected varbind format: #{inspect(other)}")
-          get_next_varbind_value(other, state, pdu_version_int)
+          get_next_varbind_value(other, state)
       end)
 
-    %{
-      pdu
-      | type: :get_response,
-        varbinds: varbinds,
-        error_status: 0,
-        error_index: 0
-    }
+    # End of MIB is an endOfMibView exception for SNMPv2c (RFC 3416 4.2.2) and
+    # a noSuchName error for SNMPv1 (RFC 1157 4.1.3); the branches used to be
+    # inverted, and the version check compared an integer with an atom.
+    %{pdu | type: :get_response, varbinds: varbinds, error_status: 0, error_index: 0}
+    |> PduHelper.apply_v1_error_semantics(PduHelper.snmp_version(pdu), pdu.varbinds)
   end
 
   @doc """
@@ -71,15 +61,16 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
     Logger.debug("WalkPduProcessor: Processing GETBULK with PDU: #{inspect(pdu)}")
     Logger.debug("WalkPduProcessor: PDU version: #{inspect(pdu.version)}")
 
-    # For SNMPv1, GETBULK is not officially supported, but we'll process it as GETNEXT
-    if pdu.version == 1 do
-      # Process as individual GETNEXT operations for SNMPv1
-      process_getbulk_as_getnext_v1(pdu, state)
-    else
-      # Normal SNMPv2c GETBULK processing
-      process_getbulk_v2(pdu, state)
+    # GETBULK does not exist in SNMPv1; treat it as GETNEXT with v1 semantics
+    case PduHelper.snmp_version(pdu) do
+      :v1 -> process_getbulk_as_getnext_v1(pdu, state)
+      :v2c -> process_getbulk_v2(pdu, state)
     end
   end
+
+  # Upper bound on repetitions for every bulk path (Device and OIDTree apply
+  # the same limit), keeping responses within a UDP datagram.
+  @max_bulk_repetitions 50
 
   defp process_getbulk_v2(pdu, state) do
     %{non_repeaters: non_repeaters, max_repetitions: max_repetitions, varbinds: varbinds} = pdu
@@ -91,21 +82,21 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
     non_repeater_varbinds =
       Enum.map(non_repeater_oids, fn
         {oid, _, _} ->
-          get_next_varbind_value(oid, state, 2)
+          get_next_varbind_value(oid, state)
 
         {oid, _} ->
-          get_next_varbind_value(oid, state, 2)
+          get_next_varbind_value(oid, state)
 
         oid when is_list(oid) ->
-          get_next_varbind_value(oid, state, 2)
+          get_next_varbind_value(oid, state)
 
         other ->
           Logger.debug("WalkPduProcessor: Unexpected varbind format: #{inspect(other)}")
-          get_next_varbind_value(other, state, 2)
+          get_next_varbind_value(other, state)
       end)
 
     # Process repeaters (bulk operation)
-    repeater_varbinds = process_bulk_oids(repeater_oids, max_repetitions, state, 2)
+    repeater_varbinds = process_bulk_oids(repeater_oids, max_repetitions, state)
 
     # Combine all varbinds
     all_varbinds = non_repeater_varbinds ++ repeater_varbinds
@@ -129,7 +120,7 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
     {result_varbinds, error_status, error_index} =
       varbinds
       |> Enum.with_index(1)
-      |> Enum.reduce_while({[], 0, 0}, fn {varbind, _index}, {acc_varbinds, _, _} ->
+      |> Enum.reduce_while({[], 0, 0}, fn {varbind, index}, {acc_varbinds, _, _} ->
         oid =
           case varbind do
             {oid, _, _} -> oid
@@ -142,9 +133,8 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
             {:cont, {[varbind | acc_varbinds], 0, 0}}
 
           {:error, :no_such_name} ->
-            # Return end_of_mib_view instead of original OID for GETBULK
-            end_of_mib_varbind = {oid, :end_of_mib_view, {:end_of_mib_view, nil}}
-            {:cont, {[end_of_mib_varbind | acc_varbinds], 0, 0}}
+            # RFC 1157: noSuchName, request varbinds echoed
+            {:halt, {pdu.varbinds |> normalize_request_varbinds() |> Enum.reverse(), 2, index}}
         end
       end)
 
@@ -159,6 +149,14 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
       error_status: error_status,
       error_index: error_index
     }
+  end
+
+  defp normalize_request_varbinds(varbinds) do
+    Enum.map(varbinds, fn
+      {oid, type, value} -> {normalize_oid_to_list(oid), type, value}
+      {oid, value} -> {normalize_oid_to_list(oid), :null, value}
+      oid -> {normalize_oid_to_list(oid), :null, :null}
+    end)
   end
 
   @doc """
@@ -483,7 +481,7 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
     end
   end
 
-  defp get_next_varbind_value(oid, state, pdu_version) do
+  defp get_next_varbind_value(oid, state) do
     oid_string = oid_to_string(oid)
 
     Logger.debug(
@@ -543,12 +541,7 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
                 {next_oid, type, value}
 
               :not_found ->
-                # SNMPv1 vs SNMPv2c+
-                if pdu_version == 1 do
-                  {next_oid, :no_such_instance, {:no_such_instance, nil}}
-                else
-                  {next_oid, :no_such_object, {:no_such_object, nil}}
-                end
+                {next_oid, :no_such_object, {:no_such_object, nil}}
 
               {:error, reason} ->
                 Logger.debug(
@@ -561,14 +554,7 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
 
       :end_of_mib ->
         Logger.debug("WalkPduProcessor: End of MIB reached for #{oid_string}")
-        oid_list = normalize_oid_to_list(oid)
-        # SNMPv2c+
-        # SNMPv1
-        if pdu_version == 1 do
-          {oid_list, :end_of_mib_view, {:end_of_mib_view, nil}}
-        else
-          {oid_list, :no_such_object, {:no_such_object, nil}}
-        end
+        {normalize_oid_to_list(oid), :end_of_mib_view, {:end_of_mib_view, nil}}
 
       {:error, reason} ->
         Logger.debug(
@@ -579,57 +565,35 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
         {oid_list, :no_such_object, {:no_such_object, nil}}
 
       :not_found ->
-        oid_list = normalize_oid_to_list(oid)
-
-        if pdu_version == 1 do
-          {oid_list, :no_such_name, {:no_such_name, nil}}
-        else
-          {oid_list, :no_such_object, {:no_such_object, nil}}
-        end
+        # No successor: end of MIB view
+        {normalize_oid_to_list(oid), :end_of_mib_view, {:end_of_mib_view, nil}}
     end
   end
 
-  defp process_bulk_oids(oids, max_repetitions, state, pdu_version) do
+  defp process_bulk_oids(oids, max_repetitions, state) do
     Enum.flat_map(oids, fn
-      {oid, _, _} -> get_bulk_varbinds(oid, max_repetitions, state, pdu_version)
-      {oid, _} -> get_bulk_varbinds(oid, max_repetitions, state, pdu_version)
-      oid when is_list(oid) -> get_bulk_varbinds(oid, max_repetitions, state, pdu_version)
+      {oid, _, _} -> get_bulk_varbinds(oid, max_repetitions, state)
+      {oid, _} -> get_bulk_varbinds(oid, max_repetitions, state)
+      oid when is_list(oid) -> get_bulk_varbinds(oid, max_repetitions, state)
     end)
   end
 
-  defp get_bulk_varbinds(start_oid, max_repetitions, state, pdu_version) do
+  defp get_bulk_varbinds(start_oid, max_repetitions, state) do
     start_oid_string = oid_to_string(start_oid)
+    limited_max_repetitions = max(0, min(max_repetitions, @max_bulk_repetitions))
 
-    # Limit max_repetitions to prevent huge responses that can cause UDP packet size issues
-    limited_max_repetitions = min(max_repetitions, 50)
+    # Collect successors; the list ends with a single :end_of_mib_marker when
+    # the MIB view is exhausted (RFC 3416 4.2.3 allows the response to stop
+    # there instead of padding every remaining repetition).
+    bulk_oids = collect_bulk_oids(start_oid_string, limited_max_repetitions, state, [])
 
-    # Collect OIDs for bulk operation
-    bulk_oids =
-      collect_bulk_oids(start_oid_string, limited_max_repetitions, state, [])
-
-    # If no OIDs were collected (e.g., invalid start OID), return end_of_mib_view varbinds
     if Enum.empty?(bulk_oids) do
-      # Return the requested number of end_of_mib_view varbinds
-      List.duplicate(
-        if pdu_version == 1 do
-          {start_oid, :no_such_name, {:no_such_name, nil}}
-        else
-          {start_oid, :end_of_mib_view, {:end_of_mib_view, nil}}
-        end,
-        limited_max_repetitions
-      )
+      []
     else
       # Map each OID to its value
       Enum.map(bulk_oids, fn
         :end_of_mib_marker ->
-          # Handle end of MIB markers
-          start_oid_list = normalize_oid_to_list(start_oid)
-
-          if pdu_version == 1 do
-            {start_oid_list, :no_such_name, {:no_such_name, nil}}
-          else
-            {start_oid_list, :end_of_mib_view, {:end_of_mib_view, nil}}
-          end
+          {normalize_oid_to_list(start_oid), :end_of_mib_view, {:end_of_mib_view, nil}}
 
         next_oid_string ->
           next_oid = string_to_oid_list(next_oid_string)
@@ -668,33 +632,8 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
                 {:ok, {type, value}} ->
                   {next_oid, type, value}
 
-                :not_found ->
-                  if pdu_version == 1 do
-                    {next_oid, :no_such_name, {:no_such_name, nil}}
-                  else
-                    {next_oid, :end_of_mib_view, {:end_of_mib_view, nil}}
-                  end
-
-                {:error, :no_such_name} ->
-                  if pdu_version == 1 do
-                    {next_oid, :no_such_name, {:no_such_name, nil}}
-                  else
-                    {next_oid, :end_of_mib_view, {:end_of_mib_view, nil}}
-                  end
-
-                {:error, :device_type_not_found} ->
-                  if pdu_version == 1 do
-                    {next_oid, :no_such_name, {:no_such_name, nil}}
-                  else
-                    {next_oid, :end_of_mib_view, {:end_of_mib_view, nil}}
-                  end
-
-                {:error, _reason} ->
-                  if pdu_version == 1 do
-                    {next_oid, :no_such_name, {:no_such_name, nil}}
-                  else
-                    {next_oid, :end_of_mib_view, {:end_of_mib_view, nil}}
-                  end
+                _not_found_or_error ->
+                  {next_oid, :end_of_mib_view, {:end_of_mib_view, nil}}
               end
           end
       end)
@@ -718,25 +657,9 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
       {:ok, next_oid} ->
         collect_bulk_oids(next_oid, remaining - 1, state, [next_oid | acc])
 
-      :end_of_mib ->
-        # End of MIB reached, fill remaining slots with end_of_mib markers
-        end_of_mib_markers = List.duplicate(:end_of_mib_marker, remaining)
-        Enum.reverse(acc) ++ end_of_mib_markers
-
-      :not_found ->
-        # No next OID found, fill remaining slots with end_of_mib markers
-        end_of_mib_markers = List.duplicate(:end_of_mib_marker, remaining)
-        Enum.reverse(acc) ++ end_of_mib_markers
-
-      {:error, :device_type_not_found} ->
-        # Device type not found in SharedProfiles, fill remaining slots with end_of_mib markers
-        end_of_mib_markers = List.duplicate(:end_of_mib_marker, remaining)
-        Enum.reverse(acc) ++ end_of_mib_markers
-
-      {:error, _reason} ->
-        # Other errors, fill remaining slots with end_of_mib markers
-        end_of_mib_markers = List.duplicate(:end_of_mib_marker, remaining)
-        Enum.reverse(acc) ++ end_of_mib_markers
+      _end_of_mib_or_error ->
+        # End of the MIB view: one endOfMibView marker, no padding
+        Enum.reverse([:end_of_mib_marker | acc])
     end
   end
 
@@ -760,20 +683,6 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
     elapsed_native = current_time - state.uptime_start
     elapsed_ms = :erlang.convert_time_unit(elapsed_native, :native, :millisecond)
     div(elapsed_ms, 10)
-  end
-
-  defp is_error_varbind?({_, :no_such_object, _}), do: true
-  defp is_error_varbind?({_, :no_such_instance, _}), do: true
-  defp is_error_varbind?(_), do: false
-
-  defp find_error_index(varbinds) do
-    varbinds
-    |> Enum.with_index(1)
-    |> Enum.find_value(fn
-      {{_, :no_such_object, _}, idx} -> idx
-      {{_, :no_such_instance, _}, idx} -> idx
-      _ -> nil
-    end) || 0
   end
 
   # Helper function to get next OID from manual OID map

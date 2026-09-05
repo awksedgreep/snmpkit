@@ -10,6 +10,9 @@ defmodule SnmpKit.SnmpSim.OIDTree do
   - Optimized bulk operations
   """
 
+  # Same GETBULK repetition bound as WalkPduProcessor / PduProcessor / Device
+  @max_bulk_repetitions 50
+
   defstruct [
     # Root node of the OID tree
     :root,
@@ -127,6 +130,12 @@ defmodule SnmpKit.SnmpSim.OIDTree do
   def bulk_walk(%__MODULE__{} = tree, start_oid, max_repetitions, non_repeaters \\ 0) do
     # Ensure we have a sorted OID list for traversal
     tree = ensure_sorted_oids(tree)
+
+    # A single start OID is a non-repeater when non_repeaters > 0 (one
+    # successor, RFC 3416 4.2.3); otherwise it repeats up to the capped
+    # max_repetitions.
+    max_repetitions =
+      if non_repeaters > 0, do: 1, else: max(0, min(max_repetitions, @max_bulk_repetitions))
 
     start_oid_parts = parse_oid(start_oid)
 
@@ -258,9 +267,6 @@ defmodule SnmpKit.SnmpSim.OIDTree do
 
   defp collect_bulk_results(%__MODULE__{} = tree, start_index, max_repetitions, _non_repeaters) do
     available_oids = Enum.drop(tree.sorted_oids, start_index)
-
-    # Take up to max_repetitions OIDs (considering non_repeaters)
-    # For now, simplified to just take max_repetitions
     oids_to_fetch = Enum.take(available_oids, max_repetitions)
 
     # Fetch values for each OID
