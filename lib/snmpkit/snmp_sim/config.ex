@@ -34,11 +34,13 @@ defmodule SnmpKit.SnmpSim.Config do
   Loads configuration from a JSON file.
   """
   def load_from_file(file_path) when is_binary(file_path) do
-    case File.read(file_path) do
+    case SnmpKit.SnmpSim.SafeFile.read(file_path) do
       {:ok, content} ->
-        case Jason.decode(content, keys: :atoms) do
+        # Decode with string keys and only convert the ones this module knows
+        # (existing atoms); arbitrary JSON keys must not grow the atom table.
+        case Jason.decode(content) do
           {:ok, config} ->
-            validate_and_normalize_config(config)
+            validate_and_normalize_config(atomize_keys(config))
 
           {:error, error} ->
             {:error, {:json_decode_error, error}}
@@ -497,7 +499,7 @@ defmodule SnmpKit.SnmpSim.Config do
 
         device_config = %{
           port: port,
-          device_type: String.to_atom(group[:device_type] || "cable_modem"),
+          device_type: normalize_device_type(group[:device_type] || "cable_modem"),
           device_id: "#{group[:name]}_#{port}",
           community: group[:community] || "public"
         }
@@ -536,11 +538,29 @@ defmodule SnmpKit.SnmpSim.Config do
         "correlations" -> :correlations
         "seasonal_patterns" -> :seasonal_patterns
         atom when is_atom(atom) -> atom
-        string when is_binary(string) -> String.to_atom(string)
+        string when is_binary(string) -> existing_atom_or_nil(string)
         _ -> nil
       end
     end)
     |> Enum.filter(&(&1 != nil))
+  end
+
+  # Device types are used as keys and in pattern matches on well-known atoms;
+  # unknown names stay strings (SharedProfiles keys by any term).
+  defp normalize_device_type(type) when is_atom(type), do: type
+
+  defp normalize_device_type(type) when is_binary(type) do
+    String.to_existing_atom(type)
+  rescue
+    ArgumentError -> type
+  end
+
+  defp existing_atom_or_nil(string) do
+    String.to_existing_atom(string)
+  rescue
+    ArgumentError ->
+      Logger.warning("Ignoring unknown behavior #{inspect(string)}")
+      nil
   end
 
   defp apply_device_behaviors(_device, []), do: :ok
@@ -616,7 +636,14 @@ defmodule SnmpKit.SnmpSim.Config do
     end
   end
 
-  defp atomize_key(key) when is_binary(key), do: String.to_atom(key)
+  # Configuration keys are a fixed vocabulary referenced in this module, so the
+  # atoms already exist; anything else stays a string and is ignored.
+  defp atomize_key(key) when is_binary(key) do
+    String.to_existing_atom(key)
+  rescue
+    ArgumentError -> key
+  end
+
   defp atomize_key(key), do: key
 
   defp get_env_int(var_name, default) do

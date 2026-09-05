@@ -183,7 +183,7 @@ defmodule SnmpKit.SnmpSim.ProfileLoader do
   end
 
   defp load_from_json_profile(device_type, path, opts) do
-    case File.read(path) do
+    case SnmpKit.SnmpSim.SafeFile.read(path) do
       {:ok, content} ->
         case Jason.decode(content) do
           {:ok, profile_data} ->
@@ -261,6 +261,12 @@ defmodule SnmpKit.SnmpSim.ProfileLoader do
         |> Enum.map(&extract_mib_objects/1)
         |> Enum.reduce(%{}, &Map.merge/2)
 
+      if map_size(all_objects) == 0 do
+        # Object extraction from compiled MIBs is not implemented; a profile
+        # with zero OIDs would only show up later as an empty device.
+        throw({:error, :no_objects_in_compiled_mibs})
+      end
+
       # Analyze behaviors automatically
       {:ok, enhanced_objects} =
         SnmpKit.SnmpSim.MIB.BehaviorAnalyzer.analyze_mib_behaviors(all_objects)
@@ -290,6 +296,8 @@ defmodule SnmpKit.SnmpSim.ProfileLoader do
          }
        }}
     end
+  catch
+    {:error, reason} -> {:error, reason}
   end
 
   # Parse JSON profile format

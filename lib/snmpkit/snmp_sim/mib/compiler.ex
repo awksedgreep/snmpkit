@@ -55,10 +55,16 @@ defmodule SnmpKit.SnmpSim.MIB.Compiler do
 
   defp list_mib_files(paths) do
     Enum.flat_map(paths, fn path ->
-      path
-      |> File.ls!()
-      |> Stream.map(&Path.join(path, &1))
-      |> Enum.filter(&String.ends_with?(&1, ".mib"))
+      case File.ls(path) do
+        {:ok, entries} ->
+          entries
+          |> Stream.map(&Path.join(path, &1))
+          |> Enum.filter(&String.ends_with?(&1, ".mib"))
+
+        {:error, reason} ->
+          Logger.warning("Cannot list MIB directory #{inspect(path)}: #{inspect(reason)}")
+          []
+      end
     end)
   end
 
@@ -80,8 +86,9 @@ defmodule SnmpKit.SnmpSim.MIB.Compiler do
   defp _get_imports([mib_file | rest], acc) do
     imports =
       try do
-        mib_file
-        |> File.stream!()
+        {:ok, stream} = SnmpKit.SnmpSim.SafeFile.stream(mib_file)
+
+        stream
         |> get_imports_from_lines()
         |> Enum.map(fn name ->
           Path.join(Path.dirname(mib_file), "#{name}.mib")
@@ -90,6 +97,10 @@ defmodule SnmpKit.SnmpSim.MIB.Compiler do
       rescue
         File.Error ->
           Logger.debug("Unable to find MIB file: #{inspect(mib_file)}")
+          [{mib_file, []}]
+
+        MatchError ->
+          Logger.debug("Refusing to read MIB file: #{inspect(mib_file)}")
           [{mib_file, []}]
       end
 

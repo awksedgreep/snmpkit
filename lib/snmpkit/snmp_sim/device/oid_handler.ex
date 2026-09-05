@@ -168,11 +168,8 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
       _ ->
         # Check if device has walk data loaded in SharedProfiles
         if Map.get(device_struct, :has_walk_data, false) do
-          # Convert device_type to atom since SharedProfiles uses atoms as keys
-          device_type_atom =
-            if is_binary(device_struct.device_type),
-              do: String.to_atom(device_struct.device_type),
-              else: device_struct.device_type
+          # SharedProfiles accepts the device type as-is (atom or string)
+          device_type_atom = device_struct.device_type
 
           case SnmpKit.SnmpSim.MIB.SharedProfiles.get_oid_value(
                  device_type_atom,
@@ -183,7 +180,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
             {:error, reason} -> {:error, reason}
           end
         else
-          case get_device_specific_value(device_struct.device_type, oid) do
+          case get_device_specific_value(device_struct.device_type, oid, device_struct) do
             {:ok, value} -> {:ok, value}
             {:error, _} -> {:error, :no_such_name}
           end
@@ -208,11 +205,8 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
       _ ->
         # Check if device has walk data loaded in SharedProfiles
         if Map.get(device_struct, :has_walk_data, false) do
-          # Convert device_type to atom since SharedProfiles uses atoms as keys
-          device_type_atom =
-            if is_binary(device_struct.device_type),
-              do: String.to_atom(device_struct.device_type),
-              else: device_struct.device_type
+          # SharedProfiles accepts the device type as-is (atom or string)
+          device_type_atom = device_struct.device_type
 
           case SnmpKit.SnmpSim.MIB.SharedProfiles.get_oid_value(
                  device_type_atom,
@@ -225,7 +219,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
         else
           oid_list = string_to_oid_list(oid)
 
-          case get_device_specific_value(device_struct.device_type, oid_list) do
+          case get_device_specific_value(device_struct.device_type, oid_list, device_struct) do
             {:ok, value} -> {:ok, value}
             {:error, _} -> {:error, :no_such_name}
           end
@@ -263,7 +257,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
     end
   end
 
-  defp get_device_specific_value(device_type, oid_list) do
+  defp get_device_specific_value(device_type, oid_list, state \\ %{}) do
     oid_string = Enum.join(oid_list, ".")
 
     case oid_string do
@@ -287,7 +281,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
 
       # sysUpTime.0
       "1.3.6.1.2.1.1.3.0" ->
-        {:ok, {oid_string, :timeticks, 12345}}
+        {:ok, {oid_string, :timeticks, calculate_uptime_ticks(state)}}
 
       # sysContact.0
       "1.3.6.1.2.1.1.4.0" ->
@@ -358,7 +352,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
     end
   end
 
-  defp get_hardcoded_oid_value(device_type, oid_list) do
+  defp get_hardcoded_oid_value(device_type, oid_list, state) do
     oid_string = Enum.join(oid_list, ".")
 
     case oid_string do
@@ -382,7 +376,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
 
       # sysUpTime.0
       "1.3.6.1.2.1.1.3.0" ->
-        {:ok, {oid_string, :timeticks, 12345}}
+        {:ok, {oid_string, :timeticks, calculate_uptime_ticks(state)}}
 
       # sysContact.0
       "1.3.6.1.2.1.1.4.0" ->
@@ -626,9 +620,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
 
       Map.get(state, :has_walk_data, false) ->
         oid_string = oid_to_string(oid)
-        # Convert device_type to atom since SharedProfiles uses atoms as keys
-        device_type_atom =
-          if is_binary(device_type), do: String.to_atom(device_type), else: device_type
+        device_type_atom = device_type
 
         case SnmpKit.SnmpSim.MIB.SharedProfiles.get_next_oid(device_type_atom, oid_string) do
           {:ok, next_oid_string} ->
@@ -983,7 +975,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
       next_index = current_index + 1
       next_oid = Enum.at(known_oids, next_index)
 
-      case get_hardcoded_oid_value(device_type, next_oid) do
+      case get_hardcoded_oid_value(device_type, next_oid, state) do
         {:ok, {_oid, type, value}} when type == :object_identifier ->
           {next_oid, type, value}
 
@@ -1003,7 +995,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
       next_oid = Enum.find(sorted_oids, fn oid -> oid_to_string(oid) > current_oid_str end)
 
       if next_oid do
-        case get_hardcoded_oid_value(device_type, next_oid) do
+        case get_hardcoded_oid_value(device_type, next_oid, state) do
           {:ok, {_oid, type, value}} when type == :object_identifier ->
             {next_oid, type, value}
 
@@ -1322,9 +1314,9 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
     # 0.6x to 2.4x
     utilization_impact = 1.0 + (time_factor - 0.8) * 2.0
 
-    # Signal quality impact (simulated via random factor)
-    # 0.7 to 1.3
-    signal_quality = 0.7 + :rand.uniform(6) / 10
+    # Signal quality impact: a fixed per-device/per-counter factor in 0.7..1.3.
+    # A per-call random factor made the counter jump backwards between polls.
+    signal_quality = 0.7 + deterministic_int(state, {:signal_quality, counter_type}, 6) / 10
     # Worse signal = more errors
     signal_impact = 2.0 - signal_quality
 
@@ -1332,18 +1324,17 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
     rate_with_variation = base_rate * utilization_impact * signal_impact
     total_increment = trunc(rate_with_variation * uptime_seconds)
 
-    # Add some accumulated variance
-    # 5% base variance
-    base_variance = div(total_increment, 20)
+    # Accumulated variance, ±5%, also fixed per device/counter so the value is
+    # reproducible and monotonic in uptime
+    variance_pct = deterministic_int(state, {:variance, counter_type}, 11) - 6
+    max(0, total_increment + div(total_increment * variance_pct, 100))
+  end
 
-    variance =
-      if base_variance > 0 do
-        :rand.uniform(base_variance * 2) - base_variance
-      else
-        0
-      end
-
-    max(0, total_increment + variance)
+  # Deterministic pseudo-random integer in 1..n derived from the device identity
+  # and a salt. Stable across calls, different per device and per salt.
+  defp deterministic_int(state, salt, n) when n > 0 do
+    device_id = Map.get(state, :device_id) || Map.get(state, :port) || :default
+    :erlang.phash2({device_id, salt}, n) + 1
   end
 
   @doc """
@@ -1377,26 +1368,17 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
 
     # Add time-of-day variation
     time_factor = get_time_factor()
-    # -15% to +15%
-    jitter = :rand.uniform(31) - 15
+    # -15% to +15%, fixed per device/counter
+    jitter = deterministic_int(state, {:packet_jitter, counter_type}, 31) - 16
     jitter_factor = 1.0 + jitter / 100.0
 
     # Calculate total packets
     rate_with_variation = trunc(base_pps * time_factor * jitter_factor)
     total_packets = rate_with_variation * uptime_seconds
 
-    # Add some accumulated variance
-    # ~7% variance
-    base_variance = div(total_packets, 15)
-
-    variance =
-      if base_variance > 0 do
-        :rand.uniform(base_variance * 2) - base_variance
-      else
-        0
-      end
-
-    max(0, total_packets + variance)
+    # ~±7% accumulated variance, fixed per device/counter
+    variance_pct = deterministic_int(state, {:packet_variance, counter_type}, 15) - 8
+    max(0, total_packets + div(total_packets * variance_pct, 100))
   end
 
   @doc """
@@ -1435,9 +1417,8 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
     # 0.6x to 2.4x
     utilization_impact = 1.0 + (time_factor - 0.8) * 2.0
 
-    # Signal quality impact (simulated via random factor)
-    # 0.7 to 1.3
-    signal_quality = 0.7 + :rand.uniform(6) / 10
+    # Signal quality impact: fixed per device/counter in 0.7..1.3
+    signal_quality = 0.7 + deterministic_int(state, {:signal_quality, counter_type}, 6) / 10
     # Worse signal = more errors
     signal_impact = 2.0 - signal_quality
 
@@ -1445,14 +1426,10 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
     effective_rate = base_error_rate * utilization_impact * signal_impact
     total_errors = trunc(effective_rate * uptime_seconds)
 
-    # Add burst errors occasionally
-    # 5% chance
-    burst_probability = 0.05
-
-    if :rand.uniform() < burst_probability do
-      # 5-15 extra errors
-      burst_errors = :rand.uniform(10) + 5
-      max(0, total_errors + burst_errors)
+    # Some devices carry a fixed burst of extra errors (about 5% of them, 5-15
+    # errors); a random per-poll burst made the counter non-monotonic.
+    if deterministic_int(state, {:error_burst, counter_type}, 20) == 1 do
+      total_errors + 4 + deterministic_int(state, {:error_burst_size, counter_type}, 10)
     else
       total_errors
     end
@@ -1837,11 +1814,19 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
       "OBJECT IDENTIFIER" -> :object_identifier
       "OID" -> :object_identifier
       "NULL" -> :null
-      _ -> String.to_atom(String.downcase(type))
+      other -> existing_type_atom(other)
     end
   end
 
   defp convert_snmp_type(_), do: :octet_string
+
+  # Type names come from walk files: use an existing atom or fall back rather
+  # than creating atoms from external input.
+  defp existing_type_atom(type) do
+    String.to_existing_atom(String.downcase(type))
+  rescue
+    ArgumentError -> :octet_string
+  end
 
   defp ip_string_to_binary(str) when is_binary(str) do
     case String.split(str, ".") do

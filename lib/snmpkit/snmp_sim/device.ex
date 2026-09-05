@@ -376,9 +376,7 @@ defmodule SnmpKit.SnmpSim.Device do
 
   @impl true
   def handle_call(:get_info, _from, state) when is_map(state) do
-    # Get OID count (simplified for testing)
-    # Placeholder value for testing
-    oid_count = 100
+    oid_count = count_device_oids(state)
 
     info = %{
       device_id: state.device_id,
@@ -477,10 +475,9 @@ defmodule SnmpKit.SnmpSim.Device do
           [{oids, :null}]
       end
 
-    result =
-      process_get_bulk_varbinds(varbinds, non_repeaters, max_repetitions, state.device_type)
+    result = process_get_bulk_varbinds(varbinds, non_repeaters, max_repetitions, state)
 
-    IO.inspect(result, label: "GETBULK result from process_get_bulk_varbinds")
+    Logger.debug(fn -> "GETBULK result from process_get_bulk_varbinds: #{inspect(result)}" end)
 
     formatted_result =
       Enum.map(result, fn
@@ -488,7 +485,7 @@ defmodule SnmpKit.SnmpSim.Device do
         {oid, value} -> {OidHandler.oid_to_string(oid), :octet_string, value}
       end)
 
-    IO.inspect(formatted_result, label: "GETBULK formatted_result")
+    Logger.debug(fn -> "GETBULK formatted_result: #{inspect(formatted_result)}" end)
     {:reply, {:ok, formatted_result}, state}
   end
 
@@ -805,20 +802,44 @@ defmodule SnmpKit.SnmpSim.Device do
     }
   end
 
-  defp process_get_bulk_varbinds(varbinds, non_repeaters, max_repetitions, device_type) do
-    IO.inspect({varbinds, non_repeaters, max_repetitions, device_type},
-      label: "GETBULK input params"
-    )
+  # Upper bound on GETBULK repetitions on every bulk path (see also
+  # WalkPduProcessor and OIDTree) so a large max-repetitions cannot make the
+  # device materialise an unbounded response.
+  @max_bulk_repetitions 50
+
+  defp count_device_oids(state) do
+    cond do
+      is_map(Map.get(state, :oid_map)) and map_size(state.oid_map) > 0 ->
+        map_size(state.oid_map)
+
+      Map.get(state, :has_walk_data, false) ->
+        case SnmpKit.SnmpSim.MIB.SharedProfiles.get_all_oids(state.device_type) do
+          {:ok, oids} -> length(oids)
+          _ -> 0
+        end
+
+      true ->
+        map_size(state.counters) + map_size(state.gauges) + map_size(state.status_vars)
+    end
+  end
+
+  defp process_get_bulk_varbinds(varbinds, non_repeaters, max_repetitions, state) do
+    device_type = state.device_type
+    max_repetitions = max(0, min(max_repetitions, @max_bulk_repetitions))
+    # The device state carries the real uptime; the old per-varbind
+    # %{uptime: 0} froze every traffic counter served over GETBULK.
+    device_state = state
 
     {non_repeater_vars, repeater_vars} = Enum.split(varbinds, non_repeaters)
-    IO.inspect({non_repeater_vars, repeater_vars}, label: "GETBULK split varbinds")
+
+    Logger.debug(fn ->
+      "GETBULK split varbinds: #{inspect({non_repeater_vars, repeater_vars})}"
+    end)
 
     # For GETBULK, we need to get the NEXT OIDs, not the exact OIDs
     non_repeater_results =
       non_repeater_vars
       |> Enum.map(fn {oid, _} ->
-        device_state = %{device_type: device_type, uptime: 0}
-
         case SnmpKit.SnmpSim.Device.OidHandler.get_next_oid_value(device_type, oid, device_state) do
           {:ok, {next_oid, type, value}} -> {next_oid, type, value}
           {:ok, {next_oid, value}} -> {next_oid, :octet_string, value}
@@ -827,17 +848,14 @@ defmodule SnmpKit.SnmpSim.Device do
         end
       end)
 
-    IO.inspect(non_repeater_results, label: "GETBULK non_repeater_results")
+    Logger.debug(fn -> "GETBULK non_repeater_results: #{inspect(non_repeater_results)}" end)
 
     repeater_results =
       repeater_vars
       |> Enum.flat_map(fn {oid, _} ->
-        1..max_repetitions
-        |> Enum.reduce_while([], fn _i, acc ->
+        Enum.reduce_while(Enum.to_list(1..max_repetitions//1), [], fn _i, acc ->
           current_oid = if acc == [], do: oid, else: elem(List.last(acc), 0)
-          IO.inspect(current_oid, label: "GETBULK current_oid for iteration")
-
-          device_state = %{device_type: device_type, uptime: 0}
+          Logger.debug(fn -> "GETBULK current_oid for iteration: #{inspect(current_oid)}" end)
 
           case SnmpKit.SnmpSim.Device.OidHandler.get_next_oid_value(
                  device_type,
@@ -846,27 +864,27 @@ defmodule SnmpKit.SnmpSim.Device do
                ) do
             {:ok, {next_oid, type, value}} ->
               result = {next_oid, type, value}
-              IO.inspect(result, label: "GETBULK got next_oid result")
+              Logger.debug(fn -> "GETBULK got next_oid result: #{inspect(result)}" end)
               {:cont, acc ++ [result]}
 
             {:ok, {next_oid, value}} ->
               result = {next_oid, :octet_string, value}
-              IO.inspect(result, label: "GETBULK got next_oid result (2-tuple)")
+              Logger.debug(fn -> "GETBULK got next_oid result (2-tuple): #{inspect(result)}" end)
               {:cont, acc ++ [result]}
 
             {:ok, value} ->
               result = {current_oid, :octet_string, value}
-              IO.inspect(result, label: "GETBULK got value result")
+              Logger.debug(fn -> "GETBULK got value result: #{inspect(result)}" end)
               {:cont, acc ++ [result]}
 
             {:error, reason} ->
-              IO.inspect(reason, label: "GETBULK error, halting")
+              Logger.debug(fn -> "GETBULK error, halting: #{inspect(reason)}" end)
               {:halt, acc}
           end
         end)
       end)
 
-    IO.inspect(repeater_results, label: "GETBULK repeater_results")
+    Logger.debug(fn -> "GETBULK repeater_results: #{inspect(repeater_results)}" end)
 
     non_repeater_results ++ repeater_results
   end

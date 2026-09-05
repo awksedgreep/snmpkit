@@ -852,9 +852,15 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
       "OBJECT IDENTIFIER" -> :object_identifier
       "OID" -> :object_identifier
       "NULL" -> :null
-      _ -> String.to_atom(String.downcase(type))
+      other -> existing_type_atom(other)
     end
   end
 
   defp convert_snmp_type(_), do: :octet_string
+
+  defp existing_type_atom(type) do
+    String.to_existing_atom(String.downcase(type))
+  rescue
+    ArgumentError -> :octet_string
+  end
 end

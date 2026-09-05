@@ -22,6 +22,49 @@ defmodule SnmpKit.SnmpSim.ValueSimulator do
   def simulate_value(profile_data, behavior_config, device_state) do
     current_time = DateTime.utc_now()
 
+    # Values are reproducible: the process RNG is seeded from the device, the
+    # object and (for gauges) the current minute, then restored. Counters use a
+    # time-free seed so their random factors are constant and the value only
+    # grows with uptime; a fresh random draw per GET made counters step
+    # backwards between polls and made tests non-deterministic.
+    previous_seed = :rand.export_seed()
+
+    :rand.seed(
+      :exsss,
+      deterministic_seed(profile_data, behavior_config, device_state, current_time)
+    )
+
+    try do
+      do_simulate_value(profile_data, behavior_config, device_state, current_time)
+    after
+      restore_seed(previous_seed)
+    end
+  end
+
+  @counter_behaviors [:traffic_counter, :packet_counter, :error_counter, :uptime_counter]
+
+  defp deterministic_seed(profile_data, behavior_config, device_state, current_time) do
+    device_id = Map.get(device_state, :device_id) || Map.get(device_state, :port) || :default
+    behavior = if is_tuple(behavior_config), do: elem(behavior_config, 0), else: behavior_config
+    object = {Map.get(profile_data, :type), Map.get(profile_data, :value)}
+
+    bucket =
+      if behavior in @counter_behaviors,
+        do: :constant,
+        else:
+          {current_time.year, current_time.month, current_time.day, current_time.hour,
+           current_time.minute}
+
+    hash = :erlang.phash2({device_id, behavior, object, bucket}, 1_000_000_007)
+
+    {hash, :erlang.phash2({object, device_id}, 1_000_000_007),
+     :erlang.phash2({behavior, bucket}, 1_000_000_007)}
+  end
+
+  defp restore_seed(:undefined), do: :erlang.erase(:rand_seed)
+  defp restore_seed(seed), do: :rand.seed(seed)
+
+  defp do_simulate_value(profile_data, behavior_config, device_state, current_time) do
     case behavior_config do
       {:traffic_counter, config} ->
         simulate_traffic_counter(profile_data, config, device_state, current_time)
@@ -511,11 +554,8 @@ defmodule SnmpKit.SnmpSim.ValueSimulator do
         0
 
       value >= max_value ->
-        # Wrap around: simulate realistic counter wrapping behavior
-        wrapped_value = rem(value, max_value)
-        # Add small random variation to simulate real hardware behavior
-        jitter = trunc((:rand.uniform() - 0.5) * 10)
-        max(0, wrapped_value + jitter)
+        # Counter32 wraps modulo 2^32 exactly (RFC 2578 7.1.6); no jitter
+        rem(value, max_value)
 
       true ->
         value
@@ -531,11 +571,8 @@ defmodule SnmpKit.SnmpSim.ValueSimulator do
         0
 
       value >= max_value ->
-        # 64-bit counters rarely wrap in practice, but handle it properly
-        wrapped_value = rem(value, max_value)
-        # Minimal jitter for 64-bit counters
-        jitter = trunc((:rand.uniform() - 0.5) * 2)
-        max(0, wrapped_value + jitter)
+        # Counter64 wraps modulo 2^64 exactly (RFC 2578 7.1.10); no jitter
+        rem(value, max_value)
 
       true ->
         value
@@ -914,24 +951,10 @@ defmodule SnmpKit.SnmpSim.ValueSimulator do
     end
   end
 
-  defp apply_cable_modem_wrap_behavior(value, type, config) do
-    # Cable modems may have small inconsistencies after counter wrap
-    if Map.get(config, :post_wrap_jitter, true) do
-      jitter_range =
-        case type do
-          # Up to 50 count variation
-          "counter32" -> 50
-          # Minimal variation for 64-bit
-          "counter64" -> 5
-          _ -> 0
-        end
-
-      jitter = trunc((:rand.uniform() - 0.5) * jitter_range * 2)
-      max(0, value + jitter)
-    else
-      value
-    end
-  end
+  # Counters are defined to wrap exactly; adding "post-wrap jitter" would make
+  # a Counter32/Counter64 step backwards, which no compliant manager expects.
+  # The :post_wrap_jitter option is accepted for compatibility and ignored.
+  defp apply_cable_modem_wrap_behavior(value, _type, _config), do: value
 
   defp apply_cmts_wrap_behavior(value, _type, config) do
     # CMTS devices typically handle wrapping more precisely

@@ -1265,7 +1265,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
   defp normalize_parsed_oid(_), do: {:error, :invalid_oid}
 
   defp load_mib_file_and_extract_mappings(mib_path) do
-    case File.read(mib_path) do
+    case SnmpKit.SnmpSim.SafeFile.read(mib_path) do
       {:ok, mib_content} ->
         case SnmpKit.SnmpLib.MIB.Parser.parse(mib_content) do
           {:ok, parsed_mib_data} -> {:ok, extract_mib_mappings(parsed_mib_data)}
