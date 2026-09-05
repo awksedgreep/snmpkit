@@ -280,15 +280,19 @@ defmodule SnmpKit.SnmpMgr do
       # Note: This function makes actual network calls and is not suitable for doctests
       {:ok, results} = SnmpMgr.walk("device.local", "1.3.6.1.2.1.1")
       # [
-      #   {[1,3,6,1,2,1,1,1,0], :octet_string, "Linux hostname 5.4.0-42-generic"}, # sysDescr
-      #   {[1,3,6,1,2,1,1,2,0], :object_identifier, [1,3,6,1,4,1,8072,3,2,10]},   # sysObjectID
-      #   {[1,3,6,1,2,1,1,3,0], :timeticks, 12345678},                           # sysUpTime
-      #   {[1,3,6,1,2,1,1,4,0], :octet_string, "admin@company.com"},             # sysContact
-      #   {[1,3,6,1,2,1,1,5,0], :octet_string, "server01.company.com"},          # sysName
-      #   {[1,3,6,1,2,1,1,6,0], :octet_string, "Data Center Room 42"}            # sysLocation
+      #   %{name: "sysDescr.0", oid: "1.3.6.1.2.1.1.1.0", oid_list: [1, 3, 6, 1, 2, 1, 1, 1, 0],
+      #     type: :octet_string, value: "Linux hostname 5.4.0-42-generic", formatted: "Linux hostname 5.4.0-42-generic"},
+      #   %{name: "sysObjectID.0", oid: "1.3.6.1.2.1.1.2.0", oid_list: [1, 3, 6, 1, 2, 1, 1, 2, 0],
+      #     type: :object_identifier, value: [1, 3, 6, 1, 4, 1, 8072, 3, 2, 10], formatted: "1.3.6.1.4.1.8072.3.2.10"},
+      #   %{name: "sysUpTime.0", oid: "1.3.6.1.2.1.1.3.0", oid_list: [1, 3, 6, 1, 2, 1, 1, 3, 0],
+      #     type: :timeticks, value: 12345678, formatted: "1 day 10 hours 17 minutes 36 seconds"},
+      #   ...
       # ]
+
+  Pass `include_names: false, include_formatted: false` for bare
+  `%{oid, oid_list, type, value}` maps.
   """
-  @spec walk(target(), oid(), opts()) :: {:ok, [{list(), atom(), any()}]} | {:error, any()}
+  @spec walk(target(), oid(), opts()) :: {:ok, [map()]} | {:error, any()}
   def walk(target, root_oid, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
 
@@ -311,14 +315,14 @@ defmodule SnmpKit.SnmpMgr do
       # Note: This function makes actual network calls and is not suitable for doctests
       {:ok, entries} = SnmpMgr.walk_table("switch.local", "ifTable")
       # [
-      #   {[1,3,6,1,2,1,2,2,1,1,1], :integer, 1},                              # ifIndex.1
-      #   {[1,3,6,1,2,1,2,2,1,2,1], :octet_string, "GigabitEthernet0/1"},      # ifDescr.1
-      #   {[1,3,6,1,2,1,2,2,1,3,1], :integer, 6},                              # ifType.1 (ethernetCsmacd)
-      #   {[1,3,6,1,2,1,2,2,1,5,1], :gauge32, 1000000000},                     # ifSpeed.1 (1 Gbps)
-      #   # ... all interface table entries with type information
+      #   %{name: "ifIndex.1", oid: "1.3.6.1.2.1.2.2.1.1.1", type: :integer, value: 1, ...},
+      #   %{name: "ifDescr.1", oid: "1.3.6.1.2.1.2.2.1.2.1", type: :octet_string, value: "GigabitEthernet0/1", ...},
+      #   %{name: "ifType.1", oid: "1.3.6.1.2.1.2.2.1.3.1", type: :integer, value: 6, formatted: "ethernetCsmacd", ...},
+      #   %{name: "ifSpeed.1", oid: "1.3.6.1.2.1.2.2.1.5.1", type: :gauge32, value: 1000000000, formatted: "1.0 Gbps", ...},
+      #   # ... all interface table entries, one enriched map each
       # ]
   """
-  @spec walk_table(target(), oid(), opts()) :: {:ok, [{list(), atom(), any()}]} | {:error, any()}
+  @spec walk_table(target(), oid(), opts()) :: {:ok, [map()]} | {:error, any()}
   def walk_table(target, table_oid, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
 
