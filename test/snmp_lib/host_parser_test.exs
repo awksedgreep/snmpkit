@@ -254,12 +254,9 @@ defmodule SnmpKit.SnmpLib.HostParserTest do
 
     test "rejects map/keyword with invalid host" do
       assert {:error, :hostname_resolution_failed} = HostParser.parse(%{host: "invalid"})
-      # Keyword list handled as charlist
-      case HostParser.parse(host: "invalid") do
-        {:error, :invalid_host} -> :ok
-        # Expected in current implementation
-        {:error, :invalid_charlist} -> :ok
-      end
+      # Keyword input is parsed as host/port, so the host is resolved like a string
+      assert {:error, :hostname_resolution_failed} = HostParser.parse(host: "invalid")
+      assert {:ok, {{127, 0, 0, 1}, 1161}} = HostParser.parse(host: "127.0.0.1", port: 1161)
     end
   end
 

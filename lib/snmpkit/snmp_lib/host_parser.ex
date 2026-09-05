@@ -129,8 +129,9 @@ defmodule SnmpKit.SnmpLib.HostParser do
     parse_string(input, default_port)
   end
 
-  # Keyword list input: [host: ..., port: ...]
-  def parse(input, default_port) when is_list(input) and length(input) > 0 do
+  # Keyword list input: [host: ..., port: ...] (plain charlists fall through
+  # to the charlist clause below)
+  def parse([{key, _} | _] = input, default_port) when is_atom(key) do
     case Keyword.keyword?(input) do
       true ->
         host = Keyword.get(input, :host)
