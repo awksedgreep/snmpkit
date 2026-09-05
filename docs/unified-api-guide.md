@@ -129,21 +129,11 @@ task = SnmpKit.SNMP.get_bulk_async("192.168.1.1", "interfaces")
 ### Advanced Features
 
 ```elixir
-# Engine management for performance
-{:ok, _engine} = SnmpKit.SNMP.start_engine()
-{:ok, stats} = SnmpKit.SNMP.get_engine_stats()
-
-# Circuit breaker for reliability
-{:ok, result} = SnmpKit.SNMP.with_circuit_breaker("unreliable.host", fn ->
-  SnmpKit.get("unreliable.host", "sysDescr.0")
-end)
-
 # Performance analysis
 {:ok, analysis} = SnmpKit.SNMP.analyze_table(table_data)
 {:ok, benchmark} = SnmpKit.SNMP.benchmark_device("192.168.1.1", "system")
 
 # Metrics recording
-SnmpKit.SNMP.record_metric(:counter, :requests_total, 1, %{host: "router1"})
 ```
 
 ## 📚 MIB Operations (`SnmpKit.MIB`)
@@ -400,8 +390,6 @@ alias SnmpKit.{SNMP, MIB, Sim}
 
 | Task | Function | Example |
 |------|----------|---------|
-| Circuit breaker | `SnmpKit.SNMP.with_circuit_breaker/3` | `with_circuit_breaker("host", fn -> ... end)` |
-| Engine stats | `SnmpKit.SNMP.get_engine_stats/1` | `get_engine_stats()` |
 | MIB compilation | `SnmpKit.MIB.compile/2` | `compile("MY-MIB.mib")` |
 | Tree navigation | `SnmpKit.MIB.children/1` | `children([1,3,6,1,2,1,1])` |
 

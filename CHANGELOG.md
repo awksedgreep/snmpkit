@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - Unreleased (branch `2.x`)
+
+Breaking release. See `docs/v2-migration.md` for the rename/removal table.
+
+### Removed
+- Phase 5 streaming stack: `SnmpMgr.Engine` (old), `Router`, `CircuitBreaker`, `Metrics`, `SnmpMgr.Supervisor`, `SnmpMgr.Application`, and `SnmpMgr.start_engine/engine_request/engine_batch/get_engine_stats/with_circuit_breaker/record_metric` plus their `SnmpKit.SNMP` delegates.
+- Task-per-target `SnmpMgr.Multi` and the `strategy:` option on multi-target calls.
+- `SnmpLib.MIB` facade, `SnmpLib.Config`, `SnmpLib.Pool`, `SnmpLib.Cache`, `SnmpLib.Monitor`, `SnmpLib.Dashboard`.
+- `SnmpKit.TestSupport` (lib) and the deprecated `Keys.secure_wipe/1`.
+
+### Changed
+- `SnmpMgr.EngineV2` -> `SnmpMgr.Engine`; `SnmpMgr.MultiV2` -> `SnmpMgr.Multi`.
+- `SnmpKit.SnmpLib.MIB.*` -> `SnmpKit.MIB.*`.
+- `SnmpKit.SnmpSim.Device.ErrorInjector` -> `SnmpKit.SnmpSim.Device.ErrorConditions`.
+- `SnmpKit.Sim.start_device/2` and `start_device_population/2` are implemented on `SnmpKit.SnmpSim`.
+
 ## [1.4.0] - 2026-09-05
 
 Final 1.x release. Full notes: `docs/v1.4.0-release-notes.md`.

@@ -132,28 +132,6 @@ For convenience, common operations are also available directly:
 
 ### Advanced Features
 
-#### Engine Management and Performance
-
-```elixir
-# Start the SNMP engine for advanced features
-{:ok, _engine} = SnmpKit.SNMP.start_engine()
-
-# Get performance statistics
-{:ok, stats} = SnmpKit.SNMP.get_engine_stats()
-
-# Batch operations for efficiency
-requests = [
-  %{type: :get, target: "host1", oid: "sysDescr.0"},
-  %{type: :walk, target: "host2", oid: "interfaces"}
-]
-{:ok, results} = SnmpKit.SNMP.engine_batch(requests)
-
-# Circuit breaker for reliability
-{:ok, result} = SnmpKit.SNMP.with_circuit_breaker("unreliable.host", fn ->
-  SnmpKit.SNMP.get("unreliable.host", "sysDescr.0")
-end)
-```
-
 #### Streaming and Large-Scale Operations
 
 ```elixir

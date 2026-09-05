@@ -17,7 +17,7 @@ IO.puts("High performance modules ready!")
 
 ## The V2 Engine
 
-SnmpKit's V2 engine (`SnmpKit.SnmpMgr.MultiV2`) provides:
+SnmpKit's concurrent multi-target engine (`SnmpKit.SnmpMgr.Multi`) provides:
 
 - **Direct UDP sending** - No GenServer bottlenecks
 - **Centralized response correlation** - Efficient request tracking

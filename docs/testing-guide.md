@@ -47,7 +47,7 @@ defmodule MyApp.SNMPTest do
   
   setup_all do
     # Start any required services
-    {:ok, _} = SNMP.start_engine()
+    :ok = SnmpKit.SnmpMgr.ensure_started()
     :ok
   end
   
