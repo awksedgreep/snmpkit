@@ -111,6 +111,59 @@ defmodule SnmpKit.SnmpLib.MIB.CompilerTest do
     end
   end
 
+  describe "load_compiled/1" do
+    @tag :tmp_dir
+    test "loads a valid compiled MIB term", %{tmp_dir: dir} do
+      path = Path.join(dir, "ok.bin")
+      compiled = %{__type__: :compiled_mib, name: "TEST-MIB", objects: %{}}
+      File.write!(path, :erlang.term_to_binary(compiled))
+      assert {:ok, ^compiled} = Compiler.load_compiled(path)
+    end
+
+    @tag :tmp_dir
+    test "rejects terms that are not a compiled MIB", %{tmp_dir: dir} do
+      path = Path.join(dir, "wrong.bin")
+      File.write!(path, :erlang.term_to_binary(%{some: "map"}))
+      assert {:error, :invalid_compiled_format} = Compiler.load_compiled(path)
+    end
+
+    @tag :tmp_dir
+    test "rejects garbage and payloads that would create atoms or funs", %{tmp_dir: dir} do
+      garbage = Path.join(dir, "garbage.bin")
+      File.write!(garbage, "definitely not an external term")
+      assert {:error, :invalid_compiled_format} = Compiler.load_compiled(garbage)
+
+      # ATOM_EXT for an atom that does not exist in this VM: <<131, 100, len::16, name>>
+      atom_name = "snmpkit_never_created_#{System.unique_integer([:positive])}"
+      atom_ext = <<131, 100, byte_size(atom_name)::16>> <> atom_name
+      atoms = Path.join(dir, "atoms.bin")
+      File.write!(atoms, atom_ext)
+      assert {:error, :invalid_compiled_format} = Compiler.load_compiled(atoms)
+    end
+
+    @tag :tmp_dir
+    test "refuses files above the configured size limit", %{tmp_dir: dir} do
+      path = Path.join(dir, "big.bin")
+
+      File.write!(
+        path,
+        :erlang.term_to_binary(%{__type__: :compiled_mib, pad: :binary.copy(<<0>>, 4096)})
+      )
+
+      Application.put_env(:snmpkit, :max_compiled_mib_bytes, 1024)
+
+      try do
+        assert {:error, {:compiled_mib_too_large, _size, 1024}} = Compiler.load_compiled(path)
+      after
+        Application.delete_env(:snmpkit, :max_compiled_mib_bytes)
+      end
+    end
+
+    test "returns the file error for a missing path" do
+      assert {:error, :enoent} = Compiler.load_compiled("/nonexistent/compiled.bin")
+    end
+  end
+
   describe "integration with Parser" do
     test "Compiler and Parser produce compatible results" do
       mib_content =

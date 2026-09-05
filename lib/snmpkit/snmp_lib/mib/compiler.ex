@@ -196,19 +196,39 @@ defmodule SnmpKit.SnmpLib.MIB.Compiler do
   """
   @spec load_compiled(Path.t()) :: {:ok, compiled_mib()} | {:error, term()}
   def load_compiled(compiled_path) do
-    case File.read(compiled_path) do
-      {:ok, binary_data} ->
-        case :erlang.binary_to_term(binary_data) do
-          %{__type__: :compiled_mib} = compiled ->
-            {:ok, compiled}
-
-          _ ->
-            {:error, :invalid_compiled_format}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
+    with {:ok, %File.Stat{size: size}} <- File.stat(compiled_path),
+         :ok <- check_compiled_size(size),
+         {:ok, binary_data} <- File.read(compiled_path),
+         {:ok, term} <- safe_binary_to_term(binary_data) do
+      case term do
+        %{__type__: :compiled_mib} = compiled -> {:ok, compiled}
+        _ -> {:error, :invalid_compiled_format}
+      end
     end
+  end
+
+  # Upper bound on a compiled MIB file. Anything larger is refused before it is
+  # read into memory. Override with
+  # `config :snmpkit, :max_compiled_mib_bytes, bytes`.
+  @default_max_compiled_mib_bytes 64 * 1024 * 1024
+
+  defp check_compiled_size(size) do
+    max = Application.get_env(:snmpkit, :max_compiled_mib_bytes, @default_max_compiled_mib_bytes)
+
+    if size <= max do
+      :ok
+    else
+      {:error, {:compiled_mib_too_large, size, max}}
+    end
+  end
+
+  # Decode with :safe so a crafted file cannot mint atoms, funs, or external
+  # references while it is being materialised. Anything that is not a valid
+  # term in the safe subset is reported as :invalid_compiled_format.
+  defp safe_binary_to_term(binary_data) do
+    {:ok, :erlang.binary_to_term(binary_data, [:safe])}
+  rescue
+    ArgumentError -> {:error, :invalid_compiled_format}
   end
 
   @doc """

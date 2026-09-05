@@ -583,9 +583,11 @@ defmodule SnmpKit.SnmpLib.Cache do
   end
 
   defp decompress_value(compressed_value) do
+    # Values were produced by compress_value/1 in this VM, so every atom they
+    # contain already exists; :safe costs nothing and blocks crafted payloads.
     compressed_value
     |> :zlib.uncompress()
-    |> :erlang.binary_to_term()
+    |> :erlang.binary_to_term([:safe])
   end
 
   # Pattern matching and invalidation
