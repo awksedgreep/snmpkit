@@ -9,7 +9,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
     {:nowarn_function, walk_oid_recursive: 4}
   ]
   require Logger
-  alias SnmpKit.SnmpSim.Device.{BuiltinValues, Metrics}
+  alias SnmpKit.SnmpSim.Device.Metrics
   alias SnmpKit.SnmpSim.MIB.SharedProfiles
 
   # I'll move the OID handling functions here from device.ex
@@ -131,22 +131,6 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
     get_oid_value_from_map(oid, state.oid_map)
   end
 
-  def get_oid_value(device_type, oid) when is_atom(device_type) and is_binary(oid) do
-    oid_list = string_to_oid_list(oid)
-
-    case BuiltinValues.get_device_specific_value(device_type, oid_list) do
-      {:ok, value} -> {:ok, value}
-      {:error, _} -> {:error, :no_such_name}
-    end
-  end
-
-  def get_oid_value(device_type, oid) when is_atom(device_type) and is_list(oid) do
-    case BuiltinValues.get_device_specific_value(device_type, oid) do
-      {:ok, value} -> {:ok, value}
-      {:error, _} -> {:error, :no_such_name}
-    end
-  end
-
   def get_oid_value(oid, device_struct)
       when is_list(oid) and is_map(device_struct) and is_map_key(device_struct, :device_type) do
     oid_string = oid_to_string(oid)
@@ -181,14 +165,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
             {:error, reason} -> {:error, reason}
           end
         else
-          case BuiltinValues.get_device_specific_value(
-                 device_struct.device_type,
-                 oid,
-                 device_struct
-               ) do
-            {:ok, value} -> {:ok, value}
-            {:error, _} -> {:error, :no_such_name}
-          end
+          {:error, :no_such_name}
         end
     end
   end
@@ -222,16 +199,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
             {:error, reason} -> {:error, reason}
           end
         else
-          oid_list = string_to_oid_list(oid)
-
-          case BuiltinValues.get_device_specific_value(
-                 device_struct.device_type,
-                 oid_list,
-                 device_struct
-               ) do
-            {:ok, value} -> {:ok, value}
-            {:error, _} -> {:error, :no_such_name}
-          end
+          {:error, :no_such_name}
         end
     end
   end
@@ -400,26 +368,6 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
             # ifNumber - number of network interfaces (INTEGER)
             {:ok, {oid_string, :integer, 2}}
 
-          # Interface table OIDs (1.3.6.1.2.1.2.2.1.x.y where x is column, y is interface index)
-          String.starts_with?(oid_string, "1.3.6.1.2.1.2.2.1.") ->
-            BuiltinValues.handle_interface_oid(oid_string, state)
-
-          # High Capacity (HC) Interface Counters (1.3.6.1.2.1.31.1.1.1.x.y)
-          String.starts_with?(oid_string, "1.3.6.1.2.1.31.1.1.1.") ->
-            BuiltinValues.handle_hc_interface_oid(oid_string, state)
-
-          # DOCSIS Cable Modem SNR (1.3.6.1.2.1.10.127.1.1.4.1.5.x)
-          String.starts_with?(oid_string, "1.3.6.1.2.1.10.127.1.1.4.1.5.") ->
-            BuiltinValues.handle_docsis_snr_oid(oid_string, state)
-
-          # Host Resources MIB - Processor Load (1.3.6.1.2.1.25.3.3.1.2.x)
-          String.starts_with?(oid_string, "1.3.6.1.2.1.25.3.3.1.2.") ->
-            BuiltinValues.handle_host_processor_oid(oid_string, state)
-
-          # Host Resources MIB - Storage Used (1.3.6.1.2.1.25.2.3.1.6.x)
-          String.starts_with?(oid_string, "1.3.6.1.2.1.25.2.3.1.6.") ->
-            BuiltinValues.handle_host_storage_oid(oid_string, state)
-
           true ->
             {:error, :no_such_name}
         end
@@ -470,34 +418,8 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
         end
 
       true ->
-        # Fallback to original implementation for compatibility
-        with {:ok, oids} <- {:ok, BuiltinValues.get_known_oids(device_type)},
-             {:ok, next_oid} <-
-               find_next_oid(Enum.map(oids, &oid_to_string/1), oid_to_string(oid)) do
-          oid_list = string_to_oid_list(next_oid)
-
-          case get_oid_value(oid_list, state) do
-            {:ok, {type, value}} when is_binary(type) ->
-              result =
-                {:ok, {string_to_oid_list(next_oid), convert_snmp_type(type), value}}
-
-              result
-
-            {:ok, {type, value}} ->
-              result = {:ok, {string_to_oid_list(next_oid), type, value}}
-              result
-
-            {:ok, {_oid_string, type, value}} ->
-              result = {:ok, {string_to_oid_list(next_oid), type, value}}
-              result
-
-            _error_result ->
-              {:error, :end_of_mib_view}
-          end
-        else
-          _error ->
-            {:error, :end_of_mib_view}
-        end
+        # no profile and no manual objects: nothing to walk
+        {:error, :end_of_mib_view}
     end
   end
 
@@ -613,43 +535,6 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
   defp compare_oid_lists([h1 | _t1], [h2 | _t2]) when h1 < h2, do: :lt
   defp compare_oid_lists([h1 | _t1], [h2 | _t2]) when h1 > h2, do: :gt
   defp compare_oid_lists([h1 | t1], [h2 | t2]) when h1 == h2, do: compare_oid_lists(t1, t2)
-
-  @doc """
-  Retrieves multiple OIDs for SNMP GetBulk operations.
-
-  ## Parameters
-  - `oid` - Starting OID
-  - `count` - Maximum number of OIDs to retrieve
-  - `state` - Device state
-
-  ## Returns
-  - List of `{oid, type, value}` tuples
-  """
-  def get_bulk_oid_values(oid, count, state) do
-    try do
-      case SharedProfiles.get_bulk_oids(state.device_type, oid, count) do
-        {:ok, oid_values} -> {:ok, oid_values}
-        {:error, _reason} -> {:ok, BuiltinValues.get_fallback_bulk_oids(oid, count, state)}
-      end
-    catch
-      :exit, {:noproc, _} ->
-        Logger.debug("SharedProfiles unavailable, using fallback for OID #{oid}")
-
-        {:ok, BuiltinValues.get_fallback_bulk_oids(oid, count, state)}
-
-      :exit, reason ->
-        Logger.debug(
-          "SharedProfiles unavailable (#{inspect(reason)}), using fallback for OID #{oid}"
-        )
-
-        {:ok, BuiltinValues.get_fallback_bulk_oids(oid, count, state)}
-
-      :error, reason ->
-        Logger.debug("Error in SharedProfiles for OID #{oid}: #{inspect(reason)}")
-
-        {:ok, BuiltinValues.get_fallback_bulk_oids(oid, count, state)}
-    end
-  end
 
   @doc """
   Walks OID values for SNMP MIB walking.

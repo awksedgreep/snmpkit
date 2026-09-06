@@ -26,7 +26,7 @@ defmodule SnmpKit.SnmpSim.Config do
       {:ok, devices} = SnmpKit.SnmpSim.Config.start_from_config(config)
   """
 
-  alias SnmpKit.SnmpSim.{Device, Performance.ResourceManager}
+  alias SnmpKit.SnmpSim.Device
 
   require Logger
 
@@ -128,9 +128,6 @@ defmodule SnmpKit.SnmpSim.Config do
 
     # Apply global settings
     apply_global_settings(config[:global_settings] || %{})
-
-    # Start resource manager if configured
-    start_resource_manager(config[:global_settings])
 
     # Start monitoring if configured
     start_monitoring(config[:monitoring])
@@ -442,26 +439,6 @@ defmodule SnmpKit.SnmpSim.Config do
           :ok
       end
     end)
-  end
-
-  defp start_resource_manager(settings) do
-    if settings[:max_devices] != nil or settings[:max_memory_mb] != nil do
-      resource_config = [
-        max_devices: settings[:max_devices] || 1000,
-        max_memory_mb: settings[:max_memory_mb] || 512
-      ]
-
-      case ResourceManager.start_link(resource_config) do
-        {:ok, _pid} ->
-          Logger.info("Started ResourceManager with config: #{inspect(resource_config)}")
-
-        {:error, {:already_started, _pid}} ->
-          Logger.debug("ResourceManager already started")
-
-        {:error, reason} ->
-          Logger.warning("Failed to start ResourceManager: #{inspect(reason)}")
-      end
-    end
   end
 
   defp start_monitoring(nil), do: :ok

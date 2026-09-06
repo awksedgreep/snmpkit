@@ -224,7 +224,6 @@ defmodule Snmpkit.MixProject do
           SnmpKit.SnmpSim.ValueSimulator.Patterns,
           SnmpKit.SnmpSim.ValueSimulator.Variance,
           SnmpKit.SnmpSim.Device.Metrics,
-          SnmpKit.SnmpSim.Device.BuiltinValues,
           SnmpKit.SnmpSim.TimePatterns,
           SnmpKit.SnmpSim.MIB.SharedProfiles,
           SnmpKit.SnmpSim.MIB.BehaviorAnalyzer,
@@ -238,9 +237,6 @@ defmodule Snmpkit.MixProject do
           SnmpKit.SnmpSim.LazyDevicePool,
           SnmpKit.SnmpSim.DeviceDistribution,
           SnmpKit.SnmpSim.CorrelationEngine
-        ],
-        "Testing Support": [
-          SnmpKit.SnmpSim.TestHelpers
         ]
       ]
     ]

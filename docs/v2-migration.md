@@ -63,7 +63,7 @@ its public functions (as implementations or delegates):
 
 | Module | Extracted into |
 |--------|----------------|
-| `SnmpKit.SnmpSim.Device.OidHandler` | `Device.Metrics` (uptime, counter increments, gauges), `Device.BuiltinValues` (hard-coded per-device-type objects and their GETNEXT/GETBULK) |
+| `SnmpKit.SnmpSim.Device.OidHandler` | `Device.Metrics` (uptime). The hard-coded per-device-type objects that used to answer when a device had no profile are gone: a device serves its profile or its `objects:` map, and nothing else |
 | `SnmpKit.SnmpSim.ValueSimulator` | `ValueSimulator.Patterns`, `.Counters`, `.Variance` |
 | `SnmpKit.SnmpLib.Types` | `Types.Validation`, `Types.Format` (delegates kept on `Types`) |
 | `SnmpKit.SnmpLib.Manager` | `Manager.Request` (socket, send/receive/retries), `Manager.Response` (result extraction, error-status decoding) |

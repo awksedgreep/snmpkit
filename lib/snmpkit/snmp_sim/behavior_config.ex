@@ -693,15 +693,19 @@ defmodule SnmpKit.SnmpSim.BehaviorConfig do
     end
   end
 
+  # Classify by the object's name when the OID is a known one (numeric OIDs
+  # carry no words to match on), else by whatever the key itself contains.
   defp determine_counter_behavior(oid, _value_info) do
+    name = String.downcase(get_oid_name(oid) || oid)
+
     cond do
-      String.contains?(String.downcase(oid), "octets") ->
+      String.contains?(name, "octets") ->
         {:traffic_counter, %{rate_range: {1_000, 50_000_000}}}
 
-      String.contains?(String.downcase(oid), "packets") ->
+      String.contains?(name, "pkts") or String.contains?(name, "packets") ->
         {:packet_counter, %{rate_range: {10, 500_000}}}
 
-      String.contains?(String.downcase(oid), "error") ->
+      String.contains?(name, "error") or String.contains?(name, "discard") ->
         {:error_counter, %{rate_range: {0, 10}}}
 
       true ->
