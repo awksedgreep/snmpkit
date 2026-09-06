@@ -157,15 +157,6 @@ defmodule SnmpKit.SnmpLib.Security do
   end
 
   @doc """
-  Updates security user credentials and regenerates keys.
-  """
-  @spec update_user(security_user(), user_config()) :: {:ok, security_user()} | {:error, atom()}
-  def update_user(user, new_config) do
-    updated_config = Map.merge(user_to_config(user), Enum.into(new_config, %{}))
-    create_user(user.security_name, Map.to_list(updated_config))
-  end
-
-  @doc """
   Validates user credentials against stored authentication data.
   """
   @spec validate_user(security_user(), binary(), binary()) :: :ok | {:error, atom()}
@@ -312,18 +303,6 @@ defmodule SnmpKit.SnmpLib.Security do
     }
   end
 
-  @doc """
-  Validates security parameters from received messages.
-  """
-  @spec validate_security_params(security_user(), security_params()) :: :ok | {:error, atom()}
-  def validate_security_params(user, params) do
-    with :ok <- validate_engine_id(user.engine_id, params.authoritative_engine_id),
-         :ok <- validate_time_window(user, params),
-         :ok <- validate_user_name(user.security_name, params.user_name) do
-      :ok
-    end
-  end
-
   ## Configuration and Status
 
   @doc """
@@ -436,14 +415,6 @@ defmodule SnmpKit.SnmpLib.Security do
   defp priv_key_auth_protocol(auth_protocol) when auth_protocol in [nil, :none], do: :md5
   defp priv_key_auth_protocol(auth_protocol), do: auth_protocol
 
-  defp user_to_config(user) do
-    %{
-      auth_protocol: user.auth_protocol,
-      priv_protocol: user.priv_protocol,
-      engine_id: user.engine_id
-    }
-  end
-
   defp validate_auth_password(user, password) do
     case user.auth_protocol do
       :none ->
@@ -477,37 +448,6 @@ defmodule SnmpKit.SnmpLib.Security do
 
       _ ->
         {:error, :missing_priv_password}
-    end
-  end
-
-  defp validate_engine_id(local_engine, remote_engine) do
-    if local_engine == remote_engine do
-      :ok
-    else
-      {:error, :engine_id_mismatch}
-    end
-  end
-
-  defp validate_time_window(user, params) do
-    # RFC 3414 time window validation (150 seconds)
-    current_time = System.system_time(:second)
-    time_diff = abs(current_time - params.authoritative_engine_time)
-
-    boot_diff = abs(user.engine_boots - params.authoritative_engine_boots)
-
-    cond do
-      boot_diff > 1 -> {:error, :engine_boots_mismatch}
-      boot_diff == 1 and time_diff > 150 -> {:error, :time_window_exceeded}
-      boot_diff == 0 and time_diff > 150 -> {:error, :time_window_exceeded}
-      true -> :ok
-    end
-  end
-
-  defp validate_user_name(local_name, remote_name) do
-    if local_name == remote_name do
-      :ok
-    else
-      {:error, :user_name_mismatch}
     end
   end
 end

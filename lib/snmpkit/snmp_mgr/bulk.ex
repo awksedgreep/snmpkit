@@ -154,49 +154,6 @@ defmodule SnmpKit.SnmpMgr.Bulk do
     end
   end
 
-  @doc """
-  Performs multiple concurrent GETBULK operations.
-
-  ## Parameters
-  - `targets_and_oids` - List of {target, oid} tuples
-  - `opts` - Options for all requests
-
-  ## Examples
-
-      iex> requests = [
-      ...>   {"device1", "sysDescr.0"},
-      ...>   {"device2", "sysUpTime.0"},
-      ...>   {"device3", "ifNumber.0"}
-      ...> ]
-      iex> SnmpKit.SnmpMgr.Bulk.get_bulk_multi(requests)
-      [
-        {:ok, [{"1.3.6.1.2.1.1.1.0", "Device 1"}]},
-        {:ok, [{"1.3.6.1.2.1.1.3.0", 123456}]},
-        {:error, :timeout}
-      ]
-  """
-  def get_bulk_multi(targets_and_oids, opts \\ []) do
-    timeout = Keyword.get(opts, :timeout, 10_000)
-
-    tasks =
-      targets_and_oids
-      |> Enum.map(fn {target, oid} ->
-        Task.async(fn ->
-          get_bulk(target, oid, opts)
-        end)
-      end)
-
-    tasks
-    |> Task.yield_many(timeout)
-    |> Enum.map(fn {_task, result} ->
-      case result do
-        {:ok, value} -> value
-        nil -> {:error, :timeout}
-        {:exit, reason} -> {:error, {:task_failed, reason}}
-      end
-    end)
-  end
-
   # Private functions
 
   defp with_private_socket(target, fun) do

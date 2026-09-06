@@ -26,56 +26,6 @@ defmodule SnmpKit.SnmpMgr.Core do
   @type opts :: keyword()
 
   @doc """
-  Sends an SNMP GET request and returns the response.
-
-  ## Parameters
-  - `target` - SNMP target (host, "host:port", or target map)
-  - `oid` - Object identifier (string or list format)
-  - `opts` - Request options
-    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
-    - `:community` - SNMP community string (default: "public")
-    - `:version` - SNMP version (:v1, :v2c) (default: :v2c)
-    - `:port` - SNMP port (default: 161)
-  """
-  @spec send_get_request(target(), oid(), opts()) :: snmp_result()
-  def send_get_request(target, oid, opts \\ []) do
-    SnmpKit.Telemetry.span(
-      :request,
-      %{operation: :get, target: target, oid: oid, version: Keyword.get(opts, :version)},
-      fn -> do_send_get_request(target, oid, opts) end
-    )
-  end
-
-  defp do_send_get_request(target, oid, opts) do
-    {host, updated_opts} = split_target(target, opts)
-
-    # Convert oid to proper format
-    oid_parsed =
-      case parse_oid(oid) do
-        {:ok, oid_list} -> oid_list
-        {:error, _} -> oid
-      end
-
-    # Map options to snmp_lib format
-    snmp_lib_opts = map_options_to_snmp_lib(updated_opts)
-
-    # Use SnmpKit.SnmpLib.Manager for the actual operation
-    case SnmpKit.SnmpLib.Manager.get(host, oid_parsed, snmp_lib_opts) do
-      {:ok, {type, value}} ->
-        {:ok, {type, value}}
-
-      # Type information must be preserved - reject responses without type information
-      {:ok, value} ->
-        {:error,
-         {:type_information_lost,
-          "SNMP GET operation must preserve type information. Got value without type: #{inspect(value)}"}}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  @doc """
   Sends a GET request and returns the result in 3-tuple format.
 
   This function returns `{oid_string, type, value}` for consistency with
@@ -430,67 +380,6 @@ defmodule SnmpKit.SnmpMgr.Core do
       _ ->
         {:error, :getbulk_requires_v2c}
     end
-  end
-
-  @doc """
-  Sends an asynchronous SNMP GET request.
-
-  Returns immediately with a reference. The calling process will receive
-  a message with the result.
-
-  ## Parameters
-  - `target` - SNMP target (host, "host:port", or target map)
-  - `oid` - Object identifier (string or list format)
-  - `opts` - Request options
-    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
-    - `:community` - SNMP community string (default: "public")
-    - `:version` - SNMP version (:v1, :v2c) (default: :v2c)
-
-  ## Returns
-  Reference that will be included in the response message.
-  """
-  @spec send_get_request_async(target(), oid(), opts()) :: reference()
-  def send_get_request_async(target, oid, opts \\ []) do
-    caller = self()
-    ref = make_ref()
-
-    spawn(fn ->
-      result = send_get_request(target, oid, opts)
-      send(caller, {ref, result})
-    end)
-
-    ref
-  end
-
-  @doc """
-  Sends an asynchronous SNMP GETBULK request.
-
-  Returns immediately with a reference. The calling process will receive
-  a message with the result.
-
-  ## Parameters
-  - `target` - SNMP target (host, "host:port", or target map)
-  - `oid` - Starting OID for bulk retrieval
-  - `opts` - Request options
-    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
-    - `:max_repetitions` - Maximum number of OIDs to retrieve (default: 30)
-    - `:community` - SNMP community string (default: "public")
-    - `:version` - SNMP version (must be :v2c) (default: :v2c)
-
-  ## Returns
-  Reference that will be included in the response message.
-  """
-  @spec send_get_bulk_request_async(target(), oid(), opts()) :: reference()
-  def send_get_bulk_request_async(target, oid, opts \\ []) do
-    caller = self()
-    ref = make_ref()
-
-    spawn(fn ->
-      result = send_get_bulk_request(target, oid, opts)
-      send(caller, {ref, result})
-    end)
-
-    ref
   end
 
   # Private functions for snmp_lib integration

@@ -99,7 +99,6 @@ defmodule SnmpKit.SnmpLib.Security.USM do
   @time_window 150
 
   # Maximum engine boots value before rollover
-  @max_engine_boots 2_147_483_647
 
   ## Engine Discovery and Time Synchronization
 
@@ -479,64 +478,6 @@ defmodule SnmpKit.SnmpLib.Security.USM do
     end
   end
 
-  @doc """
-  Updates engine boot counter, handling rollover at maximum value.
-  """
-  @spec increment_engine_boots(engine_boots()) :: engine_boots()
-  def increment_engine_boots(current_boots) when current_boots >= @max_engine_boots do
-    Logger.warning("Engine boots rollover from #{current_boots} to 1")
-    1
-  end
-
-  def increment_engine_boots(current_boots) do
-    current_boots + 1
-  end
-
-  @doc """
-  Calculates current engine time since boot.
-  """
-  @spec get_engine_time(non_neg_integer()) :: engine_time()
-  def get_engine_time(boot_timestamp) do
-    current_time = System.system_time(:second)
-    max(0, current_time - boot_timestamp)
-  end
-
-  ## Error Handling and Reporting
-
-  @doc """
-  Generates security error reports for invalid messages.
-
-  USM error reports are sent back to the originator to indicate
-  security violations or configuration issues.
-  """
-  @spec generate_error_report(atom(), map()) :: {:ok, binary()} | {:error, atom()}
-  def generate_error_report(error_type, context) do
-    Logger.info("Generating USM error report: #{error_type}")
-
-    case error_type do
-      :unknown_engine_id ->
-        build_error_report(:usmStatsUnknownEngineIDs, context)
-
-      :wrong_digest ->
-        build_error_report(:usmStatsWrongDigests, context)
-
-      :unknown_user_name ->
-        build_error_report(:usmStatsUnknownUserNames, context)
-
-      :unsupported_security_level ->
-        build_error_report(:usmStatsUnsupportedSecLevels, context)
-
-      :not_in_time_window ->
-        build_error_report(:usmStatsNotInTimeWindows, context)
-
-      :decryption_error ->
-        build_error_report(:usmStatsDecryptionErrors, context)
-
-      _ ->
-        {:error, :unknown_error_type}
-    end
-  end
-
   ## Private Implementation
 
   # TODO: The following helper functions are for future SNMPv3 support
@@ -759,13 +700,5 @@ defmodule SnmpKit.SnmpLib.Security.USM do
       flags.auth and user.auth_protocol == :none -> {:error, :unsupported_security_level}
       true -> :ok
     end
-  end
-
-  defp build_error_report(error_oid, _context) do
-    # Build SNMPv3 error report message
-    # This would contain the specific error OID and current statistics
-    Logger.debug("Building error report for #{error_oid}")
-    # Placeholder implementation
-    {:ok, <<>>}
   end
 end

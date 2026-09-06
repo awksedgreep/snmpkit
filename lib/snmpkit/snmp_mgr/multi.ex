@@ -218,7 +218,9 @@ defmodule SnmpKit.SnmpMgr.Multi do
         # Normalize mixed operations to standard format
         normalized_operations = normalize_mixed_operations(operations, opts)
 
-        execute_mixed_without_tasks(normalized_operations, timeout, max_concurrent)
+        normalized_operations
+        |> execute_mixed_without_tasks(timeout, max_concurrent)
+        |> Enum.map(&enrich_any_result(&1, opts))
 
       {:error, reason} ->
         Enum.map(operations, fn _ -> {:error, reason} end)

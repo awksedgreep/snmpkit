@@ -371,62 +371,6 @@ defmodule SnmpKit.SnmpLib.Security.Priv do
     end)
   end
 
-  @doc """
-  Benchmarks the performance of a given privacy protocol.
-  """
-  @spec benchmark_protocol(
-          priv_protocol(),
-          priv_key(),
-          auth_key(),
-          plaintext(),
-          non_neg_integer()
-        ) ::
-          %{
-            encrypt_us: float(),
-            decrypt_us: float(),
-            ops_per_sec: float()
-          }
-  def benchmark_protocol(protocol, priv_key, auth_key, test_plaintext, iterations \\ 1000) do
-    # Warm-up run
-    case encrypt(protocol, priv_key, auth_key, test_plaintext) do
-      {:ok, {ciphertext, priv_params}} ->
-        decrypt(protocol, priv_key, auth_key, ciphertext, priv_params)
-
-      _ ->
-        :ok
-    end
-
-    # Encryption benchmark
-    encrypt_time =
-      :timer.tc(fn ->
-        for _ <- 1..iterations do
-          encrypt(protocol, priv_key, auth_key, test_plaintext)
-        end
-      end)
-      |> elem(0)
-
-    # Decryption benchmark
-    {:ok, {ciphertext, priv_params}} = encrypt(protocol, priv_key, auth_key, test_plaintext)
-
-    decrypt_time =
-      :timer.tc(fn ->
-        for _ <- 1..iterations do
-          decrypt(protocol, priv_key, auth_key, ciphertext, priv_params)
-        end
-      end)
-      |> elem(0)
-
-    total_time_us = encrypt_time + decrypt_time
-    ops = iterations * 2
-    ops_per_sec = ops / (total_time_us / 1_000_000)
-
-    %{
-      encrypt_us: encrypt_time / iterations,
-      decrypt_us: decrypt_time / iterations,
-      ops_per_sec: ops_per_sec
-    }
-  end
-
   # --- Private Helper Functions ---
 
   defp validate_key_size(spec, priv_key) when is_binary(priv_key) do

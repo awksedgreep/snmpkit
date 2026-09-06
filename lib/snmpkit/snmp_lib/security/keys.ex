@@ -373,41 +373,6 @@ defmodule SnmpKit.SnmpLib.Security.Keys do
     end
   end
 
-  ## Key Export and Import
-
-  @doc """
-  Exports derived key in a secure format for storage or transmission.
-
-  The exported format includes metadata for proper key reconstruction
-  while maintaining security properties.
-  """
-  @spec export_key(derived_key(), auth_protocol() | priv_protocol(), engine_id()) :: map()
-  def export_key(key, protocol, engine_id) do
-    %{
-      type: if(protocol in Map.keys(@auth_key_sizes), do: :auth, else: :priv),
-      protocol: protocol,
-      engine_id: Base.encode64(engine_id),
-      key_hash: Base.encode64(:crypto.hash(:sha256, key)),
-      derived_at: System.system_time(:second),
-      key_size: byte_size(key)
-    }
-  end
-
-  @doc """
-  Validates imported key against expected parameters.
-  """
-  @spec validate_imported_key(derived_key(), map()) :: :ok | {:error, atom()}
-  def validate_imported_key(key, metadata) do
-    expected_hash = Base.decode64!(metadata.key_hash)
-    actual_hash = :crypto.hash(:sha256, key)
-
-    if secure_compare(expected_hash, actual_hash) do
-      :ok
-    else
-      {:error, :key_integrity_check_failed}
-    end
-  end
-
   ## Private Implementation
 
   # Password-to-key and localization per RFC 3414 A.2 / RFC 7860 9.3:
