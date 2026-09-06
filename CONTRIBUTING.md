@@ -45,6 +45,9 @@ docs/, livebooks/, examples/
 - Prefer testing through a simulated device (`SnmpKit.Sim.start_device/2`)
   over mocks; it exercises real PDUs and real v1/v2c semantics.
 - Pick a free port per test so `async: true` is safe.
+- Encoding and decoding changes should extend the StreamData properties in
+  `test/snmp_lib/property_test.exs`; a round-trip property catches more than
+  hand-picked vectors.
 - Tag slow or environment-dependent tests: `:performance`, `:snmpv3`,
   `:mib_oracle`, `:manual`, `:real_device`. They are excluded by default and
   run with `mix test --include <tag>`.

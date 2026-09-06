@@ -59,7 +59,7 @@ defmodule Snmpkit.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.18", only: :test},
       {:benchee, "~> 1.1", only: [:dev, :test]},
-      {:stream_data, "~> 0.5", only: :test}
+      {:stream_data, "~> 1.1", only: :test}
     ]
   end
 
