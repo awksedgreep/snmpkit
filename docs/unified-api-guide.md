@@ -96,7 +96,16 @@ its enumerations and hints are used too.
 
 # ...or indexed rows: %{index => %{column => value}}
 {:ok, %{1 => %{1 => 1, 2 => "eth0"}}} = SnmpKit.SNMP.get_table(target, "ifTable")
+
+# ...with column names and decoded INDEX objects from the MIB
+{:ok, %{1 => %{"ifIndex" => 1, "ifDescr" => "eth0", "ifOperStatus" => 1}}} =
+  SnmpKit.SNMP.get_table(target, "ifTable", named: true)
 ```
+
+Named rows work for the built-in tables and for any loaded MIB; a table
+indexed by `IpAddress` and `Integer32` comes back with those values decoded
+(`%{"peerAddr" => {10, 0, 0, 1}, "peerPort" => 179, ...}`) under the raw
+index key.
 
 `max_repetitions:` is never capped by the library. Whole walks are bounded by
 `walk_timeout:` (default 20 minutes); see
@@ -326,6 +335,16 @@ compatibility with libsmi and net-snmp.
   )
 # devices: [%{type: :cable_modem, port: 30000, pid: pid, target: "127.0.0.1:30000"}, ...]
 ```
+
+To simulate a real device, record it once:
+
+```elixir
+{:ok, count} = SnmpKit.Sim.record("192.168.1.1", "test/fixtures/core-switch.walk", community: "public")
+{:ok, profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(:core_switch, {:walk_file, "test/fixtures/core-switch.walk"})
+```
+
+The file is net-snmp's numeric walk format, so `snmpwalk -On` output loads
+the same way. `root:` picks the subtree (default mib-2).
 
 Devices started with `start_device/2` are linked to the caller, which is what
 you want in an ExUnit `setup`. `SnmpKit.SnmpSim.start/1` starts supervised

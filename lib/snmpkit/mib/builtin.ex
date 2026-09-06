@@ -721,6 +721,24 @@ defmodule SnmpKit.MIB.Builtin do
     }
   }
 
+  # INDEX objects of the built-in conceptual rows
+  @table_indexes %{
+    "ifEntry" => ["ifIndex"],
+    "ifXEntry" => ["ifIndex"],
+    "ipAddrEntry" => ["ipAdEntAddr"],
+    "ipRouteEntry" => ["ipRouteDest"],
+    "ipNetToMediaEntry" => ["ipNetToMediaIfIndex", "ipNetToMediaNetAddress"],
+    "dot1dTpFdbEntry" => ["dot1dTpFdbAddress"],
+    "docsIfDownstreamChannelEntry" => ["ifIndex"],
+    "docsIfUpstreamChannelEntry" => ["ifIndex"],
+    "docsIfSignalQualityEntry" => ["ifIndex"],
+    "docsIfCmStatusEntry" => ["ifIndex"]
+  }
+
+  @doc "INDEX object names of a built-in conceptual row (ifEntry -> [\"ifIndex\"]), or `nil`."
+  @spec table_indexes(String.t()) :: [String.t()] | nil
+  def table_indexes(entry_name), do: Map.get(@table_indexes, entry_name)
+
   @doc "Enumeration labels (`%{value => label}`) for a built-in object, or `nil`."
   @spec enumerations(String.t()) :: %{integer() => String.t()} | nil
   def enumerations(base_name), do: Map.get(@enumerations, base_name)
@@ -740,7 +758,10 @@ defmodule SnmpKit.MIB.Builtin do
       syntax_base: syntax.base || (tc_info && tc_info.base),
       textual_convention: tc,
       display_hint: syntax.display_hint || (tc_info && tc_info.display_hint),
-      enumerations: enumerations(base_name) || (tc_info && tc_info.enumerations)
+      enumerations: enumerations(base_name) || (tc_info && tc_info.enumerations),
+      size: tc_info && Map.get(tc_info, :size),
+      indexes: table_indexes(base_name) && Enum.map(table_indexes(base_name), &{&1, false}),
+      augments: nil
     }
   end
 

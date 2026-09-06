@@ -20,16 +20,17 @@ defmodule SnmpKit.MIB.Syntax do
           base: atom() | nil,
           textual_convention: String.t() | nil,
           display_hint: String.t() | nil,
-          enumerations: %{integer() => String.t()} | nil
+          enumerations: %{integer() => String.t()} | nil,
+          size: {non_neg_integer(), non_neg_integer()} | nil
         }
 
-  @empty %{base: nil, textual_convention: nil, display_hint: nil, enumerations: nil}
+  @empty %{base: nil, textual_convention: nil, display_hint: nil, enumerations: nil, size: nil}
 
   # Textual conventions the grammar knows as reserved words (SNMPv2-TC)
   @builtin_tcs %{
     "DisplayString" => %{base: :octet_string, display_hint: "255a", enumerations: nil},
     "PhysAddress" => %{base: :octet_string, display_hint: "1x:", enumerations: nil},
-    "MacAddress" => %{base: :octet_string, display_hint: "1x:", enumerations: nil},
+    "MacAddress" => %{base: :octet_string, display_hint: "1x:", enumerations: nil, size: {6, 6}},
     "TruthValue" => %{
       base: :integer,
       display_hint: nil,
@@ -89,7 +90,9 @@ defmodule SnmpKit.MIB.Syntax do
   def describe({term, line}, tc_map) when is_integer(line), do: describe(term, tc_map)
 
   def describe({:type, name}, tc_map), do: named(name, tc_map)
-  def describe({:type_with_size, name, _size}, tc_map), do: named(name, tc_map)
+
+  def describe({:type_with_size, name, size}, tc_map),
+    do: %{named(name, tc_map) | size: size_range(size)}
 
   def describe({:type_with_enum, _base, bits}, _tc_map),
     do: %{@empty | base: :integer, enumerations: enumerations(bits)}
@@ -120,7 +123,8 @@ defmodule SnmpKit.MIB.Syntax do
         entry = %{
           base: desc.base,
           display_hint: Map.get(tc, :display_hint) || desc.display_hint,
-          enumerations: desc.enumerations
+          enumerations: desc.enumerations,
+          size: desc.size
         }
 
         Map.put(acc, Map.get(tc, :name), entry)
@@ -137,7 +141,8 @@ defmodule SnmpKit.MIB.Syntax do
           base: tc.base,
           textual_convention: name,
           display_hint: tc.display_hint,
-          enumerations: tc.enumerations
+          enumerations: tc.enumerations,
+          size: Map.get(tc, :size)
         }
 
       nil ->
@@ -177,6 +182,10 @@ defmodule SnmpKit.MIB.Syntax do
       other -> named(Atom.to_string(other), tc_map)
     end
   end
+
+  # grammar: {range, Min, Max}; SIZE (6) gives {range, 6, 6}
+  defp size_range({:range, min, max}) when is_integer(min) and is_integer(max), do: {min, max}
+  defp size_range(_), do: nil
 
   defp enumerations(bits) when is_list(bits) do
     Map.new(bits, fn {label, value} -> {value, to_string(label)} end)

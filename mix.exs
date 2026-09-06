@@ -176,7 +176,8 @@ defmodule Snmpkit.MixProject do
           SnmpKit.MIB.Parser,
           SnmpKit.MIB.Registry,
           SnmpKit.MIB.Syntax,
-          SnmpKit.MIB.DisplayHint
+          SnmpKit.MIB.DisplayHint,
+          SnmpKit.MIB.TableIndex
         ],
         "Network Management": [
           SnmpKit.SnmpMgr,
@@ -201,6 +202,7 @@ defmodule Snmpkit.MixProject do
           SnmpKit.SnmpSim,
           SnmpKit.SnmpSim.Device,
           SnmpKit.SnmpSim.ProfileLoader,
+          SnmpKit.SnmpSim.Recorder,
           SnmpKit.SnmpSim.WalkParser,
           SnmpKit.SnmpSim.Config,
           SnmpKit.SnmpSim.SafeFile,

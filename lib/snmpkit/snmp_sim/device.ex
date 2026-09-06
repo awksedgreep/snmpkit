@@ -748,15 +748,7 @@ defmodule SnmpKit.SnmpSim.Device do
     if Map.get(state, :manual_device, false) do
       Logger.info("Device #{state.device_id} initialized as manual device with basic profile")
 
-      counters = %{
-        "1.3.6.1.2.1.2.2.1.10.1" => 0,
-        "1.3.6.1.2.1.2.2.1.16.1" => 0
-      }
-
-      gauges = %{
-        "1.3.6.1.2.1.2.2.1.5.1" => 100_000_000,
-        "1.3.6.1.2.1.2.2.1.4.1" => 1500
-      }
+      {counters, gauges} = seed_dynamic_values(state)
 
       status_vars = initialize_status_vars(state)
 
@@ -790,20 +782,7 @@ defmodule SnmpKit.SnmpSim.Device do
           # Fallback to basic implementation for testing
           Logger.info("Device #{state.device_id} initialized with basic profile for testing")
 
-          # Initialize basic counters and gauges for testing
-          counters = %{
-            # ifInOctets
-            "1.3.6.1.2.1.2.2.1.10.1" => 0,
-            # ifOutOctets
-            "1.3.6.1.2.1.2.2.1.16.1" => 0
-          }
-
-          gauges = %{
-            # ifSpeed
-            "1.3.6.1.2.1.2.2.1.5.1" => 100_000_000,
-            # ifMtu
-            "1.3.6.1.2.1.2.2.1.4.1" => 1500
-          }
+          {counters, gauges} = seed_dynamic_values(state)
 
           status_vars = initialize_status_vars(state)
 
@@ -817,6 +796,21 @@ defmodule SnmpKit.SnmpSim.Device do
                has_walk_data: false
            }}
       end
+    end
+  end
+
+  # Dynamic counters and gauges for interface 1. A device built from a
+  # profile (walk file, recording, manual map) keeps the profile's values;
+  # only a bare device gets the historical test defaults, so a recorded
+  # 1 Gbps ifSpeed is not replaced by 100 Mbps.
+  defp seed_dynamic_values(state) do
+    oid_map = Map.get(state, :oid_map) || %{}
+
+    if map_size(oid_map) > 0 do
+      {%{}, %{}}
+    else
+      {%{"1.3.6.1.2.1.2.2.1.10.1" => 0, "1.3.6.1.2.1.2.2.1.16.1" => 0},
+       %{"1.3.6.1.2.1.2.2.1.5.1" => 100_000_000, "1.3.6.1.2.1.2.2.1.4.1" => 1500}}
     end
   end
 

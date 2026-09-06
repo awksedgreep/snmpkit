@@ -31,16 +31,32 @@ defmodule SnmpKit.MIB.Import do
   def object_meta(defn, tc_map) do
     desc = SnmpKit.MIB.Syntax.describe(Map.get(defn, :syntax), tc_map)
 
+    {indexes, augments} = row_indexes(Map.get(defn, :kind))
+
     %{
       syntax_base: desc.base,
       textual_convention: desc.textual_convention,
       display_hint: desc.display_hint,
       enumerations: desc.enumerations,
+      size: desc.size,
+      indexes: indexes,
+      augments: augments,
       access: Map.get(defn, :max_access),
       status: Map.get(defn, :status),
       description: Map.get(defn, :description)
     }
   end
+
+  # INDEX / AUGMENTS of a conceptual row: [{name, implied?}] and the augmented row
+  defp row_indexes({:table_entry, {:indexes, indexes}}) when is_list(indexes) do
+    {Enum.map(indexes, fn
+       {:implied, name} -> {to_string(name), true}
+       name -> {to_string(name), false}
+     end), nil}
+  end
+
+  defp row_indexes({:table_entry, {:augments, entry}}), do: {nil, to_string(entry)}
+  defp row_indexes(_), do: {nil, nil}
 
   # Derive base syntax from parsed syntax term
   def syntax_base_from(syntax) do

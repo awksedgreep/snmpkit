@@ -380,20 +380,23 @@ defmodule SnmpKit.SnmpMgr do
 
       # Note: This function makes actual network calls and is not suitable for doctests
       {:ok, table} = SnmpMgr.get_table("switch.local", "ifTable")
-      # %{
-      #   columns: ["ifIndex", "ifDescr", "ifType", "ifMtu", "ifSpeed", "ifOperStatus"],
-      #   rows: [
-      #     %{"ifIndex" => 1, "ifDescr" => "GigabitEthernet0/1", "ifType" => 6,
-      #       "ifMtu" => 1500, "ifSpeed" => 1000000000, "ifOperStatus" => 1},
-      #     %{"ifIndex" => 2, "ifDescr" => "GigabitEthernet0/2", "ifType" => 6,
-      #       "ifMtu" => 1500, "ifSpeed" => 1000000000, "ifOperStatus" => 2}
-      #   ]
-      # }
+      # %{1 => %{1 => 1, 2 => "GigabitEthernet0/1", 3 => 6, ...},
+      #   2 => %{1 => 2, 2 => "GigabitEthernet0/2", 3 => 6, ...}}
+
+      {:ok, table} = SnmpMgr.get_table("switch.local", "ifTable", named: true)
+      # %{1 => %{"ifIndex" => 1, "ifDescr" => "GigabitEthernet0/1", "ifType" => 6, ...}, ...}
+
+  With `named: true` column names come from the MIB registry and the row's
+  INDEX objects are decoded into it (composite indexes included); see
+  `SnmpKit.SnmpMgr.Table.to_named_table/2`.
   """
   def get_table(target, table_oid, opts \\ []) do
+    {named, opts} = Keyword.pop(opts, :named, false)
+
     case resolve_oid_if_needed(table_oid) do
       {:ok, resolved_oid} ->
         case walk_table(target, resolved_oid, opts) do
+          {:ok, entries} when named -> SnmpKit.SnmpMgr.Table.to_named_table(entries, resolved_oid)
           {:ok, entries} -> SnmpKit.SnmpMgr.Table.to_table(entries, resolved_oid)
           error -> error
         end

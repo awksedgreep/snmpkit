@@ -118,6 +118,44 @@ defmodule SnmpKit.SnmpMgr.Table do
   end
 
   @doc """
+  Like `to_table/2` but with column names from the MIB registry and the
+  INDEX objects decoded into the row.
+
+      {:ok, %{1 => %{"ifIndex" => 1, "ifDescr" => "eth0", "ifType" => 6}}}
+
+  Rows stay keyed by the raw index (an integer or the sub-identifier list);
+  decoded index objects are merged into the row under their names. Columns
+  the registry does not know keep their number as the key.
+  """
+  @spec to_named_table([term()], [non_neg_integer()] | String.t()) ::
+          {:ok, map()} | {:error, term()}
+  def to_named_table(oid_type_value_tuples, table_oid) do
+    with {:ok, numeric} <- to_table(oid_type_value_tuples, table_oid),
+         {:ok, layout} <- SnmpKit.SnmpMgr.MIB.table_layout(table_oid) do
+      named =
+        Map.new(numeric, fn {index, columns} ->
+          row =
+            Map.new(columns, fn {col, value} -> {Map.get(layout.columns, col, col), value} end)
+
+          {index, Map.merge(decode_row_index(index, layout.indexes), row)}
+        end)
+
+      {:ok, named}
+    end
+  end
+
+  defp decode_row_index(_index, []), do: %{}
+
+  defp decode_row_index(index, specs) do
+    sub_ids = List.wrap(index)
+
+    case SnmpKit.MIB.TableIndex.decode(sub_ids, specs) do
+      {:ok, decoded} -> decoded
+      {:error, _} -> %{}
+    end
+  end
+
+  @doc """
   Converts OID/type/value tuples to a list of row maps.
 
   Each row is a map where keys are column numbers and values are the data values.

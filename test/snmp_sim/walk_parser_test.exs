@@ -72,7 +72,7 @@ defmodule SnmpKit.SnmpSim.WalkParserTest do
       results = Enum.map(lines, &WalkParser.parse_walk_line/1)
 
       assert {_oid1, %{value: "Quoted String"}} = Enum.at(results, 0)
-      assert {_oid2, %{value: "001A2B3C4D5E"}} = Enum.at(results, 1)
+      assert {_oid2, %{value: <<0x00, 0x1A, 0x2B, 0x3C, 0x4D, 0x5E>>}} = Enum.at(results, 1)
       assert {_oid3, %{value: "admin@example.com"}} = Enum.at(results, 2)
     end
 

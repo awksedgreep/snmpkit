@@ -193,14 +193,14 @@ defmodule SnmpKit.SnmpSim.WalkParser do
     end
   end
 
-  # Parse hex strings like "00 1A 2B 3C 4D 5E"
+  # Parse hex strings like "00 1A 2B 3C 4D 5E" into the octets they denote
+  # (net-snmp prints OCTET STRINGs this way when they are not printable)
   defp parse_hex_string(value) do
-    if Regex.match?(~r/^[0-9A-Fa-f\s]+$/, value) do
-      value
-      |> String.replace(" ", "")
-      |> String.upcase()
-    else
-      value
+    compact = String.replace(value, ~r/\s/, "")
+
+    case Base.decode16(compact, case: :mixed) do
+      {:ok, bytes} -> bytes
+      :error -> value
     end
   end
 

@@ -222,6 +222,20 @@ defmodule SnmpKit.SnmpMgr.MIB do
   end
 
   @doc """
+  Column names and INDEX descriptions of a table, for `SnmpKit.SnmpMgr.Table`
+  named rows. `table` is the table's OID (list or string) or name.
+
+      {:ok, %{entry: "ifEntry", columns: %{1 => "ifIndex", 2 => "ifDescr", ...},
+              indexes: [%{name: "ifIndex", base: :integer, size: nil, implied: false}]}}
+  """
+  @spec table_layout([non_neg_integer()] | String.t()) :: {:ok, map()} | {:error, term()}
+  def table_layout(table) do
+    with {:ok, table_oid} <- normalize_to_oid_list(table) do
+      GenServer.call(__MODULE__, {:table_layout, table_oid})
+    end
+  end
+
+  @doc """
   Enhanced MIB object resolution with parsed MIB data integration.
 
   Returns enriched object information including OID, syntax, module, and more.
@@ -410,6 +424,45 @@ defmodule SnmpKit.SnmpMgr.MIB do
   end
 
   @impl true
+  def handle_call({:table_layout, table_oid}, _from, state) do
+    entry_oid = table_oid ++ [1]
+    entry_len = length(entry_oid)
+
+    columns =
+      state.name_to_oid
+      |> Enum.filter(fn {_name, oid} ->
+        length(oid) == entry_len + 1 and List.starts_with?(oid, entry_oid)
+      end)
+      |> Map.new(fn {name, oid} -> {List.last(oid), name} end)
+
+    entry_name =
+      case Resolver.reverse_lookup_oid(entry_oid, state.oid_to_name) do
+        {:ok, name} -> name
+        _ -> nil
+      end
+
+    indexes =
+      entry_name
+      |> row_index_names(state, 0)
+      |> Enum.map(fn {name, implied} ->
+        meta = metadata_for(name, state) || %{}
+
+        %{
+          name: name,
+          base: Map.get(meta, :syntax_base),
+          size: Map.get(meta, :size),
+          implied: implied
+        }
+      end)
+
+    if map_size(columns) == 0 and entry_name == nil do
+      {:reply, {:error, :unknown_table}, state}
+    else
+      {:reply, {:ok, %{entry: entry_name, columns: columns, indexes: indexes}}, state}
+    end
+  end
+
+  @impl true
   def handle_call({:get_metadata, base_name}, _from, state) do
     {:reply, metadata_for(base_name, state), state}
   end
@@ -477,13 +530,30 @@ defmodule SnmpKit.SnmpMgr.MIB do
     end)
   end
 
+  # INDEX names of a row, following AUGMENTS (bounded depth)
+  defp row_index_names(nil, _state, _depth), do: []
+  defp row_index_names(_entry, _state, depth) when depth > 5, do: []
+
+  defp row_index_names(entry_name, state, depth) do
+    case metadata_for(entry_name, state) do
+      %{indexes: [_ | _] = indexes} ->
+        indexes
+
+      %{augments: augmented} when is_binary(augmented) ->
+        row_index_names(augmented, state, depth + 1)
+
+      _ ->
+        []
+    end
+  end
+
   # Loaded MIB metadata wins; the built-in tables fill anything it lacks.
   defp metadata_for(base_name, state) do
     builtin = Builtin.meta(base_name)
 
     case Map.get(state.name_to_meta, base_name) do
       nil ->
-        if builtin.syntax_base || builtin.enumerations, do: builtin, else: nil
+        if builtin.syntax_base || builtin.enumerations || builtin.indexes, do: builtin, else: nil
 
       loaded ->
         Map.merge(builtin, loaded, fn _k, b, l -> l || b end)

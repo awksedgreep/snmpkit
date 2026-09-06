@@ -61,7 +61,12 @@ accepts the same map (OID keys as strings or lists) without a profile step.
 
 ### Recorded walks
 
-Record a real device once and replay it forever:
+Record a real device once and replay it forever, with SnmpKit itself or
+with net-snmp:
+
+```elixir
+{:ok, _count} = SnmpKit.Sim.record("192.168.1.1", "test/fixtures/my_switch.walk", community: "public")
+```
 
 ```sh
 snmpwalk -v2c -c public -On 192.168.1.1 .1 > test/fixtures/my_switch.walk

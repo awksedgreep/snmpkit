@@ -276,6 +276,10 @@ defmodule SnmpKit do
     defdelegate start_device_population(device_configs), to: SnmpKit.SnmpSim
     defdelegate start_device_population(device_configs, opts), to: SnmpKit.SnmpSim
 
+    # Record a real device into a walk file the simulator can load
+    defdelegate record(target, path), to: SnmpKit.SnmpSim.Recorder
+    defdelegate record(target, path, opts), to: SnmpKit.SnmpSim.Recorder
+
     # Notifications from a simulated device (uses its community and uptime)
     defdelegate send_trap(device, trap_oid, varbinds, opts), to: SnmpKit.SnmpSim.Device
 
