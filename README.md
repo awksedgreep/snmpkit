@@ -84,6 +84,7 @@ Enum.each(system, fn %{name: name, formatted: value} -> IO.puts("#{name} = #{val
 | `SnmpKit.SNMP` | Manager operations: get, get_next, set, walk, get_bulk, bulk walks, tables, streams, async, multi-target, pretty formatting |
 | `SnmpKit.MIB` | Name/OID resolution, tree navigation, MIB compilation and loading |
 | `SnmpKit.Trap` | Receive SNMPv1/v2c traps and informs; `SnmpKit.SNMP.send_trap/4` and `send_inform/4` send them |
+| `SnmpKit.Telemetry` | The `:telemetry` spans and events every request, walk, multi-target call, trap and simulated device emits |
 | `SnmpKit.Sim` | Start one simulated device, or a population of them |
 | `SnmpKit.SnmpSim` | Configuration-driven simulation of whole device groups |
 | `SnmpKit` | Shortcuts for the most common calls (`get`, `walk`, `resolve`, ...) |

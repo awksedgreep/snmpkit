@@ -30,6 +30,7 @@ Breaking release. See `docs/v2-migration.md` for the rename/removal table.
 
 ### Added
 - Notifications: `SnmpKit.Trap` receives SNMPv1 traps, SNMPv2c traps and informs (acknowledged automatically) and dispatches them to a function, MFA or pid; `SnmpKit.SNMP.send_trap/4` and `send_inform/4` send them; `SnmpKit.Sim.send_trap/4` sends from a simulated device. `SnmpKit.SnmpLib.PDU` gains Trap-PDU (v1), SNMPv2-Trap, InformRequest and Report encoding/decoding with `build_trap_v1/6`, `build_trap_v2/4` and `build_inform/4`. The built-in MIB knows `snmpTrapOID` and the standard `snmpTraps` names. (#28)
+- Telemetry: `[:snmpkit, :request | :walk | :multi, :start | :stop | :exception]` spans around every single-target PDU exchange, walk and multi-target call, plus `[:snmpkit, :engine, :timeout]`, `[:snmpkit, :trap, :received | :rejected]` and `[:snmpkit, :sim, :request]` events; documented in `SnmpKit.Telemetry`. `telemetry` is now a required dependency. (#29)
 - `SnmpKit.SnmpSim.ProfileLoader.load_profile/1` loads the bundled walks (`:cable_modem`, `:router`, `:switch`).
 - `SnmpKit.Sim.start_device/2` accepts a plain `%{objects: %{oid => value}}` map; `SnmpKit.Sim.start_device_population/2` accepts `%{type:, port:, community:}` maps as well as `{type, source, count: n}` tuples, starts the device pool itself and returns `[%{type, port, pid, target}]`.
 - `config :snmpkit, ...` is read for manager defaults (`community`, `timeout`, `retries`, `port`, `version`, `include_names`, `include_formatted`, `auto_start_services`); the old `:snmp_mgr` application key still works.
@@ -37,6 +38,7 @@ Breaking release. See `docs/v2-migration.md` for the rename/removal table.
 - `SnmpKit.SNMP.table_bulk_stream/3` supports `columns:`.
 
 ### Fixed
+- Simulated devices could not answer a GETBULK that reached a walk-file value outside its type's range (the bundled router walk had an 8 Gbps `ifSpeed` in a Gauge32), so single-target walks of that device timed out. Walk values are now clamped to the type's range on load with a warning, and the bundled walk is corrected.
 - `SnmpKit.SNMP.get_async/3` and `get_bulk_async/3` return a `Task` (they returned a bare reference and a message the docs never described).
 - `SnmpKit.SNMP.benchmark_device/3` raised on integer division; `analyze_table/2` rejected the list `walk_table/3` returns; `table_bulk_stream/3` raised on its first chunk and walked past the table.
 - `SnmpKit.SnmpMgr.PerformanceBenchmark` referenced the removed `TestSupport` simulator.

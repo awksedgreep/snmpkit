@@ -201,6 +201,15 @@ defmodule SnmpKit.SnmpMgr.Multi do
       ]
   """
   def execute_mixed(operations, opts \\ []) do
+    SnmpKit.Telemetry.span(
+      :multi,
+      %{operation: :mixed, request_count: length(operations)},
+      fn -> execute_mixed_unspanned(operations, opts) end,
+      &multi_span_extra/1
+    )
+  end
+
+  defp execute_mixed_unspanned(operations, opts) do
     case ensure_components_started() do
       :ok ->
         timeout = Keyword.get(opts, :timeout, @default_timeout * 3)
@@ -219,6 +228,30 @@ defmodule SnmpKit.SnmpMgr.Multi do
   # Private functions
 
   defp execute_multi_operation(targets_and_data, operation_type, opts) do
+    SnmpKit.Telemetry.span(
+      :multi,
+      %{operation: operation_type, request_count: length(targets_and_data)},
+      fn -> execute_multi_operation_unspanned(targets_and_data, operation_type, opts) end,
+      &multi_span_extra/1
+    )
+  end
+
+  # ok/error counts regardless of return_format
+  defp multi_span_extra(results) when is_map(results), do: multi_span_extra(Map.values(results))
+
+  defp multi_span_extra(results) when is_list(results) do
+    Enum.reduce(results, %{ok_count: 0, error_count: 0}, fn
+      {_target, _oid, result}, acc -> count_result(acc, result)
+      result, acc -> count_result(acc, result)
+    end)
+  end
+
+  defp multi_span_extra(_), do: %{}
+
+  defp count_result(acc, {:ok, _}), do: Map.update!(acc, :ok_count, &(&1 + 1))
+  defp count_result(acc, _), do: Map.update!(acc, :error_count, &(&1 + 1))
+
+  defp execute_multi_operation_unspanned(targets_and_data, operation_type, opts) do
     case {targets_and_data, ensure_components_started()} do
       {[], _} ->
         format_results(targets_and_data, [], opts)

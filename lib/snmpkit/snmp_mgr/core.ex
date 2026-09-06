@@ -39,6 +39,14 @@ defmodule SnmpKit.SnmpMgr.Core do
   """
   @spec send_get_request(target(), oid(), opts()) :: snmp_result()
   def send_get_request(target, oid, opts \\ []) do
+    SnmpKit.Telemetry.span(
+      :request,
+      %{operation: :get, target: target, oid: oid, version: Keyword.get(opts, :version)},
+      fn -> do_send_get_request(target, oid, opts) end
+    )
+  end
+
+  defp do_send_get_request(target, oid, opts) do
     {host, updated_opts} = split_target(target, opts)
 
     # Convert oid to proper format
@@ -76,6 +84,14 @@ defmodule SnmpKit.SnmpMgr.Core do
   @spec send_get_request_with_type(target(), oid(), opts()) ::
           {:ok, {String.t(), atom(), any()}} | {:error, any()}
   def send_get_request_with_type(target, oid, opts \\ []) do
+    SnmpKit.Telemetry.span(
+      :request,
+      %{operation: :get, target: target, oid: oid, version: Keyword.get(opts, :version)},
+      fn -> do_send_get_request_with_type(target, oid, opts) end
+    )
+  end
+
+  defp do_send_get_request_with_type(target, oid, opts) do
     {host, updated_opts} = split_target(target, opts)
 
     # Convert oid to proper format - always work with lists internally
@@ -115,6 +131,14 @@ defmodule SnmpKit.SnmpMgr.Core do
   """
   @spec send_get_next_request(target(), oid(), opts()) :: snmp_result()
   def send_get_next_request(target, oid, opts \\ []) do
+    SnmpKit.Telemetry.span(
+      :request,
+      %{operation: :get_next, target: target, oid: oid, version: Keyword.get(opts, :version)},
+      fn -> do_send_get_next_request(target, oid, opts) end
+    )
+  end
+
+  defp do_send_get_next_request(target, oid, opts) do
     {host, updated_opts} = split_target(target, opts)
 
     # Convert oid to proper format
@@ -174,6 +198,14 @@ defmodule SnmpKit.SnmpMgr.Core do
   """
   @spec send_set_request(target(), oid(), term(), opts()) :: snmp_result()
   def send_set_request(target, oid, value, opts \\ []) do
+    SnmpKit.Telemetry.span(
+      :request,
+      %{operation: :set, target: target, oid: oid, version: Keyword.get(opts, :version)},
+      fn -> do_send_set_request(target, oid, value, opts) end
+    )
+  end
+
+  defp do_send_set_request(target, oid, value, opts) do
     {host, updated_opts} = split_target(target, opts)
 
     # Convert oid to proper format
@@ -261,6 +293,14 @@ defmodule SnmpKit.SnmpMgr.Core do
   """
   @spec send_get_bulk_request(target(), oid(), opts()) :: snmp_result()
   def send_get_bulk_request(target, oid, opts \\ []) do
+    SnmpKit.Telemetry.span(
+      :request,
+      %{operation: :get_bulk, target: target, oid: oid, version: Keyword.get(opts, :version)},
+      fn -> do_send_get_bulk_request(target, oid, opts) end
+    )
+  end
+
+  defp do_send_get_bulk_request(target, oid, opts) do
     version = Keyword.get(opts, :version, :v2c)
 
     case version do

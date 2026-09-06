@@ -182,6 +182,21 @@ strings or lists; `sysUpTime.0` and `snmpTrapOID.0` are added for you:
 `send_inform/4` returns `{:error, :timeout}` when no acknowledgement arrives.
 SNMPv3 notifications are not supported yet.
 
+### Telemetry
+
+Every request, walk and multi-target call is wrapped in a `:telemetry` span,
+and the engine, trap receiver and simulated devices emit events. Attach to
+`[:snmpkit, :request, :stop]`, `[:snmpkit, :walk, :stop]`,
+`[:snmpkit, :multi, :stop]`, `[:snmpkit, :engine, :timeout]`,
+`[:snmpkit, :trap, :received]` and friends; `SnmpKit.Telemetry` lists the
+measurements and metadata of each.
+
+```elixir
+:telemetry.attach("snmp-latency", [:snmpkit, :request, :stop], fn _e, %{duration: d}, meta, _ ->
+  MyApp.Metrics.observe(:snmp_request_ms, System.convert_time_unit(d, :native, :millisecond), meta.operation)
+end, nil)
+```
+
 ### Analysis helpers
 
 ```elixir

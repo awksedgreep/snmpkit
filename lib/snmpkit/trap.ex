@@ -152,6 +152,7 @@ defmodule SnmpKit.Trap do
 
     case PDU.decode_message(data) do
       {:ok, %{version: 3}} ->
+        rejected(:unsupported, ip, port)
         {:noreply, bump(state, :unsupported)}
 
       {:ok, %{pdu: %{type: type}} = message}
@@ -159,10 +160,12 @@ defmodule SnmpKit.Trap do
         if accepted_community?(state, message.community) do
           {:noreply, deliver(state, message, ip, port)}
         else
+          rejected(:community, ip, port)
           {:noreply, bump(state, :rejected_community)}
         end
 
       {:ok, _other_pdu} ->
+        rejected(:unsupported, ip, port)
         {:noreply, bump(state, :unsupported)}
 
       {:error, reason} ->
@@ -170,6 +173,7 @@ defmodule SnmpKit.Trap do
           "Trap receiver: undecodable packet from #{:inet.ntoa(ip)}:#{port}: #{inspect(reason)}"
         )
 
+        rejected(:decode_error, ip, port)
         {:noreply, bump(state, :decode_errors)}
     end
   end
@@ -179,6 +183,13 @@ defmodule SnmpKit.Trap do
   end
 
   def handle_info(_other, state), do: {:noreply, state}
+
+  defp rejected(reason, ip, port) do
+    SnmpKit.Telemetry.execute([:trap, :rejected], %{count: 1}, %{
+      reason: reason,
+      source: {ip, port}
+    })
+  end
 
   @impl true
   def terminate(_reason, %{socket: socket}) when socket != nil, do: :gen_udp.close(socket)
@@ -197,6 +208,12 @@ defmodule SnmpKit.Trap do
         :inform_request -> state |> bump(:informs) |> maybe_acknowledge(message, ip, port)
         _ -> bump(state, :traps)
       end
+
+    SnmpKit.Telemetry.execute(
+      [:trap, :received],
+      %{count: 1},
+      Map.take(notification, [:kind, :version, :trap_oid, :trap_name, :community, :source])
+    )
 
     dispatch(state.handler, notification)
     state

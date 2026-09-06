@@ -287,10 +287,17 @@ defmodule SnmpKit.SnmpMgr do
   def walk(target, root_oid, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
 
-    case SnmpKit.SnmpMgr.Walk.walk(target, root_oid, merged_opts) do
-      {:ok, results} -> {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
-      {:error, reason} -> {:error, reason}
-    end
+    SnmpKit.Telemetry.span(
+      :walk,
+      %{operation: :walk, target: target, root_oid: root_oid},
+      fn ->
+        case SnmpKit.SnmpMgr.Walk.walk(target, root_oid, merged_opts) do
+          {:ok, results} -> {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
+          {:error, reason} -> {:error, reason}
+        end
+      end,
+      &walk_span_extra/1
+    )
   end
 
   @doc """
@@ -317,10 +324,17 @@ defmodule SnmpKit.SnmpMgr do
   def walk_table(target, table_oid, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
 
-    case SnmpKit.SnmpMgr.Walk.walk_table(target, table_oid, merged_opts) do
-      {:ok, results} -> {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
-      {:error, reason} -> {:error, reason}
-    end
+    SnmpKit.Telemetry.span(
+      :walk,
+      %{operation: :walk_table, target: target, root_oid: table_oid},
+      fn ->
+        case SnmpKit.SnmpMgr.Walk.walk_table(target, table_oid, merged_opts) do
+          {:ok, results} -> {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
+          {:error, reason} -> {:error, reason}
+        end
+      end,
+      &walk_span_extra/1
+    )
   end
 
   @doc """
@@ -473,10 +487,17 @@ defmodule SnmpKit.SnmpMgr do
   def adaptive_walk(target, root_oid, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
 
-    case SnmpKit.SnmpMgr.AdaptiveWalk.bulk_walk(target, root_oid, merged_opts) do
-      {:ok, results} -> {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
-      {:error, reason} -> {:error, reason}
-    end
+    SnmpKit.Telemetry.span(
+      :walk,
+      %{operation: :adaptive_walk, target: target, root_oid: root_oid},
+      fn ->
+        case SnmpKit.SnmpMgr.AdaptiveWalk.bulk_walk(target, root_oid, merged_opts) do
+          {:ok, results} -> {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
+          {:error, reason} -> {:error, reason}
+        end
+      end,
+      &walk_span_extra/1
+    )
   end
 
   @doc """
@@ -655,6 +676,18 @@ defmodule SnmpKit.SnmpMgr do
   def bulk_walk(target, oid, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
 
+    SnmpKit.Telemetry.span(
+      :walk,
+      %{operation: :bulk_walk, target: target, root_oid: oid},
+      fn -> do_bulk_walk(target, oid, merged_opts) end,
+      &walk_span_extra/1
+    )
+  end
+
+  defp walk_span_extra({:ok, results}) when is_list(results), do: %{count: length(results)}
+  defp walk_span_extra(_), do: %{}
+
+  defp do_bulk_walk(target, oid, merged_opts) do
     case SnmpKit.SnmpMgr.AdaptiveWalk.bulk_walk(target, oid, merged_opts) do
       {:ok, results} ->
         {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}

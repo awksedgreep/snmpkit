@@ -333,6 +333,11 @@ defmodule SnmpKit.SnmpMgr.Engine do
         # Send timeout to caller
         send(request_info.caller_pid, {:snmp_timeout, request_id})
 
+        SnmpKit.Telemetry.execute([:engine, :timeout], %{count: 1}, %{
+          request_id: request_id,
+          target: Map.get(request_info, :target)
+        })
+
         # Remove the request
         new_state = remove_request(state, request_id)
 

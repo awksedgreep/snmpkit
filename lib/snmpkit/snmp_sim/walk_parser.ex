@@ -1,4 +1,6 @@
 defmodule SnmpKit.SnmpSim.WalkParser do
+  require Logger
+
   @moduledoc """
   Parse both named MIB and numeric OID walk file formats.
   Handle different snmpwalk output variations automatically.
@@ -122,11 +124,11 @@ defmodule SnmpKit.SnmpSim.WalkParser do
 
     case String.upcase(data_type) do
       "INTEGER" -> parse_integer(cleaned_value)
-      "COUNTER32" -> parse_integer(cleaned_value)
-      "COUNTER64" -> parse_integer(cleaned_value)
-      "GAUGE32" -> parse_integer(cleaned_value)
-      "GAUGE" -> parse_integer(cleaned_value)
-      "TIMETICKS" -> parse_timeticks(cleaned_value)
+      "COUNTER32" -> cleaned_value |> parse_integer() |> clamp_unsigned(32, data_type)
+      "COUNTER64" -> cleaned_value |> parse_integer() |> clamp_unsigned(64, data_type)
+      "GAUGE32" -> cleaned_value |> parse_integer() |> clamp_unsigned(32, data_type)
+      "GAUGE" -> cleaned_value |> parse_integer() |> clamp_unsigned(32, data_type)
+      "TIMETICKS" -> cleaned_value |> parse_timeticks() |> clamp_unsigned(32, data_type)
       "STRING" -> cleaned_value
       "OCTET" -> cleaned_value
       "HEX-STRING" -> parse_hex_string(cleaned_value)
@@ -135,6 +137,28 @@ defmodule SnmpKit.SnmpSim.WalkParser do
       _ -> cleaned_value
     end
   end
+
+  # Hand-edited walk files sometimes carry values a real agent could never
+  # encode (an 8 Gbps ifSpeed in a Gauge32). Clamp to the type's range so
+  # the simulated device can still answer, and say so once per value.
+  defp clamp_unsigned(value, bits, data_type) when is_integer(value) do
+    max = Bitwise.bsl(1, bits) - 1
+
+    cond do
+      value > max ->
+        Logger.warning("Walk value #{value} exceeds #{data_type} range; clamped to #{max}")
+        max
+
+      value < 0 ->
+        Logger.warning("Walk value #{value} is negative for #{data_type}; clamped to 0")
+        0
+
+      true ->
+        value
+    end
+  end
+
+  defp clamp_unsigned(value, _bits, _data_type), do: value
 
   # Clean up raw value strings
   defp clean_value(value) do

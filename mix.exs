@@ -51,7 +51,7 @@ defmodule Snmpkit.MixProject do
       # Core dependencies
       {:jason, "~> 1.4"},
       {:yaml_elixir, "~> 2.9", optional: true},
-      {:telemetry, "~> 1.0", optional: true},
+      {:telemetry, "~> 1.2"},
 
       # Development and test dependencies
       {:ex_doc, "~> 0.29", only: :dev, runtime: false},
@@ -133,7 +133,8 @@ defmodule Snmpkit.MixProject do
           SnmpKit.SNMP,
           SnmpKit.MIB,
           SnmpKit.Sim,
-          SnmpKit.Trap
+          SnmpKit.Trap,
+          SnmpKit.Telemetry
         ],
         "SNMP Protocol": [
           SnmpKit.SnmpLib,

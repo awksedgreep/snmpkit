@@ -424,17 +424,28 @@ defmodule SnmpKit.SnmpSim.Device do
 
   @impl true
   def handle_call({:handle_snmp, pdu, _context}, _from, state) do
-    # Check for error injection conditions first
-    case ErrorInjector.check_error_conditions(pdu, state) do
-      :continue ->
-        # Process the PDU normally
-        response = process_snmp_pdu(pdu, state)
-        {:reply, {:ok, response}, state}
+    started = System.monotonic_time()
 
-      {:error, error_type} ->
-        # Handle error injection
-        {:reply, {:error, error_type}, state}
-    end
+    # Check for error injection conditions first
+    {reply, result} =
+      case ErrorInjector.check_error_conditions(pdu, state) do
+        :continue ->
+          # Process the PDU normally
+          {{:ok, process_snmp_pdu(pdu, state)}, :ok}
+
+        {:error, error_type} ->
+          # Handle error injection
+          {{:error, error_type}, :error_injected}
+      end
+
+    SnmpKit.Telemetry.execute([:sim, :request], %{duration: System.monotonic_time() - started}, %{
+      device_id: Map.get(state, :device_id),
+      port: Map.get(state, :port),
+      pdu_type: Map.get(pdu, :type),
+      result: result
+    })
+
+    {:reply, reply, state}
   end
 
   @impl true
