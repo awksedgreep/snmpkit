@@ -180,6 +180,18 @@ config :snmpkit,
 - [Examples](examples/README.md)
 - [Full API reference](https://hexdocs.pm/snmpkit)
 
+## Command line
+
+Four mix tasks give you a shell without writing a script:
+
+```sh
+mix snmpkit.get 192.168.1.1 sysDescr.0 sysUpTime.0 -c public
+mix snmpkit.walk 192.168.1.1 ifTable --table          # named columns
+mix snmpkit.mib.compile priv/mibs                     # prints parser warnings
+mix snmpkit.sim --device router --port 1161           # a simulated device until Ctrl-C
+mix snmpkit.sim devices.yaml                          # a whole population from a config
+```
+
 ## Development
 
 ```sh

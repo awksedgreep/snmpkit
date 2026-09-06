@@ -351,6 +351,14 @@ you want in an ExUnit `setup`. `SnmpKit.SnmpSim.start/1` starts supervised
 device groups from a configuration map or file; see its docs and the
 [testing guide](testing-guide.md).
 
+## Command line
+
+`mix snmpkit.get`, `mix snmpkit.walk` (with `--table` for named rows and
+`--no-bulk` for SNMPv1), `mix snmpkit.mib.compile` (prints the parser's
+warnings per file, non-zero exit on failure) and `mix snmpkit.sim` (a bundled
+device, a recorded walk file, or a whole configuration) wrap the same
+functions. Run any of them with `mix help snmpkit.walk` for options.
+
 ## Shortcuts on `SnmpKit`
 
 `SnmpKit.get/3`, `get_next/3`, `set/4`, `walk/3`, `walk_table/3`,
