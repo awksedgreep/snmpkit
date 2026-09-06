@@ -90,7 +90,7 @@ defmodule SnmpKit.SnmpSim.BehaviorConfigTest do
     test "known presets are lists of {behavior, config} pairs" do
       for preset <- @presets do
         behaviors = BehaviorConfig.get_preset(preset)
-        assert is_list(behaviors) and behaviors != [], "preset #{preset}"
+        assert match?([_ | _], behaviors), "preset #{preset}"
 
         assert Enum.all?(behaviors, &match?({type, %{}} when is_atom(type), &1)),
                "preset #{preset}"

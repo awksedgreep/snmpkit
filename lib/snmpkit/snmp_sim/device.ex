@@ -478,8 +478,6 @@ defmodule SnmpKit.SnmpSim.Device do
         {:ok, {oid_string, type, value}} -> {:ok, {oid_string, type, value}}
         # Return {oid, type, value} for other formats
         {:ok, {type, value}} -> {:ok, {oid, type, value}}
-        # Default to octet_string type
-        {:ok, value} -> {:ok, {oid, :octet_string, value}}
         error -> error
       end
 

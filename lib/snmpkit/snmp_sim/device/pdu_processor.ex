@@ -118,13 +118,6 @@ defmodule SnmpKit.SnmpSim.Device.PduProcessor do
         {:error, :no_such_name} ->
           Logger.debug("DEBUG: OID #{inspect(oid)} not found, returning no_such_object")
           {oid, :no_such_object, {:no_such_object, nil}}
-
-        other ->
-          Logger.debug(
-            "PDU Processor: Unexpected result for OID #{inspect(oid)}: #{inspect(other)}. Defaulting to null."
-          )
-
-          {oid, :null, :null}
       end
     end)
   end
