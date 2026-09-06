@@ -544,29 +544,13 @@ defmodule SnmpKit.MIB.Parser do
   # Handle other OID formats
   defp convert_oid(oid), do: oid
 
-  # Convert OID values, handling charlists
-  defp convert_oid_value(value) when is_list(value) do
-    try do
-      # Check if it's a charlist that can be converted to string
-      if Enum.all?(value, fn
-           i when is_integer(i) -> i >= 0 and i <= 1_114_111
-           _ -> false
-         end) do
-        # Convert charlist to string, then try to parse as integer if possible
-        str_value = List.to_string(value)
+  # Sub-identifier lists from the grammar are lists of integers; keep them.
+  # (Older tokenizers produced charlists here, hence the digit-string case.)
+  defp convert_oid_value(value) when is_list(value), do: value
 
-        case Integer.parse(str_value) do
-          # Pure integer string
-          {int_value, ""} -> int_value
-          # Keep as string if not pure integer
-          _ -> str_value
-        end
-      else
-        # Not a charlist, return as-is
-        value
-      end
-    rescue
-      # If conversion fails, return original
+  defp convert_oid_value(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {int_value, ""} -> int_value
       _ -> value
     end
   end
@@ -809,32 +793,8 @@ defmodule SnmpKit.MIB.Parser do
     acc |> Enum.reverse() |> List.to_string()
   end
 
-  # Convert sub_index from charlist to appropriate format
-  defp convert_sub_index(sub_index) when is_list(sub_index) do
-    try do
-      # Check if it's a charlist that can be converted to string
-      if Enum.all?(sub_index, fn
-           i when is_integer(i) -> i >= 0 and i <= 1_114_111
-           _ -> false
-         end) do
-        case List.to_string(sub_index) do
-          # Handle common cases
-          # Convert newline to nil (often used as placeholder)
-          "\n" -> nil
-          # Convert empty string to nil
-          "" -> nil
-          # Keep as string
-          str -> str
-        end
-      else
-        # If not a pure charlist, return as-is (might be list of integers)
-        sub_index
-      end
-    rescue
-      # If conversion fails, return original
-      _ -> sub_index
-    end
-  end
-
+  # The sub-identifiers of an OBJECT IDENTIFIER assignment: `{ parent 5 }`
+  # gives [5], `{ parent 5 3 }` gives [5, 3].
+  defp convert_sub_index(sub_index) when is_list(sub_index), do: sub_index
   defp convert_sub_index(sub_index), do: sub_index
 end

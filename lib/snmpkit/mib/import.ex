@@ -5,59 +5,41 @@ defmodule SnmpKit.MIB.Import do
   display hints, access, status and description.
   """
 
-  def extract_name_to_oid_from_symbols(symbols) when is_map(symbols) do
-    symbols
-    |> Enum.reduce(%{}, fn {name, defn}, acc ->
-      case defn do
-        %{} ->
-          case Map.get(defn, :oid) do
-            nil ->
-              acc
+  @doc """
+  Name-to-OID map for a compiled symbol table. Relative OIDs are resolved
+  against the other symbols and against `known` (names already registered,
+  such as the built-in `enterprises` or `ifEntry`).
+  """
+  def extract_name_to_oid_from_symbols(symbols, known \\ %{}) when is_map(symbols) do
+    SnmpKit.MIB.Resolver.resolve_definition_oids(symbols, known)
+  end
 
-            oid_any ->
-              case SnmpKit.MIB.Resolver.normalize_parsed_oid(oid_any) do
-                {:ok, oid_list} -> Map.put(acc, name, oid_list)
-                _ -> acc
-              end
-          end
+  def extract_meta_from_symbols(symbols) when is_map(symbols) do
+    definitions = symbols |> Map.values() |> Enum.filter(&is_map/1)
+    tc_map = SnmpKit.MIB.Syntax.textual_conventions(definitions)
 
-        _ ->
-          acc
+    Enum.reduce(definitions, %{}, fn defn, acc ->
+      case Map.get(defn, :__type__) do
+        :object_type -> Map.put(acc, Map.get(defn, :name), object_meta(defn, tc_map))
+        _ -> acc
       end
     end)
   end
 
-  def extract_meta_from_symbols(symbols) when is_map(symbols) do
-    symbols
-    |> Enum.reduce(%{}, fn {name, defn}, acc ->
-      case defn do
-        %{} ->
-          case Map.get(defn, :__type__) do
-            :object_type ->
-              syntax_any = Map.get(defn, :syntax)
-              access = Map.get(defn, :max_access)
-              status = Map.get(defn, :status)
-              description = Map.get(defn, :description)
+  # Metadata for one OBJECT-TYPE definition: syntax description plus access,
+  # status and description
+  def object_meta(defn, tc_map) do
+    desc = SnmpKit.MIB.Syntax.describe(Map.get(defn, :syntax), tc_map)
 
-              meta = %{
-                syntax_base: syntax_base_from(syntax_any),
-                textual_convention: textual_convention_from(syntax_any),
-                display_hint: nil,
-                access: access,
-                status: status,
-                description: description
-              }
-
-              Map.put(acc, name, meta)
-
-            _ ->
-              acc
-          end
-
-        _ ->
-          acc
-      end
-    end)
+    %{
+      syntax_base: desc.base,
+      textual_convention: desc.textual_convention,
+      display_hint: desc.display_hint,
+      enumerations: desc.enumerations,
+      access: Map.get(defn, :max_access),
+      status: Map.get(defn, :status),
+      description: Map.get(defn, :description)
+    }
   end
 
   # Derive base syntax from parsed syntax term
@@ -129,93 +111,19 @@ defmodule SnmpKit.MIB.Import do
     end
   end
 
-  def extract_mib_mappings(mib_data) do
-    # Extract name-to-OID mappings and basic metadata from parsed MIB data
+  def extract_mib_mappings(mib_data, known \\ SnmpKit.MIB.Builtin.name_to_oid()) do
+    # Extract name-to-OID mappings and metadata from parsed MIB data
     definitions = Map.get(mib_data, :definitions, [])
+    tc_map = SnmpKit.MIB.Syntax.textual_conventions(definitions)
 
-    # Build TC map first
-    tc_map =
+    name_to_meta =
       definitions
-      |> Enum.filter(&(Map.get(&1, :__type__) == :textual_convention))
-      |> Enum.reduce(%{}, fn tc, acc ->
-        tc_name = Map.get(tc, :name)
-        tc_syntax = Map.get(tc, :syntax)
-        display_hint = Map.get(tc, :display_hint)
+      |> Enum.filter(&(Map.get(&1, :__type__) == :object_type))
+      |> Map.new(&{Map.get(&1, :name), object_meta(&1, tc_map)})
 
-        acc
-        |> Map.put(tc_name, %{
-          syntax_base: syntax_base_from(tc_syntax),
-          display_hint: display_hint
-        })
-      end)
-
-    primitives = [
-      :integer,
-      :octet_string,
-      :object_identifier,
-      :timeticks,
-      :counter32,
-      :counter64,
-      :gauge32,
-      :ip_address
-    ]
-
-    {name_to_oid_map, name_to_meta} =
-      definitions
-      |> Enum.reduce({%{}, %{}}, fn defn, {oid_acc, meta_acc} ->
-        case Map.get(defn, :__type__) do
-          :object_type ->
-            name = Map.get(defn, :name)
-            oid_any = Map.get(defn, :oid)
-            syntax_any = Map.get(defn, :syntax)
-            access = Map.get(defn, :max_access)
-            status = Map.get(defn, :status)
-            description = Map.get(defn, :description)
-
-            oid_acc2 =
-              case {name, SnmpKit.MIB.Resolver.normalize_parsed_oid(oid_any)} do
-                {name, {:ok, oid_list}} when is_binary(name) -> Map.put(oid_acc, name, oid_list)
-                _ -> oid_acc
-              end
-
-            {syntax_base, textual_convention, display_hint} =
-              case syntax_any do
-                # Named type referencing a TC like :DisplayString
-                t when is_atom(t) ->
-                  if t in primitives do
-                    {syntax_base_from(syntax_any), textual_convention_from(syntax_any), nil}
-                  else
-                    tc_key = Atom.to_string(t)
-
-                    case Map.get(tc_map, tc_key) do
-                      %{syntax_base: base, display_hint: hint} ->
-                        {base, tc_key, hint}
-
-                      _ ->
-                        {syntax_base_from(syntax_any), textual_convention_from(syntax_any), nil}
-                    end
-                  end
-
-                _ ->
-                  {syntax_base_from(syntax_any), textual_convention_from(syntax_any), nil}
-              end
-
-            meta = %{
-              syntax_base: syntax_base,
-              textual_convention: textual_convention,
-              display_hint: display_hint,
-              access: access,
-              status: status,
-              description: description
-            }
-
-            {oid_acc2, Map.put(meta_acc, name, meta)}
-
-          _ ->
-            {oid_acc, meta_acc}
-        end
-      end)
-
-    %{name_to_oid: name_to_oid_map, name_to_meta: name_to_meta}
+    %{
+      name_to_oid: SnmpKit.MIB.Resolver.resolve_definition_oids(definitions, known),
+      name_to_meta: name_to_meta
+    }
   end
 end

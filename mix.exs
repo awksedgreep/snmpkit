@@ -173,7 +173,9 @@ defmodule Snmpkit.MixProject do
           SnmpKit.MIB.Import,
           SnmpKit.MIB.Compiler,
           SnmpKit.MIB.Parser,
-          SnmpKit.MIB.Registry
+          SnmpKit.MIB.Registry,
+          SnmpKit.MIB.Syntax,
+          SnmpKit.MIB.DisplayHint
         ],
         "Network Management": [
           SnmpKit.SnmpMgr,

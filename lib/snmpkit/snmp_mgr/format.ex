@@ -149,7 +149,7 @@ defmodule SnmpKit.SnmpMgr.Format do
       "14 days 15 hours 55 minutes 13 seconds"
 
       iex> SnmpKit.SnmpMgr.Format.format_by_type(:gauge32, 1000000000)
-      "1 GB"
+      "1000000000"
 
       iex> SnmpKit.SnmpMgr.Format.format_by_type(:octet_string, "Hello")
       "Hello"
@@ -157,21 +157,6 @@ defmodule SnmpKit.SnmpMgr.Format do
   """
   @spec format_by_type(atom(), any()) :: String.t()
   def format_by_type(:timeticks, value), do: uptime(value)
-
-  def format_by_type(:gauge32, value) when is_integer(value) and value > 1_000_000,
-    do: bytes(value)
-
-  def format_by_type(:counter32, value) when is_integer(value) and value > 1_000_000,
-    do: speed(value)
-
-  def format_by_type(:counter64, value) when is_integer(value) and value > 1_000_000,
-    do: speed(value)
-
-  def format_by_type(:integer, 1), do: interface_status(1)
-  def format_by_type(:integer, 2), do: interface_status(2)
-
-  def format_by_type(:integer, value) when is_integer(value) and value in 1..200,
-    do: interface_type(value)
 
   def format_by_type(:no_such_object, _), do: "noSuchObject"
   def format_by_type(:no_such_instance, _), do: "noSuchInstance"
@@ -248,14 +233,14 @@ defmodule SnmpKit.SnmpMgr.Format do
           end
       end
 
-    name =
+    {name, meta} =
       if include_names do
-        case SnmpKit.SnmpMgr.MIB.reverse_lookup(oid_string) do
-          {:ok, mib_name} -> mib_name
-          _ -> nil
+        case SnmpKit.SnmpMgr.MIB.reverse_lookup_with_meta(oid_string) do
+          {:ok, mib_name, meta} -> {mib_name, meta}
+          _ -> {nil, nil}
         end
       else
-        nil
+        {nil, nil}
       end
 
     enriched = %{
@@ -269,13 +254,47 @@ defmodule SnmpKit.SnmpMgr.Format do
 
     enriched =
       if include_formatted do
-        Map.put(enriched, :formatted, format_by_type(type, value))
+        Map.put(enriched, :formatted, format_value(type, value, meta))
       else
         enriched
       end
 
     enriched
   end
+
+  @doc """
+  Formats a value using the object's MIB metadata when available:
+  enumeration labels for INTEGER and BITS objects, DISPLAY-HINTs for
+  OCTET STRINGs and integers, then `format_by_type/2` for everything else.
+
+      iex> SnmpKit.SnmpMgr.Format.format_value(:integer, 1, %{enumerations: %{1 => "up", 2 => "down"}})
+      "up"
+
+      iex> SnmpKit.SnmpMgr.Format.format_value(:octet_string, <<0, 26, 43, 60, 77, 94>>, %{display_hint: "1x:"})
+      "00:1a:2b:3c:4d:5e"
+
+      iex> SnmpKit.SnmpMgr.Format.format_value(:integer, 3, nil)
+      "3"
+  """
+  @spec format_value(atom(), any(), map() | nil) :: String.t()
+  def format_value(type, value, meta) when is_map(meta) do
+    enumerations = Map.get(meta, :enumerations)
+    hint = Map.get(meta, :display_hint)
+
+    cond do
+      is_integer(value) and is_map(enumerations) and Map.has_key?(enumerations, value) ->
+        Map.fetch!(enumerations, value)
+
+      is_binary(hint) and hint != "255a" and type in [:octet_string, :integer, :gauge32] and
+          (is_binary(value) or is_integer(value)) ->
+        SnmpKit.MIB.DisplayHint.format(hint, value) || format_by_type(type, value)
+
+      true ->
+        format_by_type(type, value)
+    end
+  end
+
+  def format_value(type, value, _meta), do: format_by_type(type, value)
 
   @doc """
   Enrich a list of varbind tuples into standardized maps.

@@ -201,6 +201,89 @@ defmodule SnmpKit.MIB.Resolver do
     end)
   end
 
+  @doc """
+  Resolves the OIDs of a MIB's definitions (parsed maps or a compiled
+  `symbols` table) to full integer lists.
+
+  Definitions carry either an absolute OID, a `{parent_name, sub_ids}` tuple,
+  or (for OBJECT IDENTIFIER assignments) `parent` and `sub_index` fields.
+  Parents are looked up in `known` (names already in the registry) and among
+  the definitions themselves, iterating until nothing more resolves, so
+  definition order does not matter. Returns `%{name => oid_list}`.
+  """
+  @spec resolve_definition_oids([map()] | %{String.t() => map()}, %{String.t() => [integer()]}) ::
+          %{String.t() => [integer()]}
+  def resolve_definition_oids(definitions, known \\ %{})
+
+  def resolve_definition_oids(symbols, known) when is_map(symbols),
+    do: resolve_definition_oids(Map.values(symbols), known)
+
+  def resolve_definition_oids(definitions, known) when is_list(definitions) do
+    pending =
+      definitions
+      |> Enum.filter(&(is_map(&1) and is_binary(Map.get(&1, :name))))
+      |> Enum.map(&{&1.name, definition_oid(&1)})
+      |> Enum.reject(fn {_name, oid} -> oid == nil end)
+
+    resolve_pending(pending, known, %{})
+  end
+
+  defp resolve_pending([], _known, resolved), do: resolved
+
+  defp resolve_pending(pending, known, resolved) do
+    {done, still} =
+      Enum.reduce(pending, {resolved, []}, fn {name, oid}, {done, still} ->
+        case absolute_oid(oid, known, done) do
+          {:ok, list} -> {Map.put(done, name, list), still}
+          :pending -> {done, [{name, oid} | still]}
+        end
+      end)
+
+    if map_size(done) == map_size(resolved), do: done, else: resolve_pending(still, known, done)
+  end
+
+  # {:absolute, list} | {:relative, parent_name, sub_ids} | nil
+  defp definition_oid(%{parent: parent, sub_index: subs})
+       when is_binary(parent) or is_atom(parent),
+       do: {:relative, parent, sub_ids(subs)}
+
+  defp definition_oid(%{oid: {parent, subs}}) when is_binary(parent) or is_atom(parent),
+    do: {:relative, parent, sub_ids(subs)}
+
+  defp definition_oid(%{oid: oid}) when is_list(oid) do
+    case normalize_parsed_oid(oid) do
+      {:ok, list} -> {:absolute, list}
+      _ -> nil
+    end
+  end
+
+  defp definition_oid(_), do: nil
+
+  defp sub_ids(subs) when is_list(subs), do: subs
+  defp sub_ids(sub) when is_integer(sub), do: [sub]
+
+  defp sub_ids(sub) when is_binary(sub) do
+    case Integer.parse(sub) do
+      {i, ""} -> [i]
+      _ -> :binary.bin_to_list(sub)
+    end
+  end
+
+  defp sub_ids(_), do: []
+
+  defp absolute_oid({:absolute, list}, _known, _done), do: {:ok, list}
+  defp absolute_oid({:relative, :root, subs}, _known, _done), do: {:ok, subs}
+  defp absolute_oid({:relative, "root", subs}, _known, _done), do: {:ok, subs}
+
+  defp absolute_oid({:relative, parent, subs}, known, done) do
+    parent = to_string(parent)
+
+    case Map.get(done, parent) || Map.get(known, parent) do
+      nil -> :pending
+      parent_oid when is_list(parent_oid) -> {:ok, parent_oid ++ subs}
+    end
+  end
+
   # Convert parsed OID representation to a flat integer list when possible
   def normalize_parsed_oid(oid) when is_list(oid) do
     cond do

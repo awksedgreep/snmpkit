@@ -79,7 +79,8 @@ defmodule SnmpKit.SnmpMgr.MIB do
             %{
               base: base,
               textual_convention: Map.get(m, :textual_convention),
-              display_hint: Map.get(m, :display_hint)
+              display_hint: Map.get(m, :display_hint),
+              enumerations: Map.get(m, :enumerations)
             }
 
           _ ->
@@ -199,6 +200,24 @@ defmodule SnmpKit.SnmpMgr.MIB do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  @doc """
+  Reverse lookup that also returns the object's metadata (syntax base,
+  textual convention, DISPLAY-HINT, enumerations) in one call. Used by the
+  formatter; `{:ok, name, meta}` where `meta` may be `nil`.
+  """
+  @spec reverse_lookup_with_meta([non_neg_integer()] | String.t()) ::
+          {:ok, String.t(), map() | nil} | {:error, term()}
+  def reverse_lookup_with_meta(oid) when is_list(oid) do
+    GenServer.call(__MODULE__, {:reverse_lookup_with_meta, oid})
+  end
+
+  def reverse_lookup_with_meta(oid_string) when is_binary(oid_string) do
+    case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
+      {:ok, oid_list} -> reverse_lookup_with_meta(oid_list)
+      error -> error
     end
   end
 
@@ -343,6 +362,18 @@ defmodule SnmpKit.SnmpMgr.MIB do
   end
 
   @impl true
+  def handle_call({:reverse_lookup_with_meta, oid}, _from, state) do
+    case Resolver.reverse_lookup_oid(oid, state.oid_to_name) do
+      {:ok, name} ->
+        base = Resolver.strip_instance_suffix(name)
+        {:reply, {:ok, name, metadata_for(base, state)}, state}
+
+      error ->
+        {:reply, error, state}
+    end
+  end
+
+  @impl true
   def handle_call({:children, oid}, _from, state) do
     result = Resolver.find_children(oid, state.name_to_oid)
     {:reply, result, state}
@@ -380,8 +411,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
 
   @impl true
   def handle_call({:get_metadata, base_name}, _from, state) do
-    meta = state.name_to_meta |> Map.get(base_name)
-    {:reply, meta, state}
+    {:reply, metadata_for(base_name, state), state}
   end
 
   @impl true
@@ -447,6 +477,19 @@ defmodule SnmpKit.SnmpMgr.MIB do
     end)
   end
 
+  # Loaded MIB metadata wins; the built-in tables fill anything it lacks.
+  defp metadata_for(base_name, state) do
+    builtin = Builtin.meta(base_name)
+
+    case Map.get(state.name_to_meta, base_name) do
+      nil ->
+        if builtin.syntax_base || builtin.enumerations, do: builtin, else: nil
+
+      loaded ->
+        Map.merge(builtin, loaded, fn _k, b, l -> l || b end)
+    end
+  end
+
   defp load_with_snmp_lib(compiled_mib_path) do
     case SnmpKit.MIB.Compiler.load_compiled(compiled_mib_path) do
       {:ok, result} -> {:ok, result}
@@ -461,7 +504,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
         is_map(mib_data) and Map.has_key?(mib_data, :symbols) ->
           symbols = Map.get(mib_data, :symbols, %{})
 
-          {Import.extract_name_to_oid_from_symbols(symbols),
+          {Import.extract_name_to_oid_from_symbols(symbols, state.name_to_oid),
            Import.extract_meta_from_symbols(symbols)}
 
         is_map(mib_data) and Map.has_key?(mib_data, :name_to_oid) ->
