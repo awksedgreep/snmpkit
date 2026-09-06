@@ -62,7 +62,7 @@ defmodule SnmpKit.SnmpLib.Manager do
   @type version :: :v1 | :v2c
   @type operation_result :: {:ok, snmp_value()} | {:error, atom() | {atom(), any()}}
   @type bulk_result :: {:ok, [varbind()]} | {:error, atom() | {atom(), any()}}
-  @type varbind :: {oid(), snmp_value()}
+  @type varbind :: {oid(), atom(), snmp_value()}
 
   @type manager_opts :: [
           community: community(),

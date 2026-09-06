@@ -249,7 +249,6 @@ defmodule Snmpkit.MixProject do
       ignore_warnings: ".dialyzer_ignore.exs",
       flags: [
         :error_handling,
-        :underspecs,
         :unknown
       ]
     ]

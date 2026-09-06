@@ -28,6 +28,8 @@ defmodule SnmpKit.MIB.Error do
           | :unexpected_eof
           | :invalid_number
           | :invalid_identifier
+          | :exception
+          | :thrown
 
   defstruct [:type, :message, :line, :column, :context, suggestions: []]
 

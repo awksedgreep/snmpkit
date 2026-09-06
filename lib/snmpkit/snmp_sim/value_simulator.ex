@@ -487,11 +487,6 @@ defmodule SnmpKit.SnmpSim.ValueSimulator do
     end
   end
 
-  defp format_static_value(profile_data) do
-    # Handle non-map data (fallback for direct values)
-    profile_data
-  end
-
   defp format_counter_value(value, type) do
     case String.downcase(type) do
       "counter32" -> {:counter32, value}

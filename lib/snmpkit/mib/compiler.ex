@@ -50,14 +50,16 @@ defmodule SnmpKit.MIB.Compiler do
           | {:warning, compiled_mib(), [Error.t()]}
 
   @type compiled_mib :: %{
+          optional(:__type__) => :compiled_mib,
           name: binary(),
           version: binary(),
           format: atom(),
-          path: Path.t(),
+          path: Path.t() | nil,
           metadata: map(),
           oid_tree: SnmpKit.MIB.AST.oid_tree(),
           symbols: map(),
           dependencies: [binary()],
+          imports: list(),
           warnings: [{non_neg_integer(), binary()}]
         }
 

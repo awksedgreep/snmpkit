@@ -39,7 +39,7 @@ defmodule SnmpKit.SnmpSim.Recorder do
   end
 
   @doc "Renders enriched varbinds (as returned by walks) as walk-file text."
-  @spec to_lines([map()]) :: {:ok, iodata()} | {:error, term()}
+  @spec to_lines([map()]) :: {:ok, iodata()}
   def to_lines(varbinds) when is_list(varbinds) do
     lines =
       varbinds

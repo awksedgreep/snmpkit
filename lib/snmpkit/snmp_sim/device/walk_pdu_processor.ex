@@ -276,21 +276,12 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
     end
   end
 
-  # Map error atoms to SNMPv2c error-status codes
-  defp error_code(:noAccess), do: 6
+  # SNMPv2c error-status codes for the errors the SET handlers above produce
   defp error_code(:wrongType), do: 7
   defp error_code(:wrongLength), do: 8
-  defp error_code(:wrongEncoding), do: 9
   defp error_code(:wrongValue), do: 10
-  defp error_code(:noCreation), do: 11
   defp error_code(:inconsistentValue), do: 12
-  defp error_code(:resourceUnavailable), do: 13
-  defp error_code(:commitFailed), do: 14
-  defp error_code(:undoFailed), do: 15
-  defp error_code(:authorizationError), do: 16
   defp error_code(:notWritable), do: 17
-  defp error_code(:inconsistentName), do: 18
-  defp error_code(_), do: 5
 
   defp ip_string_valid?(str) when is_binary(str) do
     case String.split(str, ".") do

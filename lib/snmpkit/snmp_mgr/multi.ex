@@ -9,6 +9,14 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
   require Logger
 
+  @type target :: term()
+  @type request :: {target(), term()} | {target(), term(), keyword()}
+  @type result :: {:ok, term()} | {:error, term()}
+  @type results :: [result()] | [{target(), term(), result()}] | %{{target(), term()} => result()}
+  @type operation ::
+          {:get | :get_bulk | :walk | :walk_table, target(), term()}
+          | {:get | :get_bulk | :walk | :walk_table, target(), term(), keyword()}
+
   @default_timeout 10_000
   @default_max_concurrent 10
 
@@ -45,6 +53,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
         {:ok, 123456}
       ]
   """
+  @spec get_multi([request()], keyword()) :: results()
   def get_multi(targets_and_oids, opts \\ []) do
     execute_multi_operation(targets_and_oids, :get, opts)
   end
@@ -77,6 +86,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
         {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "GigE0/1"}, ...]}
       ]
   """
+  @spec get_bulk_multi([request()], keyword()) :: results()
   def get_bulk_multi(targets_and_oids, opts \\ []) do
     execute_multi_operation(targets_and_oids, :get_bulk, opts)
   end
@@ -121,6 +131,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
         {:ok, [{"1.3.6.1.2.1.2.1.0", 24}, ...]}
       ]
   """
+  @spec walk_multi([request()], keyword()) :: results()
   def walk_multi(targets_and_oids, opts \\ []) do
     # Walks take longer by default
     opts = Keyword.put_new(opts, :timeout, @default_timeout * 3)
@@ -158,6 +169,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
         {:ok, [{"1.3.6.1.2.1.2.2.1.2.1", "GigE0/1"}, ...]}
       ]
   """
+  @spec walk_table_multi([request()], keyword()) :: results()
   def walk_table_multi(targets_and_tables, opts \\ []) do
     # Table walks take longer by default
     opts = Keyword.put_new(opts, :timeout, @default_timeout * 5)
@@ -200,6 +212,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
         {:ok, [{"1.3.6.1.2.1.1.1.0", "Router 1"}, ...]}
       ]
   """
+  @spec execute_mixed([operation()], keyword()) :: [result()]
   def execute_mixed(operations, opts \\ []) do
     SnmpKit.Telemetry.span(
       :multi,

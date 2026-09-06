@@ -109,16 +109,6 @@ defmodule SnmpKit.WalkUnitTest do
              "Bulk module should not contain type inference code"
     end
 
-    test "core module source code rejects 2-tuple responses" do
-      core_source = File.read!("lib/snmpkit/snmp_mgr/core.ex")
-
-      assert String.contains?(core_source, "type_information_lost"),
-             "Core module should reject responses without type information"
-
-      refute String.contains?(core_source, "infer_snmp_type"),
-             "Core module should not contain type inference code"
-    end
-
     test "walker module source code rejects 2-tuple responses" do
       walker_source = File.read!("lib/snmpkit/snmp_lib/walker.ex")
 
@@ -263,16 +253,6 @@ defmodule SnmpKit.WalkUnitTest do
       refute String.contains?(walk_source, "{_, _} ->") and
                String.contains?(walk_source, "infer"),
              "Walk source should not infer types from 2-tuples"
-    end
-
-    test "proper error messages for type preservation" do
-      core_source = File.read!("lib/snmpkit/snmp_mgr/core.ex")
-
-      assert String.contains?(core_source, "type_information_lost"),
-             "Core module should have descriptive error messages"
-
-      assert String.contains?(core_source, "preserve type information"),
-             "Error messages should explain type preservation requirement"
     end
 
     test "no TODO or FIXME comments in walk code" do

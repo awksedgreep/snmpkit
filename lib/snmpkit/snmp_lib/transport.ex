@@ -111,7 +111,7 @@ defmodule SnmpKit.SnmpLib.Transport do
       {:ok, socket} = SnmpKit.SnmpLib.Transport.create_client_socket()
       {:ok, socket} = SnmpKit.SnmpLib.Transport.create_client_socket([{:recbuf, 65536}])
   """
-  @spec create_client_socket(socket_options()) :: {:ok, socket()} | {:error, atom()}
+  @spec create_client_socket(keyword()) :: {:ok, socket()} | {:error, atom()}
   def create_client_socket(options \\ []) do
     # Use ephemeral port (0) for client connections unless a source port is requested.
     family = Keyword.get(options, :family, :inet)

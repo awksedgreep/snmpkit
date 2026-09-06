@@ -22,6 +22,7 @@ Breaking release. See `docs/v2-migration.md` for the rename/removal table.
 - `SnmpMgr.EngineV2` -> `SnmpMgr.Engine`; `SnmpMgr.MultiV2` -> `SnmpMgr.Multi`.
 - `SnmpKit.SNMP.set/4` (and `SnmpMgr.set/4`) return `:ok` on success, as `set_many/3` and the documentation already said, instead of `{:ok, :success}`.
 - `SnmpKit.SnmpSim.Core.Server` accepts `community:` as a list of strings or a predicate, and passes the decoded `typed_varbinds` to the handler.
+- `mix dialyzer` passes with an empty baseline. The 102-entry `.dialyzer_ignore.exs` is gone: wrong specs were corrected (`SnmpLib.Manager.varbind/0` was a 2-tuple, `Transport.create_client_socket/1` did not admit `family:`, `MIB.Compiler.compiled_mib/0` did not describe the map it returns, `MIB.Error.error_type/0` lacked the `:exception`/`:thrown` kinds the batch compiler produces) and clauses dialyzer proved unreachable were removed. `SnmpKit.SnmpMgr.Engine` and `SnmpKit.SnmpMgr.Multi` carry `@spec`s. The `:underspecs` flag is off; the remaining flags are `:error_handling` and `:unknown`. (#41)
 - `SnmpKit.SnmpMgr.Multi.execute_mixed/2` returns the same enriched varbind maps as the other multi-target calls instead of raw `{oid, type, value}` tuples.
 - The 144 SNMPv3 cryptography tests (key derivation, authentication, privacy, USM, the v3 encoder) run in the default `mix test` and in CI; they were tagged opt-in on the assumption that they were slow, and they take half a second.
 - `SnmpKit.SnmpLib.MIB.*` -> `SnmpKit.MIB.*`.

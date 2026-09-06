@@ -656,18 +656,9 @@ defmodule SnmpKit.SnmpLib.ErrorHandler do
     # Simplified calculation - in production would use historical percentiles
     base_calculation = trunc(stats.avg_response_time * safety_factor)
 
-    # Adjust based on circuit state
-    adjustment =
-      case stats.circuit_state do
-        # Longer timeout for unhealthy devices
-        :open -> 2.0
-        # Moderate timeout during testing
-        :half_open -> 1.5
-        # Normal timeout for healthy devices
-        :closed -> 1.0
-      end
-
-    calculated = trunc(base_calculation * adjustment)
+    # The per-device stats never leave the :closed circuit state (the
+    # breaker that would open them was removed in 2.0), so no adjustment.
+    calculated = base_calculation
 
     # Ensure within bounds
     calculated

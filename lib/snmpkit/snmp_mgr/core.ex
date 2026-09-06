@@ -62,12 +62,6 @@ defmodule SnmpKit.SnmpMgr.Core do
       {:ok, {type, value}} ->
         {:ok, {oid_string, type, value}}
 
-      {:ok, value} ->
-        # Type information must be preserved - reject responses without type information
-        {:error,
-         {:type_information_lost,
-          "SNMP GET operation must preserve type information. Got value without type for OID #{oid_string}: #{inspect(value)}"}}
-
       {:error, reason} ->
         {:error, reason}
     end
@@ -195,19 +189,6 @@ defmodule SnmpKit.SnmpMgr.Core do
           end
 
         {:ok, {next_oid_string, type, value}}
-
-      # Type information must be preserved - reject 2-tuple responses
-      {:ok, {next_oid, value}} ->
-        next_oid_string =
-          if is_list(next_oid) do
-            Enum.join(next_oid, ".")
-          else
-            to_string(next_oid)
-          end
-
-        {:error,
-         {:type_information_lost,
-          "SNMP GET_NEXT operation must preserve type information. Got 2-tuple for OID #{next_oid_string}: #{inspect(value)}"}}
 
       {:error, reason} ->
         {:error, reason}
@@ -356,22 +337,7 @@ defmodule SnmpKit.SnmpMgr.Core do
         case SnmpKit.SnmpLib.Manager.get_bulk(host, oid_parsed, snmp_lib_opts) do
           {:ok, results} ->
             # Process the results to extract varbinds in 3-tuple format
-            processed_results =
-              case results do
-                # Map format (snmp_lib v1.0.5+)
-                %{"varbinds" => varbinds} when is_list(varbinds) ->
-                  varbinds
-
-                # Direct list format (older versions)
-                results when is_list(results) ->
-                  results
-
-                # Other formats
-                _other ->
-                  []
-              end
-
-            {:ok, processed_results}
+            {:ok, results}
 
           {:error, reason} ->
             {:error, reason}

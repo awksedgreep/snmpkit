@@ -44,6 +44,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
   ## Options
   - `:name` - Process name (default: __MODULE__)
   """
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     name = Keyword.get(opts, :name, __MODULE__)
     GenServer.start_link(__MODULE__, opts, name: name)
@@ -62,6 +63,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
       SnmpKit.SnmpMgr.Engine.register_request(engine, 12345, self(), 5000)
   """
+  @spec register_request(GenServer.server(), integer(), pid(), non_neg_integer()) :: :ok
   def register_request(engine, request_id, caller_pid, timeout_ms \\ 5000) do
     GenServer.call(engine, {:register_request, request_id, caller_pid, timeout_ms})
   end
@@ -73,6 +75,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
   - `engine` - Engine PID or name
   - `request_id` - Request identifier to unregister
   """
+  @spec unregister_request(GenServer.server(), integer()) :: :ok
   def unregister_request(engine, request_id) do
     GenServer.cast(engine, {:unregister_request, request_id})
   end
@@ -81,11 +84,13 @@ defmodule SnmpKit.SnmpMgr.Engine do
   Gets engine statistics: pending request count, correlation metrics, socket
   counters (`:socket_stats`), the local `:port` and `:recv_queue_length`.
   """
+  @spec get_stats(GenServer.server()) :: map()
   def get_stats(engine \\ __MODULE__) do
     GenServer.call(engine, :get_stats)
   end
 
   @doc "The shared UDP socket. Send request PDUs on it after `register_request/4`."
+  @spec get_socket(GenServer.server(), :inet | :inet6) :: :gen_udp.socket() | {:error, term()}
   def get_socket(engine \\ __MODULE__, family \\ :inet)
 
   def get_socket(engine, :inet6) do
@@ -97,11 +102,13 @@ defmodule SnmpKit.SnmpMgr.Engine do
   end
 
   @doc "The local UDP port the shared socket is bound to."
+  @spec get_port(GenServer.server()) :: :inet.port_number()
   def get_port(engine \\ __MODULE__) do
     GenServer.call(engine, :get_port)
   end
 
   @doc "Socket buffer statistics: largest datagram seen relative to the receive buffer, mailbox depth."
+  @spec get_buffer_stats(GenServer.server()) :: map()
   def get_buffer_stats(engine \\ __MODULE__) do
     GenServer.call(engine, :get_buffer_stats)
   end
@@ -111,6 +118,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
   relative to `:max_queue_depth`: `:healthy` (< 50%), `:warning` (< 80%),
   `:critical`, or `:error` if the socket is gone.
   """
+  @spec health_check(GenServer.server()) :: :healthy | :warning | :critical | :error
   def health_check(engine \\ __MODULE__) do
     GenServer.call(engine, :health_check)
   end
@@ -118,6 +126,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
   @doc """
   Gets the number of pending requests.
   """
+  @spec pending_count(GenServer.server()) :: non_neg_integer()
   def pending_count(engine) do
     GenServer.call(engine, :pending_count)
   end
@@ -125,6 +134,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
   @doc """
   Gracefully shuts down the engine.
   """
+  @spec stop(GenServer.server()) :: :ok
   def stop(engine) do
     GenServer.call(engine, :stop)
   end
@@ -470,19 +480,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
     end
   end
 
-  defp extract_response_data(pdu) do
-    # Extract meaningful data from PDU
-    case pdu do
-      %{varbinds: varbinds} ->
-        Enum.map(varbinds, &format_varbind/1)
-
-      %{"varbinds" => varbinds} ->
-        Enum.map(varbinds, &format_varbind/1)
-
-      _ ->
-        pdu
-    end
-  end
+  defp extract_response_data(%{varbinds: varbinds}), do: Enum.map(varbinds, &format_varbind/1)
 
   defp format_varbind(varbind) do
     case varbind do

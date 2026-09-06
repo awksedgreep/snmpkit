@@ -45,7 +45,6 @@ defmodule SnmpKit.MIB.Utilities do
     case resolve_oid_tree(root_oids, oid_table, %{}) do
       {:ok, resolved_table} -> {:ok, resolved_table}
       {:error, reason} when is_binary(reason) -> {:error, [reason]}
-      {:error, unresolved} when is_list(unresolved) -> {:error, unresolved}
     end
   end
 

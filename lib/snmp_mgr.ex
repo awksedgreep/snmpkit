@@ -192,7 +192,6 @@ defmodule SnmpKit.SnmpMgr do
 
     case SnmpKit.SnmpMgr.Core.send_set_varbinds(target, pairs, merged_opts) do
       {:ok, :success} -> :ok
-      {:ok, other} -> {:ok, other}
       {:error, reason} -> {:error, reason}
     end
   end

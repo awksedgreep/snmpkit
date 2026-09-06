@@ -548,9 +548,6 @@ defmodule SnmpKit.SnmpSim.Device do
 
         new_state = %{state | last_access: System.monotonic_time(:millisecond)}
         {:reply, {:ok, sorted_results}, new_state}
-
-      {:error, reason} ->
-        {:reply, {:error, reason}, state}
     end
   end
 

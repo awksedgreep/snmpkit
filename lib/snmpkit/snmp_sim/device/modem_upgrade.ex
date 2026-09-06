@@ -125,7 +125,7 @@ defmodule SnmpKit.SnmpSim.Device.ModemUpgrade do
   @doc """
   Advance the upgrade to the next phase. Returns {scheduled_msgs, new_state}.
   """
-  @spec advance_phase(t(), :checking_name | :download | :apply) :: {list(), t()}
+  @spec advance_phase(t(), :finish) :: {list(), t()}
   def advance_phase(state, :finish) do
     # Successful completion from management
     new_state =
