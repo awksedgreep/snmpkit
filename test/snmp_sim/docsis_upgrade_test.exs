@@ -19,17 +19,17 @@ defmodule SnmpKit.DocsisUpgradeTest do
   test "happy path: server+filename then trigger leads to completeFromMgt(3)",
        %{target: target, community: community} do
     # Prime server and filename
-    assert {:ok, _} =
+    assert :ok =
              SnmpMgr.set(target, @server_oid, "10.0.0.5", community: community, version: :v2c)
 
-    assert {:ok, _} =
+    assert :ok =
              SnmpMgr.set(target, @filename_oid, "cm-fw-1.2.3.bin",
                community: community,
                version: :v2c
              )
 
     # Trigger upgradeFromMgt(1)
-    assert {:ok, _} = SnmpMgr.set(target, @admin_oid, 1, community: community, version: :v2c)
+    assert :ok = SnmpMgr.set(target, @admin_oid, 1, community: community, version: :v2c)
 
     # Poll oper status until completeFromMgt(3) or timeout
     final =

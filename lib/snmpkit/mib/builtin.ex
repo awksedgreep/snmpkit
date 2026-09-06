@@ -18,6 +18,17 @@ defmodule SnmpKit.MIB.Builtin do
     "sysLocation" => [1, 3, 6, 1, 2, 1, 1, 6],
     "sysServices" => [1, 3, 6, 1, 2, 1, 1, 7],
 
+    # HOST-RESOURCES-MIB hrSystem group (1.3.6.1.2.1.25.1)
+    "host" => [1, 3, 6, 1, 2, 1, 25],
+    "hrSystem" => [1, 3, 6, 1, 2, 1, 25, 1],
+    "hrSystemUptime" => [1, 3, 6, 1, 2, 1, 25, 1, 1],
+    "hrSystemDate" => [1, 3, 6, 1, 2, 1, 25, 1, 2],
+    "hrSystemInitialLoadDevice" => [1, 3, 6, 1, 2, 1, 25, 1, 3],
+    "hrSystemInitialLoadParameters" => [1, 3, 6, 1, 2, 1, 25, 1, 4],
+    "hrSystemNumUsers" => [1, 3, 6, 1, 2, 1, 25, 1, 5],
+    "hrSystemProcesses" => [1, 3, 6, 1, 2, 1, 25, 1, 6],
+    "hrSystemMaxProcesses" => [1, 3, 6, 1, 2, 1, 25, 1, 7],
+
     # Interface group (1.3.6.1.2.1.2)
     "ifNumber" => [1, 3, 6, 1, 2, 1, 2, 1],
     "ifTable" => [1, 3, 6, 1, 2, 1, 2, 2],
@@ -188,6 +199,23 @@ defmodule SnmpKit.MIB.Builtin do
       display_hint: "255a"
     },
     "sysServices" => %{base: :integer, textual_convention: nil, display_hint: nil},
+
+    # HOST-RESOURCES-MIB hrSystem (1.3.6.1.2.1.25.1)
+    "hrSystemUptime" => %{base: :timeticks, textual_convention: nil, display_hint: nil},
+    "hrSystemDate" => %{
+      base: :octet_string,
+      textual_convention: "DateAndTime",
+      display_hint: "2d-1d-1d,1d:1d:1d.1d,1a1d:1d"
+    },
+    "hrSystemInitialLoadDevice" => %{base: :integer, textual_convention: nil, display_hint: nil},
+    "hrSystemInitialLoadParameters" => %{
+      base: :octet_string,
+      textual_convention: "InternationalDisplayString",
+      display_hint: nil
+    },
+    "hrSystemNumUsers" => %{base: :gauge32, textual_convention: nil, display_hint: nil},
+    "hrSystemProcesses" => %{base: :gauge32, textual_convention: nil, display_hint: nil},
+    "hrSystemMaxProcesses" => %{base: :integer, textual_convention: nil, display_hint: nil},
 
     # IF-MIB ifTable (1.3.6.1.2.1.2.2.1)
     "ifIndex" => %{base: :integer, textual_convention: nil, display_hint: nil},

@@ -28,7 +28,7 @@ defmodule SnmpKit.SnmpSim.ManualModemUpgradeTest do
       modem: modem
     } do
       # Good IPv4
-      assert {:ok, _} =
+      assert :ok =
                SnmpKit.SnmpMgr.set(target, @server_oid, "192.168.100.20",
                  community: modem.community,
                  version: :v2c,
@@ -59,7 +59,7 @@ defmodule SnmpKit.SnmpSim.ManualModemUpgradeTest do
     end
 
     test "filename enforces length and type", %{target: target, modem: modem} do
-      assert {:ok, _} =
+      assert :ok =
                SnmpKit.SnmpMgr.set(target, @filename_oid, "firmware.bin",
                  community: modem.community,
                  version: :v2c,
@@ -95,14 +95,14 @@ defmodule SnmpKit.SnmpSim.ManualModemUpgradeTest do
       modem: modem
     } do
       # First, set valid server and filename
-      assert {:ok, _} =
+      assert :ok =
                SnmpKit.SnmpMgr.set(target, @server_oid, "10.0.0.5",
                  community: modem.community,
                  version: :v2c,
                  timeout: 300
                )
 
-      assert {:ok, _} =
+      assert :ok =
                SnmpKit.SnmpMgr.set(target, @filename_oid, "fw.bin",
                  community: modem.community,
                  version: :v2c,
@@ -110,7 +110,7 @@ defmodule SnmpKit.SnmpSim.ManualModemUpgradeTest do
                )
 
       # Trigger value is 1 per WalkPduProcessor.admin_trigger?
-      assert {:ok, _} =
+      assert :ok =
                SnmpKit.SnmpMgr.set(target, @admin_oid, {:integer, 1},
                  community: modem.community,
                  version: :v2c,

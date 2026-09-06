@@ -1,0 +1,236 @@
+# Your Own SNMP Agent
+
+Expose an application's data to any network management system with `SnmpKit.Agent`.
+
+## Setup
+
+```elixir
+Mix.install([
+  {:snmpkit, "~> 2.0"}
+])
+
+alias SnmpKit.SNMP
+
+IO.puts("Agent modules ready!")
+```
+
+## Why an agent?
+
+Elixir services are usually monitored by pulling metrics over HTTP. Plenty of
+environments still run on SNMP: Zabbix, LibreNMS, PRTG, SolarWinds and the
+network team's existing dashboards. `SnmpKit.Agent` lets a BEAM application
+answer those tools directly, with no net-snmp sidecar and no AgentX bridge.
+
+## Start an agent
+
+Communities and SNMPv3 users carry an access level. Reads work for everyone;
+SET needs `:write`.
+
+```elixir
+{:ok, agent} =
+  SnmpKit.Agent.start_link(
+    port: 1161,
+    bind_address: "127.0.0.1",
+    communities: %{"public" => :read, "private" => :write},
+    v3_users: [
+      %{name: "monitor", auth: :sha256, auth_password: "monitor-secret"},
+      %{
+        name: "ops",
+        auth: :sha256,
+        auth_password: "ops-secret",
+        priv: :aes128,
+        priv_password: "ops-privacy",
+        access: :write
+      }
+    ],
+    system: [
+      descr: "orders-api 3.2 (Elixir #{System.version()})",
+      name: "orders-01",
+      location: "rack 4",
+      contact: "ops@example.com"
+    ]
+  )
+
+target = "127.0.0.1:#{SnmpKit.Agent.port(agent)}"
+```
+
+The `system` group is already there. `sysUpTime` counts from the moment the
+agent started.
+
+```elixir
+{:ok, system} = SNMP.walk(target, "system")
+Enum.each(system, fn %{name: name, formatted: value} -> IO.puts("#{name} = #{value}") end)
+```
+
+## Scalars
+
+`put/4` stores a value at an OID. A zero-arity function is called on every
+read, which is the simplest way to publish a live gauge.
+
+```elixir
+:ok = SnmpKit.Agent.put(agent, "hrSystemProcesses.0", :gauge32, fn -> length(Process.list()) end)
+:ok = SnmpKit.Agent.put(agent, [1, 3, 6, 1, 4, 1, 99999, 1, 0], :octet_string, "3.2.0")
+:ok = SnmpKit.Agent.put(agent, [1, 3, 6, 1, 4, 1, 99999, 2, 0], :integer, 30, writable: true)
+
+{:ok, %{formatted: processes}} = SNMP.get(target, "hrSystemProcesses.0")
+IO.puts("BEAM processes right now: #{processes}")
+```
+
+A `:write` principal can change the writable one; a `:read` one cannot.
+
+```elixir
+:ok = SNMP.set(target, [1, 3, 6, 1, 4, 1, 99999, 2, 0], 45, community: "private")
+{:error, :no_access} = SNMP.set(target, [1, 3, 6, 1, 4, 1, 99999, 2, 0], 50, community: "public")
+{:ok, {:integer, 45}} = SnmpKit.Agent.get(agent, [1, 3, 6, 1, 4, 1, 99999, 2, 0])
+```
+
+## Tables
+
+`SnmpKit.Agent.Table` turns a function that returns rows into a table.
+Register it at the entry OID (`ifEntry`), name the columns and their types,
+and return `{index, %{column => value}}` per row.
+
+```elixir
+ports = fn ->
+  [
+    {1, %{1 => 1, 2 => "lo", 5 => 0, 8 => 1}},
+    {2, %{1 => 2, 2 => "eth0", 5 => 1_000_000_000, 8 => 1}},
+    {3, %{1 => 3, 2 => "eth1", 5 => 1_000_000_000, 8 => 2}}
+  ]
+end
+
+:ok =
+  SnmpKit.Agent.register(agent, "ifEntry", SnmpKit.Agent.Table,
+    columns: [{1, :integer}, {2, :octet_string}, {5, :gauge32}, {8, :integer}],
+    index: [:integer],
+    rows: ports
+  )
+
+{:ok, table} = SNMP.get_table(target, "ifTable", named: true)
+table
+```
+
+Walks, GETBULK and `walk_table` all work against it, because the agent
+implements GETNEXT and GETBULK properly across every subtree.
+
+```elixir
+{:ok, rows} = SNMP.bulk_walk(target, "interfaces", max_repetitions: 50)
+length(rows)
+```
+
+## Custom handlers
+
+Anything that does not fit a scalar or a table is a module implementing
+`SnmpKit.Agent.Handler`. It works on the suffix below its prefix.
+
+```elixir
+defmodule QueueStats do
+  @behaviour SnmpKit.Agent.Handler
+
+  def depth, do: :rand.uniform(20)
+  def processed, do: System.os_time(:second) - 1_700_000_000
+
+  # .1.0 depth, .2.0 processed (kept in lexicographic order)
+  @objects [
+    {[1, 0], :gauge32, &__MODULE__.depth/0},
+    {[2, 0], :counter32, &__MODULE__.processed/0}
+  ]
+
+  def get(suffix, _ctx) do
+    case List.keyfind(@objects, suffix, 0) do
+      {_, type, fun} -> {:ok, {type, fun.()}}
+      nil -> {:error, :no_such_instance}
+    end
+  end
+
+  def get_next(suffix, _ctx) do
+    case Enum.find(@objects, fn {s, _, _} -> s > suffix end) do
+      {s, type, fun} -> {:ok, {s, {type, fun.()}}}
+      nil -> :end_of_subtree
+    end
+  end
+end
+
+:ok = SnmpKit.Agent.register(agent, [1, 3, 6, 1, 4, 1, 99999, 10], QueueStats)
+{:ok, stats} = SNMP.walk(target, [1, 3, 6, 1, 4, 1, 99999, 10])
+Enum.map(stats, &{&1.oid, &1.value})
+```
+
+Handlers run in the request's worker process, so several managers can be
+answered at once. A handler that raises produces a `genErr` response; the
+agent stays up.
+
+## SNMPv3
+
+The same data over USM. Discovery, key localization and time
+synchronisation happen inside the manager call.
+
+```elixir
+v3 = [
+  version: :v3,
+  security_name: "ops",
+  auth_protocol: :sha256,
+  auth_password: "ops-secret",
+  priv_protocol: :aes128,
+  priv_password: "ops-privacy"
+]
+
+{:ok, %{value: name}} = SNMP.get(target, "sysName.0", v3)
+:ok = SNMP.set(target, "sysLocation.0", "rack 5", v3)
+{:ok, %{value: "rack 5"}} = SNMP.get(target, "sysLocation.0", v3)
+name
+```
+
+## Notifications
+
+`notify/4` sends a v2c trap (or an inform) to the configured targets with
+the agent's own `sysUpTime`. Here the receiver runs in the same VM.
+
+```elixir
+{:ok, receiver} = SnmpKit.Trap.start_link(port: 0, bind_address: "127.0.0.1", handler: self())
+trap_port = SnmpKit.Trap.port(receiver)
+
+:ok =
+  SnmpKit.Agent.notify(agent, "linkDown", [{"ifIndex.3", :integer, 3}],
+    targets: [{"127.0.0.1", trap_port}]
+  )
+
+receive do
+  {:snmp_trap, notification} -> notification
+after
+  2_000 -> :no_trap
+end
+```
+
+## In production
+
+Put the agent in your supervision tree with the subtrees declared up front.
+Port 161 needs a privileged process or a capability such as
+`setcap cap_net_bind_service=+ep` on the BEAM binary; a high port with a
+firewall redirect works too.
+
+```elixir
+children = [
+  {SnmpKit.Agent,
+   port: 161,
+   name: MyApp.Agent,
+   communities: %{"public" => :read},
+   v3_users: [%{name: "monitor", auth: :sha256, auth_password: System.fetch_env!("SNMP_AUTH")}],
+   system: [descr: "orders-api", name: Atom.to_string(node())],
+   subtrees: [
+     {"ifEntry", SnmpKit.Agent.Table, columns: [{1, :integer}, {2, :octet_string}], rows: &MyApp.Ports.rows/0},
+     {[1, 3, 6, 1, 4, 1, 99999, 10], QueueStats}
+   ],
+   notify_targets: ["nms.example.com"]}
+]
+```
+
+Every request emits `[:snmpkit, :agent, :request]` with its duration, PDU
+type, principal and error status, ready for `Telemetry.Metrics`.
+
+## Clean up
+
+```elixir
+GenServer.stop(receiver)
+SnmpKit.Agent.stop(agent)
+```

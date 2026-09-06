@@ -38,8 +38,9 @@ in 1.4; what changed is which modules exist and a few behaviours:
 - **Behaviour:** `get_async`/`get_bulk_async` return a `Task`; manager
   defaults are read from `config :snmpkit` (the `:snmp_mgr` key still works);
   `MIB.load/1` takes the map `compile/1` returns; `Sim.start_device_population/2`
-  pre-warms devices and returns `[%{type, port, pid, target}]`; parsed MIBs
-  carry a `warnings` list and identifiers are binaries instead of atoms.
+  pre-warms devices and returns `[%{type, port, pid, target}]`; `set/4` and
+  `set_many/3` return `:ok` (not `{:ok, :success}`); parsed MIBs carry a
+  `warnings` list and identifiers are binaries instead of atoms.
 - **Tooling:** Elixir 1.18+ on OTP 28.
 
 The [2.0 migration guide](docs/v2-migration.md) has the full rename and
@@ -91,6 +92,7 @@ Enum.each(system, fn %{name: name, formatted: value} -> IO.puts("#{name} = #{val
 | `SnmpKit.MIB` | Name/OID resolution, tree navigation, MIB compilation and loading |
 | `SnmpKit.Trap` | Receive SNMPv1/v2c traps and informs; `SnmpKit.SNMP.send_trap/4` and `send_inform/4` send them |
 | `SnmpKit.Telemetry` | The `:telemetry` spans and events every request, walk, multi-target call, trap and simulated device emits |
+| `SnmpKit.Agent` | Serve your own data over SNMP: scalars, tables and custom handlers, v1/v2c/v3, traps out |
 | `SnmpKit.Sim` | Start one simulated device, or a population of them |
 | `SnmpKit.SnmpSim` | Configuration-driven simulation of whole device groups |
 | `SnmpKit` | Shortcuts for the most common calls (`get`, `walk`, `resolve`, ...) |
@@ -99,6 +101,42 @@ Lower layers are public too when you need them: `SnmpKit.SnmpLib` (PDU
 encoding, ASN.1, transport, SNMPv3 security), `SnmpKit.SnmpMgr` (engine,
 multi-target coordinator, walk strategies) and `SnmpKit.MIB.Parser` /
 `SnmpKit.MIB.Compiler` (the native MIB toolchain).
+
+## Your own SNMP agent
+
+`SnmpKit.Agent` exposes an application's data to any NMS over SNMPv1, v2c
+and v3. Scalars go in with `put/4` (a function value is read live), tables
+come from a row-producing function, and anything else is a small module
+implementing `SnmpKit.Agent.Handler`:
+
+```elixir
+{:ok, agent} =
+  SnmpKit.Agent.start_link(
+    port: 1161,
+    communities: %{"public" => :read, "private" => :write},
+    v3_users: [%{name: "ops", auth: :sha256, auth_password: "auth-secret", access: :write}],
+    system: [descr: "orders-api 3.2", name: "orders-01", location: "rack 4"]
+  )
+
+:ok = SnmpKit.Agent.put(agent, "hrSystemProcesses.0", :gauge32, fn -> length(Process.list()) end)
+
+:ok =
+  SnmpKit.Agent.register(agent, "ifEntry", SnmpKit.Agent.Table,
+    columns: [{1, :integer}, {2, :octet_string}, {8, :integer}],
+    rows: fn -> [{1, %{1 => 1, 2 => "lo", 8 => 1}}, {2, %{1 => 2, 2 => "eth0", 8 => 1}}] end
+  )
+
+# Any manager, including this one, can read it now
+{:ok, %{1 => %{2 => "lo"}, 2 => %{2 => "eth0"}}} =
+  SnmpKit.SNMP.get_table("127.0.0.1:1161", "ifTable")
+
+# and traps go out with the agent's sysUpTime
+:ok = SnmpKit.Agent.notify(agent, "linkDown", [{"ifIndex.2", :integer, 2}], targets: ["nms.example.com"])
+```
+
+Put `{SnmpKit.Agent, port: 161, name: MyApp.Agent, subtrees: [...]}` in a
+supervision tree for production. The [API guide](docs/unified-api-guide.md#snmp-agent)
+covers access control, SET handling and writing handlers.
 
 ## Results
 

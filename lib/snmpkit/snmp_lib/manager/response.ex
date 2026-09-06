@@ -182,6 +182,11 @@ defmodule SnmpKit.SnmpLib.Manager.Response do
 
   def extract_set_result(_), do: {:error, :invalid_response}
 
+  def extract_get_next_result(%{pdu: %{error_status: error_status}}) when error_status != 0 do
+    # SNMPv1 agents answer a GETNEXT past the end of the MIB with noSuchName
+    {:error, decode_error_status(error_status)}
+  end
+
   def extract_get_next_result(%{pdu: %{varbinds: [{next_oid, type, value}]}} = response) do
     Logger.debug("Extracting GETNEXT result - PDU: #{inspect(response.pdu)}")
 

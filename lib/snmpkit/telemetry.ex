@@ -27,6 +27,7 @@ defmodule SnmpKit.Telemetry do
   | `[:snmpkit, :trap, :received]` | `%{count: 1}` | `kind`, `version`, `trap_oid`, `trap_name`, `community`, `source` |
   | `[:snmpkit, :trap, :rejected]` | `%{count: 1}` | `reason` (`:community`, `:decode_error`, `:unsupported`), `source` |
   | `[:snmpkit, :sim, :request]` | `%{duration: native}` | `device_id`, `port`, `pdu_type`, `result` (`:ok`/`:error_injected`) |
+  | `[:snmpkit, :agent, :request]` | `%{duration: native}` | `pdu_type`, `version`, `principal` (community or v3 user), `error_status`, `varbinds` (in the response) |
 
   ## Example
 

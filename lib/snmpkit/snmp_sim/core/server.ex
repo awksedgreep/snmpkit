@@ -42,7 +42,8 @@ defmodule SnmpKit.SnmpSim.Core.Server do
 
   ## Options
 
-  - `:community` - SNMP community string (default: "public")
+  - `:community` - accepted community: a string (default: "public"), a list of
+    strings, or a one-argument function returning `true` for accepted names
   - `:device_handler` - Module or function to handle device requests
   - `:socket_opts` - Additional socket options
   - `:max_concurrent_requests` - Handlers allowed in flight at once (default: 256);
@@ -284,6 +285,8 @@ defmodule SnmpKit.SnmpSim.Core.Server do
               error_status: message.pdu[:error_status] || 0,
               error_index: message.pdu[:error_index] || 0,
               varbinds: variable_bindings,
+              # the varbinds as decoded, with their types (SET requests need them)
+              typed_varbinds: message.pdu.varbinds,
               max_repetitions: message.pdu[:max_repetitions] || 0,
               non_repeaters: message.pdu[:non_repeaters] || 0
             }
@@ -352,6 +355,7 @@ defmodule SnmpKit.SnmpSim.Core.Server do
           {oid, _type, value} -> {oid, value}
           {oid, value} -> {oid, value}
         end),
+      typed_varbinds: pdu.varbinds,
       max_repetitions: Map.get(pdu, :max_repetitions, 0),
       non_repeaters: Map.get(pdu, :non_repeaters, 0)
     }
@@ -553,9 +557,14 @@ defmodule SnmpKit.SnmpSim.Core.Server do
     end
   end
 
-  defp validate_community(message, expected_community) do
-    message.community == expected_community
-  end
+  defp validate_community(message, expected) when is_binary(expected),
+    do: message.community == expected
+
+  defp validate_community(message, expected) when is_list(expected),
+    do: message.community in expected
+
+  defp validate_community(message, expected) when is_function(expected, 1),
+    do: expected.(message.community) == true
 
   defp format_ip({a, b, c, d}) do
     "#{a}.#{b}.#{c}.#{d}"

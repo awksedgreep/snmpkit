@@ -124,6 +124,7 @@ defmodule Snmpkit.MixProject do
         "livebooks/03_mib_management.livemd",
         "livebooks/04_device_simulation.livemd",
         "livebooks/05_high_performance.livemd",
+        "livebooks/06_snmp_agent.livemd",
         "examples/README.md"
       ],
       groups_for_modules: [
@@ -132,6 +133,7 @@ defmodule Snmpkit.MixProject do
           SnmpKit.SNMP,
           SnmpKit.MIB,
           SnmpKit.Sim,
+          SnmpKit.Agent,
           SnmpKit.Trap,
           SnmpKit.Telemetry,
           SnmpKit.SNMP.Rate
@@ -158,6 +160,12 @@ defmodule Snmpkit.MixProject do
           SnmpKit.SnmpLib.Error,
           SnmpKit.SnmpLib.ErrorHandler,
           SnmpKit.SnmpLib.Utils
+        ],
+        "SNMP Agent": [
+          SnmpKit.Agent.Handler,
+          SnmpKit.Agent.Store,
+          SnmpKit.Agent.Table,
+          SnmpKit.Agent.Request
         ],
         "SNMPv3 Security": [
           SnmpKit.SnmpLib.Security,

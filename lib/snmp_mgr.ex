@@ -163,16 +163,21 @@ defmodule SnmpKit.SnmpMgr do
   ## Examples
 
       # Note: This function makes actual network calls and is not suitable for doctests
-      {:ok, :ok} = SnmpMgr.set("device.local", "sysLocation.0", "Server Room A")
+      :ok = SnmpMgr.set("device.local", "sysLocation.0", "Server Room A")
       # :ok
 
-      {:ok, :ok} = SnmpMgr.set("switch.local", "sysContact.0", "admin@company.com",
+      :ok = SnmpMgr.set("switch.local", "sysContact.0", "admin@company.com",
         community: "private", timeout: 3000)
       # :ok
   """
   def set(target, oid, value, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-    SnmpKit.SnmpMgr.Core.send_set_request(target, oid, value, merged_opts)
+
+    case SnmpKit.SnmpMgr.Core.send_set_request(target, oid, value, merged_opts) do
+      {:ok, :success} -> :ok
+      {:ok, other} -> {:ok, other}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @doc """

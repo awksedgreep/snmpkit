@@ -377,6 +377,143 @@ you want in an ExUnit `setup`. `SnmpKit.SnmpSim.start/1` starts supervised
 device groups from a configuration map or file; see its docs and the
 [testing guide](testing-guide.md).
 
+## SNMP agent
+
+`SnmpKit.Agent` is the other side of the manager: it answers GET, GETNEXT,
+GETBULK and SET for data your application owns, over SNMPv1, v2c and v3,
+and sends notifications.
+
+```elixir
+{:ok, agent} =
+  SnmpKit.Agent.start_link(
+    port: 1161,
+    communities: %{"public" => :read, "private" => :write},
+    v3_users: [
+      %{name: "monitor", auth: :sha256, auth_password: "auth-secret"},
+      %{name: "ops", auth: :sha256, auth_password: "auth-secret",
+        priv: :aes128, priv_password: "priv-secret", access: :write}
+    ],
+    system: [descr: "orders-api 3.2", name: "orders-01", location: "rack 4", contact: "ops@example.com"]
+  )
+```
+
+The `system` group is served from those options, with `sysUpTime` computed
+and `sysContact`, `sysName` and `sysLocation` writable. The rest of the MIB
+is made of subtrees, each served by a handler registered at an OID prefix;
+the longest matching prefix wins.
+
+### Scalars
+
+```elixir
+# a fixed value, and one read on every request
+:ok = SnmpKit.Agent.put(agent, "hrSystemProcesses.0", :gauge32, fn -> length(Process.list()) end)
+:ok = SnmpKit.Agent.put(agent, [1, 3, 6, 1, 4, 1, 99999, 1, 0], :octet_string, "3.2.0")
+
+# writable from a :write principal; SET keeps the type
+:ok = SnmpKit.Agent.put(agent, [1, 3, 6, 1, 4, 1, 99999, 2, 0], :integer, 30, writable: true)
+{:ok, {:integer, 30}} = SnmpKit.Agent.get(agent, [1, 3, 6, 1, 4, 1, 99999, 2, 0])
+```
+
+### Tables
+
+`SnmpKit.Agent.Table` serves a table from a function that returns the rows.
+Register it at the *entry* OID:
+
+```elixir
+:ok =
+  SnmpKit.Agent.register(agent, "ifEntry", SnmpKit.Agent.Table,
+    columns: [{1, :integer}, {2, :octet_string}, {5, :gauge32}, {8, :integer}],
+    index: [:integer],
+    rows: fn ->
+      [{1, %{1 => 1, 2 => "lo", 5 => 0, 8 => 1}}, {2, %{1 => 2, 2 => "eth0", 5 => 1_000_000_000, 8 => 1}}]
+    end,
+    set: fn _index, _column, {_type, _value} -> {:error, :not_writable} end
+  )
+
+{:ok, %{2 => %{"ifDescr" => "eth0"}}} = SnmpKit.SNMP.get_table("127.0.0.1:1161", "ifTable", named: true)
+```
+
+`index:` lists the INDEX kinds (`:integer`, `:string`, `:implied_string`,
+`:ip_address`, `:oid`, `:implied_oid`); a row's index is one value or a list
+of them. Rows are fetched once per request, so each GETBULK sees a
+consistent snapshot.
+
+### Handlers
+
+Anything else is a module implementing `SnmpKit.Agent.Handler`: `get/2`,
+`get_next/2` and optionally `check_set/3`, `set/3` and `init/1`, all working
+on the suffix below the registered prefix:
+
+```elixir
+defmodule MyApp.QueueStats do
+  @behaviour SnmpKit.Agent.Handler
+
+  @objects [{[1, 0], :gauge32, &MyApp.Queue.depth/0}, {[2, 0], :counter32, &MyApp.Queue.processed/0}]
+
+  def get(suffix, _ctx) do
+    case List.keyfind(@objects, suffix, 0) do
+      {_, type, fun} -> {:ok, {type, fun.()}}
+      nil -> {:error, :no_such_instance}
+    end
+  end
+
+  def get_next(suffix, _ctx) do
+    case Enum.find(@objects, fn {s, _, _} -> s > suffix end) do
+      {s, type, fun} -> {:ok, {s, {type, fun.()}}}
+      nil -> :end_of_subtree
+    end
+  end
+end
+
+:ok = SnmpKit.Agent.register(agent, [1, 3, 6, 1, 4, 1, 99999, 10], MyApp.QueueStats)
+```
+
+Handlers run in the request's worker process, concurrently, so keep state
+in ETS or a process rather than in the handler's `ctx`. A handler that
+raises answers `genErr` instead of taking the agent down.
+
+### Access control and SET
+
+A community or v3 user is `:read` or `:write`. SET from a `:read`
+principal is `noAccess` (`noSuchName` to SNMPv1); unknown communities get
+no answer. A SET is checked for every varbind first (`check_set/3`) and
+only then applied (`set/3`), so a request that fails validation changes
+nothing. SNMPv1 managers never see Counter64 objects, and receive
+`noSuchName`/`badValue`/`genErr` in place of the SNMPv2 error codes
+(RFC 3584). GETBULK is answered with as many repetitions as fit in a
+datagram; `max_repetitions` is never capped.
+
+### Notifications
+
+```elixir
+{:ok, agent} = SnmpKit.Agent.start_link(port: 1161, notify_targets: ["nms.example.com", {"10.0.0.5", 1162}])
+:ok = SnmpKit.Agent.notify(agent, "linkDown", [{"ifIndex.2", :integer, 2}])
+:ok = SnmpKit.Agent.notify(agent, "coldStart", [], targets: [%{host: "10.0.0.5", inform: true}])
+```
+
+`sysUpTime.0` is the agent's uptime; options are those of
+`SnmpKit.SNMP.send_trap/4`. The result is `:ok` or
+`{:error, [{target, reason}]}`.
+
+### In a supervision tree
+
+```elixir
+children = [
+  {SnmpKit.Agent,
+   port: 161,
+   name: MyApp.Agent,
+   communities: ["public"],
+   subtrees: [
+     {"ifEntry", SnmpKit.Agent.Table, columns: [...], rows: &MyApp.Ports.rows/0},
+     {[1, 3, 6, 1, 4, 1, 99999, 10], MyApp.QueueStats}
+   ]}
+]
+```
+
+Every request emits `[:snmpkit, :agent, :request]`; see `SnmpKit.Telemetry`.
+Port 161 needs a privileged process or a capability such as
+`setcap cap_net_bind_service=+ep` on the BEAM binary.
+
 ## Command line
 
 `mix snmpkit.get`, `mix snmpkit.walk` (with `--table` for named rows and

@@ -79,6 +79,8 @@ its public functions (as implementations or delegates):
   path to a `:binary` compiled file still works.
 - `SnmpKit.Sim.start_device_population/2` pre-warms devices by default and
   returns `[%{type, port, pid, target}]` instead of the raw pool reply.
+- `SnmpKit.SNMP.set/4` and `SnmpMgr.set/4` return `:ok` on success instead of
+  `{:ok, :success}`, matching `set_many/3`. Errors are unchanged.
 - `SnmpKit.SNMP.benchmark_device/3` returns `avg_response_time` as the mean
   over all tested bulk sizes and adds `optimal_response_time`.
 
