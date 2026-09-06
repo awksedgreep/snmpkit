@@ -134,7 +134,8 @@ defmodule Snmpkit.MixProject do
           SnmpKit.MIB,
           SnmpKit.Sim,
           SnmpKit.Trap,
-          SnmpKit.Telemetry
+          SnmpKit.Telemetry,
+          SnmpKit.SNMP.Rate
         ],
         "SNMP Protocol": [
           SnmpKit.SnmpLib,

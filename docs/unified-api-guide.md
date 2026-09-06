@@ -216,6 +216,26 @@ measurements and metadata of each.
 end, nil)
 ```
 
+### Counter rates
+
+`SnmpKit.SNMP.Rate` turns two samples into deltas and per-second rates,
+handling Counter32 and Counter64 wraparound:
+
+```elixir
+{:ok, t0} = SnmpKit.SNMP.walk(target, "ifTable")
+Process.sleep(10_000)
+{:ok, t1} = SnmpKit.SNMP.walk(target, "ifTable")
+
+{:ok, rates} = SnmpKit.SNMP.Rate.rates(t0, t1, interval_ms: 10_000)
+# [%{name: "ifInOctets.1", delta: 123_456, rate: 12_345.6, ...}, ...]
+
+{:ok, 1296} = SnmpKit.SNMP.Rate.delta({:counter32, 4_294_967_000}, {:counter32, 1_000})
+```
+
+Include `sysUpTime.0` in what you poll and `rates/3` derives the interval
+from it and reports `{:error, :device_restarted}` instead of computing rates
+from reset counters.
+
 ### Analysis helpers
 
 ```elixir
