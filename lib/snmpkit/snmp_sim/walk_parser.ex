@@ -141,7 +141,7 @@ defmodule SnmpKit.SnmpSim.WalkParser do
   # Hand-edited walk files sometimes carry values a real agent could never
   # encode (an 8 Gbps ifSpeed in a Gauge32). Clamp to the type's range so
   # the simulated device can still answer, and say so once per value.
-  defp clamp_unsigned(value, bits, data_type) when is_integer(value) do
+  defp clamp_unsigned(value, bits, data_type) do
     max = Bitwise.bsl(1, bits) - 1
 
     cond do
@@ -157,8 +157,6 @@ defmodule SnmpKit.SnmpSim.WalkParser do
         value
     end
   end
-
-  defp clamp_unsigned(value, _bits, _data_type), do: value
 
   # Clean up raw value strings
   defp clean_value(value) do
