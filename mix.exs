@@ -132,7 +132,8 @@ defmodule Snmpkit.MixProject do
           SnmpKit,
           SnmpKit.SNMP,
           SnmpKit.MIB,
-          SnmpKit.Sim
+          SnmpKit.Sim,
+          SnmpKit.Trap
         ],
         "SNMP Protocol": [
           SnmpKit.SnmpLib,
@@ -175,6 +176,7 @@ defmodule Snmpkit.MixProject do
         ],
         "Network Management": [
           SnmpKit.SnmpMgr,
+          SnmpKit.SnmpMgr.Notify,
           SnmpKit.SnmpMgr.Config,
           SnmpKit.SnmpMgr.Core,
           SnmpKit.SnmpMgr.Walk,

@@ -6,8 +6,8 @@
 [![Elixir CI](https://github.com/awksedgreep/snmpkit/actions/workflows/elixir.yml/badge.svg)](https://github.com/awksedgreep/snmpkit/actions/workflows/elixir.yml)
 
 A pure Elixir SNMP toolkit: manager operations for SNMPv1, v2c and v3, a
-native MIB compiler, and simulated devices for tests. It does not depend on
-Erlang's `:snmp` application.
+trap and inform receiver, a native MIB compiler, and simulated devices for
+tests. It does not depend on Erlang's `:snmp` application.
 
 ## Installation
 
@@ -83,6 +83,7 @@ Enum.each(system, fn %{name: name, formatted: value} -> IO.puts("#{name} = #{val
 |--------|----------------|
 | `SnmpKit.SNMP` | Manager operations: get, get_next, set, walk, get_bulk, bulk walks, tables, streams, async, multi-target, pretty formatting |
 | `SnmpKit.MIB` | Name/OID resolution, tree navigation, MIB compilation and loading |
+| `SnmpKit.Trap` | Receive SNMPv1/v2c traps and informs; `SnmpKit.SNMP.send_trap/4` and `send_inform/4` send them |
 | `SnmpKit.Sim` | Start one simulated device, or a population of them |
 | `SnmpKit.SnmpSim` | Configuration-driven simulation of whole device groups |
 | `SnmpKit` | Shortcuts for the most common calls (`get`, `walk`, `resolve`, ...) |

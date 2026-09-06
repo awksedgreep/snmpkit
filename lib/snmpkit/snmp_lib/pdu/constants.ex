@@ -30,6 +30,10 @@ defmodule SnmpKit.SnmpLib.PDU.Constants do
   @get_response 0xA2
   @set_request 0xA3
   @getbulk_request 0xA5
+  @trap 0xA4
+  @inform_request 0xA6
+  @snmpv2_trap 0xA7
+  @report 0xA8
 
   # SNMP Data Types
   @integer 0x02
@@ -56,7 +60,15 @@ defmodule SnmpKit.SnmpLib.PDU.Constants do
 
   @type snmp_version :: :v1 | :v2c | :v2 | :v3 | 0 | 1 | 3
   @type pdu_type ::
-          :get_request | :get_next_request | :get_response | :set_request | :get_bulk_request
+          :get_request
+          | :get_next_request
+          | :get_response
+          | :set_request
+          | :get_bulk_request
+          | :trap
+          | :inform_request
+          | :snmpv2_trap
+          | :report
   @type error_status :: 0..5
   @type oid :: [non_neg_integer()] | binary()
   @type snmp_value :: any()
@@ -80,7 +92,18 @@ defmodule SnmpKit.SnmpLib.PDU.Constants do
           max_repetitions: non_neg_integer()
         }
 
-  @type pdu :: base_pdu() | bulk_pdu()
+  # SNMPv1 Trap-PDU (RFC 1157 section 4.1.6)
+  @type v1_trap_pdu :: %{
+          type: :trap,
+          enterprise: oid(),
+          agent_addr: binary() | :inet.ip4_address(),
+          generic_trap: 0..6,
+          specific_trap: non_neg_integer(),
+          time_stamp: non_neg_integer(),
+          varbinds: [varbind()]
+        }
+
+  @type pdu :: base_pdu() | bulk_pdu() | v1_trap_pdu()
 
   # SNMPv1/v2c message format
   @type v1v2c_message :: %{
@@ -139,6 +162,10 @@ defmodule SnmpKit.SnmpLib.PDU.Constants do
   def get_response, do: @get_response
   def set_request, do: @set_request
   def getbulk_request, do: @getbulk_request
+  def trap, do: @trap
+  def inform_request, do: @inform_request
+  def snmpv2_trap, do: @snmpv2_trap
+  def report, do: @report
 
   # Data type constants accessors
   def integer, do: @integer
@@ -190,6 +217,10 @@ defmodule SnmpKit.SnmpLib.PDU.Constants do
   def pdu_type_to_tag(:get_response), do: @get_response
   def pdu_type_to_tag(:set_request), do: @set_request
   def pdu_type_to_tag(:get_bulk_request), do: @getbulk_request
+  def pdu_type_to_tag(:trap), do: @trap
+  def pdu_type_to_tag(:inform_request), do: @inform_request
+  def pdu_type_to_tag(:snmpv2_trap), do: @snmpv2_trap
+  def pdu_type_to_tag(:report), do: @report
 
   def tag_to_pdu_type(@get_request), do: :get_request
   def tag_to_pdu_type(@getnext_request), do: :get_next_request

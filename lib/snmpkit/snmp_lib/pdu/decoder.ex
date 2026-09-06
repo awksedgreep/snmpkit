@@ -260,7 +260,7 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
   defp parse_ber_length_and_remaining(_), do: {:error, :invalid_length_format}
 
   defp parse_pdu_comprehensive(<<tag, rest::binary>>)
-       when tag in [0xA0, 0xA1, 0xA2, 0xA3, 0xA5] do
+       when tag in [0xA0, 0xA1, 0xA2, 0xA3, 0xA5, 0xA6, 0xA7, 0xA8] do
     pdu_type =
       case tag do
         0xA0 -> :get_request
@@ -268,6 +268,9 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
         0xA2 -> :get_response
         0xA3 -> :set_request
         0xA5 -> :get_bulk_request
+        0xA6 -> :inform_request
+        0xA7 -> :snmpv2_trap
+        0xA8 -> :report
       end
 
     # A PDU whose fields or varbinds cannot be parsed is reported as an error.
@@ -302,6 +305,31 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
              }}
           end
       end
+    end
+  end
+
+  # SNMPv1 Trap-PDU (RFC 1157 section 4.1.6)
+  defp parse_pdu_comprehensive(<<0xA4, rest::binary>>) do
+    with {:ok, {_length, content, _remaining}} <- parse_ber_length_and_remaining(rest),
+         {:ok, {enterprise, rest1}} <- parse_oid(content),
+         {:ok, {:ip_address, agent_addr, rest2}} <- parse_value_with_type(rest1),
+         {:ok, {generic_trap, rest3}} <- parse_integer(rest2),
+         {:ok, {specific_trap, rest4}} <- parse_integer(rest3),
+         {:ok, {:timeticks, time_stamp, rest5}} <- parse_value_with_type(rest4),
+         {:ok, varbinds} <- parse_varbinds(rest5) do
+      {:ok,
+       %{
+         type: :trap,
+         enterprise: enterprise,
+         agent_addr: agent_addr,
+         generic_trap: generic_trap,
+         specific_trap: specific_trap,
+         time_stamp: time_stamp,
+         varbinds: varbinds
+       }}
+    else
+      {:ok, _unexpected_field} -> {:error, :invalid_trap_pdu}
+      {:error, reason} -> {:error, reason}
     end
   end
 

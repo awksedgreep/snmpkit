@@ -196,6 +196,19 @@ defmodule SnmpKit.SnmpSim.Device do
   end
 
   @doc """
+  Sends a trap from this device to a receiver, using the device's community
+  and uptime. `opts` must include `to: target` (host, `"host:port"` or
+  `{host, port}`, port 162 by default); the other options are those of
+  `SnmpKit.SnmpMgr.Notify.send_trap/4`.
+
+      :ok = SnmpKit.SnmpSim.Device.send_trap(device, "linkDown", [{"ifIndex.1", :integer, 1}], to: "127.0.0.1:1162")
+  """
+  @spec send_trap(pid(), term(), list(), keyword()) :: :ok | {:error, term()}
+  def send_trap(device_pid, trap_oid, varbinds, opts) do
+    GenServer.call(device_pid, {:send_trap, trap_oid, varbinds, opts})
+  end
+
+  @doc """
   Get device information and statistics.
   """
   def get_info(device_pid) do
@@ -371,6 +384,19 @@ defmodule SnmpKit.SnmpSim.Device do
             {:stop, reason}
         end
     end
+  end
+
+  @impl true
+  def handle_call({:send_trap, trap_oid, varbinds, opts}, _from, state) when is_map(state) do
+    opts =
+      opts
+      |> Keyword.put_new(:community, state.community)
+      |> Keyword.put_new(:uptime, SnmpKit.SnmpSim.Device.Metrics.calculate_uptime_ticks(state))
+
+    result =
+      SnmpKit.SnmpMgr.Notify.send_trap(Keyword.fetch!(opts, :to), trap_oid, varbinds, opts)
+
+    {:reply, result, state}
   end
 
   @impl true

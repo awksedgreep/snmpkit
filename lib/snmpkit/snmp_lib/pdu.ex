@@ -254,6 +254,23 @@ defmodule SnmpKit.SnmpLib.PDU do
   def build_set_request(oid_list, type_value, request_id),
     do: Builder.build_set_request(oid_list, type_value, request_id)
 
+  @doc "Builds an SNMPv1 Trap-PDU; see `SnmpKit.SnmpLib.PDU.Builder.build_trap_v1/6`."
+  defdelegate build_trap_v1(
+                enterprise,
+                agent_addr,
+                generic_trap,
+                specific_trap,
+                time_stamp,
+                varbinds \\ []
+              ),
+              to: Builder
+
+  @doc "Builds an SNMPv2c trap PDU; see `SnmpKit.SnmpLib.PDU.Builder.build_trap_v2/4`."
+  defdelegate build_trap_v2(sys_uptime, trap_oid, varbinds \\ [], request_id \\ 0), to: Builder
+
+  @doc "Builds an SNMPv2c inform PDU; see `SnmpKit.SnmpLib.PDU.Builder.build_inform/4`."
+  defdelegate build_inform(sys_uptime, trap_oid, varbinds, request_id), to: Builder
+
   @doc """
   Builds a response PDU.
 

@@ -134,6 +134,88 @@ defmodule SnmpKit.SnmpLib.PDU.Builder do
     }
   end
 
+  @sys_uptime_oid [1, 3, 6, 1, 2, 1, 1, 3, 0]
+  @snmp_trap_oid [1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0]
+
+  @doc """
+  Builds an SNMPv1 Trap-PDU (RFC 1157).
+
+  `agent_addr` is an IPv4 tuple or 4-byte binary; `generic_trap` is 0..6
+  (6 = enterpriseSpecific); `time_stamp` is sysUpTime in centiseconds.
+  """
+  @spec build_trap_v1(
+          oid(),
+          :inet.ip4_address() | binary(),
+          0..6,
+          non_neg_integer(),
+          non_neg_integer(),
+          [varbind()]
+        ) :: pdu()
+  def build_trap_v1(
+        enterprise,
+        agent_addr,
+        generic_trap,
+        specific_trap,
+        time_stamp,
+        varbinds \\ []
+      ) do
+    unless is_integer(generic_trap) and generic_trap in 0..6 do
+      raise ArgumentError, "generic_trap must be 0..6, got: #{inspect(generic_trap)}"
+    end
+
+    %{
+      type: :trap,
+      enterprise: Constants.normalize_oid(enterprise),
+      agent_addr: agent_addr,
+      generic_trap: generic_trap,
+      specific_trap: specific_trap,
+      time_stamp: time_stamp,
+      varbinds: varbinds
+    }
+  end
+
+  @doc """
+  Builds an SNMPv2c trap PDU. The mandatory `sysUpTime.0` and
+  `snmpTrapOID.0` varbinds are prepended to `varbinds`.
+  """
+  @spec build_trap_v2(non_neg_integer(), oid(), [varbind()], non_neg_integer()) :: pdu()
+  def build_trap_v2(sys_uptime, trap_oid, varbinds \\ [], request_id \\ 0) do
+    validate_request_id!(request_id)
+
+    %{
+      type: :snmpv2_trap,
+      request_id: request_id,
+      error_status: 0,
+      error_index: 0,
+      varbinds: notification_varbinds(sys_uptime, trap_oid, varbinds)
+    }
+  end
+
+  @doc """
+  Builds an SNMPv2c inform PDU (an acknowledged notification); see
+  `build_trap_v2/4` for the varbinds.
+  """
+  @spec build_inform(non_neg_integer(), oid(), [varbind()], non_neg_integer()) :: pdu()
+  def build_inform(sys_uptime, trap_oid, varbinds, request_id) do
+    validate_request_id!(request_id)
+
+    %{
+      type: :inform_request,
+      request_id: request_id,
+      error_status: 0,
+      error_index: 0,
+      varbinds: notification_varbinds(sys_uptime, trap_oid, varbinds)
+    }
+  end
+
+  defp notification_varbinds(sys_uptime, trap_oid, varbinds) do
+    [
+      {@sys_uptime_oid, :timeticks, sys_uptime},
+      {@snmp_trap_oid, :object_identifier, Constants.normalize_oid(trap_oid)}
+      | varbinds
+    ]
+  end
+
   @doc """
   Builds an SNMP message structure.
 
@@ -283,8 +365,20 @@ defmodule SnmpKit.SnmpLib.PDU.Builder do
   end
 
   defp validate_bulk_version!(pdu, version) do
-    if Map.get(pdu, :type) == :get_bulk_request and version == :v1 do
-      raise ArgumentError, "GETBULK requests require SNMPv2c or higher, cannot use v1"
+    v1? = Constants.normalize_version(version) == 0
+
+    case Map.get(pdu, :type) do
+      :get_bulk_request when v1? ->
+        raise ArgumentError, "GETBULK requests require SNMPv2c or higher, cannot use v1"
+
+      type when type in [:snmpv2_trap, :inform_request, :report] and v1? ->
+        raise ArgumentError, "#{type} PDUs require SNMPv2c or higher, cannot use v1"
+
+      :trap when not v1? ->
+        raise ArgumentError, "SNMPv1 Trap-PDUs can only be sent in SNMPv1 messages"
+
+      _ ->
+        :ok
     end
   end
 

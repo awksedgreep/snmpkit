@@ -152,6 +152,36 @@ Requests share one UDP socket and are correlated by request id, which is what
 makes polling thousands of devices from one node practical. Details in
 [concurrent-multi.md](concurrent-multi.md).
 
+### Notifications
+
+`SnmpKit.Trap` receives SNMPv1 traps, SNMPv2c traps and informs (informs are
+acknowledged automatically) and hands each one to a handler: a function, an
+MFA, or a pid that gets `{:snmp_trap, notification}`.
+
+```elixir
+{:ok, receiver} = SnmpKit.Trap.start_link(port: 162, handler: &MyApp.Alerts.handle/1)
+# or as a child: {SnmpKit.Trap, port: 162, handler: {MyApp.Alerts, :handle, []}}
+
+%{kind: :trap, version: :v2c, community: "public", source: {{10, 0, 0, 7}, 49152},
+  trap_oid: [1, 3, 6, 1, 6, 3, 1, 1, 5, 3], trap_name: "linkDown", uptime: 12345,
+  varbinds: [%{name: "sysUpTime.0", ...}, %{name: "snmpTrapOID.0", ...}, %{name: "ifIndex.3", value: 3, ...}]}
+```
+
+Sending is symmetrical. Trap OIDs and varbind OIDs accept names, dotted
+strings or lists; `sysUpTime.0` and `snmpTrapOID.0` are added for you:
+
+```elixir
+:ok = SnmpKit.SNMP.send_trap("nms.example.com", "linkDown", [{"ifIndex.3", :integer, 3}])
+:ok = SnmpKit.SNMP.send_inform("nms.example.com:162", "coldStart", [], timeout: 2_000, retries: 2)
+:ok = SnmpKit.SNMP.send_trap(nms, "1.3.6.1.4.1.9999.0.7", [], version: :v1, agent_addr: {10, 0, 0, 7})
+
+# From a simulated device, with its community and uptime
+:ok = SnmpKit.Sim.send_trap(device, "linkDown", [{"ifIndex.1", :integer, 1}], to: "127.0.0.1:1162")
+```
+
+`send_inform/4` returns `{:error, :timeout}` when no acknowledgement arrives.
+SNMPv3 notifications are not supported yet.
+
 ### Analysis helpers
 
 ```elixir

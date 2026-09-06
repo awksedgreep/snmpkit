@@ -18,6 +18,10 @@ defmodule SnmpKit.SnmpLib.PDU.Encoder do
   @get_response Constants.get_response()
   @set_request Constants.set_request()
   @getbulk_request Constants.getbulk_request()
+  @trap Constants.trap()
+  @inform_request Constants.inform_request()
+  @snmpv2_trap Constants.snmpv2_trap()
+  @report Constants.report()
 
   @integer Constants.integer()
   @octet_string Constants.octet_string()
@@ -133,7 +137,47 @@ defmodule SnmpKit.SnmpLib.PDU.Encoder do
     do: encode_standard_pdu_fast(pdu, @set_request)
 
   defp encode_pdu_fast(%{type: :get_bulk_request} = pdu), do: encode_bulk_pdu_fast(pdu)
+
+  defp encode_pdu_fast(%{type: :inform_request} = pdu),
+    do: encode_standard_pdu_fast(pdu, @inform_request)
+
+  defp encode_pdu_fast(%{type: :snmpv2_trap} = pdu),
+    do: encode_standard_pdu_fast(pdu, @snmpv2_trap)
+
+  defp encode_pdu_fast(%{type: :report} = pdu), do: encode_standard_pdu_fast(pdu, @report)
+  defp encode_pdu_fast(%{type: :trap} = pdu), do: encode_v1_trap_pdu_fast(pdu)
   defp encode_pdu_fast(_), do: {:error, :unsupported_pdu_type}
+
+  # RFC 1157 Trap-PDU: enterprise, agent-addr, generic-trap, specific-trap,
+  # time-stamp, variable-bindings
+  defp encode_v1_trap_pdu_fast(pdu) do
+    %{
+      enterprise: enterprise,
+      agent_addr: agent_addr,
+      generic_trap: generic_trap,
+      specific_trap: specific_trap,
+      time_stamp: time_stamp,
+      varbinds: varbinds
+    } = pdu
+
+    with {:ok, enterprise_encoded} <- encode_oid_fast(enterprise),
+         {:ok, varbinds_encoded} <- encode_varbinds_fast(varbinds) do
+      iodata = [
+        enterprise_encoded,
+        encode_snmp_value_fast(:ip_address, ip_address_bytes(agent_addr)),
+        encode_integer_fast(generic_trap),
+        encode_integer_fast(specific_trap),
+        encode_snmp_value_fast(:timeticks, time_stamp),
+        varbinds_encoded
+      ]
+
+      content = :erlang.iolist_to_binary(iodata)
+      {:ok, encode_tag_length_value(@trap, byte_size(content), content)}
+    end
+  end
+
+  defp ip_address_bytes({a, b, c, d}), do: <<a, b, c, d>>
+  defp ip_address_bytes(<<_::binary-size(4)>> = bytes), do: bytes
 
   defp encode_standard_pdu_fast(pdu, tag) do
     %{

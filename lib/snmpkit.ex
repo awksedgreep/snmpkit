@@ -184,6 +184,14 @@ defmodule SnmpKit do
       SnmpKit.SnmpMgr.Stream.table_stream(target, table_oid, opts)
     end
 
+    # Notifications (receive them with SnmpKit.Trap)
+    defdelegate send_trap(target, trap_oid), to: SnmpKit.SnmpMgr.Notify
+    defdelegate send_trap(target, trap_oid, varbinds), to: SnmpKit.SnmpMgr.Notify
+    defdelegate send_trap(target, trap_oid, varbinds, opts), to: SnmpKit.SnmpMgr.Notify
+    defdelegate send_inform(target, trap_oid), to: SnmpKit.SnmpMgr.Notify
+    defdelegate send_inform(target, trap_oid, varbinds), to: SnmpKit.SnmpMgr.Notify
+    defdelegate send_inform(target, trap_oid, varbinds, opts), to: SnmpKit.SnmpMgr.Notify
+
     # Analysis and Utilities
     defdelegate analyze_table(table_data), to: SnmpKit.SnmpMgr
     defdelegate analyze_table(table_data, opts), to: SnmpKit.SnmpMgr
@@ -265,6 +273,9 @@ defmodule SnmpKit do
     defdelegate start_device(profile, opts), to: SnmpKit.SnmpSim
     defdelegate start_device_population(device_configs), to: SnmpKit.SnmpSim
     defdelegate start_device_population(device_configs, opts), to: SnmpKit.SnmpSim
+
+    # Notifications from a simulated device (uses its community and uptime)
+    defdelegate send_trap(device, trap_oid, varbinds, opts), to: SnmpKit.SnmpSim.Device
 
     # For more advanced simulation features, use SnmpKit.SnmpSim modules directly:
     # - SnmpKit.SnmpSim.Device for device behavior

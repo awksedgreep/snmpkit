@@ -424,10 +424,11 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
   defp decode_snmp_response(data) do
     case SnmpKit.SnmpLib.PDU.decode_message(data) do
-      {:ok, message} ->
-        request_id = message.pdu.request_id
-        response_data = extract_response_data(message.pdu)
-        {:ok, request_id, response_data}
+      {:ok, %{pdu: %{type: :get_response} = pdu}} ->
+        {:ok, pdu.request_id, extract_response_data(pdu)}
+
+      {:ok, _not_a_response} ->
+        {:error, :not_a_response}
 
       {:error, reason} ->
         {:error, reason}

@@ -29,6 +29,7 @@ Breaking release. See `docs/v2-migration.md` for the rename/removal table.
 - MIB grammar accepts, with a warning, vendor constructs net-snmp loads: enumerations on `Integer32`/`Unsigned32` (treated as `INTEGER`), uppercase enumeration labels, `MAX-ACCESS write-only`, and `UNITS` on SMIv1 objects. Impossible `LAST-UPDATED`/`REVISION` dates are reported as warnings.
 
 ### Added
+- Notifications: `SnmpKit.Trap` receives SNMPv1 traps, SNMPv2c traps and informs (acknowledged automatically) and dispatches them to a function, MFA or pid; `SnmpKit.SNMP.send_trap/4` and `send_inform/4` send them; `SnmpKit.Sim.send_trap/4` sends from a simulated device. `SnmpKit.SnmpLib.PDU` gains Trap-PDU (v1), SNMPv2-Trap, InformRequest and Report encoding/decoding with `build_trap_v1/6`, `build_trap_v2/4` and `build_inform/4`. The built-in MIB knows `snmpTrapOID` and the standard `snmpTraps` names. (#28)
 - `SnmpKit.SnmpSim.ProfileLoader.load_profile/1` loads the bundled walks (`:cable_modem`, `:router`, `:switch`).
 - `SnmpKit.Sim.start_device/2` accepts a plain `%{objects: %{oid => value}}` map; `SnmpKit.Sim.start_device_population/2` accepts `%{type:, port:, community:}` maps as well as `{type, source, count: n}` tuples, starts the device pool itself and returns `[%{type, port, pid, target}]`.
 - `config :snmpkit, ...` is read for manager defaults (`community`, `timeout`, `retries`, `port`, `version`, `include_names`, `include_formatted`, `auto_start_services`); the old `:snmp_mgr` application key still works.
