@@ -71,7 +71,6 @@ defmodule SnmpKit.Agent do
   """
 
   use GenServer
-  require Logger
 
   alias SnmpKit.Agent.{Request, Store}
   alias SnmpKit.SnmpMgr.Notify
