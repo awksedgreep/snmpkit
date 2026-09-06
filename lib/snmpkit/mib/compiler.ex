@@ -131,6 +131,7 @@ defmodule SnmpKit.MIB.Compiler do
           oid_tree: %{},
           symbols: build_symbol_table(mib),
           dependencies: extract_dependencies(mib),
+          imports: Map.get(mib, :imports, []),
           warnings: Map.get(mib, :warnings, [])
         }
 

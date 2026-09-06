@@ -55,6 +55,19 @@ defmodule Mix.Tasks.SnmpkitTest do
     assert out =~ ~r/^2 compiled, 0 failed, \d+ warning\(s\)$/m
   end
 
+  test "snmpkit.mib.lint prints findings and a summary, --strict fails on warnings" do
+    out = run("snmpkit.mib.lint", ["test/fixtures/mibs/working/IF-MIB.mib"])
+    assert out =~ ~r/^1 file\(s\), \d+ error\(s\), \d+ warning\(s\)$/m
+
+    assert catch_exit(
+             run("snmpkit.mib.lint", [
+               "test/fixtures/mibs/topvision/PRIVATE_MIB_FILES/TOPVISION-CCMTS-MIB.mib",
+               "--strict",
+               "--quiet"
+             ])
+           ) == {:shutdown, 1}
+  end
+
   test "snmpkit.mib.compile exits non-zero on failure" do
     path =
       Path.join(System.tmp_dir!(), "snmpkit-broken-#{System.unique_integer([:positive])}.mib")

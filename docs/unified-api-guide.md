@@ -356,7 +356,8 @@ device groups from a configuration map or file; see its docs and the
 
 `mix snmpkit.get`, `mix snmpkit.walk` (with `--table` for named rows and
 `--no-bulk` for SNMPv1), `mix snmpkit.mib.compile` (prints the parser's
-warnings per file, non-zero exit on failure) and `mix snmpkit.sim` (a bundled
+warnings per file, non-zero exit on failure), `mix snmpkit.mib.lint`
+(semantic checks, see the MIB guide) and `mix snmpkit.sim` (a bundled
 device, a recorded walk file, or a whole configuration) wrap the same
 functions. Run any of them with `mix help snmpkit.walk` for options.
 

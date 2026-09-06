@@ -177,7 +177,8 @@ defmodule Snmpkit.MixProject do
           SnmpKit.MIB.Registry,
           SnmpKit.MIB.Syntax,
           SnmpKit.MIB.DisplayHint,
-          SnmpKit.MIB.TableIndex
+          SnmpKit.MIB.TableIndex,
+          SnmpKit.MIB.Lint
         ],
         "Network Management": [
           SnmpKit.SnmpMgr,

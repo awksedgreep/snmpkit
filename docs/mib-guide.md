@@ -158,6 +158,26 @@ convention, hint and enumerations. The same tables exist for the built-in
 objects (`SnmpKit.MIB.Builtin.enumerations/1`), which is why `ifOperStatus`
 formats as `"up"` without loading anything.
 
+## Checking a MIB
+
+`SnmpKit.MIB.Lint` reports what the parser cannot: OIDs whose parent is not
+defined, imported or known; duplicate names and OIDs; SYNTAX naming an
+undefined type; SMIv1 `ACCESS`/`mandatory` inside an SMIv2 module; rows
+without INDEX or AUGMENTS; index strings without a SIZE; SEQUENCE fields that
+do not match the columns; notifications and groups listing undefined objects.
+
+```elixir
+{:ok, report} = SnmpKit.MIB.Lint.check("priv/mibs/VENDOR-MIB.mib", context: [vendor_smi])
+report.errors                       # 0
+Enum.map(report.findings, &SnmpKit.MIB.Lint.format/1)
+# ["42: warning: [index_without_size] index object `vendorKey' of row `vendorEntry' has no SIZE restriction"]
+```
+
+Imports from modules that are not available are warnings, not errors; pass
+the compiled modules in `context:` (or `--context PATH` on the command
+line) to resolve them. `mix snmpkit.mib.lint PATH... [--strict]` prints the
+findings and exits non-zero on errors, or on warnings with `--strict`.
+
 ## Parsing without loading
 
 ```elixir

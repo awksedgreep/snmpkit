@@ -128,7 +128,18 @@ defmodule SnmpKit.MIB.Builtin do
     "egpNeighborLoss" => [1, 3, 6, 1, 6, 3, 1, 1, 5, 6],
     "mib-2" => [1, 3, 6, 1, 2, 1],
     "mgmt" => [1, 3, 6, 1, 2],
+    "iso" => [1],
+    "org" => [1, 3],
+    "dod" => [1, 3, 6],
     "internet" => [1, 3, 6, 1],
+    "directory" => [1, 3, 6, 1, 1],
+    "experimental" => [1, 3, 6, 1, 3],
+    "private" => [1, 3, 6, 1, 4],
+    "security" => [1, 3, 6, 1, 5],
+    "snmpV2" => [1, 3, 6, 1, 6],
+    "snmpDomains" => [1, 3, 6, 1, 6, 1],
+    "snmpProxys" => [1, 3, 6, 1, 6, 2],
+    "snmpModules" => [1, 3, 6, 1, 6, 3],
 
     # Common enterprise OIDs
     "enterprises" => [1, 3, 6, 1, 4, 1],

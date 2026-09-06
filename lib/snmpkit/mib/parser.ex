@@ -457,6 +457,97 @@ defmodule SnmpKit.MIB.Parser do
     end
   end
 
+  # SEQUENCE { field syntax, ... } of a conceptual row
+  defp convert_definition({{:mc_sequence, name, fields}, line}) do
+    %{
+      __type__: :sequence,
+      name: to_string(name),
+      fields: Enum.map(fields, fn {field, syntax} -> {to_string(field), syntax} end),
+      line: line
+    }
+  end
+
+  defp convert_definition({{:mc_notification, name, objects, status, desc, ref, oid}, line}) do
+    %{
+      __type__: :notification,
+      name: to_string(name),
+      objects: Enum.map(objects, &to_string/1),
+      status: status,
+      description: text(desc),
+      reference: text(ref),
+      oid: convert_oid(oid),
+      line: line
+    }
+  end
+
+  defp convert_definition({{:mc_trap, name, enterprise, objects, desc, ref, number}, line}) do
+    %{
+      __type__: :trap,
+      name: to_string(name),
+      enterprise: to_string(enterprise),
+      objects: Enum.map(objects, &to_string/1),
+      description: text(desc),
+      reference: text(ref),
+      trap_number: number,
+      line: line
+    }
+  end
+
+  defp convert_definition({{:mc_object_group, name, objects, status, desc, ref, oid}, line}) do
+    %{
+      __type__: :object_group,
+      name: to_string(name),
+      objects: Enum.map(objects, &to_string/1),
+      status: status,
+      description: text(desc),
+      reference: text(ref),
+      oid: convert_oid(oid),
+      line: line
+    }
+  end
+
+  defp convert_definition({{:mc_notification_group, name, objects, status, desc, ref, oid}, line}) do
+    %{
+      __type__: :notification_group,
+      name: to_string(name),
+      objects: Enum.map(objects, &to_string/1),
+      status: status,
+      description: text(desc),
+      reference: text(ref),
+      oid: convert_oid(oid),
+      line: line
+    }
+  end
+
+  defp convert_definition({{:mc_module_compliance, name, status, desc, ref, modules, oid}, line}) do
+    %{
+      __type__: :module_compliance,
+      name: to_string(name),
+      status: status,
+      description: text(desc),
+      reference: text(ref),
+      modules: modules,
+      oid: convert_oid(oid),
+      line: line
+    }
+  end
+
+  defp convert_definition(
+         {{:mc_agent_capabilities, name, product, status, desc, ref, modules, oid}, line}
+       ) do
+    %{
+      __type__: :agent_capabilities,
+      name: to_string(name),
+      product_release: text(product),
+      status: status,
+      description: text(desc),
+      reference: text(ref),
+      modules: modules,
+      oid: convert_oid(oid),
+      line: line
+    }
+  end
+
   # Handle other record types as catch-all
   defp convert_definition({record_tuple, line}) do
     %{
@@ -575,6 +666,12 @@ defmodule SnmpKit.MIB.Parser do
       name when is_binary(name) or is_atom(name) -> to_string(name)
     end)
   end
+
+  defp text(:undefined), do: nil
+  defp text(nil), do: nil
+  defp text(value) when is_binary(value), do: clean_description(value)
+  defp text(value) when is_list(value), do: clean_description(to_string(value))
+  defp text(value), do: value
 
   defp convert_defval(:undefined), do: nil
   defp convert_defval(value), do: value
