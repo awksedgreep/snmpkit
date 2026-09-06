@@ -91,6 +91,25 @@ defmodule SnmpKit.SnmpLib.PDU.Builder do
   end
 
   @doc """
+  Builds a SET request PDU carrying several varbinds (`{oid, type, value}`).
+  """
+  @spec build_set_request_multi([varbind()], non_neg_integer()) :: pdu()
+  def build_set_request_multi(varbinds, request_id) when is_list(varbinds) do
+    validate_request_id!(request_id)
+
+    %{
+      type: :set_request,
+      request_id: request_id,
+      error_status: Constants.no_error(),
+      error_index: 0,
+      varbinds:
+        Enum.map(varbinds, fn {oid, type, value} ->
+          {Constants.normalize_oid(oid), type, value}
+        end)
+    }
+  end
+
+  @doc """
   Builds a GETBULK request PDU for SNMPv2c.
 
   ## Parameters

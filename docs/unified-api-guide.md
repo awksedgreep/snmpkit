@@ -50,11 +50,20 @@ Defaults come from `config :snmpkit` and can be changed at runtime with
         value: "Cisco Router", formatted: "Cisco Router"}} =
   SnmpKit.SNMP.get(target, "sysDescr.0")
 
+# Several objects in one PDU: one enriched map per OID, in request order.
+# An object the agent does not have comes back with the SNMPv2c exception
+# as its type instead of failing the whole call.
+{:ok, [%{value: descr}, %{value: name}, %{type: :no_such_object, value: nil}]} =
+  SnmpKit.SNMP.get(target, ["sysDescr.0", "sysName.0", "1.3.6.1.2.1.1.99.0"])
+
 # GETNEXT returns the varbind that follows the given OID
 {:ok, %{name: "sysObjectID.0"}} = SnmpKit.SNMP.get_next(target, "sysDescr.0")
 
 # SET (against a writable agent; simulated devices answer {:error, :not_writable})
 :ok = SnmpKit.SNMP.set("192.168.1.1", "sysContact.0", "ops@example.com")
+
+# Several objects in one SET PDU, applied atomically by the agent
+:ok = SnmpKit.SNMP.set_many("192.168.1.1", [{"sysContact.0", "ops"}, {"sysLocation.0", "rack 4"}])
 ```
 
 Unknown objects yield `{:error, :no_such_object}` on v2c and
@@ -134,7 +143,8 @@ that only want `:formatted` and read better in scripts:
 
 `get_multi`, `get_bulk_multi`, `walk_multi` and `walk_table_multi` take a list
 of `{target, oid}` or `{target, oid, opts}` and return a plain list in request
-order, one `{:ok, varbinds}` or `{:error, reason}` per request:
+order, one `{:ok, varbinds}` or `{:error, reason}` per request. For `get_multi`
+the OID may be a list of OIDs, which go into one PDU:
 
 ```elixir
 [{:ok, [%{value: "Cisco Router"}]}, {:error, :timeout}] =

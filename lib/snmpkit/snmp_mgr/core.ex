@@ -124,6 +124,86 @@ defmodule SnmpKit.SnmpMgr.Core do
   end
 
   @doc """
+  Retrieves several objects from one target in a single GET PDU.
+
+  Returns `{:ok, [{oid_string, type, value}]}` in request order. SNMPv2c
+  exceptions are kept per element as the type (`:no_such_object`,
+  `:no_such_instance`) with a `nil` value.
+  """
+  @spec send_get_varbinds(target(), [oid()], opts()) ::
+          {:ok, [{String.t(), atom(), any()}]} | {:error, term()}
+  def send_get_varbinds(target, oids, opts \\ []) when is_list(oids) do
+    SnmpKit.Telemetry.span(
+      :request,
+      %{operation: :get, target: target, oid: oids, version: Keyword.get(opts, :version)},
+      fn -> do_send_get_varbinds(target, oids, opts) end
+    )
+  end
+
+  defp do_send_get_varbinds(target, oids, opts) do
+    {host, updated_opts} = split_target(target, opts)
+
+    with {:ok, oid_lists} <- parse_oids(oids) do
+      snmp_lib_opts = map_options_to_snmp_lib(updated_opts)
+
+      case SnmpKit.SnmpLib.Manager.get_varbinds(host, oid_lists, snmp_lib_opts) do
+        {:ok, varbinds} ->
+          {:ok,
+           Enum.map(varbinds, fn {oid, type, value} -> {oid_to_string(oid), type, value} end)}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Sets several objects on one target in a single SET PDU. `pairs` are
+  `{oid, value}` with the same value forms `send_set_request/4` accepts.
+  """
+  @spec send_set_varbinds(target(), [{oid(), any()}], opts()) ::
+          {:ok, :success} | {:error, term()}
+  def send_set_varbinds(target, pairs, opts \\ []) when is_list(pairs) do
+    SnmpKit.Telemetry.span(
+      :request,
+      %{
+        operation: :set,
+        target: target,
+        oid: Enum.map(pairs, &elem(&1, 0)),
+        version: Keyword.get(opts, :version)
+      },
+      fn -> do_send_set_varbinds(target, pairs, opts) end
+    )
+  end
+
+  defp do_send_set_varbinds(target, pairs, opts) do
+    {host, updated_opts} = split_target(target, opts)
+
+    with {:ok, oid_lists} <- parse_oids(Enum.map(pairs, &elem(&1, 0))) do
+      varbinds =
+        Enum.zip_with(oid_lists, pairs, fn oid, {_, value} -> {oid, typed_set_value(value)} end)
+
+      SnmpKit.SnmpLib.Manager.set_varbinds(host, varbinds, map_options_to_snmp_lib(updated_opts))
+    end
+  end
+
+  defp parse_oids(oids) do
+    Enum.reduce_while(oids, {:ok, []}, fn oid, {:ok, acc} ->
+      case parse_oid(oid) do
+        {:ok, list} -> {:cont, {:ok, [list | acc]}}
+        {:error, reason} -> {:halt, {:error, {:invalid_oid, oid, reason}}}
+      end
+    end)
+    |> case do
+      {:ok, acc} -> {:ok, Enum.reverse(acc)}
+      error -> error
+    end
+  end
+
+  defp oid_to_string(oid) when is_list(oid), do: Enum.join(oid, ".")
+  defp oid_to_string(oid), do: to_string(oid)
+
+  @doc """
   Sends a GETNEXT request to retrieve the next OID in the MIB tree.
 
   Now uses the proper SnmpKit.SnmpLib.Manager.get_next/3 function which handles
@@ -216,28 +296,7 @@ defmodule SnmpKit.SnmpMgr.Core do
       end
 
     # Convert value to snmp_lib format expected by SnmpKit.SnmpLib.Manager
-    typed_value =
-      cond do
-        # Already typed tuple - normalize type to manager's expected atoms
-        match?({t, _v} when is_atom(t), value) ->
-          normalize_manager_typed(value)
-
-        is_binary(value) ->
-          {:string, value}
-
-        is_integer(value) ->
-          {:integer, value}
-
-        # IPv4 tuple
-        match?(
-          {a, b, c, d} when is_integer(a) and is_integer(b) and is_integer(c) and is_integer(d),
-          value
-        ) ->
-          {:ip_address, value}
-
-        true ->
-          {:opaque, value}
-      end
+    typed_value = typed_set_value(value)
 
     # Map options to snmp_lib format
     snmp_lib_opts = map_options_to_snmp_lib(updated_opts)
@@ -246,6 +305,31 @@ defmodule SnmpKit.SnmpMgr.Core do
     case SnmpKit.SnmpLib.Manager.set(host, oid_parsed, typed_value, snmp_lib_opts) do
       {:ok, result} -> {:ok, result}
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # Value forms accepted by set: {type, value}, binary, integer, IPv4 tuple, other
+  defp typed_set_value(value) do
+    cond do
+      # Already typed tuple - normalize type to manager's expected atoms
+      match?({t, _v} when is_atom(t), value) ->
+        normalize_manager_typed(value)
+
+      is_binary(value) ->
+        {:string, value}
+
+      is_integer(value) ->
+        {:integer, value}
+
+      # IPv4 tuple
+      match?(
+        {a, b, c, d} when is_integer(a) and is_integer(b) and is_integer(c) and is_integer(d),
+        value
+      ) ->
+        {:ip_address, value}
+
+      true ->
+        {:opaque, value}
     end
   end
 

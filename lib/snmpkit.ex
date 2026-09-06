@@ -99,6 +99,8 @@ defmodule SnmpKit do
     defdelegate get_next(target, oid), to: SnmpKit.SnmpMgr
     defdelegate get_next(target, oid, opts), to: SnmpKit.SnmpMgr
     defdelegate set(target, oid, value), to: SnmpKit.SnmpMgr
+    defdelegate set_many(target, pairs), to: SnmpKit.SnmpMgr
+    defdelegate set_many(target, pairs, opts), to: SnmpKit.SnmpMgr
     defdelegate set(target, oid, value, opts), to: SnmpKit.SnmpMgr
 
     # Async Operations

@@ -254,6 +254,9 @@ defmodule SnmpKit.SnmpLib.PDU do
   def build_set_request(oid_list, type_value, request_id),
     do: Builder.build_set_request(oid_list, type_value, request_id)
 
+  @doc "Builds a SET request with several varbinds; see `SnmpKit.SnmpLib.PDU.Builder.build_set_request_multi/2`."
+  defdelegate build_set_request_multi(varbinds, request_id), to: Builder
+
   @doc "Builds an SNMPv1 Trap-PDU; see `SnmpKit.SnmpLib.PDU.Builder.build_trap_v1/6`."
   defdelegate build_trap_v1(
                 enterprise,

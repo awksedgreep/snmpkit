@@ -173,6 +173,9 @@ defmodule SnmpKit.SnmpMgr.Format do
   def format_by_type(:integer, value) when is_integer(value) and value in 1..200,
     do: interface_type(value)
 
+  def format_by_type(:no_such_object, _), do: "noSuchObject"
+  def format_by_type(:no_such_instance, _), do: "noSuchInstance"
+  def format_by_type(:end_of_mib_view, _), do: "endOfMibView"
   def format_by_type(:object_identifier, value) when is_list(value), do: Enum.join(value, ".")
   def format_by_type(:object_identifier, value) when is_binary(value), do: value
   def format_by_type(:ip_address, value), do: ip_address(value)

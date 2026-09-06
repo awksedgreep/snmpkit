@@ -95,7 +95,21 @@ defmodule SnmpKit.SnmpMgr do
       {:ok, uptime} = SnmpMgr.get("router.local", "sysUpTime.0")
       # {:timeticks, 123456789}  # System uptime in hundredths of seconds
   """
-  def get(target, oid, opts \\ []) do
+  def get(target, oid, opts \\ [])
+
+  def get(_target, [], _opts), do: {:error, :empty_oids}
+
+  # Several OIDs (names, strings or lists) in one PDU: {:ok, [enriched, ...]}
+  def get(target, [first | _] = oids, opts) when not is_integer(first) do
+    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+
+    case SnmpKit.SnmpMgr.Core.send_get_varbinds(target, oids, merged_opts) do
+      {:ok, varbinds} -> {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(varbinds, merged_opts)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def get(target, oid, opts) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
 
     # Ensure we always return type and apply enrichment
@@ -159,6 +173,23 @@ defmodule SnmpKit.SnmpMgr do
   def set(target, oid, value, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
     SnmpKit.SnmpMgr.Core.send_set_request(target, oid, value, merged_opts)
+  end
+
+  @doc """
+  Sets several objects in one SET PDU. `pairs` are `{oid, value}` tuples with
+  the value forms `set/4` accepts. Agents apply the SET atomically, so the
+  whole call succeeds or fails together.
+
+      :ok = SnmpMgr.set_many("device", [{"sysContact.0", "ops"}, {"sysLocation.0", "rack 4"}])
+  """
+  def set_many(target, pairs, opts \\ []) when is_list(pairs) do
+    merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
+
+    case SnmpKit.SnmpMgr.Core.send_set_varbinds(target, pairs, merged_opts) do
+      {:ok, :success} -> :ok
+      {:ok, other} -> {:ok, other}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @doc """

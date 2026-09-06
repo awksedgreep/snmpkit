@@ -317,6 +317,65 @@ defmodule SnmpKit.SnmpLib.Manager do
   end
 
   @doc """
+  Retrieves several objects in one GET PDU.
+
+  Returns `{:ok, [{oid, type, value}]}` in request order; a varbind the agent
+  could not serve carries the SNMPv2c exception as its type
+  (`:no_such_object`, `:no_such_instance`) with a `nil` value. SNMPv1 agents
+  answer the whole PDU with `noSuchName` instead, which is `{:error, :no_such_name}`.
+  """
+  @spec get_varbinds(host(), [oid()], manager_opts()) ::
+          {:ok, [{oid(), atom(), any()}]} | {:error, any()}
+  def get_varbinds(host, oids, opts \\ [])
+  def get_varbinds(_host, [], _opts), do: {:error, :empty_oids}
+
+  def get_varbinds(host, oids, opts) when is_list(oids) do
+    opts = merge_default_opts(opts)
+    varbinds = Enum.map(oids, &{normalize_oid(&1), :null, :null})
+
+    with {:ok, socket} <- Request.create_socket(opts) do
+      try do
+        pdu = SnmpKit.SnmpLib.PDU.build_get_request_multi(varbinds, generate_request_id())
+
+        case Request.perform_snmp_request(socket, host, pdu, opts) do
+          {:ok, response} -> Response.extract_varbinds(response)
+          {:error, reason} -> {:error, reason}
+        end
+      after
+        :ok = Request.close_socket(socket)
+      end
+    end
+  end
+
+  @doc """
+  Sets several objects in one SET PDU. `varbinds` are `{oid, {type, value}}`
+  pairs. Agents apply a SET atomically, so the result is `{:ok, :success}` or
+  a single `{:error, reason}` for the whole request.
+  """
+  @spec set_varbinds(host(), [{oid(), {atom(), any()}}], manager_opts()) ::
+          {:ok, :success} | {:error, any()}
+  def set_varbinds(host, varbinds, opts \\ [])
+  def set_varbinds(_host, [], _opts), do: {:error, :empty_varbinds}
+
+  def set_varbinds(host, varbinds, opts) when is_list(varbinds) do
+    opts = merge_default_opts(opts)
+    typed = Enum.map(varbinds, fn {oid, {type, value}} -> {normalize_oid(oid), type, value} end)
+
+    with {:ok, socket} <- Request.create_socket(opts) do
+      try do
+        pdu = SnmpKit.SnmpLib.PDU.build_set_request_multi(typed, generate_request_id())
+
+        case Request.perform_snmp_request(socket, host, pdu, opts) do
+          {:ok, response} -> Response.extract_set_result(response)
+          {:error, reason} -> {:error, reason}
+        end
+      after
+        :ok = Request.close_socket(socket)
+      end
+    end
+  end
+
+  @doc """
   Performs multiple GET operations efficiently with connection reuse.
 
   More efficient than individual get/3 calls when retrieving multiple values

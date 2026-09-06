@@ -144,6 +144,34 @@ defmodule SnmpKit.SnmpLib.Manager.Response do
 
   def extract_bulk_result(_), do: {:error, :invalid_response}
 
+  @doc """
+  Returns every varbind of a response as `{oid, type, value}`, with SNMPv2c
+  exceptions normalised into the type field (`:no_such_object`,
+  `:no_such_instance`, `:end_of_mib_view`, value `nil`). A non-zero
+  error-status (SNMPv1 `noSuchName`, `tooBig`, ...) is `{:error, reason}`.
+  """
+  def extract_varbinds(%{pdu: %{error_status: error_status}}) when error_status != 0 do
+    {:error, decode_error_status(error_status)}
+  end
+
+  def extract_varbinds(%{pdu: %{varbinds: varbinds}}) when is_list(varbinds) do
+    {:ok,
+     Enum.map(varbinds, fn
+       {oid, exception, _}
+       when exception in [:no_such_object, :no_such_instance, :end_of_mib_view] ->
+         {oid, exception, nil}
+
+       {oid, _type, {exception, _}}
+       when exception in [:no_such_object, :no_such_instance, :end_of_mib_view] ->
+         {oid, exception, nil}
+
+       {oid, type, value} ->
+         {oid, type, value}
+     end)}
+  end
+
+  def extract_varbinds(_), do: {:error, :invalid_response}
+
   def extract_set_result(%{pdu: %{error_status: 0}}) do
     {:ok, :success}
   end

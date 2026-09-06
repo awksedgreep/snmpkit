@@ -585,8 +585,14 @@ defmodule SnmpKit.SnmpMgr.Multi do
     version = Keyword.get(request.opts, :version, :v2c)
 
     # Resolve OID (handles symbolic names like "sysDescr.0")
-    case resolve_oid(request.oid) do
-      {:ok, oid_list} ->
+    case resolve_oids(request.oid) do
+      {:ok, [_ | _] = oid_lists} when request.type == :get ->
+        varbinds = Enum.map(oid_lists, &{&1, :null, :null})
+        pdu = SnmpKit.SnmpLib.PDU.build_get_request_multi(varbinds, request_id)
+        message = SnmpKit.SnmpLib.PDU.build_message(pdu, community, version)
+        SnmpKit.SnmpLib.PDU.encode_message(message)
+
+      {:ok, [oid_list]} ->
         case request.type do
           :get ->
             pdu = SnmpKit.SnmpLib.PDU.build_get_request(oid_list, request_id)
@@ -608,6 +614,27 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
       {:error, reason} ->
         {:error, {:oid_resolution_failed, reason}}
+    end
+  end
+
+  # A request's OID is one OID or, for GET, a list of them (multi-varbind PDU)
+  defp resolve_oids([first | _] = oids) when not is_integer(first) do
+    Enum.reduce_while(oids, {:ok, []}, fn oid, {:ok, acc} ->
+      case resolve_oid(oid) do
+        {:ok, list} -> {:cont, {:ok, [list | acc]}}
+        error -> {:halt, error}
+      end
+    end)
+    |> case do
+      {:ok, acc} -> {:ok, Enum.reverse(acc)}
+      error -> error
+    end
+  end
+
+  defp resolve_oids(oid) do
+    case resolve_oid(oid) do
+      {:ok, list} -> {:ok, [list]}
+      error -> error
     end
   end
 
