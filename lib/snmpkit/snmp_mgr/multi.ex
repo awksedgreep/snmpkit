@@ -552,6 +552,8 @@ defmodule SnmpKit.SnmpMgr.Multi do
       # Resolve target
       target = resolve_target(request.target)
 
+      socket = socket_for(socket, target.host)
+
       # Build SNMP message
       case build_snmp_message(request, request_id) do
         {:ok, message} ->
@@ -637,6 +639,12 @@ defmodule SnmpKit.SnmpMgr.Multi do
       error -> error
     end
   end
+
+  # IPv6 targets go out on the engine's IPv6 socket
+  defp socket_for(_default, {_, _, _, _, _, _, _, _}),
+    do: SnmpKit.SnmpMgr.Engine.get_socket(SnmpKit.SnmpMgr.Engine, :inet6)
+
+  defp socket_for(default, _host), do: default
 
   # Resolve OID from string (symbolic or numeric) to list format
   defp resolve_oid(oid) when is_list(oid) and is_integer(hd(oid)), do: {:ok, oid}

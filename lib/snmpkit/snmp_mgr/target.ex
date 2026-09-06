@@ -22,25 +22,29 @@ defmodule SnmpKit.SnmpMgr.Target do
       {:ok, %{host: {192, 168, 1, 1}, port: 161}}
   """
   def parse(target) when is_binary(target) do
-    case String.split(target, ":") do
-      [host] ->
-        parse_host_and_port(host, @default_port)
+    case SnmpKit.SnmpLib.HostParser.parse(target, @default_port) do
+      {:ok, {host, port}} ->
+        {:ok, %{host: host, port: port}}
 
-      [host, port_str] ->
-        case Integer.parse(port_str) do
-          {port, ""} when port > 0 and port <= 65535 ->
-            parse_host_and_port(host, port)
+      {:error, _} ->
+        # Not an address: keep hostnames (with an optional :port) for later resolution
+        case String.split(target, ":") do
+          [host] ->
+            parse_host_and_port(host, @default_port)
+
+          [host, port_str] ->
+            case Integer.parse(port_str) do
+              {port, ""} when port > 0 and port <= 65535 -> parse_host_and_port(host, port)
+              _ -> {:error, {:invalid_port, port_str}}
+            end
 
           _ ->
-            {:error, {:invalid_port, port_str}}
+            {:error, {:invalid_target_format, target}}
         end
-
-      _ ->
-        {:error, {:invalid_target_format, target}}
     end
   end
 
-  def parse(target) when is_tuple(target) and tuple_size(target) == 4 do
+  def parse(target) when is_tuple(target) and tuple_size(target) in [4, 8] do
     # Already an IP tuple
     {:ok, %{host: target, port: @default_port}}
   end
@@ -83,7 +87,7 @@ defmodule SnmpKit.SnmpMgr.Target do
 
   def resolve(%{host: _, port: _} = target), do: target
 
-  def resolve(target) when is_tuple(target) and tuple_size(target) == 4 do
+  def resolve(target) when is_tuple(target) and tuple_size(target) in [4, 8] do
     %{host: target, port: @default_port}
   end
 
@@ -104,12 +108,17 @@ defmodule SnmpKit.SnmpMgr.Target do
         {:ok, %{host: ip_tuple, port: port}}
 
       :error ->
-        case :inet.gethostbyname(String.to_charlist(hostname)) do
-          {:ok, {:hostent, _name, _aliases, :inet, 4, [ip_tuple | _]}} ->
+        charlist = String.to_charlist(hostname)
+
+        case :inet.getaddr(charlist, :inet) do
+          {:ok, ip_tuple} ->
             {:ok, %{host: ip_tuple, port: port}}
 
-          {:error, reason} ->
-            {:error, {:hostname_resolution_failed, hostname, reason}}
+          {:error, _} ->
+            case :inet.getaddr(charlist, :inet6) do
+              {:ok, ip_tuple} -> {:ok, %{host: ip_tuple, port: port}}
+              {:error, reason} -> {:error, {:hostname_resolution_failed, hostname, reason}}
+            end
         end
     end
   end

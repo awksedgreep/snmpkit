@@ -27,8 +27,9 @@ target = "127.0.0.1:1161"
 
 ### Targets and options
 
-A target is a hostname, an IP address, `"host:port"`, or a map with `:host`
-and `:port`. Options common to every call:
+A target is a hostname, an IPv4 or IPv6 address (`"[2001:db8::1]:161"` with
+a port), `"host:port"`, an IP tuple, or a map with `:host` and `:port`.
+Hostnames resolve to A records first, then AAAA. Options common to every call:
 
 | Option | Default | Notes |
 |--------|---------|-------|

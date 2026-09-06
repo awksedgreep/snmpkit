@@ -109,7 +109,9 @@ defmodule SnmpKit.SnmpSim do
   Starts one device from a `SnmpKit.SnmpSim.ProfileLoader` profile.
 
   Options: `:port` (required), `:device_id` (default `"<type>_<port>"`),
-  `:community` (default `"public"`). The device is linked to the caller.
+  `:community` (default `"public"`), `:bind_address` (default all IPv4
+  interfaces; an IPv6 address such as `"::1"` binds an IPv6 socket). The
+  device is linked to the caller.
 
       profile = SnmpKit.SnmpSim.ProfileLoader.load_profile(:cable_modem, {:walk_file, "priv/walks/cable_modem.walk"})
       {:ok, device} = SnmpKit.SnmpSim.start_device(profile, port: 9001)
@@ -138,7 +140,8 @@ defmodule SnmpKit.SnmpSim do
       device_type: device_type,
       device_id: Keyword.get(opts, :device_id, "#{device_type}_#{port}"),
       profile: profile,
-      community: Keyword.get(opts, :community, "public")
+      community: Keyword.get(opts, :community, "public"),
+      bind_address: Keyword.get(opts, :bind_address)
     }
 
     # Linked to the caller: the device stops when the test or script that

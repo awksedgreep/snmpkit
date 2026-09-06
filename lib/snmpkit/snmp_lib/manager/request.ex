@@ -14,17 +14,22 @@ defmodule SnmpKit.SnmpLib.Manager.Request do
   @default_port 161
 
   # Socket management
-  def create_socket(opts) do
+  def create_socket(opts, host \\ nil) do
     socket_opts =
       opts
       |> Keyword.take([:local_port, :bind_address, :recbuf, :sndbuf])
       |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+      |> Keyword.put_new(:family, family_for(host))
 
     case SnmpKit.SnmpLib.Transport.create_client_socket(socket_opts) do
       {:ok, socket} -> {:ok, socket}
       {:error, reason} -> {:error, {:socket_error, reason}}
     end
   end
+
+  # The socket family must match the destination: resolve the host once here.
+  defp family_for(nil), do: :inet
+  defp family_for(host), do: SnmpKit.SnmpLib.Transport.target_family(host)
 
   def close_socket(socket) do
     SnmpKit.SnmpLib.Transport.close_socket(socket)

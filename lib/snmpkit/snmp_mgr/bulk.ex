@@ -99,7 +99,7 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
     case resolve_oid(table_oid) do
       {:ok, start_oid} ->
-        with_private_socket(fn socket ->
+        with_private_socket(target, fn socket ->
           case bulk_walk_table(socket, target, start_oid, start_oid, [], max_entries, opts) do
             {:ok, results} ->
               merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
@@ -141,7 +141,7 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
     case resolve_oid(root_oid) do
       {:ok, start_oid} ->
-        with_private_socket(fn socket ->
+        with_private_socket(target, fn socket ->
           case bulk_walk_subtree(socket, target, start_oid, start_oid, [], max_entries, opts) do
             {:ok, results} ->
               merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
@@ -202,8 +202,10 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
   # Private functions
 
-  defp with_private_socket(fun) do
-    case SnmpKit.SnmpLib.Transport.create_client_socket() do
+  defp with_private_socket(target, fun) do
+    family = SnmpKit.SnmpLib.Transport.target_family(target)
+
+    case SnmpKit.SnmpLib.Transport.create_client_socket(family: family) do
       {:ok, socket} ->
         try do
           fun.(socket)

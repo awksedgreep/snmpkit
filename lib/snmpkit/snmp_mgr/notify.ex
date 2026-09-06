@@ -47,7 +47,7 @@ defmodule SnmpKit.SnmpMgr.Notify do
     with {:ok, {ip, port}} <- resolve_target(target),
          {:ok, message} <- build_notification(:trap, trap_oid, varbinds, opts),
          {:ok, packet} <- PDU.encode_message(message) do
-      with_socket(fn socket -> :gen_udp.send(socket, ip, port, packet) end)
+      with_socket(ip, fn socket -> :gen_udp.send(socket, ip, port, packet) end)
     end
   end
 
@@ -68,7 +68,7 @@ defmodule SnmpKit.SnmpMgr.Notify do
         timeout = Keyword.get(opts, :timeout, Config.get_default_timeout())
         retries = Keyword.get(opts, :retries, 1)
 
-        with_socket(fn socket ->
+        with_socket(ip, fn socket ->
           await_ack(socket, ip, port, packet, request_id, timeout, retries)
         end)
       end
@@ -174,8 +174,10 @@ defmodule SnmpKit.SnmpMgr.Notify do
     Keyword.get_lazy(opts, :request_id, fn -> :rand.uniform(@max_request_id) end)
   end
 
-  defp with_socket(fun) do
-    case :gen_udp.open(0, [:binary, {:active, false}]) do
+  defp with_socket(ip, fun) do
+    family = if SnmpKit.SnmpLib.Transport.family(ip) == :inet6, do: [:inet6], else: []
+
+    case :gen_udp.open(0, [:binary, {:active, false}] ++ family) do
       {:ok, socket} ->
         try do
           fun.(socket)

@@ -364,6 +364,12 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
       pdu = PDU.build_get_bulk_request(oid_list, request_id, 0, max_repetitions)
       message = PDU.build_message(pdu, community, version)
 
+      socket =
+        case target.host do
+          {_, _, _, _, _, _, _, _} -> Engine.get_socket(Engine, :inet6)
+          _ -> socket
+        end
+
       case PDU.encode_message(message) do
         {:ok, encoded_message} ->
           Transport.send_packet(socket, target.host, target.port, encoded_message)

@@ -34,7 +34,7 @@ defmodule SnmpKit.SnmpSim.Core.Server do
   # octets; this leaves ample room for large SETs while refusing junk before
   # it is decoded or hex-dumped.
   @default_max_packet_size 16_384
-  @socket_opts [:binary, {:active, true}, {:reuseaddr, false}, {:ip, {0, 0, 0, 0}}]
+  @socket_opts [:binary, {:active, true}, {:reuseaddr, false}]
 
   @doc """
   Start an SNMP UDP server on the specified port.
@@ -81,7 +81,16 @@ defmodule SnmpKit.SnmpSim.Core.Server do
   def init({port, opts}) do
     community = Keyword.get(opts, :community, @default_community)
     device_handler = Keyword.get(opts, :device_handler)
-    socket_opts = Keyword.get(opts, :socket_opts, []) ++ @socket_opts
+    bind_address = Keyword.get(opts, :bind_address) || {0, 0, 0, 0}
+
+    bind_opts =
+      case SnmpKit.SnmpLib.Transport.resolve_address(bind_address) do
+        {:ok, {_, _, _, _, _, _, _, _} = ip} -> [:inet6, {:ip, ip}]
+        {:ok, ip} -> [{:ip, ip}]
+        _ -> [{:ip, {0, 0, 0, 0}}]
+      end
+
+    socket_opts = Keyword.get(opts, :socket_opts, []) ++ @socket_opts ++ bind_opts
     max_in_flight = Keyword.get(opts, :max_concurrent_requests, @default_max_in_flight)
     max_packet_size = Keyword.get(opts, :max_packet_size, @default_max_packet_size)
 

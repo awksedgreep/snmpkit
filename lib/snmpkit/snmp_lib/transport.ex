@@ -74,8 +74,12 @@ defmodule SnmpKit.SnmpLib.Transport do
         case validate_port(port) do
           true ->
             merged_options = Keyword.merge(@default_socket_options, options)
+            family_options = if family(resolved_address) == :inet6, do: [:inet6], else: []
 
-            case :gen_udp.open(port, [:binary, {:ip, resolved_address} | merged_options]) do
+            case :gen_udp.open(
+                   port,
+                   [:binary, {:ip, resolved_address} | family_options] ++ merged_options
+                 ) do
               {:ok, socket} ->
                 Logger.debug(
                   "Created UDP socket bound to #{format_endpoint(resolved_address, port)}"
@@ -110,9 +114,11 @@ defmodule SnmpKit.SnmpLib.Transport do
   @spec create_client_socket(socket_options()) :: {:ok, socket()} | {:error, atom()}
   def create_client_socket(options \\ []) do
     # Use ephemeral port (0) for client connections unless a source port is requested.
-    bind_address = Keyword.get(options, :bind_address, "0.0.0.0")
+    family = Keyword.get(options, :family, :inet)
+    default_bind = if family == :inet6, do: "::", else: "0.0.0.0"
+    bind_address = Keyword.get(options, :bind_address, default_bind)
     local_port = Keyword.get(options, :local_port, 0)
-    socket_options = Keyword.drop(options, [:bind_address, :local_port])
+    socket_options = Keyword.drop(options, [:bind_address, :local_port, :family])
 
     case resolve_address(bind_address) do
       {:ok, resolved_address} ->
@@ -390,58 +396,63 @@ defmodule SnmpKit.SnmpLib.Transport do
       {:ok, {192, 168, 1, 1}}
   """
   @spec resolve_address(address()) :: {:ok, :inet.socket_address()} | {:error, atom()}
-  def resolve_address(address) when is_tuple(address) do
-    case address do
-      {a, b, c, d}
+  def resolve_address({a, b, c, d} = address)
       when is_integer(a) and is_integer(b) and is_integer(c) and is_integer(d) and
-             a >= 0 and a <= 255 and b >= 0 and b <= 255 and
-             c >= 0 and c <= 255 and d >= 0 and d <= 255 ->
-        {:ok, address}
-
-      _ ->
-        {:error, :invalid_ip_tuple}
-    end
+             a in 0..255 and b in 0..255 and c in 0..255 and d in 0..255 do
+    {:ok, address}
   end
 
-  def resolve_address(address) when is_binary(address) do
-    case :inet.parse_address(String.to_charlist(address)) do
-      {:ok, ip_tuple} ->
-        {:ok, ip_tuple}
-
-      {:error, :einval} ->
-        # Try hostname resolution
-        case :inet.gethostbyname(String.to_charlist(address)) do
-          {:ok, {:hostent, _name, _aliases, :inet, 4, [ip_tuple | _]}} ->
-            {:ok, ip_tuple}
-
-          {:error, reason} ->
-            Logger.error("Failed to resolve hostname #{address}: #{inspect(reason)}")
-            {:error, :hostname_resolution_failed}
-        end
-    end
+  def resolve_address({_, _, _, _, _, _, _, _} = address) do
+    if Enum.all?(Tuple.to_list(address), &(is_integer(&1) and &1 in 0..65535)),
+      do: {:ok, address},
+      else: {:error, :invalid_ip_tuple}
   end
+
+  def resolve_address(address) when is_tuple(address), do: {:error, :invalid_ip_tuple}
+
+  def resolve_address(address) when is_binary(address),
+    do: resolve_address(String.to_charlist(address))
 
   def resolve_address(address) when is_list(address) do
-    # Handle charlist input (from mix run -e single quotes)
     case :inet.parse_address(address) do
       {:ok, ip_tuple} ->
         {:ok, ip_tuple}
 
       {:error, :einval} ->
-        # Try hostname resolution
-        case :inet.gethostbyname(address) do
-          {:ok, {:hostent, _name, _aliases, :inet, 4, [ip_tuple | _]}} ->
-            {:ok, ip_tuple}
-
-          {:error, reason} ->
-            address_str = List.to_string(address)
-            Logger.error("Failed to resolve hostname #{address_str}: #{inspect(reason)}")
-            {:error, :hostname_resolution_failed}
+        # A records first, then AAAA
+        with {:error, _} <- :inet.getaddr(address, :inet),
+             {:error, _} <- :inet.getaddr(address, :inet6) do
+          Logger.error("Failed to resolve hostname #{List.to_string(address)}")
+          {:error, :hostname_resolution_failed}
         end
     end
   end
 
   def resolve_address(_), do: {:error, :invalid_address_format}
+
+  @doc """
+  The socket family needed to reach `target` (a host, `"host:port"`,
+  `"[v6]:port"`, IP tuple or `%{host: _}` map): `:inet6` when it resolves
+  to an IPv6 address, `:inet` otherwise (including when it does not resolve).
+  """
+  @spec target_family(term()) :: :inet | :inet6
+  def target_family(target) do
+    host =
+      case SnmpKit.SnmpLib.Utils.parse_target(target) do
+        {:ok, %{host: h}} -> h
+        _ -> target
+      end
+
+    case resolve_address(host) do
+      {:ok, ip} -> family(ip)
+      _ -> :inet
+    end
+  end
+
+  @doc "`:inet` for IPv4 tuples, `:inet6` for IPv6 tuples."
+  @spec family(:inet.ip_address()) :: :inet | :inet6
+  def family({_, _, _, _, _, _, _, _}), do: :inet6
+  def family(_), do: :inet
 
   @doc """
   Validates a port number.

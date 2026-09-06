@@ -330,7 +330,10 @@ defmodule SnmpKit.SnmpSim.Device do
           end
 
         # Start the UDP server for this device
-        case Server.start_link(port, community: community) do
+        case Server.start_link(port,
+               community: community,
+               bind_address: Map.get(device_config, :bind_address)
+             ) do
           {:ok, server_pid} ->
             # Initialize modem upgrade defaults
             upgrade_enabled =

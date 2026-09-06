@@ -108,13 +108,11 @@ defmodule SnmpKit.Trap do
 
     with {:ok, ip} <- SnmpKit.SnmpLib.Transport.resolve_address(bind),
          {:ok, socket} <-
-           :gen_udp.open(port, [
-             :binary,
-             {:active, true},
-             {:ip, ip},
-             {:reuseaddr, true},
-             {:recbuf, 262_144}
-           ]),
+           :gen_udp.open(
+             port,
+             [:binary, {:active, true}, {:ip, ip}, {:reuseaddr, true}, {:recbuf, 262_144}] ++
+               if(SnmpKit.SnmpLib.Transport.family(ip) == :inet6, do: [:inet6], else: [])
+           ),
          {:ok, bound_port} <- :inet.port(socket) do
       state = %__MODULE__{
         socket: socket,

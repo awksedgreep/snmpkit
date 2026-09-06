@@ -123,7 +123,7 @@ defmodule SnmpKit.SnmpLib.Manager do
 
     Logger.debug("Starting GET operation: host=#{inspect(host)}, oid=#{inspect(normalized_oid)}")
 
-    with {:ok, socket} <- Request.create_socket(opts) do
+    with {:ok, socket} <- Request.create_socket(opts, host) do
       Logger.debug("Socket created successfully")
 
       try do
@@ -240,7 +240,7 @@ defmodule SnmpKit.SnmpLib.Manager do
   def get_bulk(host, base_oid, opts \\ []) do
     opts = merge_bulk_opts(opts)
 
-    with {:ok, socket} <- Request.create_socket(opts) do
+    with {:ok, socket} <- Request.create_socket(opts, host) do
       try do
         get_bulk_with_socket(socket, host, base_oid, opts)
       after
@@ -302,7 +302,7 @@ defmodule SnmpKit.SnmpLib.Manager do
     opts = merge_default_opts(opts)
     normalized_oid = normalize_oid(oid)
 
-    with {:ok, socket} <- Request.create_socket(opts) do
+    with {:ok, socket} <- Request.create_socket(opts, host) do
       try do
         case perform_set_operation(socket, host, normalized_oid, {type, value}, opts) do
           {:ok, response} -> Response.extract_set_result(response)
@@ -333,7 +333,7 @@ defmodule SnmpKit.SnmpLib.Manager do
     opts = merge_default_opts(opts)
     varbinds = Enum.map(oids, &{normalize_oid(&1), :null, :null})
 
-    with {:ok, socket} <- Request.create_socket(opts) do
+    with {:ok, socket} <- Request.create_socket(opts, host) do
       try do
         pdu = SnmpKit.SnmpLib.PDU.build_get_request_multi(varbinds, generate_request_id())
 
@@ -361,7 +361,7 @@ defmodule SnmpKit.SnmpLib.Manager do
     opts = merge_default_opts(opts)
     typed = Enum.map(varbinds, fn {oid, {type, value}} -> {normalize_oid(oid), type, value} end)
 
-    with {:ok, socket} <- Request.create_socket(opts) do
+    with {:ok, socket} <- Request.create_socket(opts, host) do
       try do
         pdu = SnmpKit.SnmpLib.PDU.build_set_request_multi(typed, generate_request_id())
 
@@ -411,7 +411,7 @@ defmodule SnmpKit.SnmpLib.Manager do
         opts = merge_default_opts(opts)
         normalized_oids = Enum.map(oids, &normalize_oid/1)
 
-        with {:ok, socket} <- Request.create_socket(opts) do
+        with {:ok, socket} <- Request.create_socket(opts, host) do
           try do
             results = get_multi_with_socket(socket, host, normalized_oids, opts)
 
@@ -553,7 +553,7 @@ defmodule SnmpKit.SnmpLib.Manager do
 
   # GETNEXT implementation for SNMP v1
   defp perform_get_next_v1(host, oid, opts) do
-    with {:ok, socket} <- Request.create_socket(opts) do
+    with {:ok, socket} <- Request.create_socket(opts, host) do
       Logger.debug("Socket created successfully for GETNEXT v1")
 
       try do

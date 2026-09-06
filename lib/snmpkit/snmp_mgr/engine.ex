@@ -31,6 +31,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
     :metrics,
     :timeout_refs,
     :socket,
+    :socket6,
     :port,
     :buffer_size,
     :max_queue_depth,
@@ -85,7 +86,13 @@ defmodule SnmpKit.SnmpMgr.Engine do
   end
 
   @doc "The shared UDP socket. Send request PDUs on it after `register_request/4`."
-  def get_socket(engine \\ __MODULE__) do
+  def get_socket(engine \\ __MODULE__, family \\ :inet)
+
+  def get_socket(engine, :inet6) do
+    GenServer.call(engine, {:get_socket, :inet6})
+  end
+
+  def get_socket(engine, :inet) do
     GenServer.call(engine, :get_socket)
   end
 
@@ -158,6 +165,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
   def terminate(_reason, state) do
     Enum.each(state.timeout_refs, fn {_id, ref} -> Process.cancel_timer(ref) end)
     if state.socket, do: :gen_udp.close(state.socket)
+    if state.socket6, do: :gen_udp.close(state.socket6)
     :ok
   end
 
@@ -212,6 +220,28 @@ defmodule SnmpKit.SnmpMgr.Engine do
 
   @impl true
   def handle_call(:get_socket, _from, state), do: {:reply, state.socket, state}
+
+  # The IPv6 socket is opened on first use so IPv4-only hosts never need one.
+  @impl true
+  def handle_call({:get_socket, :inet6}, _from, %{socket6: nil} = state) do
+    case :gen_udp.open(0, [
+           :binary,
+           :inet6,
+           {:ipv6_v6only, true},
+           {:active, true},
+           {:recbuf, state.buffer_size}
+         ]) do
+      {:ok, socket6} ->
+        {:reply, socket6, %{state | socket6: socket6}}
+
+      {:error, reason} ->
+        Logger.error("Failed to open engine IPv6 UDP socket: #{inspect(reason)}")
+        {:reply, nil, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:get_socket, :inet6}, _from, state), do: {:reply, state.socket6, state}
 
   @impl true
   def handle_call(:get_port, _from, state), do: {:reply, state.port, state}
