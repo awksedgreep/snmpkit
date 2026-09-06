@@ -8,7 +8,6 @@ defmodule Snmpkit.MixProject do
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
-      test_pattern: "**/*_test.exs",
       test_coverage: [tool: ExCoveralls],
       compilers: [:yecc] ++ Mix.compilers(),
       deps: deps(),
