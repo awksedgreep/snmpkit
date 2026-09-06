@@ -516,6 +516,21 @@ defmodule SnmpKit.SnmpMgr.Core do
 
     mapped = if port = Keyword.get(opts, :port), do: [{:port, port} | mapped], else: mapped
 
+    # SNMPv3 (USM) options travel through untouched
+    mapped =
+      opts
+      |> Keyword.take([
+        :security_name,
+        :auth_protocol,
+        :auth_password,
+        :priv_protocol,
+        :priv_password,
+        :security_level,
+        :context_name,
+        :engine_id
+      ])
+      |> Keyword.merge(mapped)
+
     mapped =
       if max_repetitions = Keyword.get(opts, :max_repetitions),
         do: [{:max_repetitions, max_repetitions} | mapped],

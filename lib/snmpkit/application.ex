@@ -10,6 +10,8 @@ defmodule Snmpkit.Application do
     children = [
       # Manager configuration (defaults, include_names/include_formatted, auto-start flag)
       SnmpKit.SnmpMgr.Config,
+      # Remembers SNMPv3 engine ids and boots/time per target
+      SnmpKit.SnmpLib.Security.EngineCache,
       # Shared profiles manager for memory-efficient device data
       SnmpKit.SnmpSim.MIB.SharedProfiles,
       # MIB resolution and compilation service

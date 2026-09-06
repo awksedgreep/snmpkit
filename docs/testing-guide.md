@@ -89,6 +89,32 @@ Both `-On` numeric output and named output are understood.
 Counters then grow between polls and sysUpTime advances, which is what you
 want when testing rate calculations.
 
+## SNMPv3
+
+A device started with `v3_users:` answers SNMPv3 with the User-based
+Security Model: engine discovery, authentication, privacy, time windows and
+the `usmStats` reports a manager expects.
+
+```elixir
+{:ok, device} =
+  SnmpKit.Sim.start_device(profile,
+    port: port,
+    v3_users: [
+      %{name: "guest"},
+      %{name: "ops", auth: :sha256, auth_password: "auth-secret"},
+      %{name: "admin", auth: :sha256, auth_password: "auth-secret", priv: :aes128, priv_password: "priv-secret"}
+    ]
+  )
+
+{:ok, _} = SnmpKit.SNMP.get(target, "sysDescr.0",
+  version: :v3, security_name: "admin",
+  auth_protocol: :sha256, auth_password: "auth-secret",
+  priv_protocol: :aes128, priv_password: "priv-secret")
+```
+
+The engine id derives from the device id (pass `engine_id:` to fix it); a
+user must be addressed at least at its own security level.
+
 ## Error conditions
 
 `SnmpKit.SnmpSim.ErrorInjector` attaches to a running device:

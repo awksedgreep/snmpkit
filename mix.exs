@@ -162,6 +162,9 @@ defmodule Snmpkit.MixProject do
         ],
         "SNMPv3 Security": [
           SnmpKit.SnmpLib.Security,
+          SnmpKit.SnmpLib.Security.EngineCache,
+          SnmpKit.SnmpLib.Manager.V3,
+          SnmpKit.SnmpSim.Core.UsmAgent,
           SnmpKit.SnmpLib.Security.Auth,
           SnmpKit.SnmpLib.Security.Keys,
           SnmpKit.SnmpLib.Security.Priv,

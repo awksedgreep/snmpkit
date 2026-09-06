@@ -400,6 +400,9 @@ defmodule SnmpKit.SnmpLib.Security do
       :none ->
         {:ok, <<>>}
 
+      nil ->
+        {:ok, <<>>}
+
       protocol ->
         Keys.derive_auth_key(
           protocol,

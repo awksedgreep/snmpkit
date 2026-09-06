@@ -64,6 +64,12 @@ target = "127.0.0.1:1161"
 {:ok, system} = SnmpKit.SNMP.walk(target, "system")
 Enum.each(system, fn %{name: name, formatted: value} -> IO.puts("#{name} = #{value}") end)
 
+# SNMPv3: discovery, key localization and time sync are automatic
+{:ok, _} = SnmpKit.SNMP.get(target, "sysDescr.0",
+  version: :v3, security_name: "admin",
+  auth_protocol: :sha256, auth_password: "auth-secret",
+  priv_protocol: :aes128, priv_password: "priv-secret")
+
 # Multi-target calls return one result per request, in request order
 [{:ok, [%{value: ^descr}]}, {:ok, [%{name: "sysName.0"}]}] =
   SnmpKit.SNMP.get_multi([{target, "sysDescr.0"}, {target, "sysName.0"}])

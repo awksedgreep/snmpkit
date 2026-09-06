@@ -44,6 +44,31 @@ Hostnames resolve to A records first, then AAAA. Options common to every call:
 Defaults come from `config :snmpkit` and can be changed at runtime with
 `SnmpKit.SnmpMgr.Config.set_default_timeout/1` and friends.
 
+### SNMPv3
+
+Pass `version: :v3` with a USM user. Engine discovery, key localization to
+the agent's engine id, and time synchronisation happen on the first call
+and are cached per target; `usmStatsNotInTimeWindows` and
+`usmStatsUnknownEngineIDs` reports trigger a resynchronised retry.
+
+```elixir
+v3 = [
+  version: :v3,
+  security_name: "admin",
+  auth_protocol: :sha256, auth_password: "auth-secret",   # :md5, :sha1, :sha256, :sha384, :sha512
+  priv_protocol: :aes128, priv_password: "priv-secret"    # :des, :aes128, :aes192, :aes256
+]
+
+{:ok, %{value: descr}} = SnmpKit.SNMP.get(target, "sysDescr.0", v3)
+{:ok, rows} = SnmpKit.SNMP.walk(target, "ifTable", v3)
+```
+
+Omit the privacy options for authNoPriv, or both for noAuthNoPriv. A wrong
+password or user comes back as `{:error, {:usm_report, :usm_stats_wrong_digests}}`
+or `{:error, {:usm_report, :usm_stats_unknown_user_names}}`. Multi-target
+calls remain v1/v2c. Simulated devices speak v3 when started with
+`v3_users:`, so all of this is testable offline (see the testing guide).
+
 ### GET, GETNEXT and SET
 
 ```elixir

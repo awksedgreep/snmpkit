@@ -60,6 +60,40 @@ defmodule SnmpKit.SnmpLib.Manager.Request do
           {host, port_option}
       end
 
+    if version in [:v3, 3] do
+      with {:ok, target_address} <- SnmpKit.SnmpLib.Transport.resolve_address(parsed_host) do
+        SnmpKit.SnmpLib.Manager.V3.perform(
+          socket,
+          target_address,
+          parsed_port,
+          pdu,
+          Keyword.merge(opts, timeout: timeout, retries: retries)
+        )
+      end
+    else
+      perform_community_request(
+        socket,
+        parsed_host,
+        parsed_port,
+        pdu,
+        community,
+        version,
+        timeout,
+        retries
+      )
+    end
+  end
+
+  defp perform_community_request(
+         socket,
+         parsed_host,
+         parsed_port,
+         pdu,
+         community,
+         version,
+         timeout,
+         retries
+       ) do
     message = SnmpKit.SnmpLib.PDU.build_message(pdu, community, version)
     Logger.debug("Built SNMP message: #{inspect(message)}")
 

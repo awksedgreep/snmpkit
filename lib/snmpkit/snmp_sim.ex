@@ -110,8 +110,10 @@ defmodule SnmpKit.SnmpSim do
 
   Options: `:port` (required), `:device_id` (default `"<type>_<port>"`),
   `:community` (default `"public"`), `:bind_address` (default all IPv4
-  interfaces; an IPv6 address such as `"::1"` binds an IPv6 socket). The
-  device is linked to the caller.
+  interfaces; an IPv6 address such as `"::1"` binds an IPv6 socket),
+  `:v3_users` (a list of `%{name:, auth:, auth_password:, priv:, priv_password:}`
+  maps that enables SNMPv3, see `SnmpKit.SnmpSim.Core.UsmAgent`) and
+  `:engine_id`. The device is linked to the caller.
 
       profile = SnmpKit.SnmpSim.ProfileLoader.load_profile(:cable_modem, {:walk_file, "priv/walks/cable_modem.walk"})
       {:ok, device} = SnmpKit.SnmpSim.start_device(profile, port: 9001)
@@ -141,7 +143,9 @@ defmodule SnmpKit.SnmpSim do
       device_id: Keyword.get(opts, :device_id, "#{device_type}_#{port}"),
       profile: profile,
       community: Keyword.get(opts, :community, "public"),
-      bind_address: Keyword.get(opts, :bind_address)
+      bind_address: Keyword.get(opts, :bind_address),
+      v3_users: Keyword.get(opts, :v3_users),
+      engine_id: Keyword.get(opts, :engine_id)
     }
 
     # Linked to the caller: the device stops when the test or script that

@@ -16,6 +16,7 @@ defmodule SnmpKit.SnmpSim.Core.Server do
   ]
 
   defstruct [
+    :usm_agent,
     :socket,
     :port,
     :device_handler,
@@ -91,6 +92,23 @@ defmodule SnmpKit.SnmpSim.Core.Server do
       end
 
     socket_opts = Keyword.get(opts, :socket_opts, []) ++ @socket_opts ++ bind_opts
+
+    usm_agent =
+      case Keyword.get(opts, :v3_users) do
+        nil ->
+          nil
+
+        users ->
+          case SnmpKit.SnmpSim.Core.UsmAgent.new(
+                 v3_users: users,
+                 engine_id: Keyword.get(opts, :engine_id),
+                 device_id: Keyword.get(opts, :device_id, "snmpkit-#{port}")
+               ) do
+            {:ok, agent} -> agent
+            {:error, reason} -> raise ArgumentError, "invalid v3_users: #{inspect(reason)}"
+          end
+      end
+
     max_in_flight = Keyword.get(opts, :max_concurrent_requests, @default_max_in_flight)
     max_packet_size = Keyword.get(opts, :max_packet_size, @default_max_packet_size)
 
@@ -112,6 +130,7 @@ defmodule SnmpKit.SnmpSim.Core.Server do
           port: port,
           device_handler: device_handler,
           community: community,
+          usm_agent: usm_agent,
           stats: init_stats(),
           in_flight: 0,
           max_in_flight: max_in_flight,
@@ -222,7 +241,24 @@ defmodule SnmpKit.SnmpSim.Core.Server do
     Logger.debug(fn -> "Packet size: #{packet_size} bytes, hex: #{Base.encode16(packet)}" end)
 
     try do
-      case PDU.decode_message(packet) do
+      case decode_incoming(packet, state) do
+        {:v3_request, pdu, ctx} ->
+          # the worker remembers the USM context so send_response_async can
+          # encode the reply for this user
+          Process.put(:snmpkit_usm_ctx, ctx)
+          process_snmp_request_async(server_pid, state, client_ip, client_port, pdu)
+
+        {:v3_report, report_packet} ->
+          :gen_udp.send(state.socket, client_ip, client_port, report_packet)
+          send(server_pid, {:update_stats, :auth_failures})
+
+        {:v3_error, reason} ->
+          Logger.debug(
+            "Dropping SNMPv3 packet from #{format_ip(client_ip)}:#{client_port}: #{inspect(reason)}"
+          )
+
+          send(server_pid, {:update_stats, :decode_errors})
+
         {:ok, message} ->
           Logger.debug("Decoded SNMP message: #{inspect(message)}")
 
@@ -277,6 +313,48 @@ defmodule SnmpKit.SnmpSim.Core.Server do
     end_time = :erlang.monotonic_time()
     processing_time = :erlang.convert_time_unit(end_time - start_time, :native, :microsecond)
     send(server_pid, {:update_stats, :processing_times, processing_time})
+  end
+
+  # SNMPv3 datagrams (version integer 3 in the message header) go through the
+  # USM agent; everything else is community based.
+  defp decode_incoming(packet, state) do
+    case SnmpKit.SnmpLib.PDU.V3Encoder.decode_message_header(packet) do
+      {:ok, %{version: 3} = _header} ->
+        case state.usm_agent do
+          nil ->
+            {:v3_error, :snmpv3_not_configured}
+
+          agent ->
+            case SnmpKit.SnmpSim.Core.UsmAgent.decode_request(packet, agent) do
+              {:request, pdu, ctx} -> {:v3_request, v3_request_pdu(pdu, ctx), ctx}
+              {:report, report} -> {:v3_report, report}
+              {:error, reason} -> {:v3_error, reason}
+            end
+        end
+
+      _ ->
+        PDU.decode_message(packet)
+    end
+  end
+
+  # the shape process_snmp_request_async expects, with version 3 so the
+  # device answers with SNMPv2 semantics
+  defp v3_request_pdu(pdu, ctx) do
+    %{
+      version: 3,
+      community: ctx.user.security_name,
+      type: pdu.type,
+      request_id: pdu.request_id,
+      error_status: Map.get(pdu, :error_status, 0),
+      error_index: Map.get(pdu, :error_index, 0),
+      varbinds:
+        Enum.map(pdu.varbinds, fn
+          {oid, _type, value} -> {oid, value}
+          {oid, value} -> {oid, value}
+        end),
+      max_repetitions: Map.get(pdu, :max_repetitions, 0),
+      non_repeaters: Map.get(pdu, :non_repeaters, 0)
+    }
   end
 
   defp process_snmp_request_async(server_pid, state, client_ip, client_port, pdu) do
@@ -451,7 +529,20 @@ defmodule SnmpKit.SnmpSim.Core.Server do
     Logger.debug("Response message before encoding: #{inspect(response_message)}")
     Logger.debug("Server: Response message before encoding: #{inspect(response_message)}")
 
-    case PDU.encode_message(response_message) do
+    encoded =
+      case Process.get(:snmpkit_usm_ctx) do
+        nil ->
+          PDU.encode_message(response_message)
+
+        ctx ->
+          SnmpKit.SnmpSim.Core.UsmAgent.encode_response(
+            Map.drop(normalized_pdu, [:version, :community]),
+            ctx,
+            state.usm_agent
+          )
+      end
+
+    case encoded do
       {:ok, encoded_packet} ->
         Logger.debug("Server: Successfully encoded packet, sending response")
         :gen_udp.send(state.socket, client_ip, client_port, encoded_packet)
