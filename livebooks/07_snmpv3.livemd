@@ -1,0 +1,234 @@
+# SNMPv3
+
+Authenticated and encrypted SNMP with the User-based Security Model, on both
+sides: the manager calls and the agents that answer them.
+
+## Setup
+
+```elixir
+Mix.install([
+  {:snmpkit, "~> 2.0"}
+])
+
+alias SnmpKit.{SNMP, Sim}
+alias SnmpKit.SnmpSim.ProfileLoader
+
+IO.puts("SNMPv3 modules ready!")
+```
+
+## Why v3?
+
+SNMPv1 and v2c send the community string in clear text and anyone who
+knows it can read (or write) everything. SNMPv3 replaces communities with
+users: each user has an authentication key (HMAC over every message) and,
+optionally, a privacy key (the PDU is encrypted). Three security levels
+follow from that:
+
+| Level | Authentication | Encryption | Typical use |
+|-------|----------------|------------|-------------|
+| `noAuthNoPriv` | no | no | lab devices, discovery |
+| `authNoPriv` | yes | no | monitoring read-only data |
+| `authPriv` | yes | yes | anything with credentials or write access |
+
+SnmpKit implements the whole protocol in Elixir: engine discovery, key
+localization (RFC 3414 and RFC 7860), time synchronisation and the
+report-driven retries the RFCs require. You do not manage any of it by
+hand.
+
+## A device with users
+
+Simulated devices take `v3_users:` and run a full agent-side USM. This one
+serves the bundled router profile to three users, one per security level.
+
+```elixir
+{:ok, profile} = ProfileLoader.load_profile(:router)
+
+{:ok, device} =
+  Sim.start_device(profile,
+    port: 1163,
+    bind_address: "127.0.0.1",
+    device_id: "core-router-1",
+    v3_users: [
+      %{name: "guest"},
+      %{name: "monitor", auth: :sha256, auth_password: "monitor-auth-secret"},
+      %{
+        name: "ops",
+        auth: :sha256,
+        auth_password: "ops-auth-secret",
+        priv: :aes128,
+        priv_password: "ops-priv-secret"
+      }
+    ]
+  )
+
+target = "127.0.0.1:1163"
+```
+
+The device's engine id is derived from `device_id`, so it stays the same
+across restarts, as a real device's would.
+
+## Three ways to ask
+
+The options name the user and its protocols. The security level follows
+from which protocols are given, or can be set with `security_level:`.
+
+```elixir
+no_auth = [version: :v3, security_name: "guest"]
+
+auth_only = [
+  version: :v3,
+  security_name: "monitor",
+  auth_protocol: :sha256,
+  auth_password: "monitor-auth-secret"
+]
+
+auth_priv = [
+  version: :v3,
+  security_name: "ops",
+  auth_protocol: :sha256,
+  auth_password: "ops-auth-secret",
+  priv_protocol: :aes128,
+  priv_password: "ops-priv-secret"
+]
+
+for {label, opts} <- [noAuthNoPriv: no_auth, authNoPriv: auth_only, authPriv: auth_priv] do
+  {:ok, %{formatted: descr}} = SNMP.get(target, "sysDescr.0", opts)
+  IO.puts("#{label}: #{descr}")
+end
+```
+
+Every manager operation takes the same options: walks, tables, GETBULK,
+streams, multi-target calls.
+
+```elixir
+{:ok, table} = SNMP.get_table(target, "ifTable", auth_priv ++ [named: true])
+
+for {index, row} <- Enum.sort(table) do
+  IO.puts("#{index}: #{row["ifDescr"]} (#{row["ifOperStatus"]})")
+end
+```
+
+## What happened under the hood
+
+The first request to a target discovers its engine id and clock, and the
+result is cached per `{host, port}`. Later requests skip discovery, and a
+`notInTimeWindows` report from the agent refreshes the cache and retries
+transparently.
+
+```elixir
+{:ok, engine_id} = SnmpKit.SnmpLib.Security.USM.discover_engine("127.0.0.1", port: 1163)
+IO.puts("engine id: #{Base.encode16(engine_id)}")
+
+SnmpKit.SnmpLib.Security.EngineCache.lookup({{127, 0, 0, 1}, 1163})
+```
+
+Clear the cache to force a fresh discovery, for instance after replacing a
+device:
+
+```elixir
+SnmpKit.SnmpLib.Security.EngineCache.clear({{127, 0, 0, 1}, 1163})
+{:ok, _} = SNMP.get(target, "sysUpTime.0", auth_priv)
+SnmpKit.SnmpLib.Security.EngineCache.lookup({{127, 0, 0, 1}, 1163}) != nil
+```
+
+## When it goes wrong
+
+Agents answer bad requests with a USM report rather than silence, and the
+manager returns the report's name. That makes credential problems
+diagnosable instead of looking like timeouts.
+
+```elixir
+wrong_password = Keyword.put(auth_only, :auth_password, "not-the-password")
+IO.inspect(SNMP.get(target, "sysDescr.0", wrong_password), label: "wrong auth password")
+
+unknown_user = Keyword.put(no_auth, :security_name, "nobody")
+IO.inspect(SNMP.get(target, "sysDescr.0", unknown_user), label: "unknown user")
+
+# "ops" requires authPriv; asking without privacy is refused
+too_low = Keyword.drop(auth_priv, [:priv_protocol, :priv_password])
+IO.inspect(SNMP.get(target, "sysDescr.0", too_low), label: "security level too low")
+
+wrong_priv = Keyword.put(auth_priv, :priv_password, "not-the-password")
+IO.inspect(SNMP.get(target, "sysDescr.0", wrong_priv), label: "wrong privacy password")
+```
+
+A device started without `v3_users:` ignores v3 datagrams entirely, so
+those requests time out, as they would against a device with v3 disabled.
+
+## Choosing protocols
+
+| Authentication | Privacy | Notes |
+|----------------|---------|-------|
+| `:sha256`, `:sha384`, `:sha512` | `:aes128`, `:aes192`, `:aes256` | current best practice (RFC 7860, RFC 3826 with the net-snmp key extension) |
+| `:sha1` | `:aes128` | widely deployed, still acceptable |
+| `:md5` | `:des` | legacy; use only when the device offers nothing else |
+
+Every combination is exercised in SnmpKit's test suite against the
+simulated agent, and the key derivation is verified against the RFC 3414
+test vectors.
+
+## Your own agent, with users
+
+`SnmpKit.Agent` takes the same `v3_users:` and adds an access level per
+user. Reads work for everyone; SET needs `access: :write`.
+
+```elixir
+{:ok, agent} =
+  SnmpKit.Agent.start_link(
+    port: 1164,
+    bind_address: "127.0.0.1",
+    communities: [],
+    v3_users: [
+      %{name: "monitor", auth: :sha256, auth_password: "monitor-auth-secret"},
+      %{
+        name: "ops",
+        auth: :sha256,
+        auth_password: "ops-auth-secret",
+        priv: :aes128,
+        priv_password: "ops-priv-secret",
+        access: :write
+      }
+    ],
+    system: [descr: "orders-api 3.2", name: "orders-01"]
+  )
+
+agent_target = "127.0.0.1:1164"
+
+{:ok, %{value: name}} = SNMP.get(agent_target, "sysName.0", auth_only)
+IO.puts("monitor reads sysName: #{name}")
+
+IO.inspect(SNMP.set(agent_target, "sysLocation.0", "rack 5", auth_only), label: "monitor SET")
+IO.inspect(SNMP.set(agent_target, "sysLocation.0", "rack 5", auth_priv), label: "ops SET")
+```
+
+With `communities: []` this agent speaks SNMPv3 only; a v1 or v2c request
+gets no answer.
+
+## Many devices
+
+Multi-target calls take per-request options, so a mixed fleet of v2c and
+v3 devices is one call.
+
+```elixir
+requests = [
+  {target, "sysName.0", auth_priv},
+  {agent_target, "sysName.0", auth_only},
+  {target, "sysUpTime.0", no_auth}
+]
+
+SNMP.get_multi(requests, timeout: 2_000)
+|> Enum.zip(requests)
+|> Enum.map(fn {result, {host, oid, _}} -> {host, oid, result} end)
+```
+
+## Clean up
+
+```elixir
+SnmpKit.Agent.stop(agent)
+GenServer.stop(device)
+```
+
+## Next Steps
+
+- **[Your Own SNMP Agent](06_snmp_agent.livemd)** - scalars, tables and handlers behind those users
+- **[Device Simulation](04_device_simulation.livemd)** - more ways to build the devices you test against

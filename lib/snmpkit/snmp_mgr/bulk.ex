@@ -29,12 +29,9 @@ defmodule SnmpKit.SnmpMgr.Bulk do
       ]}
   """
   def get_bulk(target, oids, opts \\ []) do
-    # Check if user explicitly specified a version other than v2c
+    # GETBULK exists from SNMPv2 on; v2c and v3 both carry it
     case Keyword.get(opts, :version) do
       :v1 ->
-        {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
-
-      :v3 ->
         {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
 
       _ ->

@@ -118,7 +118,7 @@ defmodule SnmpKit.SnmpMgr.Config do
       iex> SnmpKit.SnmpMgr.Config.set_default_version(:v2c)
       :ok
   """
-  def set_default_version(version) when version in [:v1, :v2c] do
+  def set_default_version(version) when version in [:v1, :v2c, :v3] do
     GenServer.call(__MODULE__, {:set, :version, version})
   end
 

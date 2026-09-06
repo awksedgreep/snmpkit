@@ -269,3 +269,5 @@ shows them and `SnmpKit.SnmpSim.stop/0` removes them.
 ## Next Steps
 
 - **[High Performance](05_high_performance.livemd)** - Poll many devices efficiently with the shared-socket engine
+- **[SNMPv3](07_snmpv3.livemd)** - Simulated devices with USM users, and the manager side
+- **[Your Own SNMP Agent](06_snmp_agent.livemd)** - Serve real data instead of a profile

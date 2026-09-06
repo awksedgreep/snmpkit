@@ -234,3 +234,8 @@ type, principal and error status, ready for `Telemetry.Metrics`.
 GenServer.stop(receiver)
 SnmpKit.Agent.stop(agent)
 ```
+
+## Next Steps
+
+- **[SNMPv3](07_snmpv3.livemd)** - Users, security levels and what the reports mean
+- **[Device Simulation](04_device_simulation.livemd)** - Simulated devices for the manager side of your tests

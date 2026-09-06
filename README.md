@@ -220,7 +220,7 @@ config :snmpkit,
 - [Timeouts and retries](TIMEOUT_DOCUMENTATION.md)
 - [MIB guide](docs/mib-guide.md) and [checking the parser against libsmi and net-snmp](docs/mib-parser-oracle.md)
 - [Testing guide](docs/testing-guide.md)
-- Livebooks: [quickstart](livebooks/01_quickstart.livemd), [SNMP operations](livebooks/02_snmp_operations.livemd), [MIB management](livebooks/03_mib_management.livemd), [device simulation](livebooks/04_device_simulation.livemd), [high performance](livebooks/05_high_performance.livemd)
+- Livebooks: [quickstart](livebooks/01_quickstart.livemd), [SNMP operations](livebooks/02_snmp_operations.livemd), [MIB management](livebooks/03_mib_management.livemd), [device simulation](livebooks/04_device_simulation.livemd), [high performance](livebooks/05_high_performance.livemd), [your own SNMP agent](livebooks/06_snmp_agent.livemd), [SNMPv3](livebooks/07_snmpv3.livemd)
 - [Examples](examples/README.md)
 - [Full API reference](https://hexdocs.pm/snmpkit)
 

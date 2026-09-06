@@ -65,8 +65,10 @@ v3 = [
 
 Omit the privacy options for authNoPriv, or both for noAuthNoPriv. A wrong
 password or user comes back as `{:error, {:usm_report, :usm_stats_wrong_digests}}`
-or `{:error, {:usm_report, :usm_stats_unknown_user_names}}`. Multi-target
-calls remain v1/v2c. Simulated devices speak v3 when started with
+or `{:error, {:usm_report, :usm_stats_unknown_user_names}}`; a wrong privacy
+password is `{:error, {:usm_report, :usm_stats_decryption_errors}}`.
+Multi-target calls take the same options per request, so one `get_multi`
+can mix v2c and v3 targets. Simulated devices speak v3 when started with
 `v3_users:`, so all of this is testable offline (see the testing guide).
 
 ### GET, GETNEXT and SET

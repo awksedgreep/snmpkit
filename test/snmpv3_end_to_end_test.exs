@@ -109,9 +109,49 @@ defmodule SnmpKit.SNMPv3EndToEndTest do
              SnmpKit.SNMP.get(target, "sysDescr.0", opts)
   end
 
-  test "a wrong privacy password fails", %{target: target} do
+  test "a wrong privacy password is rejected with a decryptionErrors report", %{target: target} do
     opts = Keyword.merge(v3("aes128user"), priv_password: "wrong-priv-pass", retries: 0)
-    assert {:error, _} = SnmpKit.SNMP.get(target, "sysDescr.0", opts)
+
+    assert {:error, {:usm_report, :usm_stats_decryption_errors}} =
+             SnmpKit.SNMP.get(target, "sysDescr.0", opts)
+  end
+
+  test "multi-target calls mix v3 and community requests", %{target: target} do
+    requests = [
+      {target, "sysDescr.0", v3("aes128user")},
+      {target, "sysName.0", [community: "public"]},
+      {target, "sysUpTime.0", v3("guest")},
+      {target, "sysDescr.0", Keyword.put(v3("md5user"), :auth_password, "not-the-password")}
+    ]
+
+    assert [
+             {:ok, [%{name: "sysDescr.0"}]},
+             {:ok, [%{name: "sysName.0"}]},
+             {:ok, [%{name: "sysUpTime.0"}]},
+             {:error, {:usm_report, :usm_stats_wrong_digests}}
+           ] = SnmpKit.SNMP.get_multi(requests, timeout: 2_000)
+
+    assert [{:ok, v3_rows}, {:ok, v2c_rows}] =
+             SnmpKit.SNMP.walk_multi(
+               [{target, "system", v3("sha256user")}, {target, "system", []}],
+               timeout: 5_000
+             )
+
+    assert Enum.map(v3_rows, & &1.oid) == Enum.map(v2c_rows, & &1.oid)
+
+    assert [{:ok, [_]}, {:ok, bulk}, {:ok, walked}] =
+             SnmpKit.SnmpMgr.Multi.execute_mixed(
+               [
+                 {:get, target, "sysName.0", v3("desuser")},
+                 {:get_bulk, target, "system",
+                  Keyword.put(v3("aes256user"), :max_repetitions, 3)},
+                 {:walk, target, "system", v3("sha512user")}
+               ],
+               timeout: 5_000
+             )
+
+    assert length(bulk) == 3
+    assert length(walked) == length(v2c_rows)
   end
 
   test "an unknown user is rejected with an unknownUserNames report", %{target: target} do

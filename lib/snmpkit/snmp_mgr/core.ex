@@ -388,7 +388,7 @@ defmodule SnmpKit.SnmpMgr.Core do
     version = Keyword.get(opts, :version, :v2c)
 
     case version do
-      :v2c ->
+      v2 when v2 in [:v2c, :v3] ->
         # Parse target to extract host and port
         {host, updated_opts} = split_target(target, opts)
 

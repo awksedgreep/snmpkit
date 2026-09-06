@@ -245,19 +245,15 @@ defmodule SnmpKit.SnmpMgr do
   """
   @spec get_bulk(target(), oid(), opts()) :: {:ok, [{list(), atom(), any()}]} | {:error, any()}
   def get_bulk(target, oid, opts \\ []) do
-    # Check if user explicitly specified a version other than v2c
+    # GETBULK is an SNMPv2 PDU: v2c or v3, never v1
     case Keyword.get(opts, :version) do
       :v1 ->
         {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
 
-      :v3 ->
-        {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
-
-      _ ->
-        # Force version to v2c for GETBULK
+      version ->
         merged_opts =
           opts
-          |> Keyword.put(:version, :v2c)
+          |> Keyword.put(:version, if(version == :v3, do: :v3, else: :v2c))
           |> (&SnmpKit.SnmpMgr.Config.merge_opts/1).()
 
         case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, oid, merged_opts) do
@@ -278,16 +274,9 @@ defmodule SnmpKit.SnmpMgr do
       {:ok, rows} = Task.await(task, 5000)
   """
   def get_bulk_async(target, oid, opts \\ []) do
-    # Check if user explicitly specified a version other than v2c
     case Keyword.get(opts, :version) do
-      :v1 ->
-        {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
-
-      :v3 ->
-        {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
-
-      _ ->
-        Task.async(fn -> get_bulk(target, oid, Keyword.put(opts, :version, :v2c)) end)
+      :v1 -> {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
+      _ -> Task.async(fn -> get_bulk(target, oid, opts) end)
     end
   end
 
@@ -468,7 +457,7 @@ defmodule SnmpKit.SnmpMgr do
   def get_bulk_multi(targets_and_oids, opts \\ []) do
     merged_opts =
       opts
-      |> Keyword.put(:version, :v2c)
+      |> Keyword.put_new(:version, :v2c)
       |> (&SnmpKit.SnmpMgr.Config.merge_opts/1).()
 
     SnmpKit.SnmpMgr.Multi.get_bulk_multi(targets_and_oids, merged_opts)

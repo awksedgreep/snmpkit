@@ -278,3 +278,4 @@ end
 - **[MIB Management](03_mib_management.livemd)** - OID resolution and custom MIBs
 - **[Device Simulation](04_device_simulation.livemd)** - Build realistic test devices
 - **[High Performance](05_high_performance.livemd)** - Scale to thousands of devices
+- **[SNMPv3](07_snmpv3.livemd)** - Authenticated and encrypted requests, on both ends

@@ -167,6 +167,11 @@ defmodule SnmpKit.SnmpSim.Core.UsmAgent do
       {:error, reason} when reason in [:decryption_failed, :decryption_error, :invalid_padding] ->
         report(agent, header, request_id, 6, user.security_name, user)
 
+      {:error, _reason} when header.msg_flags.priv ->
+        # authenticated but the scoped PDU did not decrypt to anything valid:
+        # the sender's privacy key differs from ours (RFC 3414 3.2 step 8)
+        report(agent, header, request_id, 6, user.security_name, user)
+
       {:error, reason} ->
         Logger.debug("USM agent: dropping undecodable v3 request: #{inspect(reason)}")
         {:error, reason}

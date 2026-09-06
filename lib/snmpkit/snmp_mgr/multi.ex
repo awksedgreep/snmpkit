@@ -273,26 +273,24 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
     # Normalize requests to standard format
     normalized_requests = normalize_requests(targets_and_data, operation_type, opts)
-
-    results =
-      if operation_type in [:walk, :walk_table] do
-        SnmpKit.SnmpMgr.V2Walk.walk_multi(normalized_requests,
-          timeout: timeout,
-          max_concurrent: max_concurrent
-        )
-      else
-        execute_non_walk_requests(normalized_requests, timeout, max_concurrent)
-      end
+    results = execute_mixed_without_tasks(normalized_requests, timeout, max_concurrent)
 
     # Format results according to return_format option
     format_results(targets_and_data, results, opts)
   end
 
+  # Community requests share one socket and are correlated through the
+  # Engine; SNMPv3 requests need discovery, key localization and report
+  # handling per target, so they run through the single-target path in a
+  # bounded task pool. Results come back in request order either way.
   defp execute_mixed_without_tasks(requests, timeout, max_concurrent) do
     indexed_requests = Enum.with_index(requests)
 
+    {v3_requests, community_requests} =
+      Enum.split_with(indexed_requests, fn {request, _index} -> v3?(request) end)
+
     {walk_requests, non_walk_requests} =
-      Enum.split_with(indexed_requests, fn {request, _index} ->
+      Enum.split_with(community_requests, fn {request, _index} ->
         request.type in [:walk, :walk_table]
       end)
 
@@ -302,15 +300,71 @@ defmodule SnmpKit.SnmpMgr.Multi do
       |> execute_non_walk_requests(timeout, max_concurrent)
 
     walk_results =
-      walk_requests
+      case Enum.map(walk_requests, &elem(&1, 0)) do
+        [] ->
+          []
+
+        walks ->
+          SnmpKit.SnmpMgr.V2Walk.walk_multi(walks,
+            timeout: timeout,
+            max_concurrent: max_concurrent
+          )
+      end
+
+    v3_results =
+      v3_requests
       |> Enum.map(&elem(&1, 0))
-      |> SnmpKit.SnmpMgr.V2Walk.walk_multi(timeout: timeout, max_concurrent: max_concurrent)
+      |> execute_v3_requests(timeout, max_concurrent)
 
     result_map =
       indexed_result_map(non_walk_requests, non_walk_results)
       |> Map.merge(indexed_result_map(walk_requests, walk_results))
+      |> Map.merge(indexed_result_map(v3_requests, v3_results))
 
     ordered_results(requests, result_map)
+  end
+
+  defp v3?(%{version: version}), do: version in [:v3, 3]
+
+  defp execute_v3_requests([], _timeout, _max_concurrent), do: []
+
+  defp execute_v3_requests(requests, timeout, max_concurrent) do
+    requests
+    |> Task.async_stream(&execute_v3_request(&1, timeout),
+      max_concurrency: max(max_concurrent, 1),
+      timeout: timeout + 5_000,
+      on_timeout: :kill_task,
+      ordered: true
+    )
+    |> Enum.map(fn
+      {:ok, result} -> result
+      {:exit, _reason} -> {:error, :timeout}
+    end)
+  end
+
+  defp execute_v3_request(%{type: type, target: target, oid: oid, opts: opts}, timeout) do
+    opts =
+      opts
+      |> Keyword.drop([:max_concurrent, :return_format])
+      |> Keyword.put_new(:timeout, timeout)
+
+    case type do
+      :get ->
+        with {:ok, varbinds} <- SnmpKit.SnmpMgr.get(target, oid, opts),
+             do: {:ok, List.wrap(varbinds)}
+
+      :get_bulk ->
+        SnmpKit.SnmpMgr.get_bulk(target, oid, opts)
+
+      :walk ->
+        SnmpKit.SnmpMgr.walk(target, oid, opts)
+
+      :walk_table ->
+        SnmpKit.SnmpMgr.walk_table(target, oid, opts)
+
+      other ->
+        {:error, {:unsupported_operation, other}}
+    end
   end
 
   defp indexed_result_map(indexed_requests, results) do
