@@ -148,6 +148,16 @@ MIBs and that net-snmp loads:
 against libsmi and net-snmp over 185 fixture MIBs; see
 [mib-parser-oracle.md](mib-parser-oracle.md).
 
+## What loading a MIB changes
+
+Once a MIB is loaded, its object names resolve, `reverse_lookup/1` names
+their OIDs, and the formatter uses its metadata: INTEGER enumerations become
+labels, textual conventions with a DISPLAY-HINT (`d-1`, `1x:`, DateAndTime)
+render accordingly, and `object_info/1` reports the syntax, textual
+convention, hint and enumerations. The same tables exist for the built-in
+objects (`SnmpKit.MIB.Builtin.enumerations/1`), which is why `ifOperStatus`
+formats as `"up"` without loading anything.
+
 ## Parsing without loading
 
 ```elixir

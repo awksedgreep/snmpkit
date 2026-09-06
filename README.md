@@ -109,7 +109,10 @@ Every operation returns enriched varbind maps:
 }
 ```
 
-Name resolution and formatting can be switched off per call
+`formatted` follows the MIB: `ifOperStatus` reads `"up"`, `ifType` reads
+`"ethernetCsmacd"`, `ifPhysAddress` reads `"00:1a:2b:3c:4d:5e"`, and a loaded
+vendor MIB's enumerations and DISPLAY-HINTs apply the same way. Name
+resolution and formatting can be switched off per call
 (`include_names: false`, `include_formatted: false`) or globally through
 configuration, which matters on hot paths that walk large tables.
 

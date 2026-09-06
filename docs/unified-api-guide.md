@@ -70,6 +70,15 @@ Unknown objects yield `{:error, :no_such_object}` on v2c and
 `{:error, :no_such_name}` on v1. Every network problem is `{:error, reason}`;
 `reason` is `:timeout` for an unanswered request.
 
+### Formatted values
+
+`formatted` follows the MIB: enumeration labels (`ifOperStatus.1` ->
+`"up"`, `ifType.1` -> `"ethernetCsmacd"`), DISPLAY-HINTs (`ifPhysAddress.1`
+-> `"00:1a:2b:3c:4d:5e"`), textual conventions such as `TruthValue` and
+`DateAndTime`, uptime for TimeTicks, and the plain value otherwise. The
+built-in tables cover the standard MIBs; compile and load a vendor MIB and
+its enumerations and hints are used too.
+
 ### Walks
 
 ```elixir
