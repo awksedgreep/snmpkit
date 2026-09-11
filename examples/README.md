@@ -9,6 +9,10 @@ mix run examples/unified_api_demo.exs
 mix run examples/cable_modem_simulation.exs
 ```
 
+Each script also runs standalone (`elixir examples/getting_started.exs`),
+fetching `snmpkit` from Hex with `Mix.install` when the library is not
+already loaded.
+
 To use SnmpKit in your own project add it to `mix.exs`:
 
 ```elixir
@@ -21,15 +25,15 @@ end
 
 | Script | Shows |
 |--------|-------|
-| `getting_started.exs` | a simulated device, GET, WALK, bulk, MIB resolution, error handling |
+| `getting_started.exs` | a simulated device, GET, WALK, tables, bulk, async, multi-target, MIB resolution, error handling |
 | `unified_api_demo.exs` | the `SnmpKit.SNMP`, `SnmpKit.MIB` and `SnmpKit.Sim` modules and the `SnmpKit` shortcuts |
-| `oid_formats_demo.exs` | the OID forms every call accepts (names, dotted strings, lists) |
-| `multi_return_format_demo.exs` | `:list`, `:with_targets` and `:map` results from multi-target calls |
-| `single_socket_demo.exs` | the shared-socket engine behind multi-target calls |
-| `scalable_high_concurrency_polling.exs` | polling thousands of cable modems with `SnmpKit.SnmpMgr.Multi` |
-| `cable_modem_simulation.exs`, `quick_cable_modem.exs` | DOCSIS cable modem simulation |
+| `oid_formats_demo.exs` | dotted OID strings with and without a leading dot (`SnmpKit.SnmpLib.OID`) |
+| `multi_return_format_demo.exs` | `:list`, `:with_targets` and `:map` results from multi-target calls (unreachable targets, so every result is an error) |
+| `single_socket_demo.exs` | the shared-socket engine behind multi-target calls (unreachable targets) |
+| `scalable_high_concurrency_polling.exs` | polling a population of 100 simulated cable modems with `SnmpKit.SnmpMgr.Multi` |
+| `cable_modem_simulation.exs`, `quick_cable_modem.exs` | DOCSIS cable modem simulation from OID maps and a JSON profile; the devices keep running until Ctrl-C |
 | `cable_modem_profile.json` | a JSON device profile for `{:json_profile, path}` |
-| `docsis_mib_example.exs` | compiling and querying DOCSIS MIBs |
+| `docsis_mib_example.exs` | compiling DOCS-IF-MIB from the test fixtures and resolving its names |
 
 ## Patterns worth copying
 
@@ -96,7 +100,7 @@ end
 ## More
 
 - [Livebooks](../livebooks/01_quickstart.livemd) for an interactive tour
-- [Unified API guide](../docs/unified-api-guide.md), [timeouts](../TIMEOUT_DOCUMENTATION.md), [MIB guide](../docs/mib-guide.md), [testing guide](../docs/testing-guide.md)
+- [Unified API guide](../docs/unified-api-guide.md), [timeouts](../docs/timeouts.md), [MIB guide](../docs/mib-guide.md), [testing guide](../docs/testing-guide.md)
 - [Issues](https://github.com/awksedgreep/snmpkit/issues)
 
 New examples are welcome; keep them runnable with `mix run`, self-contained

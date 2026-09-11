@@ -9,7 +9,7 @@ Enriched varbind shape per item:
   oid: "1.3.6.1.2.1.1.3.0",   # numeric OID as string
   type: :timeticks,           # Elixir atom describing type
   value: 12345678,            # raw value
-  formatted: "1 day, 10 hours, 17 minutes, 36 seconds"  # optional
+  formatted: "1 day 10 hours 17 minutes 36 seconds 78 centiseconds"  # optional
 }
 
 Defaults
@@ -33,9 +33,9 @@ After:
 
 2) get_next/3
 Before:
-{:ok, {next_oid, value}} = SnmpKit.get_next(target, oid)
+{:ok, {next_oid, value}} = SnmpKit.SNMP.get_next(target, oid)
 After:
-{:ok, %{oid: next_oid, value: value}} = SnmpKit.get_next(target, oid)
+{:ok, %{oid: next_oid, value: value}} = SnmpKit.SNMP.get_next(target, oid)
 
 3) walk/3 and get_bulk/3
 Before:
@@ -45,9 +45,9 @@ After:
 
 4) Pretty functions
 Before:
-{:ok, formatted} = SnmpKit.get_pretty(target, oid)
+{:ok, formatted} = SnmpKit.SNMP.get_pretty(target, oid)
 After:
-{:ok, %{formatted: formatted, type: type, value: value}} = SnmpKit.get_pretty(target, oid)
+{:ok, %{formatted: formatted, type: type, value: value}} = SnmpKit.SNMP.get_pretty(target, oid)
 
 Performance tips
 - Turn off name resolution and formatting in hot paths:

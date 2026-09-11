@@ -35,8 +35,9 @@ Hostnames resolve to A records first, then AAAA. Options common to every call:
 |--------|---------|-------|
 | `community:` | `"public"` | |
 | `version:` | `:v2c` | `:v1`, `:v2c` or `:v3` |
-| `timeout:` | 5 000 ms | per PDU; walks default to 30 000 ms |
+| `timeout:` | 5 000 ms | per PDU, inside walks too |
 | `retries:` | 1 | per PDU |
+| `walk_timeout:` | `max(timeout * 10, 20 min)` | cap on a whole walk, never above 30 min |
 | `port:` | 161 | overrides the port in the target |
 | `include_names:` | `true` | reverse-lookup names into `:name` |
 | `include_formatted:` | `true` | human-readable `:formatted` values |
@@ -136,14 +137,14 @@ indexed by `IpAddress` and `Integer32` comes back with those values decoded
 index key.
 
 `max_repetitions:` is never capped by the library. Whole walks are bounded by
-`walk_timeout:` (default 20 minutes); see
-[TIMEOUT_DOCUMENTATION.md](../TIMEOUT_DOCUMENTATION.md).
+`walk_timeout:` (20 minutes with the default `timeout:`); see
+[timeouts.md](timeouts.md).
 
 ### GETBULK
 
 ```elixir
 {:ok, rows} = SnmpKit.SNMP.get_bulk(target, "interfaces", max_repetitions: 10)
-rows = SnmpKit.get_bulk!(target, "interfaces", max_repetitions: 10)  # raises on error
+rows = SnmpKit.SNMP.get_bulk!(target, "interfaces", max_repetitions: 10)  # raises on error
 ```
 
 ### Streams
@@ -179,7 +180,8 @@ The `*_pretty` variants return the same enriched maps; they exist for callers
 that only want `:formatted` and read better in scripts:
 
 ```elixir
-{:ok, %{formatted: "1 day, 10:17:36.78", value: 12345678, type: :timeticks}} =
+{:ok, %{formatted: "1 day 10 hours 17 minutes 36 seconds 78 centiseconds",
+        value: 12345678, type: :timeticks}} =
   SnmpKit.SNMP.get_pretty(target, "sysUpTime.0")
 
 {:ok, rows} = SnmpKit.SNMP.walk_pretty(target, "ifDescr")
@@ -205,8 +207,9 @@ SnmpKit.SNMP.get_multi(requests, return_format: :map)   # %{{target, oid} => res
 ```
 
 Requests share one UDP socket and are correlated by request id, which is what
-makes polling thousands of devices from one node practical. Details in
-[concurrent-multi.md](concurrent-multi.md).
+makes polling thousands of devices from one node practical. `get_multi`
+accepts `version: :v1`; the walk and bulk variants send GETBULK and reject
+it. Details in [concurrent-multi.md](concurrent-multi.md).
 
 ### Notifications
 
@@ -342,12 +345,13 @@ compatibility with libsmi and net-snmp.
 {:ok, profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(:cable_modem)
 {:ok, device} = SnmpKit.Sim.start_device(profile, port: 1161, community: "public")
 
-# Your own objects (OIDs as strings or lists; values inferred or typed)
+# Your own objects (OIDs as strings or lists; values inferred or typed).
+# sysUpTime.0 is always computed from the device's own uptime.
 {:ok, _} =
   SnmpKit.Sim.start_device(
     %{objects: %{
         "1.3.6.1.2.1.1.1.0" => "Test Router v1.0",
-        [1, 3, 6, 1, 2, 1, 1, 3, 0] => %{type: "TimeTicks", value: 12345}
+        [1, 3, 6, 1, 2, 1, 2, 1, 0] => %{type: "Gauge32", value: 4}
       }},
     port: 1162
   )
@@ -533,10 +537,11 @@ functions. Run any of them with `mix help snmpkit.walk` for options.
 
 ## Shortcuts on `SnmpKit`
 
-`SnmpKit.get/3`, `get_next/3`, `set/4`, `walk/3`, `walk_table/3`,
-`get_bulk/3`, `bulk_walk/3`, `get_multi/2`, `get_bulk_multi/2`,
-`walk_multi/2`, `walk_table_multi/2` and `resolve/1` delegate to the modules
-above and return the same shapes.
+`SnmpKit.get/3`, `set/4`, `walk/3`, `walk_table/3`, `get_bulk/3`,
+`bulk_walk/3`, `get_multi/2`, `get_bulk_multi/2`, `walk_multi/2`,
+`walk_table_multi/2` and `resolve/1` delegate to the modules above and
+return the same shapes. Everything else (`get_next`, the `*_pretty`
+variants, streams, notifications) lives on `SnmpKit.SNMP`.
 
 ## Error handling
 

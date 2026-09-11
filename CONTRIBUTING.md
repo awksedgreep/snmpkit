@@ -16,9 +16,9 @@ mix lint                 # mix format --check-formatted, dialyzer
 mix docs                 # ExDoc into doc/
 ```
 
-The first `mix dialyzer` builds a PLT, which takes a few minutes; the
-`.dialyzer_ignore.exs` baseline lists pre-existing warnings that are being
-burned down.
+The first `mix dialyzer` builds a PLT, which takes a few minutes. The
+`.dialyzer_ignore.exs` baseline is empty and should stay that way; add an
+entry only with a comment explaining why the warning is a false positive.
 
 ## Repository layout
 
@@ -26,7 +26,12 @@ burned down.
 lib/
   snmpkit.ex               SnmpKit, SnmpKit.SNMP, SnmpKit.MIB, SnmpKit.Sim (public entry points)
   snmp_mgr.ex              SnmpKit.SnmpMgr: manager operations
+  mix/tasks/               mix snmpkit.get, .walk, .mib.compile, .mib.lint, .sim
   snmpkit/
+    agent.ex, agent/       SnmpKit.Agent: serve your own data over SNMP
+    trap.ex                SnmpKit.Trap: trap and inform receiver
+    telemetry.ex           the :telemetry events
+    snmp/                  SnmpKit.SNMP.Rate: counter deltas and rates
     snmp_lib/              PDUs, ASN.1, OIDs, transport, SNMPv3 security
     snmp_mgr/              core requests, walks, bulk, streams, tables, engine, multi
     mib/                   tokenizer, parser, compiler, registry, builtin tables
@@ -48,11 +53,10 @@ docs/, livebooks/, examples/
 - Encoding and decoding changes should extend the StreamData properties in
   `test/snmp_lib/property_test.exs`; a round-trip property catches more than
   hand-picked vectors.
-- Tag slow or environment-dependent tests: `:performance`, `:snmpv3`,
-  `:mib_oracle`, `:manual`, `:real_device`. They are excluded by default and
-  run with `mix test --include <tag>`.
-- `mix test <directory>` runs only some of the files in it; use globs or the
-  full suite when checking your change.
+- Tag slow or environment-dependent tests: `:performance`, `:memory`,
+  `:mib_oracle`, `:manual`, `:real_device`. They are excluded by default
+  (see `test/test_helper.exs`) and run with `mix test --include <tag>`. The
+  SNMPv3 suites (`:snmpv3`) run by default.
 - When touching the MIB parser, run the oracle test with libsmi and net-snmp
   available (see `docs/mib-parser-oracle.md`); every fixture must still parse.
 
@@ -77,8 +81,9 @@ docs/, livebooks/, examples/
 3. Add or update tests and documentation with the change; a behaviour change
    needs a CHANGELOG entry and, if it is breaking, a line in the migration
    guide.
-4. Make sure `mix test` and `mix lint` pass locally; CI runs both on every
-   push.
+4. Make sure `mix test` and `mix lint` pass locally. CI checks formatting,
+   compiles with `--warnings-as-errors` and runs `mix test` on every push;
+   dialyzer is local only.
 
 ## Reporting parser problems
 

@@ -1,11 +1,13 @@
 #!/usr/bin/env elixir
 
 # Cable Modem Simulation Examples
-# Demonstrates how to create realistic DOCSIS cable modem simulations without walk files
+# Demonstrates how to create realistic DOCSIS cable modem simulations without walk files.
+# The simulated modems (ports 1161-1163 and 2000-2002) keep running until Ctrl-C.
+#
+# Run from a checkout:   mix run examples/cable_modem_simulation.exs
+# Standalone:            elixir examples/cable_modem_simulation.exs
 
-Mix.install([
-  {:snmpkit, "~> 1.3"}
-])
+unless Code.ensure_loaded?(SnmpKit), do: Mix.install([{:snmpkit, "~> 2.0"}])
 
 alias SnmpKit.{SNMP, Sim}
 require Logger
@@ -173,6 +175,7 @@ defmodule CableModemSimulation do
       # Advanced DOCSIS Parameters
       "1.3.6.1.2.1.10.127.1.1.1.1.6.2" => upstream_freq,
       "1.3.6.1.2.1.10.127.1.1.2.1.2.1" => downstream_freq,
+      "1.3.6.1.2.1.10.127.1.2.2.1.1.2" => 12,  # docsIfCmStatusValue.2 (operational)
       "1.3.6.1.2.1.10.127.1.2.2.1.15.2" => %{
         type: "INTEGER",
         value: signal_noise,
@@ -282,8 +285,8 @@ defmodule CableModemSimulation do
 
     Enum.each(test_cases, fn {name, oid} ->
       case SNMP.get(target, oid) do
-        {:ok, value} ->
-          IO.puts("  ✅ #{name}: #{inspect(value)}")
+        {:ok, %{type: type, formatted: formatted}} ->
+          IO.puts("  ✅ #{name}: #{formatted} (#{type})")
         {:error, reason} ->
           IO.puts("  ❌ #{name}: #{inspect(reason)}")
       end
@@ -301,8 +304,8 @@ defmodule CableModemSimulation do
         IO.puts("Found #{length(results)} OIDs:")
         results
         |> Enum.take(10)  # Show first 10
-        |> Enum.each(fn {oid, value} ->
-          IO.puts("  #{oid} = #{inspect(value)}")
+        |> Enum.each(fn %{oid: oid, formatted: formatted} ->
+          IO.puts("  #{oid} = #{formatted}")
         end)
 
         if length(results) > 10 do
