@@ -182,7 +182,7 @@ defmodule SnmpKit.SnmpMgr.Core do
   - `oid` - Object identifier to set
   - `value` - Value to set (will be encoded based on type)
   - `opts` - Request options
-    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
+    - `:timeout` - SNMP PDU timeout in milliseconds (default: 5000, see `SnmpKit.SnmpMgr.Config`)
     - `:community` - SNMP community string (default: "public")
     - `:version` - SNMP version (:v1, :v2c) (default: :v2c)
   """
@@ -267,7 +267,7 @@ defmodule SnmpKit.SnmpMgr.Core do
   - `target` - SNMP target (host, "host:port", or target map)
   - `oid` - Starting OID for bulk retrieval
   - `opts` - Request options
-    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
+    - `:timeout` - SNMP PDU timeout in milliseconds (default: 5000, see `SnmpKit.SnmpMgr.Config`)
     - `:max_repetitions` - Maximum number of OIDs to retrieve (default: 30)
     - `:community` - SNMP community string (default: "public")
     - `:version` - SNMP version (must be :v2c) (default: :v2c)
