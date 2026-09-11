@@ -178,10 +178,13 @@ make_defval_for_string(_Line, Str, Suffix) ->
     Atom = radix(Suffix),
     case lists:member(Atom, [h, 'H', b, 'B']) of
 	true ->
-	    case catch make_defval_for_string2(Str, Atom) of
+	    try make_defval_for_string2(Str, Atom) of
 		Defval when is_list(Defval) ->
 		    Defval;
-		_Error ->
+		_Other ->
+		    ""
+	    catch
+		_:_ ->
 		    ""
 	    end;
 	false ->
@@ -292,7 +295,7 @@ lreverse(_Tag, L) when is_list(L) ->
     lists:reverse(L);
 lreverse(Tag, X) ->
     exit({bad_list, Tag, X}).
--file("/home/mcotner/.local/share/mise/installs/erlang/28.0.2/lib/parsetools-2.7/include/yeccpre.hrl", 0).
+-file("/home/mcotner/.local/share/mise/installs/erlang/29.0.6/lib/parsetools-2.8/include/yeccpre.hrl", 0).
 %%
 %% %CopyrightBegin%
 %%
@@ -482,7 +485,7 @@ yecctoken2string1(Other) ->
 
 
 
--file("src/mib_grammar_elixir.erl", 485).
+-file("src/mib_grammar_elixir.erl", 488).
 
 -dialyzer({nowarn_function, yeccpars2/7}).
 -compile({nowarn_unused_function,  yeccpars2/7}).
@@ -15272,4 +15275,4 @@ yeccpars2_697_(__Stack0) ->
   end | __Stack].
 
 
--file("src/mib_grammar_elixir.yrl", 1216).
+-file("src/mib_grammar_elixir.yrl", 1219).
