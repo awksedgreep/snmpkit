@@ -42,19 +42,16 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
   def bulk_walk(target, root_oid, opts \\ []) do
     max_entries = Keyword.get(opts, :max_entries, @default_max_entries)
 
-    case resolve_oid(root_oid) do
-      {:ok, start_oid} ->
-        # Handle empty OID by using standard MIB-II subtree
-        {actual_start_oid, filter_oid} =
-          case start_oid do
-            [] -> {[1, 3], []}
-            _ -> {start_oid, start_oid}
-          end
+    with {:ok, opts} <- SnmpKit.SnmpMgr.Bulk.bulk_opts(opts),
+         {:ok, start_oid} <- resolve_oid(root_oid) do
+      # Handle empty OID by using standard MIB-II subtree
+      {actual_start_oid, filter_oid} =
+        case start_oid do
+          [] -> {[1, 3], []}
+          _ -> {start_oid, start_oid}
+        end
 
-        simple_bulk_walk(target, actual_start_oid, filter_oid, [], max_entries, opts)
-
-      error ->
-        error
+      simple_bulk_walk(target, actual_start_oid, filter_oid, [], max_entries, opts)
     end
   end
 
@@ -90,17 +87,14 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
     adaptive_tuning = Keyword.get(opts, :adaptive_tuning, true)
     max_entries = Keyword.get(opts, :max_entries, @default_max_entries)
 
-    case resolve_oid(table_oid) do
-      {:ok, start_oid} ->
-        if adaptive_tuning do
-          adaptive_table_walk(target, start_oid, start_oid, [], max_entries, opts)
-        else
-          # Fall back to regular table walk
-          SnmpKit.SnmpMgr.Bulk.get_table_bulk(target, table_oid, opts)
-        end
-
-      error ->
-        error
+    with {:ok, opts} <- SnmpKit.SnmpMgr.Bulk.bulk_opts(opts),
+         {:ok, start_oid} <- resolve_oid(table_oid) do
+      if adaptive_tuning do
+        adaptive_table_walk(target, start_oid, start_oid, [], max_entries, opts)
+      else
+        # Fall back to regular table walk
+        SnmpKit.SnmpMgr.Bulk.get_table_bulk(target, table_oid, opts)
+      end
     end
   end
 
@@ -190,10 +184,10 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
        when remaining > 0 do
     bulk_size = min(remaining, Keyword.get(opts, :max_repetitions, 10))
 
+    # :version was settled by Bulk.bulk_opts/1 in the public entry point
     bulk_opts =
       opts
       |> Keyword.put(:max_repetitions, bulk_size)
-      |> Keyword.put(:version, :v2c)
       |> Keyword.put(:keep_exceptions, true)
 
     case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, current_oid, bulk_opts) do

@@ -52,25 +52,52 @@ defmodule SnmpKit.SnmpMgr.BulkOperationsTest do
     end
 
     test "get_bulk enforces SNMPv2c version", %{device: device} do
-      # Test that bulk operation defaults to v2c regardless of specified version
-      result_default =
-        SnmpKit.SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
-          max_repetitions: 3,
-          community: device.community,
-          timeout: 200
-        )
+      target = "#{device.host}:#{device.port}"
+      opts = [max_repetitions: 3, community: device.community, timeout: 200]
 
-      result_explicit_v2c =
-        SnmpKit.SnmpMgr.get_bulk("#{device.host}:#{device.port}", "1.3.6.1.2.1.2.2",
-          max_repetitions: 3,
-          version: :v2c,
-          community: device.community,
-          timeout: 200
-        )
+      # No version and an explicit :v2c both go out as v2c
+      assert {:ok, [%{oid: _} | _]} = SnmpKit.SnmpMgr.get_bulk(target, "1.3.6.1.2.1.2.2", opts)
 
-      # Both should work through SnmpKit.SnmpLib.Manager (v2c enforced internally)
-      assert {:ok, _} = result_default
-      assert {:ok, _} = result_explicit_v2c
+      assert {:ok, [%{oid: _} | _]} =
+               SnmpKit.SnmpMgr.get_bulk(
+                 target,
+                 "1.3.6.1.2.1.2.2",
+                 Keyword.put(opts, :version, :v2c)
+               )
+
+      # GETBULK does not exist in SNMPv1: every entry point refuses it the same way
+      v1_opts = Keyword.put(opts, :version, :v1)
+      refused = {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
+      assert SnmpKit.SnmpMgr.get_bulk(target, "1.3.6.1.2.1.2.2", v1_opts) == refused
+      assert SnmpKit.SnmpMgr.get_bulk_async(target, "1.3.6.1.2.1.2.2", v1_opts) == refused
+      assert SnmpKit.SnmpMgr.bulk_pretty(target, "1.3.6.1.2.1.2.2", v1_opts) == refused
+      assert SnmpKit.SnmpMgr.Bulk.get_bulk(target, "1.3.6.1.2.1.2.2", v1_opts) == refused
+      assert SnmpKit.SnmpMgr.Bulk.walk_bulk(target, "1.3.6.1.2.1.2.2", v1_opts) == refused
+      assert SnmpKit.SnmpMgr.Bulk.get_table_bulk(target, "1.3.6.1.2.1.2.2", v1_opts) == refused
+    end
+
+    test "Bulk.get_bulk takes one starting OID and refuses to drop extra ones", %{device: device} do
+      target = "#{device.host}:#{device.port}"
+      opts = [max_repetitions: 3, community: device.community, timeout: 200]
+
+      # a one-element list is the same request as the bare OID
+      assert {:ok, rows} = SnmpKit.SnmpMgr.Bulk.get_bulk(target, ["1.3.6.1.2.1.1"], opts)
+      assert {:ok, ^rows} = SnmpKit.SnmpMgr.Bulk.get_bulk(target, "1.3.6.1.2.1.1", opts)
+      assert {:ok, ^rows} = SnmpKit.SnmpMgr.Bulk.get_bulk(target, [[1, 3, 6, 1, 2, 1, 1]], opts)
+
+      refused = {:error, {:unsupported, :multi_oid_get_bulk}}
+
+      assert SnmpKit.SnmpMgr.Bulk.get_bulk(target, ["1.3.6.1.2.1.1", "1.3.6.1.2.1.2"], opts) ==
+               refused
+
+      assert SnmpKit.SnmpMgr.Bulk.get_bulk(
+               target,
+               [[1, 3, 6, 1, 2, 1, 1], [1, 3, 6, 1, 2, 1, 2]],
+               opts
+             ) ==
+               refused
+
+      assert SnmpKit.SnmpMgr.bulk_pretty(target, ["sysDescr", "sysName"], opts) == refused
     end
 
     test "get_bulk handles max_repetitions parameter", %{device: device} do
@@ -391,38 +418,74 @@ defmodule SnmpKit.SnmpMgr.BulkOperationsTest do
 
     test "handles SNMPv2c exceptions in bulk results", %{device: device} do
       target = "#{device.host}:#{device.port}"
+      opts = [max_repetitions: 5, community: device.community, timeout: 500]
 
-      # Test with OID that might return exceptions
-      result =
-        SnmpKit.SnmpMgr.get_bulk(target, "1.3.6.1.2.1.999",
-          max_repetitions: 5,
-          community: device.community,
-          timeout: 200
+      # Past the end of the device's MIB: the agent answers with endOfMibView
+      # markers only, which never surface as result rows
+      assert {:ok, []} = SnmpKit.SnmpMgr.get_bulk(target, "1.3.6.1.4.1.999999", opts)
+
+      # Starting from an unknown branch that still has successors: the rows are
+      # the successors, again with no exception varbinds among them
+      assert {:ok, rows} = SnmpKit.SnmpMgr.get_bulk(target, "1.3.6.1.2.1.999", opts)
+      assert Enum.all?(rows, &is_map/1)
+
+      refute Enum.any?(rows, fn %{type: type, value: value} ->
+               type in [:no_such_object, :no_such_instance, :end_of_mib_view] or
+                 value in [:no_such_object, :no_such_instance, :end_of_mib_view]
+             end)
+    end
+  end
+
+  describe "GETBULK over SNMPv3" do
+    @monitor [
+      version: :v3,
+      security_name: "monitor",
+      auth_protocol: :sha256,
+      auth_password: "monitor-auth-secret",
+      timeout: 2_000
+    ]
+
+    setup do
+      {:ok, profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(:router)
+      port = SnmpKit.SnmpSim.TestHelpers.PortHelper.get_port()
+
+      # The community is deliberately not "public": a request that silently
+      # falls back to v2c with the default community is refused by the device
+      {:ok, device} =
+        SnmpKit.Sim.start_device(profile,
+          port: port,
+          community: "v3-only-#{port}",
+          v3_users: [%{name: "monitor", auth: :sha256, auth_password: "monitor-auth-secret"}],
+          device_id: "bulk-v3-#{port}"
         )
 
-      case result do
-        {:ok, results} when is_list(results) ->
-          # Check for SNMPv2c exception values in results
-          exceptions =
-            Enum.filter(results, fn
-              {_oid, value}
-              when value in [:no_such_object, :no_such_instance, :end_of_mib_view] ->
-                true
+      on_exit(fn -> if Process.alive?(device), do: GenServer.stop(device) end)
+      SnmpKit.SnmpLib.Security.EngineCache.clear()
+      %{target: "127.0.0.1:#{port}"}
+    end
 
-              _ ->
-                false
-            end)
+    test "version: :v3 reaches the wire as v3 from every bulk entry point", %{target: target} do
+      # sanity: v2c with the default community is refused by this device
+      assert {:error, _} = SnmpKit.SnmpMgr.get_bulk(target, "system", timeout: 300, retries: 0)
 
-          if length(exceptions) > 0 do
-            assert true, "Bulk operation correctly handled SNMPv2c exceptions"
-          else
-            assert true, "Bulk operation completed without exceptions"
-          end
-
-        {:error, reason} ->
-          # Error is also acceptable for non-existent OIDs
-          assert is_atom(reason) or is_tuple(reason)
+      for bulk <- [
+            &SnmpKit.SnmpMgr.get_bulk/3,
+            &SnmpKit.SnmpMgr.bulk_pretty/3,
+            &SnmpKit.SnmpMgr.Bulk.get_bulk/3,
+            &SnmpKit.SnmpMgr.Bulk.walk_bulk/3,
+            &SnmpKit.SnmpMgr.Bulk.get_table_bulk/3,
+            &SnmpKit.SnmpMgr.bulk_walk/3,
+            &SnmpKit.SnmpMgr.bulk_walk_pretty/3
+          ] do
+        assert {:ok, [%{oid: "1.3.6.1.2.1.1." <> _, formatted: _} | _]} =
+                 bulk.(target, "system", Keyword.put(@monitor, :max_repetitions, 5))
       end
+    end
+
+    test "bulk_pretty with version: :v3 formats every row", %{target: target} do
+      assert {:ok, rows} = SnmpKit.SnmpMgr.bulk_pretty(target, "system", @monitor)
+      assert rows != []
+      assert Enum.all?(rows, &(is_map(&1) and is_binary(&1.formatted)))
     end
   end
 

@@ -1,6 +1,6 @@
 defmodule SnmpKit.SnmpMgr.Bulk do
   @moduledoc """
-  Advanced SNMP bulk operations using SNMPv2c GETBULK.
+  Advanced SNMP bulk operations using GETBULK (SNMPv2c or SNMPv3).
 
   This module provides efficient bulk operations that are significantly faster
   than iterative GETNEXT requests for retrieving large amounts of data.
@@ -10,25 +10,27 @@ defmodule SnmpKit.SnmpMgr.Bulk do
   """
 
   alias SnmpKit.SnmpLib.Types
-
-  alias SnmpKit.SnmpLib.Types
+  alias SnmpKit.SnmpMgr.{Config, Format}
 
   @default_max_repetitions 30
   @default_non_repeaters 0
 
   @type target :: SnmpKit.SnmpMgr.Core.target()
   @type oid :: SnmpKit.SnmpMgr.Core.oid()
-  @type varbind :: SnmpKit.SnmpMgr.Format.enriched_varbind()
+  @type varbind :: Format.enriched_varbind()
 
   @doc """
   Performs a single GETBULK request.
 
-  Returns enriched varbind maps (same standardized shape as other SnmpMgr APIs).
+  GETBULK carries one starting OID per request here. A one-element list is
+  accepted; a longer list returns `{:error, {:unsupported, :multi_oid_get_bulk}}`
+  rather than silently dropping the extra OIDs.
 
   ## Parameters
   - `target` - The target device
-  - `oids` - Single OID or list of OIDs to retrieve
-  - `opts` - Options including :max_repetitions, :non_repeaters
+  - `oid` - Starting OID (or a one-element list)
+  - `opts` - Options including :max_repetitions, :non_repeaters, :version
+    (`:v2c` by default, `:v3` honoured, `:v1` rejected)
 
   ## Examples
 
@@ -46,42 +48,29 @@ defmodule SnmpKit.SnmpMgr.Bulk do
   `%{oid, oid_list, type, value}` maps.
   """
   @spec get_bulk(target(), oid() | [oid()], keyword()) :: {:ok, [varbind()]} | {:error, term()}
-  def get_bulk(target, oids, opts \\ []) do
-    # GETBULK exists from SNMPv2 on; v2c and v3 both carry it
-    case Keyword.get(opts, :version) do
-      :v1 ->
-        {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
+  def get_bulk(target, oid, opts \\ [])
 
-      _ ->
-        oids_list = if is_list(oids), do: oids, else: [oids]
+  def get_bulk(target, [oid], opts) when is_binary(oid) or is_list(oid),
+    do: get_bulk(target, oid, opts)
 
-        case resolve_oids(oids_list) do
-          {:ok, resolved_oids} ->
-            # For multiple OIDs, use non_repeaters to get single values for some
-            non_repeaters = Keyword.get(opts, :non_repeaters, @default_non_repeaters)
-            max_repetitions = Keyword.get(opts, :max_repetitions, @default_max_repetitions)
+  def get_bulk(_target, [oid, _ | _], _opts) when is_binary(oid) or is_list(oid),
+    do: {:error, {:unsupported, :multi_oid_get_bulk}}
 
-            bulk_opts =
-              opts
-              |> Keyword.put(:non_repeaters, non_repeaters)
-              |> Keyword.put(:max_repetitions, max_repetitions)
-              |> Keyword.put(:version, :v2c)
+  def get_bulk(target, oid, opts) do
+    with {:ok, opts} <- bulk_opts(opts),
+         {:ok, oid_list} <- resolve_oid(oid) do
+      non_repeaters = Keyword.get(opts, :non_repeaters, @default_non_repeaters)
+      max_repetitions = Keyword.get(opts, :max_repetitions, @default_max_repetitions)
 
-            # Use the first OID as the starting point for GETBULK
-            starting_oid = hd(resolved_oids)
+      bulk_opts =
+        opts
+        |> Keyword.put(:non_repeaters, non_repeaters)
+        |> Keyword.put(:max_repetitions, max_repetitions)
 
-            case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, starting_oid, bulk_opts) do
-              {:ok, results} ->
-                merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-                {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
-
-              {:error, reason} ->
-                {:error, reason}
-            end
-
-          error ->
-            error
-        end
+      case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, oid_list, bulk_opts) do
+        {:ok, results} -> {:ok, Format.enrich_varbinds(results, opts)}
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
@@ -94,7 +83,7 @@ defmodule SnmpKit.SnmpMgr.Bulk do
   ## Parameters
   - `target` - The target device
   - `table_oid` - The table OID to retrieve
-  - `opts` - Options including :max_repetitions, :max_entries
+  - `opts` - Options including :max_repetitions, :max_entries, :version
 
   ## Examples
 
@@ -109,27 +98,7 @@ defmodule SnmpKit.SnmpMgr.Bulk do
       # ]
   """
   @spec get_table_bulk(target(), oid(), keyword()) :: {:ok, [varbind()]} | {:error, term()}
-  def get_table_bulk(target, table_oid, opts \\ []) do
-    max_entries = Keyword.get(opts, :max_entries, 1000)
-    opts = Keyword.put(opts, :version, :v2c)
-
-    case resolve_oid(table_oid) do
-      {:ok, start_oid} ->
-        with_private_socket(target, fn socket ->
-          case bulk_walk_loop(socket, target, start_oid, start_oid, [], max_entries, opts) do
-            {:ok, results} ->
-              merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-              {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
-
-            error ->
-              error
-          end
-        end)
-
-      error ->
-        error
-    end
-  end
+  def get_table_bulk(target, table_oid, opts \\ []), do: walk_bulk(target, table_oid, opts)
 
   @doc """
   Bulk walk operation using GETBULK instead of iterative GETNEXT.
@@ -142,7 +111,7 @@ defmodule SnmpKit.SnmpMgr.Bulk do
   ## Parameters
   - `target` - The target device
   - `root_oid` - Starting OID for the walk
-  - `opts` - Options including :max_repetitions, :max_entries
+  - `opts` - Options including :max_repetitions, :max_entries, :version
 
   ## Examples
 
@@ -158,24 +127,34 @@ defmodule SnmpKit.SnmpMgr.Bulk do
   """
   @spec walk_bulk(target(), oid(), keyword()) :: {:ok, [varbind()]} | {:error, term()}
   def walk_bulk(target, root_oid, opts \\ []) do
-    max_entries = Keyword.get(opts, :max_entries, 1000)
-    opts = Keyword.put(opts, :version, :v2c)
+    with {:ok, opts} <- bulk_opts(opts),
+         {:ok, start_oid} <- resolve_oid(root_oid) do
+      max_entries = Keyword.get(opts, :max_entries, 1000)
 
-    case resolve_oid(root_oid) do
-      {:ok, start_oid} ->
-        with_private_socket(target, fn socket ->
-          case bulk_walk_loop(socket, target, start_oid, start_oid, [], max_entries, opts) do
-            {:ok, results} ->
-              merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
-              {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
+      with_private_socket(target, fn socket ->
+        case bulk_walk_loop(socket, target, start_oid, start_oid, [], max_entries, opts) do
+          {:ok, results} -> {:ok, Format.enrich_varbinds(results, opts)}
+          error -> error
+        end
+      end)
+    end
+  end
 
-            error ->
-              error
-          end
-        end)
+  @doc false
+  # The one GETBULK version rule, shared with SnmpKit.SnmpMgr.get_bulk/3:
+  # :v1 cannot carry GETBULK, :v3 is kept, anything else becomes :v2c.
+  # Application config is merged in afterwards so it reaches the wire request.
+  @spec bulk_opts(keyword()) :: {:ok, keyword()} | {:error, term()}
+  def bulk_opts(opts) do
+    case Keyword.get(opts, :version) do
+      :v1 ->
+        {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
 
-      error ->
-        error
+      version ->
+        {:ok,
+         opts
+         |> Keyword.put(:version, if(version == :v3, do: :v3, else: :v2c))
+         |> Config.merge_opts()}
     end
   end
 
@@ -249,23 +228,5 @@ defmodule SnmpKit.SnmpMgr.Bulk do
     {:ok, Enum.reverse(acc)}
   end
 
-  defp resolve_oids(oids) do
-    resolved =
-      oids
-      |> Enum.map(&SnmpKit.SnmpMgr.Core.parse_oid/1)
-      |> Enum.reduce_while({:ok, []}, fn
-        {:ok, oid}, {:ok, acc} -> {:cont, {:ok, [oid | acc]}}
-        error, _acc -> {:halt, error}
-      end)
-
-    case resolved do
-      {:ok, oid_list} -> {:ok, Enum.reverse(oid_list)}
-      error -> error
-    end
-  end
-
   defp resolve_oid(oid), do: SnmpKit.SnmpMgr.Core.parse_oid(oid)
-
-  # Type information must never be inferred - it must be preserved from SNMP responses
-  # Removing type inference functions to prevent loss of critical type information
 end

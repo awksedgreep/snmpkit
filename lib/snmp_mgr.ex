@@ -248,21 +248,12 @@ defmodule SnmpKit.SnmpMgr do
   """
   @spec get_bulk(target(), oid(), opts()) :: {:ok, [varbind()]} | {:error, any()}
   def get_bulk(target, oid, opts \\ []) do
-    # GETBULK is an SNMPv2 PDU: v2c or v3, never v1
-    case Keyword.get(opts, :version) do
-      :v1 ->
-        {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
-
-      version ->
-        merged_opts =
-          opts
-          |> Keyword.put(:version, if(version == :v3, do: :v3, else: :v2c))
-          |> (&SnmpKit.SnmpMgr.Config.merge_opts/1).()
-
-        case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, oid, merged_opts) do
-          {:ok, results} -> {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
-          {:error, reason} -> {:error, reason}
-        end
+    # GETBULK is an SNMPv2 PDU: v2c or v3, never v1 (one rule, shared with Bulk)
+    with {:ok, merged_opts} <- SnmpKit.SnmpMgr.Bulk.bulk_opts(opts) do
+      case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, oid, merged_opts) do
+        {:ok, results} -> {:ok, SnmpKit.SnmpMgr.Format.enrich_varbinds(results, merged_opts)}
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
@@ -663,7 +654,7 @@ defmodule SnmpKit.SnmpMgr do
   @doc """
   Performs an SNMP GETBULK operation with formatting forced on.
 
-  Same as `get_bulk/3` except that every
+  Same as `get_bulk/3` (including its `:version` rule) except that every
   enriched map carries a `:formatted` value regardless of the
   `include_formatted` setting.
 
@@ -680,15 +671,7 @@ defmodule SnmpKit.SnmpMgr do
   """
   @spec bulk_pretty(target(), oid(), opts()) :: {:ok, [varbind()]} | {:error, any()}
   def bulk_pretty(target, oid, opts \\ []) do
-    merged_opts =
-      opts
-      |> Keyword.put(:include_formatted, true)
-      |> SnmpKit.SnmpMgr.Config.merge_opts()
-
-    case SnmpKit.SnmpMgr.Bulk.get_bulk(target, oid, merged_opts) do
-      {:ok, results} -> {:ok, results |> SnmpKit.SnmpMgr.Format.enrich_varbinds(merged_opts)}
-      {:error, reason} -> {:error, reason}
-    end
+    SnmpKit.SnmpMgr.Bulk.get_bulk(target, oid, Keyword.put(opts, :include_formatted, true))
   end
 
   @doc """
