@@ -3,14 +3,19 @@ defmodule SnmpKit.SnmpMgr.RequestIdGeneratorTest do
 
   alias SnmpKit.SnmpMgr.RequestIdGenerator
 
+  @table :snmp_request_id_counter
+
   setup do
-    # Start the generator for each test
+    # The application's generator owns the table; this second instance shares it.
+    :ok = SnmpKit.SnmpMgr.ensure_started()
     {:ok, pid} = RequestIdGenerator.start_link(name: :test_generator)
 
     on_exit(fn ->
       if Process.alive?(pid) do
         GenServer.stop(pid)
       end
+
+      :ok = SnmpKit.SnmpMgr.ensure_started()
     end)
 
     {:ok, generator: pid}
@@ -22,6 +27,13 @@ defmodule SnmpKit.SnmpMgr.RequestIdGeneratorTest do
     assert RequestIdGenerator.next_id() == 1
     assert RequestIdGenerator.next_id() == 2
     assert RequestIdGenerator.next_id() == 3
+  end
+
+  test "fetch_next_id is the tuple form of next_id" do
+    RequestIdGenerator.reset()
+
+    assert {:ok, 1} = RequestIdGenerator.fetch_next_id()
+    assert RequestIdGenerator.next_id() == 2
   end
 
   test "current_value returns counter without incrementing" do
@@ -45,14 +57,12 @@ defmodule SnmpKit.SnmpMgr.RequestIdGeneratorTest do
     assert RequestIdGenerator.next_id() == 1
   end
 
-  test "wraps around at max value" do
-    RequestIdGenerator.reset()
-
-    # Set counter near max (1,000,000)
-    :ets.insert(:snmp_request_id_counter, {:counter, 999_999})
+  test "counter wraps to 1 at the maximum" do
+    # The Engine refuses to register an id that is still pending, so the wrap
+    # itself is harmless (see EngineGuardTest).
+    :ets.insert(@table, {:counter, 999_999})
 
     assert RequestIdGenerator.next_id() == 1_000_000
-    # Should wrap around
     assert RequestIdGenerator.next_id() == 1
   end
 
@@ -72,7 +82,7 @@ defmodule SnmpKit.SnmpMgr.RequestIdGeneratorTest do
 
     # Collect all generated IDs
     all_ids =
-      for task <- tasks, reduce: [] do
+      for _task <- tasks, reduce: [] do
         acc ->
           receive do
             {:ids, _i, ids} -> acc ++ ids
@@ -89,14 +99,27 @@ defmodule SnmpKit.SnmpMgr.RequestIdGeneratorTest do
     assert Enum.all?(all_ids, fn id -> id > 0 and id <= 1_000_000 end)
   end
 
-  test "handles missing table gracefully" do
-    # Stop the generator to simulate missing table
+  test "stopping a generator that shares the table leaves the table in place" do
+    owner = Process.whereis(RequestIdGenerator)
+    assert :ets.info(@table, :owner) == owner
+
     GenServer.stop(:test_generator)
 
-    # Should return random fallback value
-    id = RequestIdGenerator.next_id()
-    assert is_integer(id)
-    assert id > 0
-    assert id <= 1_000_000
+    assert :ets.info(@table, :owner) == owner
+    RequestIdGenerator.reset()
+    assert RequestIdGenerator.next_id() == 1
+  end
+
+  test "there is no fallback id when the table is gone" do
+    # Stop the owner: the table goes with it (the shared instance from setup
+    # is still alive but has nothing to count on).
+    GenServer.stop(RequestIdGenerator)
+    assert :ets.whereis(@table) == :undefined
+
+    assert {:error, :services_not_started} = RequestIdGenerator.fetch_next_id()
+
+    assert_raise ArgumentError, ~r/not running/, fn ->
+      RequestIdGenerator.next_id()
+    end
   end
 end

@@ -4,6 +4,25 @@ defmodule SnmpKit.SnmpMgr.Config do
 
   Provides global defaults and configuration options that can be set
   application-wide and used by all SNMP operations.
+
+  ## Timeouts and retries
+
+  Every `SnmpKit.SnmpMgr` operation takes the same three options, with their
+  defaults kept here:
+
+  - `:timeout` - how long to wait for the response to one PDU, in
+    milliseconds (default 5000). A walk sends many PDUs and each one gets its
+    own timeout, so a walk can run longer than `:timeout`.
+  - `:retries` - how many times a PDU that timed out is re-sent before the
+    request fails with `{:error, :timeout}` (default 1, so one PDU can take
+    up to `timeout * (retries + 1)` ms). Each re-send uses a fresh request id.
+  - `:walk_timeout` - a cap on a whole walk, in milliseconds (default
+    `max(timeout * 10, 1_200_000)`, never more than 1_800_000). A walk that
+    reaches it fails with `{:error, :timeout}`.
+
+  The `SnmpKit.SnmpMgr.*` entry points fill these in through `merge_opts/1`;
+  `SnmpKit.SnmpMgr.Multi` and `SnmpKit.SnmpMgr.V2Walk` fall back to `get/1`
+  when called directly.
   """
 
   use GenServer

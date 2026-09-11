@@ -11,7 +11,8 @@ defmodule SnmpKit.SnmpMgr.Core do
   the SNMP PDU timeout - how long to wait for a response to each individual
   SNMP packet sent to the target device.
 
-  - **Default timeout**: 10 seconds (10,000 milliseconds)
+  - **Default timeout**: the `:timeout` in `SnmpKit.SnmpMgr.Config` (5000 ms),
+    which also documents `:retries` and `:walk_timeout`
   - **Timeout applies to**: Each individual SNMP PDU (GET, SET, GETBULK, etc.)
   - **Not applicable to**: Multi-PDU operations (use walk functions for those)
 

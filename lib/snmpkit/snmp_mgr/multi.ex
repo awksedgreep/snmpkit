@@ -5,6 +5,13 @@ defmodule SnmpKit.SnmpMgr.Multi do
   This module provides efficient SNMP operations against multiple targets
   using direct UDP sending and centralized response correlation, eliminating
   GenServer bottlenecks while maintaining proper concurrency control.
+
+  ## Timeouts and retries
+
+  `:timeout` is a per-PDU timeout, `:retries` the number of re-sends of a
+  timed-out PDU and `:walk_timeout` a cap on a whole walk; the model and the
+  defaults are described in `SnmpKit.SnmpMgr.Config`. Options left out fall
+  back to `SnmpKit.SnmpMgr.Config.get/1`.
   """
 
   require Logger
@@ -17,7 +24,6 @@ defmodule SnmpKit.SnmpMgr.Multi do
           {:get | :get_bulk | :walk | :walk_table, target(), term()}
           | {:get | :get_bulk | :walk | :walk_table, target(), term(), keyword()}
 
-  @default_timeout 10_000
   @default_max_concurrent 10
 
   @doc """
@@ -26,8 +32,10 @@ defmodule SnmpKit.SnmpMgr.Multi do
   ## Parameters
   - `targets_and_oids` - List of {target, oid} or {target, oid, opts} tuples
   - `opts` - Default options applied to all requests
-    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
-      How long to wait for each individual SNMP response
+    - `:timeout` - SNMP PDU timeout in milliseconds (default: the `:timeout`
+      in `SnmpKit.SnmpMgr.Config`, 5000). How long to wait for each response
+    - `:retries` - re-sends of a timed-out PDU (default: the `:retries` in
+      `SnmpKit.SnmpMgr.Config`, 1)
     - `:max_concurrent` - Maximum concurrent requests (default: 10)
     - `:return_format` - Format of returned results (default: `:list`)
       - `:list` - Returns list of results in same order as input
@@ -64,8 +72,10 @@ defmodule SnmpKit.SnmpMgr.Multi do
   ## Parameters
   - `targets_and_oids` - List of {target, oid} or {target, oid, opts} tuples
   - `opts` - Default options applied to all requests
-    - `:timeout` - SNMP PDU timeout in milliseconds (default: 10000)
-      How long to wait for each individual SNMP response
+    - `:timeout` - SNMP PDU timeout in milliseconds (default: the `:timeout`
+      in `SnmpKit.SnmpMgr.Config`, 5000). How long to wait for each response
+    - `:retries` - re-sends of a timed-out PDU (default: the `:retries` in
+      `SnmpKit.SnmpMgr.Config`, 1)
     - `:max_repetitions` - Maximum repetitions for GetBulk (default: 30)
     - `:max_concurrent` - Maximum concurrent requests (default: 10)
 
@@ -100,10 +110,14 @@ defmodule SnmpKit.SnmpMgr.Multi do
   ## Parameters
   - `targets_and_oids` - List of {target, root_oid} or {target, root_oid, opts} tuples
   - `opts` - Default options applied to all requests
-    - `:timeout` - Per-PDU timeout in milliseconds (default: 30000)
-      How long to wait for each GETBULK PDU response during the walk.
-      A walk may require many PDUs, so total walk time can exceed this value.
-    - `:walk_timeout` - Whole-walk safety cap in milliseconds
+    - `:timeout` - Per-PDU timeout in milliseconds (default: the `:timeout`
+      in `SnmpKit.SnmpMgr.Config`, 5000). How long to wait for each GETBULK
+      PDU response during the walk. A walk may require many PDUs, so total
+      walk time can exceed this value.
+    - `:retries` - re-sends of a timed-out PDU (default: the `:retries` in
+      `SnmpKit.SnmpMgr.Config`, 1)
+    - `:walk_timeout` - Whole-walk safety cap in milliseconds (default:
+      `max(timeout * 10, 1_200_000)`, at most 1_800_000)
     - `:max_repetitions` - OIDs requested per GETBULK PDU (default: 30)
     - `:max_concurrent` - Maximum concurrent walk operations (default: 10)
 
@@ -133,8 +147,6 @@ defmodule SnmpKit.SnmpMgr.Multi do
   """
   @spec walk_multi([request()], keyword()) :: results()
   def walk_multi(targets_and_oids, opts \\ []) do
-    # Walks take longer by default
-    opts = Keyword.put_new(opts, :timeout, @default_timeout * 3)
     execute_multi_operation(targets_and_oids, :walk, opts)
   end
 
@@ -146,9 +158,13 @@ defmodule SnmpKit.SnmpMgr.Multi do
   ## Parameters
   - `targets_and_tables` - List of {target, table_oid} or {target, table_oid, opts} tuples
   - `opts` - Default options applied to all requests
-    - `:timeout` - Per-PDU timeout in milliseconds (default: 50000)
-      How long to wait for each GETBULK PDU response during table walk.
-      Table walks often require more PDUs than regular walks.
+    - `:timeout` - Per-PDU timeout in milliseconds (default: the `:timeout`
+      in `SnmpKit.SnmpMgr.Config`, 5000). How long to wait for each GETBULK
+      PDU response during the table walk.
+    - `:retries` - re-sends of a timed-out PDU (default: the `:retries` in
+      `SnmpKit.SnmpMgr.Config`, 1)
+    - `:walk_timeout` - Whole-walk safety cap in milliseconds (default:
+      `max(timeout * 10, 1_200_000)`, at most 1_800_000)
     - `:max_repetitions` - Rows requested per GETBULK PDU (default: 30)
     - `:max_concurrent` - Maximum concurrent table walks (default: 10)
 
@@ -171,8 +187,6 @@ defmodule SnmpKit.SnmpMgr.Multi do
   """
   @spec walk_table_multi([request()], keyword()) :: results()
   def walk_table_multi(targets_and_tables, opts \\ []) do
-    # Table walks take longer by default
-    opts = Keyword.put_new(opts, :timeout, @default_timeout * 5)
     execute_multi_operation(targets_and_tables, :walk_table, opts)
   end
 
@@ -183,8 +197,11 @@ defmodule SnmpKit.SnmpMgr.Multi do
   - `operations` - List of {operation, target, oid_or_args, opts} tuples
     where operation is :get, :get_bulk, :walk, or :walk_table
   - `opts` - Default options
-    - `:timeout` - Per-PDU timeout in milliseconds (default: 30000)
-      Applied to all operations. Walk operations may require many PDUs.
+    - `:timeout` - Per-PDU timeout in milliseconds (default: the `:timeout`
+      in `SnmpKit.SnmpMgr.Config`, 5000). Applied to all operations. Walk
+      operations may require many PDUs.
+    - `:retries` - re-sends of a timed-out PDU (default: the `:retries` in
+      `SnmpKit.SnmpMgr.Config`, 1)
     - `:max_concurrent` - Maximum concurrent operations (default: 10)
 
   ## Per-Operation Options
@@ -225,7 +242,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
   defp execute_mixed_unspanned(operations, opts) do
     case ensure_components_started() do
       :ok ->
-        timeout = Keyword.get(opts, :timeout, @default_timeout * 3)
+        timeout = Keyword.get(opts, :timeout, default_timeout())
         max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
 
         # Normalize mixed operations to standard format
@@ -283,7 +300,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
   end
 
   defp execute_multi_operation_started(targets_and_data, operation_type, opts) do
-    timeout = Keyword.get(opts, :timeout, @default_timeout)
+    timeout = Keyword.get(opts, :timeout, default_timeout())
     max_concurrent = Keyword.get(opts, :max_concurrent, @default_max_concurrent)
 
     # Normalize requests to standard format
@@ -397,24 +414,29 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
   # For high-throughput get/get_bulk paths, keep one caller process and one shared UDP socket.
   # Requests are launched up to max_concurrent and correlated back through Engine.
+  defp execute_non_walk_requests([], _global_timeout, _max_concurrent), do: []
+
   defp execute_non_walk_requests(requests, global_timeout, max_concurrent) do
-    socket = SnmpKit.SnmpMgr.Engine.get_socket()
-    queue = :queue.from_list(Enum.with_index(requests))
+    case SnmpKit.SnmpMgr.Engine.get_socket() do
+      {:error, reason} ->
+        Enum.map(requests, fn _ -> {:error, reason} end)
 
-    state = %{
-      socket: socket,
-      queue: queue,
-      pending: %{},
-      results: %{},
-      total: length(requests),
-      global_timeout: global_timeout,
-      max_concurrent: max(1, max_concurrent)
-    }
+      socket ->
+        state = %{
+          socket: socket,
+          queue: :queue.from_list(Enum.with_index(requests)),
+          pending: %{},
+          results: %{},
+          total: length(requests),
+          global_timeout: global_timeout,
+          max_concurrent: max(1, max_concurrent)
+        }
 
-    state
-    |> launch_pending_requests()
-    |> await_pending_requests()
-    |> build_ordered_results()
+        state
+        |> launch_pending_requests()
+        |> await_pending_requests()
+        |> build_ordered_results()
+    end
   end
 
   defp launch_pending_requests(state) do
@@ -423,18 +445,21 @@ defmodule SnmpKit.SnmpMgr.Multi do
     else
       {{:value, {request, index}}, queue} = :queue.out(state.queue)
       timeout = request_timeout(request, state.global_timeout)
-      request_id = SnmpKit.SnmpMgr.RequestIdGenerator.next_id()
 
-      # Engine delivers :snmp_timeout at `timeout`; the local deadline is a
-      # safety net one second later in case that message never arrives.
-      pending_entry = %{index: index, timeout: timeout, deadline_ms: now_ms() + timeout + 1000}
+      case dispatch_request(state.socket, request, timeout) do
+        {:ok, request_id} ->
+          entry = %{
+            index: index,
+            request: request,
+            timeout: timeout,
+            retries_left: request_retries(request),
+            deadline_ms: local_deadline(timeout)
+          }
 
-      case dispatch_request(state.socket, request, request_id, timeout) do
-        :ok ->
           launch_pending_requests(%{
             state
             | queue: queue,
-              pending: Map.put(state.pending, request_id, pending_entry)
+              pending: Map.put(state.pending, request_id, entry)
           })
 
         {:error, reason} ->
@@ -447,6 +472,10 @@ defmodule SnmpKit.SnmpMgr.Multi do
     end
   end
 
+  # Engine delivers :snmp_timeout at `timeout`; the local deadline is a
+  # safety net one second later in case that message never arrives.
+  defp local_deadline(timeout), do: now_ms() + timeout + 1000
+
   defp await_pending_requests(state) do
     cond do
       map_size(state.results) == state.total ->
@@ -456,7 +485,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
         state
 
       true ->
-        receive_timeout = pending_receive_timeout(state.pending)
+        receive_timeout = pending_receive_timeout(state)
 
         receive do
           {:snmp_response, request_id, response_data} ->
@@ -467,7 +496,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
           {:snmp_timeout, request_id} ->
             state
-            |> complete_pending_request(request_id, {:error, :timeout})
+            |> timeout_pending_request(request_id)
             |> launch_pending_requests()
             |> await_pending_requests()
         after
@@ -490,18 +519,44 @@ defmodule SnmpKit.SnmpMgr.Multi do
     end
   end
 
-  # Only the requests whose own deadline has passed are failed; a single slow
-  # peer must not take the rest of the window down with it.
+  # A timed-out PDU is re-sent under a fresh request id while the request has
+  # retries left; only then is {:error, :timeout} recorded.
+  defp timeout_pending_request(state, request_id) do
+    case Map.pop(state.pending, request_id) do
+      {nil, pending} ->
+        %{state | pending: pending}
+
+      {%{retries_left: 0, index: index}, pending} ->
+        %{state | pending: pending, results: Map.put(state.results, index, {:error, :timeout})}
+
+      {entry, pending} ->
+        entry = %{entry | retries_left: entry.retries_left - 1}
+
+        case dispatch_request(state.socket, entry.request, entry.timeout) do
+          {:ok, new_id} ->
+            entry = %{entry | deadline_ms: local_deadline(entry.timeout)}
+            %{state | pending: Map.put(pending, new_id, entry)}
+
+          {:error, reason} ->
+            %{
+              state
+              | pending: pending,
+                results: Map.put(state.results, entry.index, {:error, reason})
+            }
+        end
+    end
+  end
+
+  # Only the requests whose own deadline has passed are timed out; a single
+  # slow peer must not take the rest of the window down with it.
   defp fail_stuck_pending_requests(state) do
     now = now_ms()
 
-    Enum.reduce(state.pending, %{state | pending: %{}}, fn {request_id, entry}, acc ->
-      if entry.deadline_ms <= now do
-        SnmpKit.SnmpMgr.Engine.unregister_request(SnmpKit.SnmpMgr.Engine, request_id)
-        %{acc | results: Map.put(acc.results, entry.index, {:error, :timeout})}
-      else
-        %{acc | pending: Map.put(acc.pending, request_id, entry)}
-      end
+    state.pending
+    |> Enum.filter(fn {_request_id, entry} -> entry.deadline_ms <= now end)
+    |> Enum.reduce(state, fn {request_id, _entry}, acc ->
+      SnmpKit.SnmpMgr.Engine.unregister_request(SnmpKit.SnmpMgr.Engine, request_id)
+      timeout_pending_request(acc, request_id)
     end)
   end
 
@@ -515,39 +570,45 @@ defmodule SnmpKit.SnmpMgr.Multi do
   end
 
   # Wake up when the *earliest* pending deadline expires.
-  defp pending_receive_timeout(pending) do
+  defp pending_receive_timeout(state) do
     now = now_ms()
 
-    pending
+    state.pending
     |> Map.values()
     |> Enum.map(&(&1.deadline_ms - now))
-    |> Enum.min(fn -> @default_timeout + 1000 end)
+    |> Enum.min(fn -> state.global_timeout + 1000 end)
     |> max(0)
   end
 
   defp now_ms, do: System.monotonic_time(:millisecond)
 
-  defp dispatch_request(socket, request, request_id, timeout) do
-    SnmpKit.SnmpMgr.Engine.register_request(
-      SnmpKit.SnmpMgr.Engine,
-      request_id,
-      self(),
-      timeout
-    )
+  # Registers a fresh request id and sends the PDU under it.
+  defp dispatch_request(socket, request, timeout) do
+    with {:ok, request_id} <-
+           SnmpKit.SnmpMgr.Engine.register_next_request(SnmpKit.SnmpMgr.Engine, self(), timeout) do
+      case build_and_send_packet(socket, request, request_id) do
+        :ok ->
+          {:ok, request_id}
 
-    case build_and_send_packet(socket, request, request_id) do
-      :ok ->
-        :ok
-
-      {:error, reason} ->
-        SnmpKit.SnmpMgr.Engine.unregister_request(SnmpKit.SnmpMgr.Engine, request_id)
-        {:error, reason}
+        {:error, reason} ->
+          SnmpKit.SnmpMgr.Engine.unregister_request(SnmpKit.SnmpMgr.Engine, request_id)
+          {:error, reason}
+      end
     end
   end
+
+  defp default_timeout, do: SnmpKit.SnmpMgr.Config.get(:timeout)
 
   defp request_timeout(request, global_timeout) do
     timeout = Keyword.get(request.opts, :timeout, global_timeout)
     if is_integer(timeout) and timeout > 0, do: timeout, else: global_timeout
+  end
+
+  defp request_retries(request) do
+    case Keyword.get(request.opts, :retries) do
+      retries when is_integer(retries) and retries >= 0 -> retries
+      _ -> SnmpKit.SnmpMgr.Config.get(:retries)
+    end
   end
 
   defp normalize_requests(targets_and_data, operation_type, global_opts) do
@@ -621,27 +682,18 @@ defmodule SnmpKit.SnmpMgr.Multi do
       # Resolve target
       target = resolve_target(request.target)
 
-      socket = socket_for(socket, target.host)
+      with {:ok, socket} <- socket_for(socket, target.host),
+           {:ok, message} <- build_snmp_message(request, request_id),
+           :ok <-
+             SnmpKit.SnmpLib.Transport.send_packet(socket, target.host, target.port, message) do
+        Logger.debug(
+          "Sent SNMP request #{request_id} to #{format_host(target.host)}:#{target.port}"
+        )
 
-      # Build SNMP message
-      case build_snmp_message(request, request_id) do
-        {:ok, message} ->
-          # Send packet
-          case SnmpKit.SnmpLib.Transport.send_packet(socket, target.host, target.port, message) do
-            :ok ->
-              Logger.debug(
-                "Sent SNMP request #{request_id} to #{format_host(target.host)}:#{target.port}"
-              )
-
-              :ok
-
-            {:error, reason} ->
-              Logger.error("Failed to send SNMP request: #{inspect(reason)}")
-              {:error, reason}
-          end
-
+        :ok
+      else
         {:error, reason} ->
-          Logger.error("Failed to build SNMP message: #{inspect(reason)}")
+          Logger.error("Failed to send SNMP request #{request_id}: #{inspect(reason)}")
           {:error, reason}
       end
     rescue
@@ -710,10 +762,14 @@ defmodule SnmpKit.SnmpMgr.Multi do
   end
 
   # IPv6 targets go out on the engine's IPv6 socket
-  defp socket_for(_default, {_, _, _, _, _, _, _, _}),
-    do: SnmpKit.SnmpMgr.Engine.get_socket(SnmpKit.SnmpMgr.Engine, :inet6)
+  defp socket_for(_default, {_, _, _, _, _, _, _, _}) do
+    case SnmpKit.SnmpMgr.Engine.get_socket(SnmpKit.SnmpMgr.Engine, :inet6) do
+      {:error, reason} -> {:error, {:ipv6_socket, reason}}
+      socket -> {:ok, socket}
+    end
+  end
 
-  defp socket_for(default, _host), do: default
+  defp socket_for(default, _host), do: {:ok, default}
 
   # Resolve OID from string (symbolic or numeric) to list format
   defp resolve_oid(oid) when is_list(oid) and is_integer(hd(oid)), do: {:ok, oid}

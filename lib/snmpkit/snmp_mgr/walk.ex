@@ -26,7 +26,6 @@ defmodule SnmpKit.SnmpMgr.Walk do
   """
 
   @default_max_iterations 100
-  @default_timeout 5000
 
   @doc """
   Performs a walk starting from the given root OID.
@@ -74,7 +73,6 @@ defmodule SnmpKit.SnmpMgr.Walk do
         # Fall back to traditional GETNEXT walk (SNMPv1)
         # Use max_iterations instead of max_repetitions for v1 (which doesn't support bulk operations)
         max_iterations = Keyword.get(opts, :max_iterations, @default_max_iterations)
-        _timeout = Keyword.get(opts, :timeout, @default_timeout)
 
         # Remove max_repetitions from opts for v1 operations since it's not supported
         v1_opts = Keyword.delete(opts, :max_repetitions)

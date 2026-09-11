@@ -15,15 +15,16 @@ defmodule SnmpKit do
 
   ### PDU Timeout (`:timeout` parameter)
   - Controls how long to wait for each individual SNMP PDU response
-  - Default: 5 seconds for single-target calls (`config :snmpkit, timeout:`),
-    30 seconds per PDU for walks, 10 seconds for multi-target calls
+  - Default: 5 seconds for every call, from `SnmpKit.SnmpMgr.Config`
+    (`config :snmpkit, timeout:`), which documents the whole model
   - Applied per SNMP packet, not per operation
-  - Retries, when configured, are additional attempts for the same PDU
+  - `:retries` (default 1) re-sends a PDU that timed out, under a fresh
+    request id, before the request fails
 
   ### Walk Timeout (`:walk_timeout` parameter)
   - Prevents operations from hanging indefinitely
   - Applies to the whole walk, while `:timeout` still applies to each PDU
-  - Defaults to a bounded long-running timeout for large table walks
+  - Defaults to `max(timeout * 10, 20 minutes)`, capped at 30 minutes
 
   ### Walk Operations
   Walk operations may send many GETBULK PDUs to retrieve all data:

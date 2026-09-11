@@ -6,6 +6,15 @@ defmodule SnmpKit.SnmpMgr.SimplePerRequestTimeoutTest do
   @moduletag :unit
   @moduletag :simple_timeout_test
 
+  # These tests pin timeout handling against unreachable targets; the default
+  # retry (one re-send per PDU) would only double them.
+  setup_all do
+    previous = SnmpKit.SnmpMgr.Config.get_default_retries()
+    SnmpKit.SnmpMgr.Config.set_default_retries(0)
+    on_exit(fn -> SnmpKit.SnmpMgr.Config.set_default_retries(previous) end)
+    :ok
+  end
+
   describe "per-request timeout functionality verification" do
     test "per-request timeout is extracted and used correctly" do
       # This test verifies that per-request timeouts are being read from request.opts

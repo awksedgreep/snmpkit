@@ -25,26 +25,45 @@ defmodule SnmpKit.SnmpMgr.RequestIdGenerator do
   @doc """
   Generates the next unique request ID.
 
-  Uses atomic ETS operations for thread-safe counter increment.
-  Wraps around at #{@max_request_id} to prevent overflow.
+  Uses atomic ETS operations for thread-safe counter increment. Wraps around
+  at #{@max_request_id}; `SnmpKit.SnmpMgr.Engine` refuses to register an id
+  that is still pending, so a wrapped id is never reused while its earlier
+  request is in flight.
+
+  Raises `ArgumentError` when the generator is not running; `fetch_next_id/0`
+  is the non-raising form.
 
   ## Examples
 
       iex> SnmpKit.SnmpMgr.RequestIdGenerator.next_id()
       1
-      
+
       iex> SnmpKit.SnmpMgr.RequestIdGenerator.next_id()
       2
   """
+  @spec next_id() :: pos_integer()
   def next_id() do
-    try do
-      :ets.update_counter(@table_name, :counter, {2, 1, @max_request_id, 1})
-    rescue
-      ArgumentError ->
-        # Table doesn't exist, start the GenServer
-        Logger.warning("RequestIdGenerator not started, using fallback")
-        :rand.uniform(@max_request_id)
+    case fetch_next_id() do
+      {:ok, id} ->
+        id
+
+      {:error, :services_not_started} ->
+        raise ArgumentError,
+              "#{inspect(__MODULE__)} is not running (ETS table #{inspect(@table_name)} " <>
+                "is missing); call SnmpKit.SnmpMgr.ensure_started/0 first"
     end
+  end
+
+  @doc """
+  Like `next_id/0`, but returns `{:error, :services_not_started}` instead of
+  raising when the generator is not running. There is no fallback id: a random
+  one could collide with a request already in flight.
+  """
+  @spec fetch_next_id() :: {:ok, pos_integer()} | {:error, :services_not_started}
+  def fetch_next_id() do
+    {:ok, :ets.update_counter(@table_name, :counter, {2, 1, @max_request_id, 1})}
+  rescue
+    ArgumentError -> {:error, :services_not_started}
   end
 
   @doc """
@@ -93,27 +112,30 @@ defmodule SnmpKit.SnmpMgr.RequestIdGenerator do
     # The table may already exist (another generator instance owns it, or a
     # previous owner is still shutting down); in that case it is shared rather
     # than crashing this process with a badarg.
-    case :ets.whereis(table_name) do
-      :undefined ->
-        ^table_name =
-          :ets.new(table_name, [
-            :public,
-            :set,
-            :named_table,
-            {:read_concurrency, true},
-            {:write_concurrency, true}
-          ])
+    owner? =
+      case :ets.whereis(table_name) do
+        :undefined ->
+          ^table_name =
+            :ets.new(table_name, [
+              :public,
+              :set,
+              :named_table,
+              {:read_concurrency, true},
+              {:write_concurrency, true}
+            ])
 
-        # Initialize counter to 0
-        :ets.insert(table_name, {:counter, 0})
+          # Initialize counter to 0
+          :ets.insert(table_name, {:counter, 0})
+          true
 
-      _existing ->
-        :ets.insert_new(table_name, {:counter, 0})
-    end
+        _existing ->
+          :ets.insert_new(table_name, {:counter, 0})
+          false
+      end
 
     Logger.info("RequestIdGenerator started with table: #{table_name}")
 
-    {:ok, %{table_name: table_name}}
+    {:ok, %{table_name: table_name, owner?: owner?}}
   end
 
   @impl true
@@ -135,13 +157,16 @@ defmodule SnmpKit.SnmpMgr.RequestIdGenerator do
     {:reply, ids, state}
   end
 
+  # Only the instance that created the table deletes it; a generator sharing
+  # another instance's table must not take that table down with it.
   @impl true
-  def terminate(_reason, state) do
-    # Clean up ETS table
-    if :ets.info(state.table_name) != :undefined do
-      :ets.delete(state.table_name)
+  def terminate(_reason, %{owner?: true, table_name: table_name}) do
+    if :ets.info(table_name) != :undefined do
+      :ets.delete(table_name)
     end
 
     :ok
   end
+
+  def terminate(_reason, _state), do: :ok
 end
