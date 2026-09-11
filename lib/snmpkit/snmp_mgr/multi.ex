@@ -47,7 +47,8 @@ defmodule SnmpKit.SnmpMgr.Multi do
   - `{target, oid, opts}` where opts can include:
     - `:timeout` - Override the default per-PDU timeout for this specific request
     - `:community` - Override SNMP community string
-    - `:version` - Override SNMP version (:v1, :v2c)
+    - `:version` - SNMP version (`:v1` for `get_multi` only; GETBULK and the walks need
+      `:v2c` or `:v3` and answer `{:error, {:unsupported_operation, :get_bulk_requires_v2c}}`)
 
   ## Examples
 
@@ -732,6 +733,11 @@ defmodule SnmpKit.SnmpMgr.Multi do
             pdu = SnmpKit.SnmpLib.PDU.build_get_request(oid_list, request_id)
             message = SnmpKit.SnmpLib.PDU.build_message(pdu, community, version)
             SnmpKit.SnmpLib.PDU.encode_message(message)
+
+          # The PDU builder raises for a v1 GETBULK; answer with the same
+          # error the single-target calls give instead of a caught exception.
+          :get_bulk when version == :v1 ->
+            {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
 
           :get_bulk ->
             max_rep = Keyword.get(request.opts, :max_repetitions, 30)

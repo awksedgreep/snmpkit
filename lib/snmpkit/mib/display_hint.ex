@@ -30,9 +30,24 @@ defmodule SnmpKit.MIB.DisplayHint do
 
   def apply(hint, value) when is_binary(hint) and is_binary(value) do
     with {:ok, specs} <- parse_octet_hint(hint) do
-      {:ok, format_octets(specs, value)}
+      if already_hex_text?(specs, value) do
+        # A walk file (and some agents) carry a MAC or similar as its printed
+        # "00:1f:2e:3d:4c:5b" form rather than raw octets; hex-formatting
+        # that text again would give the codes of its characters.
+        {:ok, value}
+      else
+        {:ok, format_octets(specs, value)}
+      end
     end
   end
+
+  defp already_hex_text?([%{length: 1, format: ?x, separator: sep} | _], value)
+       when sep in [":", "-", " "] do
+    String.printable?(value) and
+      Regex.match?(~r/^[0-9A-Fa-f]{2}(#{Regex.escape(sep)}[0-9A-Fa-f]{2})+$/, value)
+  end
+
+  defp already_hex_text?(_specs, _value), do: false
 
   def apply(_hint, _value), do: {:error, :unsupported_value}
 

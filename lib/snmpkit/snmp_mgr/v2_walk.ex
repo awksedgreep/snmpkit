@@ -409,6 +409,9 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
     end
   end
 
+  defp bulk_version(:v1), do: {:error, {:unsupported_operation, :get_bulk_requires_v2c}}
+  defp bulk_version(_version), do: :ok
+
   defp build_and_send_get_bulk(
          socket,
          %{request: request, next_oid: oid, current_max_repetitions: max_repetitions},
@@ -419,10 +422,13 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
       community = Keyword.get(request.opts, :community, "public")
       version = Keyword.get(request.opts, :version, :v2c)
       oid_list = if is_list(oid), do: oid, else: [oid]
-      pdu = PDU.build_get_bulk_request(oid_list, request_id, 0, max_repetitions)
-      message = PDU.build_message(pdu, community, version)
 
-      with {:ok, socket} <- socket_for(socket, target.host),
+      # A v1 request is refused here rather than as the builder's raise
+      # caught below, so the caller sees the same error as SnmpMgr.get_bulk.
+      with :ok <- bulk_version(version),
+           {:ok, socket} <- socket_for(socket, target.host),
+           pdu = PDU.build_get_bulk_request(oid_list, request_id, 0, max_repetitions),
+           message = PDU.build_message(pdu, community, version),
            {:ok, encoded_message} <- PDU.encode_message(message) do
         Transport.send_packet(socket, target.host, target.port, encoded_message)
       else

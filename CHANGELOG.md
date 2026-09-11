@@ -102,6 +102,8 @@ Breaking release. See `docs/v2-migration.md` for the rename/removal table.
 - `WalkParser` collapsed every `IP-MIB::` object in a walk onto `ipForwarding` (it combined the module's base OID with the bare object name); names are now resolved through the MIB registry first, so the bundled router walk loads all of its objects.
 - `send_trap/4` and `send_inform/4` refuse `version: :v3` (notifications are SNMPv1/v2c only) with `{:error, {:unsupported_operation, :notification_requires_v1_or_v2c}}` instead of silently sending v2c.
 - `SnmpKit.Trap` counts a handler that raises in `stats.handler_errors` (it only logged); `[:snmpkit, :engine, :timeout]` carries the request's `target` (it was always `nil`; `Engine.register_request/5` and `register_next_request/4` take `target:`).
+- Multi-target GETBULK and walks with `version: :v1` return `{:error, {:unsupported_operation, :get_bulk_requires_v2c}}` like the single-target calls instead of a caught `ArgumentError` from the PDU builder.
+- A `1x:` style DISPLAY-HINT leaves a value that is already the printed hex text (a MAC from a walk file such as `"00:1f:2e:3d:4c:5b"`) alone instead of hex-formatting its characters.
 
 ## [1.4.0] - 2026-09-05
 

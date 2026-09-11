@@ -107,6 +107,16 @@ defmodule SnmpKit.SnmpMgr.MultiTest do
       assert [{:error, _}] = results
     end
 
+    test "version: :v1 is refused with the single-target error, not a caught raise" do
+      requests = [{"127.0.0.1", "1.3.6.1.2.1.2.2.1"}]
+
+      assert [{:error, {:unsupported_operation, :get_bulk_requires_v2c}}] =
+               Multi.get_bulk_multi(requests, version: :v1, timeout: 200)
+
+      assert [{:error, {:unsupported_operation, :get_bulk_requires_v2c}}] =
+               Multi.walk_multi(requests, version: :v1, timeout: 200)
+    end
+
     test "a request with several OIDs is refused per request, not a crash" do
       requests = [
         {"127.0.0.1", ["1.3.6.1.2.1.2.2.1", "1.3.6.1.2.1.1"]},

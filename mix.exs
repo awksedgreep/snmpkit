@@ -218,7 +218,6 @@ defmodule Snmpkit.MixProject do
           SnmpKit.SnmpSim.Recorder,
           SnmpKit.SnmpSim.WalkParser,
           SnmpKit.SnmpSim.Config,
-          SnmpKit.SnmpSim.SafeFile,
           SnmpKit.SnmpSim.OIDTree,
           SnmpKit.SnmpSim.ValueSimulator,
           SnmpKit.SnmpSim.ValueSimulator.Counters,
