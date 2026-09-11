@@ -41,6 +41,8 @@ defmodule SnmpKit.MIB.DisplayHint do
     end
   end
 
+  def apply(_hint, _value), do: {:error, :unsupported_value}
+
   defp already_hex_text?([%{length: 1, format: ?x, separator: sep} | _], value)
        when sep in [":", "-", " "] do
     String.printable?(value) and
@@ -48,8 +50,6 @@ defmodule SnmpKit.MIB.DisplayHint do
   end
 
   defp already_hex_text?(_specs, _value), do: false
-
-  def apply(_hint, _value), do: {:error, :unsupported_value}
 
   @doc "Like `apply/2` but returns the string or `nil`."
   @spec format(hint(), binary() | integer()) :: String.t() | nil
