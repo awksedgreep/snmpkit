@@ -12,6 +12,14 @@ Mix.install([
 alias SnmpKit.{SNMP, Sim}
 alias SnmpKit.SnmpSim.ProfileLoader
 
+# A free UDP port on the loopback interface, so the notebook runs anywhere
+free_port = fn ->
+  {:ok, socket} = :gen_udp.open(0, ip: {127, 0, 0, 1})
+  {:ok, port} = :inet.port(socket)
+  :gen_udp.close(socket)
+  port
+end
+
 IO.puts("High performance modules ready!")
 ```
 
@@ -28,16 +36,18 @@ Multi-target calls (`SNMP.get_multi/2`, `SNMP.walk_multi/2`, `SNMP.get_bulk_mult
 
 Nothing has to be started by hand; the engine comes up on the first call.
 Results are a plain list in request order, one `{:ok, varbinds}` or
-`{:error, reason}` per request.
+`{:error, reason}` per request, and the varbinds are the same enriched maps
+(`oid`, `oid_list`, `name`, `type`, `value`, `formatted`) that every
+single-target call returns.
 
 ## Create a Device Fleet
 
-Let's simulate a realistic network with 20 devices:
+Let's simulate a realistic network with 20 devices, each on its own free
+port of the loopback interface:
 
 ```elixir
 # Create 20 diverse devices
 device_count = 20
-base_port = 3000
 
 devices = for i <- 1..device_count do
   # Vary device types
@@ -72,9 +82,9 @@ devices = for i <- 1..device_count do
     })
   end)
 
-  port = base_port + i
+  port = free_port.()
   {:ok, profile} = ProfileLoader.load_profile(device_type, {:manual, oids})
-  {:ok, device} = Sim.start_device(profile, port: port)
+  {:ok, device} = Sim.start_device(profile, port: port, bind_address: "127.0.0.1")
 
   %{
     port: port,
@@ -84,7 +94,7 @@ devices = for i <- 1..device_count do
   }
 end
 
-IO.puts("Created #{length(devices)} devices on ports #{base_port + 1}-#{base_port + device_count}")
+IO.puts("Created #{length(devices)} devices on 127.0.0.1")
 IO.puts("")
 
 # Show device distribution
@@ -118,6 +128,14 @@ IO.puts("  Success: #{success_count}/#{length(results)}")
 IO.puts("  Rate: #{Float.round(length(requests) / (time_us / 1_000_000), 1)} req/sec")
 ```
 
+Each entry is the result for the request at the same position. A GET
+answers with one enriched varbind:
+
+```elixir
+[{:ok, [first_varbind]} | _] = results
+first_varbind
+```
+
 ## Multi-Target GET with Multiple OIDs
 
 Get several values from each device:
@@ -146,7 +164,9 @@ IO.puts("  Rate: #{Float.round(length(requests) / (time_us / 1_000_000), 1)} req
 
 ## Concurrency Control
 
-Adjust `max_concurrent` to control parallel requests:
+Adjust `max_concurrent` to control parallel requests. On the loopback
+interface every level finishes in a few milliseconds; the difference shows
+on a real network, where each in-flight request is waiting on a round trip.
 
 ```elixir
 targets = Enum.map(devices, & &1.target)
@@ -193,7 +213,15 @@ IO.puts("  Total OIDs: #{total_oids}")
 
 ## Walk Interface Tables
 
-Walk larger tables from all devices:
+Walk larger tables from all devices. Three options bound the time a
+request may take, on every path (single-target, multi-target, streams):
+
+- `timeout:` - how long to wait for **one PDU** (default 5000 ms)
+- `retries:` - how many times a timed-out PDU is re-sent (default 1)
+- `walk_timeout:` - a cap on a **whole walk**, which sends many PDUs
+  (default `max(timeout * 10, 1_200_000)` ms)
+
+A walk of a big table needs `walk_timeout:`, not a larger `timeout:`.
 
 ```elixir
 targets = Enum.map(devices, & &1.target)
@@ -201,7 +229,7 @@ targets = Enum.map(devices, & &1.target)
 walk_requests = Enum.map(targets, &{&1, "interfaces"})
 
 {time_us, results} = :timer.tc(fn ->
-  SNMP.walk_multi(walk_requests, timeout: 30_000)
+  SNMP.walk_multi(walk_requests, walk_timeout: 30_000)
 end)
 
 success_results = Enum.filter(results, &match?({:ok, _}, &1))
@@ -216,7 +244,9 @@ IO.puts("  Avg OIDs/device: #{if length(success_results) > 0, do: div(total_oids
 
 ## Per-Request Options
 
-Override options for specific requests:
+A request may carry its own options as a third tuple element. They win
+over the options of the call, so a slow WAN device can get a longer
+`timeout:` and more `retries:` without slowing the rest of the fleet:
 
 ```elixir
 targets = Enum.map(devices, & &1.target)
@@ -226,20 +256,33 @@ requests = targets
 |> Enum.with_index()
 |> Enum.map(fn {target, i} ->
   if rem(i, 5) == 0 do
-    # Every 5th request gets a longer timeout
-    {target, "sysDescr.0", timeout: 15_000}
+    # Every 5th request may take up to 15 s per PDU and is re-sent twice
+    {target, "sysDescr.0", timeout: 15_000, retries: 2}
   else
     {target, "sysDescr.0"}
   end
 end)
 
 {time_us, results} = :timer.tc(fn ->
-  SNMP.get_multi(requests)
+  SNMP.get_multi(requests, timeout: 2_000, retries: 0)
 end)
 
 IO.puts("GET with mixed timeouts:")
 IO.puts("  Time: #{div(time_us, 1000)} ms")
 IO.puts("  Success: #{Enum.count(results, &match?({:ok, _}, &1))}/#{length(results)}")
+```
+
+An unreachable device costs `timeout * (retries + 1)` and comes back as
+`{:error, :timeout}` in its slot; the other results are unaffected:
+
+```elixir
+nobody = "127.0.0.1:#{free_port.()}"
+
+SNMP.get_multi([{nobody, "sysDescr.0"}, {hd(targets), "sysDescr.0"}], timeout: 300, retries: 1)
+|> Enum.map(fn
+  {:ok, [%{formatted: v}]} -> {:ok, v}
+  error -> error
+end)
 ```
 
 ## Return Formats
@@ -283,7 +326,9 @@ end)
 
 ## Bulk Operations at Scale
 
-Use GETBULK for efficient table retrieval:
+Use GETBULK for efficient table retrieval. GETBULK exists since SNMPv2c,
+so `get_bulk_multi` runs over v2c (the default) or v3 and refuses
+`version: :v1`:
 
 ```elixir
 targets = Enum.map(devices, & &1.target)
@@ -334,12 +379,41 @@ for cycle <- 1..3 do
 end
 ```
 
+Turning the octet counters from two cycles into bits per second is the
+subject of the [telemetry and rates](09_telemetry_and_rates.livemd)
+notebook.
+
+## Engine Health
+
+The engine reports on itself. `health_check/0` grades the depth of its
+mailbox (`:healthy`, `:warning`, `:critical`, or `:error` when the socket
+is gone) and `get_stats/0` has the correlation counters and average
+response time. Both are maps; every engine call returns
+`{:error, :services_not_started}` instead of crashing if the engine is not
+running.
+
+```elixir
+SnmpKit.SnmpMgr.Engine.health_check()
+```
+
+```elixir
+%{metrics: metrics, pending_requests: pending} = SnmpKit.SnmpMgr.Engine.get_stats()
+
+IO.puts("pending: #{pending}")
+IO.puts("completed: #{metrics.requests_completed}, timed out: #{metrics.requests_timeout}")
+IO.puts("avg response: #{Float.round(metrics.avg_response_time * 1.0, 2)} ms")
+```
+
+Every multi-target call also emits `[:snmpkit, :multi, :stop]` with its
+`ok_count` and `error_count`, and every request the engine gives up on
+emits `[:snmpkit, :engine, :timeout]`.
+
 ## Performance Tips
 
 1. **Tune `max_concurrent`** - Start with 10-20, increase based on network capacity
 2. **Use bulk operations** - GETBULK is faster than multiple GETs for tables
 3. **Batch requests** - Combine multiple OIDs in single `get_multi` calls
-4. **Set appropriate timeouts** - Short for fast networks, longer for WAN
+4. **Set appropriate timeouts** - `timeout:` and `retries:` per PDU, `walk_timeout:` per walk
 5. **Handle errors gracefully** - Some devices may be unreachable
 
 ```elixir
@@ -355,7 +429,16 @@ IO.puts("  1000+      50-100            Test thoroughly")
 
 ## Cleanup
 
+Devices started with `Sim.start_device/2` are linked to the process that
+started them; stopping them explicitly frees the ports right away.
+
 ```elixir
-IO.puts("Livebook complete!")
-IO.puts("Devices will be cleaned up when runtime stops.")
+Enum.each(devices, &SnmpKit.SnmpSim.stop_device(&1.device))
+IO.puts("Stopped #{length(devices)} devices")
 ```
+
+## Next Steps
+
+- **[Telemetry and Rates](09_telemetry_and_rates.livemd)** - Watch the engine's events and turn counters into rates
+- **[SNMPv3](07_snmpv3.livemd)** - The same multi-target calls with USM users
+- **[Device Simulation](04_device_simulation.livemd)** - More ways to build the fleet you poll
