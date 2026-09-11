@@ -204,8 +204,6 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
       test_oid = "1.3.6.1.2.1.1"
 
       # Perform bulk walk
-      bulk_start = System.monotonic_time(:millisecond)
-
       bulk_result =
         SnmpKit.SnmpMgr.adaptive_walk(target, test_oid,
           community: device.community,
@@ -213,18 +211,12 @@ defmodule SnmpKit.SnmpMgr.BulkWalkComprehensiveTest do
           timeout: 500
         )
 
-      bulk_time = System.monotonic_time(:millisecond) - bulk_start
-
       # Perform traditional walk
-      traditional_start = System.monotonic_time(:millisecond)
-
       traditional_result =
         SnmpKit.SnmpMgr.walk(target, test_oid,
           community: device.community,
           timeout: 500
         )
-
-      traditional_time = System.monotonic_time(:millisecond) - traditional_start
 
       case {bulk_result, traditional_result} do
         {{:ok, bulk_results}, {:ok, traditional_results}} ->

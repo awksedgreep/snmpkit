@@ -21,27 +21,53 @@ end
 
 ## Breaking changes in 2.0
 
-2.0 is a consolidation release. Request and response shapes are the same as
-in 1.4; what changed is which modules exist and a few behaviours:
+2.0 is a consolidation release. Most facade request and response shapes are
+the same as in 1.4, but the following changes can require application updates:
 
-- **Renamed:** `SnmpMgr.EngineV2` is now `SnmpMgr.Engine`, `SnmpMgr.MultiV2`
-  is now `SnmpMgr.Multi`, `SnmpLib.MIB.*` is now `SnmpKit.MIB.*`, and
-  `SnmpSim.Device.ErrorInjector` is now `SnmpSim.Device.ErrorConditions`.
-- **Removed:** the old opt-in request-batching engine (`start_engine` /
-  `engine_request` / `engine_batch`) with its `Router`, `CircuitBreaker`,
-  `Metrics` and `SnmpMgr.Supervisor`, which no default operation used; `SnmpMgr.SocketManager` (the engine
-  owns the socket); the Task-per-target `Multi` and the `strategy:` option;
-  `SnmpLib.Config`, `Pool`, `Cache`, `Monitor`, `Dashboard`; the `SnmpLib.MIB`
-  facade; `SnmpKit.TestSupport` (use `SnmpKit.SnmpSim`); `Keys.secure_wipe/1`;
-  and `SnmpMgr.start_engine`, `engine_request`, `engine_batch`,
-  `get_engine_stats`, `with_circuit_breaker`, `record_metric`.
-- **Behaviour:** `get_async`/`get_bulk_async` return a `Task`; manager
-  defaults are read from `config :snmpkit` (the `:snmp_mgr` key still works);
-  `MIB.load/1` takes the map `compile/1` returns; `Sim.start_device_population/2`
-  pre-warms devices and returns `[%{type, port, pid, target}]`; `set/4` and
-  `set_many/3` return `:ok` (not `{:ok, :success}`); parsed MIBs carry a
-  `warnings` list and identifiers are binaries instead of atoms.
-- **Tooling:** Elixir 1.18+ on OTP 28.
+- **Renamed modules:** `SnmpMgr.EngineV2` is now `SnmpMgr.Engine`,
+  `SnmpMgr.MultiV2` is now `SnmpMgr.Multi`, `SnmpLib.MIB.*` is now
+  `SnmpKit.MIB.*`, `SnmpSim.SafeFile` is now `SnmpKit.SafeFile` (a delegate is
+  retained), and `SnmpSim.Device.ErrorInjector` is now
+  `SnmpSim.Device.ErrorConditions`.
+- **Removed manager and library APIs:** the old opt-in request-batching engine
+  and its `Router`, `CircuitBreaker`, `Metrics`, `SnmpMgr.Application` and
+  `SnmpMgr.Supervisor`; `SnmpMgr.SocketManager`; the Task-per-target `Multi`,
+  its `strategy:` option and `Multi.monitor/3`; `SnmpLib.Config`, `Pool`,
+  `Cache`, `Monitor`, `Dashboard` and the `SnmpLib.MIB` facade; and
+  `SnmpKit.TestSupport`. The related `SnmpMgr`/`SnmpKit.SNMP` engine delegates,
+  `ErrorHandler` circuit-breaker functions, `Core` spawn-based async/value-only
+  GET helpers, `Bulk.get_bulk_multi/2`, and unused public `Security`, `Auth`,
+  `Priv`, `USM` and `Keys` helpers were also removed.
+- **Removed simulator APIs:** `SnmpSim.Application`, `MultiDeviceStartup`,
+  `TestScenarios`, `TestHelpers.*` and `Performance.*`. A simulated device no
+  longer invents hard-coded objects when it has no profile or `objects:` map.
+  Several public `Device.OidHandler` calculation/fallback helpers were removed;
+  its uptime helpers moved to `Device.Metrics`. The counter and jitter helpers
+  formerly on `ValueSimulator` moved to `ValueSimulator.Counters` and
+  `.Variance`.
+- **Return values:** `get_async/3` and `get_bulk_async/3` return a `Task`;
+  `set/4` returns `:ok` instead of `{:ok, :success}`; `Multi.execute_mixed/2`
+  returns enriched varbind maps instead of `{oid, type, value}` tuples;
+  `Sim.start_device_population/2` pre-warms devices and returns
+  `[%{type, port, pid, target}]`; and `benchmark_device/3` changes the meaning
+  of `avg_response_time` and adds `optimal_response_time`.
+- **Validation, errors and defaults:** invalid, empty or mistyped OIDs now
+  return `{:error, {:invalid_oid, input, reason}}` instead of querying a MIB
+  root; retries default to one everywhere (some lower layers used three and
+  some shared-socket paths used zero); malformed unsigned SNMP values are
+  rejected rather than decoded as zero; SNMPv1 end-of-MIB is
+  `{:error, :no_such_name}`; and privacy without authentication is
+  `{:error, :priv_requires_auth}`. Multi-OID `SnmpMgr.Bulk.get_bulk/3` requests
+  are rejected instead of silently sending only the first OID.
+- **Formatting and MIB parsing:** `formatted` values now follow loaded or
+  built-in MIB metadata instead of guessing meanings from bare integer and
+  counter values. Raw parser/tokenizer output uses binary identifiers, changes
+  `DEFVAL` and literal handling, includes a `warnings` list, and changes
+  illegal-character errors to include the line number.
+- **Configuration and dependencies:** manager defaults are read from
+  `config :snmpkit` (the `:snmp_mgr` key still works); `input_roots:` now also
+  confines MIB compilation, linting and loading; and `:telemetry` is a required
+  dependency rather than an optional one.
 
 The [2.0 migration guide](docs/v2-migration.md) has the full rename and
 removal tables with replacements for each entry.
@@ -69,7 +95,8 @@ target = "127.0.0.1:1161"
 
 # WALK returns a list of them, in OID order
 {:ok, system} = SnmpKit.SNMP.walk(target, "system")
-Enum.each(system, fn %{name: name, formatted: value} -> IO.puts("#{name} = #{value}") end)
+require Logger
+Enum.each(system, fn %{name: name, formatted: value} -> Logger.info("#{name} = #{value}") end)
 
 # SNMPv3: discovery, key localization and time sync are automatic
 {:ok, _} = SnmpKit.SNMP.get(target, "sysDescr.0",

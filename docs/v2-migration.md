@@ -1,9 +1,10 @@
 # Migrating to SnmpKit 2.0
 
 2.0 removes duplicate implementations and dead infrastructure so that each
-concern has one module. The SNMP facade (`SnmpKit`, `SnmpKit.SNMP`,
-`SnmpKit.MIB`, `SnmpKit.Sim`) keeps its request/response shapes from 1.4;
-most applications only need to update module names they referenced directly.
+concern has one module. Most calls on the SNMP facade (`SnmpKit`,
+`SnmpKit.SNMP`, `SnmpKit.MIB`, `SnmpKit.Sim`) keep their request/response
+shapes from 1.4; the exceptions are listed below. Most applications only need
+to update module names they referenced directly.
 
 ## Summary
 
@@ -19,6 +20,9 @@ If your code only uses `SnmpKit`, `SnmpKit.SNMP`, `SnmpKit.MIB` and
    `warnings` and use binaries where 1.x used atoms.
 5. `SnmpKit.SNMP.with_circuit_breaker` and the other engine delegates are
    gone; use the multi-target calls.
+6. Invalid OIDs are errors instead of MIB-root queries, lower-layer retry
+   defaults are now one, and formatting is driven by MIB metadata rather than
+   guesses based only on a value and its wire type.
 
 If you referenced internal modules, use the tables below: everything renamed
 or removed is listed with its replacement.
@@ -49,8 +53,13 @@ is unaffected.
 | `SnmpKit.SnmpLib.Config` | `SnmpKit.SnmpMgr.Config` (manager defaults) and `SnmpKit.SnmpSim.Config` (simulator). |
 | `SnmpKit.SnmpLib.Pool`, `Cache`, `Monitor`, `Dashboard` | None. These were unused by the library; copy the 1.4 modules into your application if you depended on them. |
 | `SnmpKit.SnmpLib.Security.Keys.secure_wipe` | None (it was a no-op). |
+| `SnmpKit.SnmpMgr.Multi`'s removed `monitor/3` | Run the multi-target call from your application's scheduler or monitoring process. |
+| `SnmpKit.SnmpLib.ErrorHandler`'s removed `start_circuit_breaker/2`, `call_through_breaker/3` | Use `quarantine_device/2` and `quarantined?/1` around `SnmpKit.SNMP` calls, or implement application-level backpressure. |
+| `SnmpKit.SnmpMgr.Core`'s removed `send_get_request/3`, `send_get_request_async/3`, `send_get_bulk_request_async/3`; `SnmpKit.SnmpMgr.Bulk`'s removed `get_bulk_multi/2` | `Core.send_get_request_with_type/3`; the Task-returning facade async calls; and `SnmpKit.SnmpMgr.Multi.get_bulk_multi/2`, respectively. |
+| `Security.update_user/2`, `validate_security_params/2`; `Security.Auth.verify_batch/4`, `benchmark_protocol/4`; `Security.Priv.benchmark_protocol/5`; `Security.USM.increment_engine_boots/1`, `get_engine_time/1`, `generate_error_report/2`; `Security.Keys.export_key/3`, `validate_imported_key/2` | None. These were unused helpers rather than part of the working manager request path. |
+| `SnmpKit.SnmpSim.Application`, `MultiDeviceStartup`, `TestScenarios`, `TestHelpers.*`, `Performance.*` | Use `SnmpKit.SnmpSim`, `SnmpKit.Sim`, `LazyDevicePool`, and application-owned test/benchmark helpers as appropriate. The library's port helpers now live under `test/support` and are not shipped. |
 
-## Internal reorganisation (no call-site changes)
+## Internal reorganisation
 
 `SnmpKit.SnmpMgr.MIB` keeps its public API but is now ~700 lines: the
 built-in name/OID and syntax tables live in `SnmpKit.MIB.Builtin`, the pure
@@ -59,13 +68,14 @@ compiled MIB data into registry maps in `SnmpKit.MIB.Import`. One behaviour
 change: `SnmpMgr.MIB.load/1` merges the loaded objects into the registry
 (the 1.x fallback path silently discarded them).
 
-Other large modules were split the same way, with the original module keeping
-its public functions (as implementations or delegates):
+Other large modules were split the same way. `SnmpLib.Types` and
+`SnmpLib.Manager` retain their public functions as implementations or delegates;
+the simulator splits require the call-site changes shown here:
 
 | Module | Extracted into |
 |--------|----------------|
-| `SnmpKit.SnmpSim.Device.OidHandler` | `Device.Metrics` (uptime). The hard-coded per-device-type objects that used to answer when a device had no profile are gone: a device serves its profile or its `objects:` map, and nothing else |
-| `SnmpKit.SnmpSim.ValueSimulator` | `ValueSimulator.Patterns`, `.Counters`, `.Variance` |
+| `SnmpKit.SnmpSim.Device.OidHandler` | `calculate_uptime/1` and `calculate_uptime_ticks/1` moved to `Device.Metrics`. Its other public metric/fallback calculation helpers were removed. The hard-coded per-device-type objects that used to answer when a device had no profile are gone: a device serves its profile or its `objects:` map, and nothing else |
+| `SnmpKit.SnmpSim.ValueSimulator` | `simulate_value/3` remains. Counter helpers moved to `ValueSimulator.Counters`; `apply_configurable_jitter/3-4` moved to `ValueSimulator.Variance` |
 | `SnmpKit.SnmpLib.Types` | `Types.Validation`, `Types.Format` (delegates kept on `Types`) |
 | `SnmpKit.SnmpLib.Manager` | `Manager.Request` (socket, send/receive/retries), `Manager.Response` (result extraction, error-status decoding) |
 
@@ -84,6 +94,8 @@ its public functions (as implementations or delegates):
   `{:ok, :success}`, matching `set_many/3`. Errors are unchanged.
 - `SnmpKit.SNMP.benchmark_device/3` returns `avg_response_time` as the mean
   over all tested bulk sizes and adds `optimal_response_time`.
+- `SnmpKit.SnmpMgr.Multi.execute_mixed/2` returns enriched varbind maps rather
+  than raw `{oid, type, value}` tuples.
 - An invalid, empty or mistyped OID is `{:error, {:invalid_oid, input, reason}}`
   on every request path. 1.x silently queried a MIB-root OID (`1.3.6.1` or
   `1.3`) instead, so a typo returned the wrong object rather than an error.
@@ -106,11 +118,20 @@ its public functions (as implementations or delegates):
 - The decoder rejects a Counter32, Gauge32, TimeTicks or Counter64 value that
   is empty, too wide or above its maximum (`{:invalid_varbind, n, reason}`)
   instead of reading it as 0.
+- `formatted` values use an object's MIB enumeration, textual convention or
+  DISPLAY-HINT. Without metadata, integers and large counters/gauges are
+  formatted plainly instead of being guessed as interface states, interface
+  types, speeds or byte sizes.
+- An SNMPv1 GETNEXT `noSuchName` response is `{:error, :no_such_name}` rather
+  than a `:null` varbind, so walks stop at the end of the MIB.
+- SNMPv3 privacy configured without authentication is
+  `{:error, :priv_requires_auth}` rather than silently deriving a key with MD5.
 - `SnmpKit.Agent` drops requests from unknown communities and v3 users at the
   request path too; `:bits` objects accept SET.
 - `config :snmpkit, input_roots: [...]` now confines MIB compilation, linting
   and `SnmpMgr.MIB.parse_mib_file/2` (and the `mix snmpkit.mib.*` tasks), not
   only the simulator's profile loaders.
+- `:telemetry` is a required dependency rather than an optional one.
 
 ## MIB parser
 
@@ -142,6 +163,6 @@ grow the atom table. Effects visible to callers:
 
 ## Behaviour unchanged since 1.4
 
-Enriched result maps, the RFC-compliant SNMPv3 stack, SNMPv1/v2c end-of-MIB
-semantics, and the `SnmpKit.SnmpSim` configuration API are as in 1.4.0; see
+Enriched result maps, the RFC-compliant SNMPv3 stack, and the
+`SnmpKit.SnmpSim` configuration API are as in 1.4.0; see
 `docs/v1.4.0-release-notes.md`.

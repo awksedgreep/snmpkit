@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - Unreleased (branch `2.x`)
+## [2.0.0] - 2026-09-11
 
 Breaking release. See `docs/v2-migration.md` for the rename/removal table.
 
@@ -16,6 +16,7 @@ Breaking release. See `docs/v2-migration.md` for the rename/removal table.
 - `SnmpKit.TestSupport` (lib) and the deprecated `Keys.secure_wipe/1`.
 - Simulator code nothing called (about 7,700 lines): `SnmpSim.Application` and `SnmpSim.MultiDeviceStartup` (the pre-2.0 standalone boot path), `SnmpSim.TestScenarios`, `SnmpSim.TestHelpers` with its `ProductionTestHelper`, `StabilityTestHelper` and `PerformanceHelper`, the `SnmpSim.Performance.*` modules (`Benchmarks`, `OptimizedDevicePool`, `OptimizedUdpServer`, `PerformanceMonitor`, `ResourceManager`, and the `max_devices`/`max_memory_mb` global settings that started the last one), and `SnmpSim.Device.BuiltinValues`, the hard-coded per-device-type objects a device fell back to before profiles; a device now serves its profile or its `objects:` map and nothing else. `Device.Metrics` keeps only the uptime functions. `TestHelpers.PortAllocator` and `PortHelper` moved to `test/support`.
 - Unreachable helpers found by the coverage pass: `SnmpMgr.Core.send_get_request/3` (the value-only GET; `send_get_request_with_type/3` is the one every caller used), the spawn-based `Core.send_get_request_async/3` and `send_get_bulk_request_async/3` (superseded by the Task-returning `get_async`/`get_bulk_async`), the Task-based `SnmpMgr.Bulk.get_bulk_multi/2` (superseded by `SnmpMgr.Multi`), `Security.Auth.verify_batch/4` and `benchmark_protocol/4`, `Security.Priv.benchmark_protocol/5`, `Security.USM.increment_engine_boots/1`, `get_engine_time/1` and the placeholder `generate_error_report/2`, `Security.update_user/2` and `validate_security_params/2`, `Security.Keys.export_key/3` and `validate_imported_key/2`.
+- `SnmpMgr.Multi.monitor/3`; schedule `get_multi/2` from the application's own monitoring process instead.
 - `SnmpMgr.SocketManager`: the Engine owns the shared UDP socket (`Engine.get_socket/1`, `get_port/1`, `get_buffer_stats/1`, `health_check/1`); responses land in the engine directly instead of being forwarded.
 - `SnmpLib.ErrorHandler.start_circuit_breaker/2` and `call_through_breaker/3`: the breaker was fully implemented but nothing started or called it, and the module docs advertised per-device circuit breakers that no manager path consulted. `ErrorHandler` keeps retry with backoff, error classification, adaptive timeouts and device quarantine. (#61)
 - Credo: it never gated anything (`--strict` reported about 800 findings), it crashed on Elixir 1.20 until 1.7.19, and the checks CI enforces are `mix format --check-formatted`, `mix compile --warnings-as-errors` and `mix dialyzer`. The `lint` alias runs format and dialyzer. (#62)
@@ -30,7 +31,7 @@ Breaking release. See `docs/v2-migration.md` for the rename/removal table.
 - `SnmpKit.SnmpLib.MIB.*` -> `SnmpKit.MIB.*`.
 - `SnmpKit.SnmpSim.Device.ErrorInjector` -> `SnmpKit.SnmpSim.Device.ErrorConditions`.
 - `SnmpKit.Sim.start_device/2` and `start_device_population/2` are implemented on `SnmpKit.SnmpSim`.
-- `SnmpSim.Device.OidHandler`, `SnmpSim.ValueSimulator`, `SnmpLib.Types` and `SnmpLib.Manager` are split into focused submodules; public functions stay where they were.
+- `SnmpSim.Device.OidHandler`, `SnmpSim.ValueSimulator`, `SnmpLib.Types` and `SnmpLib.Manager` are split into focused submodules. `Types` and `Manager` retain their public functions; `OidHandler.calculate_uptime/1` and `calculate_uptime_ticks/1` moved to `Device.Metrics`, its other public metric/fallback helpers were removed, and `ValueSimulator` counter/jitter helpers moved to `.Counters` and `.Variance`.
 - `SnmpMgr.MIB` is split: built-in tables in `SnmpKit.MIB.Builtin`, pure lookups in `SnmpKit.MIB.Resolver`, parsed/compiled data import in `SnmpKit.MIB.Import`; the GenServer keeps the public API. `SnmpMgr.MIB.load/1` now merges loaded objects into the registry (it silently discarded them before).
 - MIB tokenizer no longer creates atoms: identifier tokens carry binaries, so parsing an untrusted MIB cannot exhaust the atom table. Raw parse output (`SnmpKit.MIB.Parser.parse/1` before conversion) has binary names where it had atoms; the converted maps are unchanged except that a `DEFVAL { true }` / `{ false }` label is now the string `"true"` / `"false"` rather than an Elixir boolean.
 - Hex and binary string literals (`'C0A8'H`, `''h`, `'0101'B`) are tokenized as in OTP's `snmpc_tok`: `DEFVAL` values decode to byte lists and they are accepted in `SIZE` ranges (previously a syntax error on some MIBs).

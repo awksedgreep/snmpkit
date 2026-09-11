@@ -3,8 +3,6 @@ defmodule SnmpKit.SnmpLib.SNMPv3IntegrationTest do
   @moduletag :snmpv3
 
   alias SnmpKit.SnmpLib.PDU.V3Encoder
-  alias SnmpKit.SnmpLib.Security
-  alias SnmpKit.SnmpLib.Security.{Auth, Priv, Keys, USM}
 
   @moduletag :integration
   @moduletag :snmpv3
@@ -13,7 +11,7 @@ defmodule SnmpKit.SnmpLib.SNMPv3IntegrationTest do
     test "complete discovery and authentication flow" do
       # Step 1: Engine Discovery
       discovery_msg = V3Encoder.create_discovery_message(1001)
-      assert {:ok, discovery_packet} = V3Encoder.encode_message(discovery_msg, nil)
+      assert {:ok, _discovery_packet} = V3Encoder.encode_message(discovery_msg, nil)
 
       # Simulate response with engine ID
       mock_response = create_mock_discovery_response(discovery_msg.msg_id, "remote_engine_123")
@@ -279,7 +277,7 @@ defmodule SnmpKit.SnmpLib.SNMPv3IntegrationTest do
         request = create_v3_message(pdu.request_id, pdu, user, level)
 
         assert {:ok, packet} = V3Encoder.encode_message(request, user)
-        assert {:ok, decoded} = V3Encoder.decode_message(packet, user)
+        assert {:ok, _decoded} = V3Encoder.decode_message(packet, user)
 
         # Each user should only be able to decode their own messages
         # Exception: no-auth messages can be decoded by anyone
@@ -309,7 +307,7 @@ defmodule SnmpKit.SnmpLib.SNMPv3IntegrationTest do
       discovered_engines =
         for {engine_id, index} <- Enum.with_index(engines, 1) do
           discovery_msg = V3Encoder.create_discovery_message(12000 + index)
-          {:ok, discovery_packet} = V3Encoder.encode_message(discovery_msg, nil)
+          {:ok, _discovery_packet} = V3Encoder.encode_message(discovery_msg, nil)
 
           # Simulate response
           mock_response = create_mock_discovery_response(discovery_msg.msg_id, engine_id)

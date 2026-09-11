@@ -2,7 +2,6 @@ defmodule SnmpKit.SnmpLib.SecurityV3Test do
   use ExUnit.Case, async: false
   @moduletag :snmpv3
 
-  alias SnmpKit.SnmpLib.Security
   alias SnmpKit.SnmpLib.Security.{Auth, Priv, Keys, USM}
 
   @moduletag :unit
@@ -85,7 +84,7 @@ defmodule SnmpKit.SnmpLib.SecurityV3Test do
       key = :crypto.strong_rand_bytes(32)
       message = "Test message"
 
-      {:ok, auth_params} = Auth.authenticate(:sha256, key, message)
+      assert {:ok, _auth_params} = Auth.authenticate(:sha256, key, message)
       tampered_params = :crypto.strong_rand_bytes(16)
 
       assert {:error, :authentication_mismatch} =

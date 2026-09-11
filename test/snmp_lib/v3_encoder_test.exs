@@ -3,7 +3,6 @@ defmodule SnmpKit.SnmpLib.PDU.V3EncoderTest do
   @moduletag :snmpv3
 
   alias SnmpKit.SnmpLib.PDU.{V3Encoder, Constants}
-  alias SnmpKit.SnmpLib.Security
 
   @moduletag :unit
   @moduletag :snmpv3

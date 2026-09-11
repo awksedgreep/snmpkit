@@ -10,10 +10,6 @@ defmodule SnmpKit.WalkUnitTest do
   All tests must pass to ensure walk functionality is working.
   """
 
-  require Logger
-
-  @test_timeout 10_000
-
   describe "Walk Module Unit Tests" do
     test "walk module exists and has required functions" do
       assert Code.ensure_loaded?(SnmpKit.SnmpMgr.Walk)

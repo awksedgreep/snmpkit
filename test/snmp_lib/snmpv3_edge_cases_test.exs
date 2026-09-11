@@ -2,8 +2,8 @@ defmodule SnmpKit.SnmpLib.SNMPv3EdgeCasesTest do
   use ExUnit.Case, async: false
   @moduletag :snmpv3
 
-  alias SnmpKit.SnmpLib.PDU.{V3Encoder, Constants}
-  alias SnmpKit.SnmpLib.Security.{Auth, Priv, Keys}
+  alias SnmpKit.SnmpLib.PDU.V3Encoder
+  alias SnmpKit.SnmpLib.Security.{Auth, Priv}
 
   @moduletag :unit
   @moduletag :snmpv3
@@ -480,7 +480,7 @@ defmodule SnmpKit.SnmpLib.SNMPv3EdgeCasesTest do
 
               msg = create_test_v3_message_with_pdu(77777, pdu, user)
               assert {:ok, encoded} = V3Encoder.encode_message(msg, user)
-              assert {:ok, decoded} = V3Encoder.decode_message(encoded, user)
+              assert {:ok, _decoded} = V3Encoder.decode_message(encoded, user)
           end
         end
       end

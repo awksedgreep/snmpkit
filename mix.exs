@@ -4,7 +4,7 @@ defmodule Snmpkit.MixProject do
   def project do
     [
       app: :snmpkit,
-      version: "2.0.0-dev",
+      version: "2.0.0",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
