@@ -310,7 +310,10 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
     if per_pdu_timeout <= 0 do
       {:error, :timeout}
     else
-      with {:ok, request_id} <- Engine.register_next_request(Engine, self(), per_pdu_timeout) do
+      with {:ok, request_id} <-
+             Engine.register_next_request(Engine, self(), per_pdu_timeout,
+               target: walk_state.request.target
+             ) do
         case build_and_send_get_bulk(socket, walk_state, request_id) do
           :ok ->
             request_started_ms = now_ms()

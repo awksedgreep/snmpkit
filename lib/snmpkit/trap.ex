@@ -180,6 +180,9 @@ defmodule SnmpKit.Trap do
     {:stop, :socket_closed, state}
   end
 
+  # A handler that raised reports back from its own process (see dispatch/2).
+  def handle_info(:handler_error, state), do: {:noreply, bump(state, :handler_errors)}
+
   def handle_info(_other, state), do: {:noreply, state}
 
   defp rejected(reason, ip, port) do
@@ -237,6 +240,8 @@ defmodule SnmpKit.Trap do
   defp dispatch(pid, notification) when is_pid(pid), do: send(pid, {:snmp_trap, notification})
 
   defp dispatch(handler, notification) do
+    receiver = self()
+
     spawn(fn ->
       try do
         case handler do
@@ -244,7 +249,9 @@ defmodule SnmpKit.Trap do
           {mod, fun, args} -> apply(mod, fun, [notification | args])
         end
       rescue
-        e -> Logger.error("Trap handler raised: #{Exception.message(e)}")
+        e ->
+          Logger.error("Trap handler raised: #{Exception.message(e)}")
+          send(receiver, :handler_error)
       end
     end)
 

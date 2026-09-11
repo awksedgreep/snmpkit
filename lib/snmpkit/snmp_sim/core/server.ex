@@ -72,6 +72,12 @@ defmodule SnmpKit.SnmpSim.Core.Server do
     GenServer.call(server_pid, :get_stats)
   end
 
+  @doc "The UDP port the server's socket is bound to (the real port when started on 0)."
+  @spec get_port(pid()) :: :inet.port_number()
+  def get_port(server_pid) do
+    GenServer.call(server_pid, :get_port)
+  end
+
   @doc """
   Update the device handler function.
   """
@@ -151,6 +157,14 @@ defmodule SnmpKit.SnmpSim.Core.Server do
   @impl true
   def handle_call(:get_stats, _from, state) do
     {:reply, state.stats, state}
+  end
+
+  @impl true
+  def handle_call(:get_port, _from, state) do
+    case :inet.port(state.socket) do
+      {:ok, port} -> {:reply, port, state}
+      {:error, _} -> {:reply, state.port, state}
+    end
   end
 
   @impl true

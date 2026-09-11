@@ -283,6 +283,7 @@ defmodule SnmpKit do
     # Device Management
     defdelegate start_device(profile), to: SnmpKit.SnmpSim
     defdelegate start_device(profile, opts), to: SnmpKit.SnmpSim
+    defdelegate stop_device(device), to: SnmpKit.SnmpSim
     defdelegate start_device_population(device_configs), to: SnmpKit.SnmpSim
     defdelegate start_device_population(device_configs, opts), to: SnmpKit.SnmpSim
 

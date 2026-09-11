@@ -256,7 +256,20 @@ defmodule SnmpKit.SnmpSim.WalkParser do
       "DOCS-IF-MIB" => "1.3.6.1.2.1.10.127"
     }
 
-    # Try to resolve known MIB names
+    # The registry knows the object names of the standard MIBs; the table
+    # below only fixes the module base for names it does not know. Combining
+    # the module base with a bare suffix collapsed every IP-MIB object onto
+    # ipForwarding.
+    case SnmpKit.MIB.Registry.resolve_name(oid_suffix) do
+      {:ok, oid_list} when is_list(oid_list) ->
+        Enum.join(oid_list, ".")
+
+      _ ->
+        resolve_mib_name_from_table(base_oids, mib_name, oid_suffix)
+    end
+  end
+
+  defp resolve_mib_name_from_table(base_oids, mib_name, oid_suffix) do
     case Map.get(base_oids, mib_name) do
       nil ->
         # Unknown MIB - try to extract numeric portion from suffix

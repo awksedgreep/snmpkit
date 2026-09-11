@@ -350,6 +350,10 @@ defmodule SnmpKit.SnmpSim.Device do
                device_id: device_id
              ) do
           {:ok, server_pid} ->
+            # Started on port 0: record the port the kernel chose so
+            # get_info/1 and telemetry name a port a manager can reach.
+            port = if port == 0, do: Server.get_port(server_pid), else: port
+
             # Initialize modem upgrade defaults
             upgrade_enabled =
               case device_type do
@@ -468,7 +472,20 @@ defmodule SnmpKit.SnmpSim.Device do
 
   @impl true
   def handle_call({:update_counter, oid, increment}, _from, state) do
-    new_counters = Map.update(state.counters, oid, increment, &(&1 + increment))
+    # The running total starts from the profile's value (it used to replace
+    # it) and wraps like a Counter32; a value past 2^32-1 cannot be encoded.
+    base =
+      case Map.get(state.oid_map || %{}, oid) do
+        %{value: value} when is_integer(value) -> value
+        value when is_integer(value) -> value
+        _ -> 0
+      end
+
+    wrap = fn total -> rem(total, 4_294_967_296) end
+
+    new_counters =
+      Map.update(state.counters, oid, wrap.(base + increment), &wrap.(&1 + increment))
+
     new_state = %{state | counters: new_counters}
     {:reply, :ok, new_state}
   end

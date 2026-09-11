@@ -585,7 +585,9 @@ defmodule SnmpKit.SnmpMgr.Multi do
   # Registers a fresh request id and sends the PDU under it.
   defp dispatch_request(socket, request, timeout) do
     with {:ok, request_id} <-
-           SnmpKit.SnmpMgr.Engine.register_next_request(SnmpKit.SnmpMgr.Engine, self(), timeout) do
+           SnmpKit.SnmpMgr.Engine.register_next_request(SnmpKit.SnmpMgr.Engine, self(), timeout,
+             target: request.target
+           ) do
       case build_and_send_packet(socket, request, request_id) do
         :ok ->
           {:ok, request_id}

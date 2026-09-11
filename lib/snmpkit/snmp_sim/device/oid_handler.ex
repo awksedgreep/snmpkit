@@ -120,7 +120,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
     _new_state = %{state | last_access: System.monotonic_time(:millisecond)}
     # Convert list OID to string to match walk parser format
     oid_string = oid_to_string(oid)
-    get_oid_value_from_map(oid_string, state.oid_map)
+    get_oid_value_from_map(oid_string, state.oid_map, state)
   end
 
   def get_oid_value(oid, state)
@@ -128,7 +128,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
     # Update last access time
     _new_state = %{state | last_access: System.monotonic_time(:millisecond)}
     # OID is already a string, use directly
-    get_oid_value_from_map(oid, state.oid_map)
+    get_oid_value_from_map(oid, state.oid_map, state)
   end
 
   def get_oid_value(oid, device_struct)
@@ -212,10 +212,20 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
     {:error, :no_such_name}
   end
 
-  defp get_oid_value_from_map(oid_key, oid_map) do
+  defp get_oid_value_from_map(oid_key, oid_map, state) do
     case Map.get(oid_map, oid_key) do
       nil ->
         {:error, :no_such_name}
+
+      # A profile entry with a behavior (walk-file profiles get one per
+      # counter and gauge from BehaviorAnalyzer, manual profiles from
+      # `behaviors:`) is simulated against the device's uptime, so counters
+      # grow between polls instead of serving the profile value forever.
+      %{type: type, value: _, behavior: behavior} = entry when is_map(state) ->
+        case SnmpKit.SnmpSim.ValueSimulator.simulate_value(entry, behavior, state) do
+          {_simulated_type, value} -> {:ok, {type, value}}
+          value -> {:ok, {type, value}}
+        end
 
       %{type: type, value: value} ->
         {:ok, {type, value}}
@@ -267,7 +277,7 @@ defmodule SnmpKit.SnmpSim.Device.OidHandler do
       Map.has_key?(state, :oid_map) and is_map(state.oid_map) and map_size(state.oid_map) > 0 ->
         Logger.debug("Device has manual oid_map, checking for OID: #{oid_string}")
 
-        case get_oid_value_from_map(oid_string, state.oid_map) do
+        case get_oid_value_from_map(oid_string, state.oid_map, state) do
           {:ok, {type, value}} ->
             Logger.debug(
               "Found in manual oid_map: type=#{inspect(type)}, value=#{inspect(value)}"

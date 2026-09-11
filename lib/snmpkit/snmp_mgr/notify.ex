@@ -17,7 +17,8 @@ defmodule SnmpKit.SnmpMgr.Notify do
   ## Options
 
   - `:community` - default from `SnmpKit.SnmpMgr.Config`
-  - `:version` - `:v2c` (default) or `:v1`
+  - `:version` - `:v2c` (default) or `:v1`; anything else (SNMPv3 notifications are not
+    supported) is `{:error, {:unsupported_operation, :notification_requires_v1_or_v2c}}`
   - `:uptime` - sysUpTime in centiseconds; defaults to the VM's uptime
   - `:timeout`, `:retries` - inform acknowledgement wait (default 5000 ms, 1 retry)
   - `:request_id` - request id for v2c notifications; random by default
@@ -75,6 +76,13 @@ defmodule SnmpKit.SnmpMgr.Notify do
     end
   end
 
+  # Notifications go out as SNMPv1 or v2c only; a request for anything else
+  # is an error rather than a silent v2c message.
+  defp check_version(version) when version in [:v1, :v2c], do: :ok
+
+  defp check_version(_version),
+    do: {:error, {:unsupported_operation, :notification_requires_v1_or_v2c}}
+
   @doc """
   Builds the message (`%{version, community, pdu}`) for a trap or inform
   without sending it. Useful for tests and for agents with their own socket.
@@ -86,7 +94,8 @@ defmodule SnmpKit.SnmpMgr.Notify do
     version = Keyword.get(opts, :version, :v2c)
     uptime = Keyword.get(opts, :uptime, vm_uptime_ticks())
 
-    with {:ok, trap_oid} <- resolve_oid(trap_oid),
+    with :ok <- check_version(version),
+         {:ok, trap_oid} <- resolve_oid(trap_oid),
          {:ok, varbinds} <- normalize_varbinds(varbinds) do
       case {kind, version} do
         {:trap, :v1} ->

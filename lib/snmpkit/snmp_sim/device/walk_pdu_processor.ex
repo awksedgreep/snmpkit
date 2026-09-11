@@ -365,7 +365,8 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
       # Check manual OID map
       Map.has_key?(state, :oid_map) and Map.has_key?(state.oid_map, oid_string) ->
         case Map.get(state.oid_map, oid_string) do
-          %{type: type_str, value: value} ->
+          %{type: type_str, value: _} = entry ->
+            value = manual_value(entry, state)
             atom_type = convert_snmp_type(type_str)
             {:ok, {atom_type, value}}
 
@@ -431,7 +432,8 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
           # Check manual OID map
           Map.has_key?(state, :oid_map) and Map.has_key?(state.oid_map, oid_string) ->
             case Map.get(state.oid_map, oid_string) do
-              %{type: type, value: value} ->
+              %{type: type, value: _} = entry ->
+                value = manual_value(entry, state)
                 atom_type = convert_snmp_type(type)
                 {oid_list, atom_type, value}
 
@@ -503,7 +505,8 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
           # Check manual oid_map for the next OID value
           Map.has_key?(state, :oid_map) and Map.has_key?(state.oid_map, next_oid_string) ->
             case Map.get(state.oid_map, next_oid_string) do
-              %{type: type_str, value: value} ->
+              %{type: type_str, value: _} = entry ->
+                value = manual_value(entry, state)
                 atom_type = convert_snmp_type(type_str)
                 {next_oid, atom_type, value}
 
@@ -590,7 +593,8 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
             # Check manual oid_map
             Map.has_key?(state, :oid_map) and Map.has_key?(state.oid_map, next_oid_string) ->
               case Map.get(state.oid_map, next_oid_string) do
-                %{type: type_str, value: value} ->
+                %{type: type_str, value: _} = entry ->
+                  value = manual_value(entry, state)
                   atom_type = convert_snmp_type(type_str)
                   {next_oid, atom_type, value}
 
@@ -750,4 +754,16 @@ defmodule SnmpKit.SnmpSim.Device.WalkPduProcessor do
   rescue
     ArgumentError -> :octet_string
   end
+
+  # A manual-map entry that carries a behavior (walk-file profiles get one per
+  # counter and gauge) is simulated against the device's uptime, as in
+  # OidHandler, so walks and GETs agree and counters advance between polls.
+  defp manual_value(%{behavior: behavior} = entry, state) do
+    case SnmpKit.SnmpSim.ValueSimulator.simulate_value(entry, behavior, state) do
+      {_type, value} -> value
+      value -> value
+    end
+  end
+
+  defp manual_value(%{value: value}, _state), do: value
 end

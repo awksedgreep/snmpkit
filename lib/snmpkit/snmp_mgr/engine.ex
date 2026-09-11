@@ -97,9 +97,10 @@ defmodule SnmpKit.SnmpMgr.Engine do
         engine,
         request_id,
         caller_pid,
-        timeout_ms \\ SnmpKit.SnmpMgr.Config.get(:timeout)
+        timeout_ms \\ SnmpKit.SnmpMgr.Config.get(:timeout),
+        opts \\ []
       ) do
-    call(engine, {:register_request, request_id, caller_pid, timeout_ms})
+    call(engine, {:register_request, request_id, caller_pid, timeout_ms, Map.new(opts)})
   end
 
   @doc """
@@ -110,22 +111,22 @@ defmodule SnmpKit.SnmpMgr.Engine do
   is not running, and `{:error, :request_id_space_exhausted}` after
   #{@max_id_attempts} consecutive collisions.
   """
-  @spec register_next_request(GenServer.server(), pid(), non_neg_integer()) ::
+  @spec register_next_request(GenServer.server(), pid(), non_neg_integer(), keyword()) ::
           {:ok, pos_integer()} | {:error, :request_id_space_exhausted} | not_started()
-  def register_next_request(engine, caller_pid, timeout_ms) do
-    register_next_request(engine, caller_pid, timeout_ms, @max_id_attempts)
+  def register_next_request(engine, caller_pid, timeout_ms, opts \\ []) do
+    try_register(engine, caller_pid, timeout_ms, opts, @max_id_attempts)
   end
 
-  defp register_next_request(_engine, _caller_pid, _timeout_ms, 0),
+  defp try_register(_engine, _caller_pid, _timeout_ms, _opts, 0),
     do: {:error, :request_id_space_exhausted}
 
-  defp register_next_request(engine, caller_pid, timeout_ms, attempts) do
+  defp try_register(engine, caller_pid, timeout_ms, opts, attempts) do
     with {:ok, request_id} <- SnmpKit.SnmpMgr.RequestIdGenerator.fetch_next_id(),
-         :ok <- register_request(engine, request_id, caller_pid, timeout_ms) do
+         :ok <- register_request(engine, request_id, caller_pid, timeout_ms, opts) do
       {:ok, request_id}
     else
       {:error, :request_id_in_use} ->
-        register_next_request(engine, caller_pid, timeout_ms, attempts - 1)
+        try_register(engine, caller_pid, timeout_ms, opts, attempts - 1)
 
       {:error, _} = error ->
         error
@@ -260,21 +261,22 @@ defmodule SnmpKit.SnmpMgr.Engine do
   end
 
   @impl true
-  def handle_call({:register_request, request_id, _caller_pid, _timeout_ms}, _from, state)
+  def handle_call({:register_request, request_id, _caller_pid, _timeout_ms, _meta}, _from, state)
       when is_map_key(state.pending_requests, request_id) do
     # The earlier registration keeps its timer and gets its response.
     {:reply, {:error, :request_id_in_use}, state}
   end
 
   @impl true
-  def handle_call({:register_request, request_id, caller_pid, timeout_ms}, _from, state) do
+  def handle_call({:register_request, request_id, caller_pid, timeout_ms, meta}, _from, state) do
     # Register the request for correlation. The caller is monitored so a crash
     # releases its registrations instead of leaving them until timeout.
     pending_requests =
       Map.put(state.pending_requests, request_id, %{
         caller_pid: caller_pid,
         monitor_ref: Process.monitor(caller_pid),
-        registered_at: System.monotonic_time(:millisecond)
+        registered_at: System.monotonic_time(:millisecond),
+        target: Map.get(meta, :target)
       })
 
     # Schedule timeout

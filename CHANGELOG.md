@@ -97,6 +97,11 @@ Breaking release. See `docs/v2-migration.md` for the rename/removal table.
 - `SnmpKit.SnmpSim.start_device/2` dropped `seed:`, `mac_address:` and the upgrade options on the way to the device; `ProfileLoader.load_profile/3` recorded `behaviors:` on a `{:manual, _}` profile without applying them.
 - `SnmpMgr.Multi` reports an unresolvable OID as `{:error, {:invalid_oid, input, reason}}` like every other path, not `{:oid_resolution_failed, reason}`.
 - `SnmpKit.SnmpLib.version/0` and `info/0` returned an empty version (they read the wrong application name); `SnmpMgr.get_column/4` with an unresolvable column name returns `{:error, {:invalid_oid, name, reason}}` instead of handing the error tuple to `walk/3`.
+- A device started from a profile (`Sim.start_device/2`, `start_device_population/2`) served every object as a fixed value: the profile's behaviors (the counter and gauge behaviors a walk-file profile gets from `BehaviorAnalyzer`, or `behaviors:`) were recorded but never consulted on the GET, GETNEXT or GETBULK paths. Objects with a behavior are now simulated against the device's uptime on all three, so counters advance between polls and walks agree with GETs. `Device.update_counter/3` builds on the profile value (it replaced it) and wraps at 2^32 (a larger total could not be encoded and the response was lost).
+- A simulated device started on port 0 reports the port it was bound to from `Device.get_info/1` and in `[:snmpkit, :sim, :request]` metadata; `SnmpKit.Sim.stop_device/1` is delegated like `start_device/2`.
+- `WalkParser` collapsed every `IP-MIB::` object in a walk onto `ipForwarding` (it combined the module's base OID with the bare object name); names are now resolved through the MIB registry first, so the bundled router walk loads all of its objects.
+- `send_trap/4` and `send_inform/4` refuse `version: :v3` (notifications are SNMPv1/v2c only) with `{:error, {:unsupported_operation, :notification_requires_v1_or_v2c}}` instead of silently sending v2c.
+- `SnmpKit.Trap` counts a handler that raises in `stats.handler_errors` (it only logged); `[:snmpkit, :engine, :timeout]` carries the request's `target` (it was always `nil`; `Engine.register_request/5` and `register_next_request/4` take `target:`).
 
 ## [1.4.0] - 2026-09-05
 
