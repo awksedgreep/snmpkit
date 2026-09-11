@@ -14,8 +14,11 @@ defmodule SnmpKit.Agent.Store do
   `:string`/`:octet_string` are treated as equal). A store can also be
   registered on its own at a prefix, with `table:` naming an ETS
   `ordered_set` you own.
+
   """
   @behaviour SnmpKit.Agent.Handler
+
+  alias SnmpKit.Agent.Types
 
   @type table :: :ets.tid() | atom()
 
@@ -96,7 +99,7 @@ defmodule SnmpKit.Agent.Store do
         {:error, :not_writable}
 
       [{_, current, _value, true}] ->
-        if same_type?(current, type), do: :ok, else: {:error, :wrong_type}
+        if Types.same_type?(current, type), do: :ok, else: {:error, :wrong_type}
 
       [] ->
         {:error, :no_creation}
@@ -114,14 +117,4 @@ defmodule SnmpKit.Agent.Store do
 
   defp materialize(fun) when is_function(fun, 0), do: fun.()
   defp materialize(value), do: value
-
-  @string_types [:octet_string, :string]
-  @unsigned_types [:gauge32, :unsigned32]
-  @oid_types [:object_identifier, :oid]
-
-  defp same_type?(a, b) when a == b, do: true
-  defp same_type?(a, b) when a in @string_types and b in @string_types, do: true
-  defp same_type?(a, b) when a in @unsigned_types and b in @unsigned_types, do: true
-  defp same_type?(a, b) when a in @oid_types and b in @oid_types, do: true
-  defp same_type?(_, _), do: false
 end

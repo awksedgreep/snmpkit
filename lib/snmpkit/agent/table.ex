@@ -28,11 +28,20 @@ defmodule SnmpKit.Agent.Table do
   - `:set` - optional `fun(index, column, {type, value}) :: :ok | {:error, reason}`
     making the table writable; the row must already exist
 
-  Rows are fetched once per request, so a GETBULK or a walk step sees a
-  consistent snapshot. Tables with tens of thousands of rows are better
+  ## Cost
+
+  Rows are fetched once per request (every PDU, including each GETBULK of
+  a walk), so one request sees a consistent snapshot. Within that request
+  the first GET or SET encodes every row's index once (O(rows)) and each
+  further lookup is a map lookup; the first GETNEXT encodes and sorts
+  every cell once (O(cells log cells)) and each further step is a binary
+  search. A walk therefore costs one rows call and one sort per PDU, not
+  per object. Tables with tens of thousands of rows are still better
   served by a handler of their own that can seek directly.
   """
   @behaviour SnmpKit.Agent.Handler
+
+  alias SnmpKit.Agent.Types
 
   @type index_kind :: :integer | :string | :implied_string | :ip_address | :oid | :implied_oid
 
@@ -72,7 +81,9 @@ defmodule SnmpKit.Agent.Table do
 
   @impl true
   def get_next(suffix, ctx) do
-    case Enum.find(entries(ctx), fn {s, _type, _value} -> s > suffix end) do
+    entries = entries(ctx)
+
+    case first_after(entries, suffix, 0, tuple_size(entries)) do
       {s, type, value} -> {:ok, {s, {type, value}}}
       nil -> :end_of_subtree
     end
@@ -83,7 +94,7 @@ defmodule SnmpKit.Agent.Table do
     cond do
       is_nil(ctx.set) -> {:error, :not_writable}
       not Map.has_key?(ctx.columns, column) -> {:error, :no_creation}
-      not same_type?(ctx.columns[column], type) -> {:error, :wrong_type}
+      not Types.same_type?(ctx.columns[column], type) -> {:error, :wrong_type}
       match?({:error, _}, find_row(index_oid, ctx)) -> {:error, :no_creation}
       true -> :ok
     end
@@ -139,55 +150,62 @@ defmodule SnmpKit.Agent.Table do
   end
 
   defp find_row(index_oid, ctx) do
-    case Enum.find(rows(ctx), fn {index, _values} ->
-           encode_index(index, ctx.index) == index_oid
-         end) do
-      nil -> {:error, :no_such_instance}
-      row -> {:ok, row}
+    case Map.fetch(row_index(ctx), index_oid) do
+      {:ok, row} -> {:ok, row}
+      :error -> {:error, :no_such_instance}
     end
   end
+
+  # the first entry whose suffix is greater than `suffix`, in `entries[lo, hi)`
+  defp first_after(entries, suffix, lo, hi) when lo < hi do
+    mid = div(lo + hi, 2)
+
+    if elem(elem(entries, mid), 0) > suffix,
+      do: first_after(entries, suffix, lo, mid),
+      else: first_after(entries, suffix, mid + 1, hi)
+  end
+
+  defp first_after(entries, _suffix, lo, _hi) when lo < tuple_size(entries), do: elem(entries, lo)
+  defp first_after(_entries, _suffix, _lo, _hi), do: nil
 
   # One request is handled by one worker process, so the process dictionary
-  # holds the snapshot for the duration of the request only.
-  defp rows(ctx) do
-    case Process.get({__MODULE__, ctx.ref, :rows}) do
-      nil ->
-        rows = ctx.rows.()
-        Process.put({__MODULE__, ctx.ref, :rows}, rows)
-        rows
+  # holds the snapshot, and what is derived from it, for that request only.
+  defp rows(ctx), do: cached(ctx, :rows, fn -> ctx.rows.() end)
 
-      rows ->
-        rows
-    end
+  # rows keyed by their encoded index; the first row wins a duplicate index
+  defp row_index(ctx) do
+    cached(ctx, :row_index, fn ->
+      Enum.reduce(rows(ctx), %{}, fn {index, _values} = row, acc ->
+        Map.put_new(acc, encode_index(index, ctx.index), row)
+      end)
+    end)
   end
 
+  # every cell as {suffix, type, value}, sorted, in a tuple for binary search
   defp entries(ctx) do
-    case Process.get({__MODULE__, ctx.ref, :entries}) do
-      nil ->
-        entries =
-          for {index, values} <- rows(ctx),
-              index_oid = encode_index(index, ctx.index),
-              {column, type} <- ctx.columns,
-              {:ok, value} <- [Map.fetch(values, column)] do
-            {[column | index_oid], type, value}
-          end
-          |> Enum.sort()
-
-        Process.put({__MODULE__, ctx.ref, :entries}, entries)
-        entries
-
-      entries ->
-        entries
-    end
+    cached(ctx, :entries, fn ->
+      for {index, values} <- rows(ctx),
+          index_oid = encode_index(index, ctx.index),
+          {column, type} <- ctx.columns,
+          {:ok, value} <- [Map.fetch(values, column)] do
+        {[column | index_oid], type, value}
+      end
+      |> Enum.sort()
+      |> List.to_tuple()
+    end)
   end
 
-  @string_types [:octet_string, :string]
-  @unsigned_types [:gauge32, :unsigned32]
-  @oid_types [:object_identifier, :oid]
+  defp cached(ctx, what, build) do
+    key = {__MODULE__, ctx.ref, what}
 
-  defp same_type?(a, b) when a == b, do: true
-  defp same_type?(a, b) when a in @string_types and b in @string_types, do: true
-  defp same_type?(a, b) when a in @unsigned_types and b in @unsigned_types, do: true
-  defp same_type?(a, b) when a in @oid_types and b in @oid_types, do: true
-  defp same_type?(_, _), do: false
+    case Process.get(key) do
+      nil ->
+        value = build.()
+        Process.put(key, value)
+        value
+
+      value ->
+        value
+    end
+  end
 end

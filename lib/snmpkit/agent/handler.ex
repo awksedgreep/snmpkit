@@ -43,9 +43,11 @@ defmodule SnmpKit.Agent.Handler do
   ## Values
 
   Values are `{type, value}` with the types used everywhere else in SnmpKit:
-  `:integer`, `:octet_string` (or `:string`), `:object_identifier`,
-  `:counter32`, `:gauge32` (or `:unsigned32`), `:timeticks`, `:counter64`,
-  `:ip_address` (a 4-tuple or 4 octets), `:opaque`, `:null`.
+  `:integer`, `:octet_string` (or `:string`, or `:bits`, which is an OCTET
+  STRING on the wire), `:object_identifier` (or `:oid`), `:counter32`,
+  `:gauge32` (or `:unsigned32`), `:timeticks`, `:counter64`, `:ip_address`
+  (a 4-tuple or 4 octets), `:opaque`, `:null`. A SET whose type is an alias
+  of the declared one is accepted by the built-in handlers.
 
   ## SET
 
