@@ -764,4 +764,55 @@ defmodule SnmpKit.SnmpLib.ManagerTest do
     {:ok, encoded} = SnmpKit.SnmpLib.PDU.encode_message(message)
     encoded
   end
+
+  describe "invalid OIDs" do
+    # 192.0.2.1 is TEST-NET; a request that reached the socket would wait for
+    # the whole timeout instead of returning at once.
+    @blackhole "192.0.2.1"
+    @opts [timeout: 2_000, retries: 0]
+
+    test "every single-OID operation rejects them before any network activity" do
+      for bad <- ["not.an.oid", "", "   ", [], [1, 3, -1], :sysDescr, nil] do
+        {elapsed_us, result} = :timer.tc(fn -> Manager.get(@blackhole, bad, @opts) end)
+        assert {:error, {:invalid_oid, ^bad, _reason}} = result
+        assert elapsed_us < 500_000
+
+        assert {:error, {:invalid_oid, ^bad, _}} = Manager.get_next(@blackhole, bad, @opts)
+        assert {:error, {:invalid_oid, ^bad, _}} = Manager.get_bulk(@blackhole, bad, @opts)
+
+        assert {:error, {:invalid_oid, ^bad, _}} =
+                 Manager.set(@blackhole, bad, {:string, "x"}, @opts)
+      end
+    end
+
+    test "multi-OID operations name the offending element" do
+      assert {:error, {:invalid_oid, "not.an.oid", :not_found}} =
+               Manager.get_varbinds(@blackhole, ["sysDescr.0", "not.an.oid"], @opts)
+
+      assert {:error, {:invalid_oid, [], :empty_oid}} =
+               Manager.set_varbinds(@blackhole, [{[], {:string, "x"}}], @opts)
+
+      assert {:error, {:invalid_oid, "", :empty_oid}} =
+               Manager.get_multi(@blackhole, ["1.3.6.1.2.1.1.1.0", ""], @opts)
+    end
+
+    test "the reason says what was wrong" do
+      assert {:error, {:invalid_oid, "", :empty_oid}} = Manager.get(@blackhole, "", @opts)
+      assert {:error, {:invalid_oid, [], :empty_oid}} = Manager.get(@blackhole, [], @opts)
+
+      assert {:error, {:invalid_oid, "noSuchName.0", :not_found}} =
+               Manager.get(@blackhole, "noSuchName.0", @opts)
+
+      assert {:error, {:invalid_oid, nil, :invalid_input}} = Manager.get(@blackhole, nil, @opts)
+    end
+
+    test "normalize_oid/1 accepts lists, dotted strings and built-in names" do
+      assert {:ok, [1, 3, 6, 1, 2, 1, 1, 1, 0]} =
+               Manager.normalize_oid([1, 3, 6, 1, 2, 1, 1, 1, 0])
+
+      assert {:ok, [1, 3, 6, 1, 2, 1, 1, 1, 0]} = Manager.normalize_oid(".1.3.6.1.2.1.1.1.0")
+      assert {:ok, [1, 3, 6, 1, 2, 1, 1, 1, 0]} = Manager.normalize_oid("sysDescr.0")
+      assert {:ok, [1, 3, 6, 1, 2, 1, 1]} = Manager.normalize_oid("system")
+    end
+  end
 end

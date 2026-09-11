@@ -551,4 +551,31 @@ defmodule SnmpKit.SnmpLib.PDUTest do
       end
     end
   end
+
+  describe "invalid OIDs" do
+    test "builders raise instead of encoding some other object" do
+      for bad <- ["not.an.oid", "", "1.3.x", :sysDescr, 42, nil] do
+        assert_raise ArgumentError, fn -> PDU.build_get_request(bad, 1) end
+        assert_raise ArgumentError, fn -> PDU.build_get_next_request(bad, 1) end
+        assert_raise ArgumentError, fn -> PDU.build_set_request(bad, {:string, "x"}, 1) end
+        assert_raise ArgumentError, fn -> PDU.build_get_bulk_request(bad, 1, 0, 10) end
+        assert_raise ArgumentError, fn -> PDU.build_trap_v2(0, bad) end
+        assert_raise ArgumentError, fn -> PDU.build_inform(0, bad, [], 1) end
+        assert_raise ArgumentError, fn -> PDU.build_trap_v1(bad, {10, 0, 0, 1}, 0, 0, 0) end
+        assert_raise ArgumentError, fn -> PDU.normalize_oid(bad) end
+      end
+
+      assert_raise ArgumentError, fn ->
+        PDU.build_set_request_multi([{"not.an.oid", :integer, 1}], 1)
+      end
+    end
+
+    test "dotted numeric strings still normalize" do
+      assert PDU.normalize_oid("1.3.6.1.2.1.1.1.0") == [1, 3, 6, 1, 2, 1, 1, 1, 0]
+      assert PDU.normalize_oid(".1.3.6.1.2.1.1.1.0") == [1, 3, 6, 1, 2, 1, 1, 1, 0]
+
+      assert %{varbinds: [{[1, 3, 6, 1, 2, 1, 1, 1, 0], :null, :null}]} =
+               PDU.build_get_request("1.3.6.1.2.1.1.1.0", 1)
+    end
+  end
 end

@@ -48,8 +48,12 @@ defmodule SnmpKit.MIB.RegistryTest do
     end
 
     test "returns error for unknown OIDs" do
-      assert {:error, :not_found} = Registry.reverse_lookup([1, 2, 3, 4, 5])
+      assert {:error, :not_found} = Registry.reverse_lookup([2, 3, 4, 5])
       assert {:error, :not_found} = Registry.reverse_lookup([99, 99, 99])
+    end
+
+    test "names an unknown OID under a known node by its nearest ancestor" do
+      assert {:ok, "iso.2.3.4.5"} = Registry.reverse_lookup([1, 2, 3, 4, 5])
     end
 
     test "handles invalid inputs" do
@@ -106,10 +110,11 @@ defmodule SnmpKit.MIB.RegistryTest do
       {:ok, descendants} = Registry.walk_tree([1, 3, 6, 1, 2, 1, 1])
 
       names = Enum.map(descendants, fn {name, _oid} -> name end)
+      assert "system" in names
       assert "sysDescr" in names
       assert "sysName" in names
       assert "sysLocation" in names
-      assert length(descendants) == 7
+      assert length(descendants) == 8
     end
 
     test "walks interface subtree" do
@@ -137,6 +142,16 @@ defmodule SnmpKit.MIB.RegistryTest do
       assert Map.has_key?(mibs, "sysDescr")
       assert Map.has_key?(mibs, "enterprises")
       assert Map.get(mibs, "sysDescr") == [1, 3, 6, 1, 2, 1, 1, 1]
+    end
+
+    test "is the same table SnmpKit.MIB.Builtin provides" do
+      assert Registry.standard_mibs() == SnmpKit.MIB.Builtin.name_to_oid()
+
+      # names that used to live in only one of the two tables
+      assert {:ok, [1, 3, 6, 1, 2, 1, 4, 20]} = Registry.resolve_name("ipAddrTable")
+      assert {:ok, [1, 3, 6, 1, 2, 1, 31, 1, 1, 1]} = Registry.resolve_name("ifName")
+      assert {:ok, [1, 3, 6, 1, 2, 1, 25, 1]} = Registry.resolve_name("hrSystem")
+      assert {:ok, [1, 3, 6, 1, 2, 1, 1]} = Registry.resolve_name("system")
     end
   end
 

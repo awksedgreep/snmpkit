@@ -119,12 +119,12 @@ defmodule SnmpKit.SnmpLib.Manager do
           | {:error, atom() | {:network_error, atom()} | {:socket_error, atom()}}
   def get(host, oid, opts \\ []) do
     opts = merge_default_opts(opts)
-    normalized_oid = normalize_oid(oid)
 
-    Logger.debug("Starting GET operation: host=#{inspect(host)}, oid=#{inspect(normalized_oid)}")
-
-    with {:ok, socket} <- Request.create_socket(opts, host) do
-      Logger.debug("Socket created successfully")
+    with {:ok, normalized_oid} <- normalize_oid(oid),
+         {:ok, socket} <- Request.create_socket(opts, host) do
+      Logger.debug(
+        "Starting GET operation: host=#{inspect(host)}, oid=#{inspect(normalized_oid)}"
+      )
 
       try do
         case perform_get_operation(socket, host, normalized_oid, opts) do
@@ -187,20 +187,21 @@ defmodule SnmpKit.SnmpLib.Manager do
           {:ok, {oid(), atom(), any()}} | {:error, atom() | {atom(), any()}}
   def get_next(host, oid, opts \\ []) do
     opts = merge_default_opts(opts)
-    normalized_oid = normalize_oid(oid)
 
-    Logger.debug(
-      "Starting GETNEXT operation: host=#{inspect(host)}, oid=#{inspect(normalized_oid)}, version=#{opts[:version]}"
-    )
+    with {:ok, normalized_oid} <- normalize_oid(oid) do
+      Logger.debug(
+        "Starting GETNEXT operation: host=#{inspect(host)}, oid=#{inspect(normalized_oid)}, version=#{opts[:version]}"
+      )
 
-    case opts[:version] do
-      :v1 ->
-        # Use proper GETNEXT PDU for SNMP v1 compatibility
-        perform_get_next_v1(host, normalized_oid, opts)
+      case opts[:version] do
+        :v1 ->
+          # Use proper GETNEXT PDU for SNMP v1 compatibility
+          perform_get_next_v1(host, normalized_oid, opts)
 
-      _ ->
-        # Use GETBULK with max_repetitions=1 for v2c+ efficiency
-        perform_get_next_v2c(host, normalized_oid, opts)
+        _ ->
+          # Use GETBULK with max_repetitions=1 for v2c+ efficiency
+          perform_get_next_v2c(host, normalized_oid, opts)
+      end
     end
   end
 
@@ -240,9 +241,10 @@ defmodule SnmpKit.SnmpLib.Manager do
   def get_bulk(host, base_oid, opts \\ []) do
     opts = merge_bulk_opts(opts)
 
-    with {:ok, socket} <- Request.create_socket(opts, host) do
+    with {:ok, normalized_oid} <- normalize_oid(base_oid),
+         {:ok, socket} <- Request.create_socket(opts, host) do
       try do
-        get_bulk_with_socket(socket, host, base_oid, opts)
+        get_bulk_with_socket(socket, host, normalized_oid, opts)
       after
         :ok = Request.close_socket(socket)
       end
@@ -254,15 +256,16 @@ defmodule SnmpKit.SnmpLib.Manager do
   @doc false
   def get_bulk_with_socket(socket, host, base_oid, opts \\ []) do
     opts = merge_bulk_opts(opts)
-    normalized_oid = normalize_oid(base_oid)
 
-    # GETBULK requires SNMPv2c or higher
-    if opts[:version] == :v1 do
-      {:error, :getbulk_requires_v2c}
-    else
-      case perform_bulk_operation(socket, host, normalized_oid, opts) do
-        {:ok, response} -> Response.extract_bulk_result(response)
-        {:error, reason} -> {:error, reason}
+    with {:ok, normalized_oid} <- normalize_oid(base_oid) do
+      # GETBULK requires SNMPv2c or higher
+      if opts[:version] == :v1 do
+        {:error, :getbulk_requires_v2c}
+      else
+        case perform_bulk_operation(socket, host, normalized_oid, opts) do
+          {:ok, response} -> Response.extract_bulk_result(response)
+          {:error, reason} -> {:error, reason}
+        end
       end
     end
   end
@@ -300,9 +303,9 @@ defmodule SnmpKit.SnmpLib.Manager do
   @spec set(host(), oid(), {atom(), any()}, manager_opts()) :: {:ok, :success} | {:error, any()}
   def set(host, oid, {type, value}, opts \\ []) do
     opts = merge_default_opts(opts)
-    normalized_oid = normalize_oid(oid)
 
-    with {:ok, socket} <- Request.create_socket(opts, host) do
+    with {:ok, normalized_oid} <- normalize_oid(oid),
+         {:ok, socket} <- Request.create_socket(opts, host) do
       try do
         case perform_set_operation(socket, host, normalized_oid, {type, value}, opts) do
           {:ok, response} -> Response.extract_set_result(response)
@@ -331,10 +334,11 @@ defmodule SnmpKit.SnmpLib.Manager do
 
   def get_varbinds(host, oids, opts) when is_list(oids) do
     opts = merge_default_opts(opts)
-    varbinds = Enum.map(oids, &{normalize_oid(&1), :null, :null})
 
-    with {:ok, socket} <- Request.create_socket(opts, host) do
+    with {:ok, oid_lists} <- normalize_oids(oids),
+         {:ok, socket} <- Request.create_socket(opts, host) do
       try do
+        varbinds = Enum.map(oid_lists, &{&1, :null, :null})
         pdu = SnmpKit.SnmpLib.PDU.build_get_request_multi(varbinds, generate_request_id())
 
         case Request.perform_snmp_request(socket, host, pdu, opts) do
@@ -359,10 +363,13 @@ defmodule SnmpKit.SnmpLib.Manager do
 
   def set_varbinds(host, varbinds, opts) when is_list(varbinds) do
     opts = merge_default_opts(opts)
-    typed = Enum.map(varbinds, fn {oid, {type, value}} -> {normalize_oid(oid), type, value} end)
 
-    with {:ok, socket} <- Request.create_socket(opts, host) do
+    with {:ok, oid_lists} <- normalize_oids(Enum.map(varbinds, &elem(&1, 0))),
+         {:ok, socket} <- Request.create_socket(opts, host) do
       try do
+        typed =
+          Enum.zip_with(oid_lists, varbinds, fn oid, {_, {type, value}} -> {oid, type, value} end)
+
         pdu = SnmpKit.SnmpLib.PDU.build_set_request_multi(typed, generate_request_id())
 
         case Request.perform_snmp_request(socket, host, pdu, opts) do
@@ -409,9 +416,9 @@ defmodule SnmpKit.SnmpLib.Manager do
 
       _ ->
         opts = merge_default_opts(opts)
-        normalized_oids = Enum.map(oids, &normalize_oid/1)
 
-        with {:ok, socket} <- Request.create_socket(opts, host) do
+        with {:ok, normalized_oids} <- normalize_oids(oids),
+             {:ok, socket} <- Request.create_socket(opts, host) do
           try do
             results = get_multi_with_socket(socket, host, normalized_oids, opts)
 
@@ -612,32 +619,60 @@ defmodule SnmpKit.SnmpLib.Manager do
   end
 
   # Helper functions
-  defp normalize_oid(oid) when is_list(oid) do
-    # Validate the list OID before returning
+
+  @doc false
+  # Accepts an OID list, a dotted numeric string, or a MIB name with an
+  # optional instance suffix ("sysDescr.0"). Anything else is an error; an
+  # unparseable OID must never turn into a request for some other object.
+  @spec normalize_oid(term()) :: {:ok, oid()} | {:error, {:invalid_oid, term(), term()}}
+  def normalize_oid(oid) when is_list(oid) do
     case SnmpKit.SnmpLib.OID.valid_oid?(oid) do
-      :ok -> oid
-      {:error, :empty_oid} -> [1, 3, 6, 1]
-      {:error, _} -> [1, 3, 6, 1]
+      :ok -> {:ok, oid}
+      {:error, reason} -> {:error, {:invalid_oid, oid, reason}}
     end
   end
 
-  defp normalize_oid(oid) when is_binary(oid) do
-    # First try MIB symbolic name resolution
-    case SnmpKit.MIB.Registry.resolve_name(oid) do
+  def normalize_oid(oid) when is_binary(oid) do
+    case SnmpKit.SnmpLib.OID.string_to_list(oid) do
       {:ok, oid_list} ->
-        oid_list
+        {:ok, oid_list}
+
+      {:error, :empty_oid} ->
+        {:error, {:invalid_oid, oid, :empty_oid}}
 
       {:error, _} ->
-        # Fallback to numeric string parsing
-        case SnmpKit.SnmpLib.OID.string_to_list(oid) do
-          {:ok, oid_list} -> oid_list
-          # Safe fallback
-          {:error, _} -> [1, 3, 6, 1]
+        case resolve_name(oid) do
+          {:ok, oid_list} -> {:ok, oid_list}
+          {:error, reason} -> {:error, {:invalid_oid, oid, reason}}
         end
     end
   end
 
-  defp normalize_oid(_), do: [1, 3, 6, 1]
+  def normalize_oid(oid), do: {:error, {:invalid_oid, oid, :invalid_input}}
+
+  defp normalize_oids(oids) do
+    Enum.reduce_while(oids, {:ok, []}, fn oid, {:ok, acc} ->
+      case normalize_oid(oid) do
+        {:ok, list} -> {:cont, {:ok, [list | acc]}}
+        error -> {:halt, error}
+      end
+    end)
+    |> case do
+      {:ok, acc} -> {:ok, Enum.reverse(acc)}
+      error -> error
+    end
+  end
+
+  # MIB names go through the running SnmpKit.SnmpMgr.MIB registry so that
+  # MIBs loaded at runtime resolve too; when SnmpLib is used on its own
+  # (no manager services) the static built-in table answers instead.
+  defp resolve_name(name) do
+    if Process.whereis(SnmpKit.SnmpMgr.MIB) do
+      SnmpKit.SnmpMgr.MIB.resolve(name)
+    else
+      SnmpKit.MIB.Registry.resolve_name(name)
+    end
+  end
 
   defp generate_request_id do
     :rand.uniform(2_147_483_647)

@@ -206,7 +206,7 @@ defmodule SnmpKit.SnmpSim.ProfileLoader do
   end
 
   defp load_from_json_profile(device_type, path, opts) do
-    case SnmpKit.SnmpSim.SafeFile.read(path) do
+    case SnmpKit.SafeFile.read(path) do
       {:ok, content} ->
         case Jason.decode(content) do
           {:ok, profile_data} ->

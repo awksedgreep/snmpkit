@@ -391,9 +391,15 @@ defmodule SnmpKit.SnmpLib.PDU do
   @doc """
   Normalizes an OID to a list of integers.
 
+  Raises `ArgumentError` for a string that is not a dotted numeric OID or for
+  any other type; an invalid OID is never substituted with another object.
+
   ## Examples
 
       iex> SnmpKit.SnmpLib.PDU.normalize_oid([1, 3, 6, 1, 2, 1, 1, 1, 0])
+      [1, 3, 6, 1, 2, 1, 1, 1, 0]
+
+      iex> SnmpKit.SnmpLib.PDU.normalize_oid("1.3.6.1.2.1.1.1.0")
       [1, 3, 6, 1, 2, 1, 1, 1, 0]
   """
   @spec normalize_oid(oid() | binary()) :: oid()

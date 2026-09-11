@@ -370,7 +370,7 @@ defmodule SnmpKit.SnmpMgr.MIBStubsTest do
     test "unknown objects still return not_found" do
       # Objects not in stubs should still return not_found
       # (would need compiled MIBs for these)
-      assert {:error, :not_found} = MIB.resolve("docsIfCmStatusValue")
+      assert {:error, :not_found} = MIB.resolve("docsIfCmStatusNoSuchObject")
       assert {:error, :not_found} = MIB.resolve("ciscoVlanPortVlan")
       assert {:error, :not_found} = MIB.resolve("customObject")
     end

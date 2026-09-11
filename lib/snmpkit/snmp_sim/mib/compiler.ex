@@ -82,7 +82,7 @@ defmodule SnmpKit.SnmpSim.MIB.Compiler do
   defp _get_imports([mib_file | rest], acc) do
     imports =
       try do
-        {:ok, stream} = SnmpKit.SnmpSim.SafeFile.stream(mib_file)
+        {:ok, stream} = SnmpKit.SafeFile.stream(mib_file)
 
         stream
         |> get_imports_from_lines()
