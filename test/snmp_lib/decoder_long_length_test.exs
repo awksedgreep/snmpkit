@@ -221,4 +221,26 @@ defmodule SnmpKit.SnmpLib.DecoderLongLengthTest do
       assert {:ok, %{pdu: %{varbinds: [{_, :counter64, ^value}]}}} = Decoder.decode_message(bin)
     end
   end
+
+  test "Counter64 is encoded as a minimal unsigned INTEGER" do
+    alias SnmpKit.SnmpLib.PDU
+
+    encode = fn value ->
+      pdu =
+        PDU.build_response(1, 0, 0, [{[1, 3, 6, 1, 2, 1, 31, 1, 1, 1, 6, 1], :counter64, value}])
+
+      {:ok, bin} = PDU.encode_message(PDU.build_message(pdu, "public", :v2c))
+      bin
+    end
+
+    # Small values take one content octet, not eight.
+    assert :binary.match(encode.(0), <<0x46, 0x01, 0x00>>) != :nomatch
+    assert :binary.match(encode.(255), <<0x46, 0x02, 0x00, 0xFF>>) != :nomatch
+    # The top bit set needs a leading zero octet, or a strict reader sees a negative.
+    assert :binary.match(encode.(9_223_372_036_854_775_808), <<0x46, 0x09, 0x00, 0x80>>) !=
+             :nomatch
+
+    assert :binary.match(encode.(18_446_744_073_709_551_615), <<0x46, 0x09, 0x00, 0xFF>>) !=
+             :nomatch
+  end
 end

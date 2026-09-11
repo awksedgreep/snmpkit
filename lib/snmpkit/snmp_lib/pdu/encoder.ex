@@ -541,10 +541,13 @@ defmodule SnmpKit.SnmpLib.PDU.Encoder do
     encode_tag_length_value(tag, length, bytes)
   end
 
+  # Counter64 is an unsigned INTEGER: minimal big-endian octets with a
+  # leading zero when the top bit is set (nine octets for values >= 2^63).
+  # A fixed <<value::64>> was non-minimal for small values and, with the top
+  # bit set, a negative INTEGER to a strict BER reader.
   defp encode_counter64(tag, value) when is_integer(value) and value >= 0 do
-    bytes = <<value::64>>
-    length = byte_size(bytes)
-    encode_tag_length_value(tag, length, bytes)
+    bytes = encode_unsigned_bytes(value)
+    encode_tag_length_value(tag, byte_size(bytes), bytes)
   end
 
   defp encode_unsigned_bytes(0), do: <<0>>
