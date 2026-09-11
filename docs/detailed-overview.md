@@ -26,6 +26,9 @@ SnmpKit.SnmpLib                                          PDUs, ASN.1, OIDs, tran
 - **SnmpSim** (`lib/snmpkit/snmp_sim/`) simulates agents: profiles loaded
   from walk files or maps, per-device behaviours, error injection, and
   supervised populations.
+- **Agent and Trap** (`lib/snmpkit/agent/`, `lib/snmpkit/trap.ex`) are the
+  other side of the protocol: `SnmpKit.Agent` serves an application's own
+  data over v1/v2c/v3 and `SnmpKit.Trap` receives traps and informs.
 
 ## A request's life
 
@@ -123,8 +126,7 @@ The same keys can be changed at runtime with the setters on
 ## Testing
 
 ```sh
-mix test                        # unit and integration tests, simulated devices
-mix test --include snmpv3       # SNMPv3 suites
+mix test                        # unit and integration tests (SNMPv3 included), simulated devices
 mix test --include performance  # timing-sensitive tests
 mix test --include mib_oracle   # parser cross-check (needs smilint / snmptranslate)
 mix lint                        # format, dialyzer

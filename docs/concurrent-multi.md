@@ -48,11 +48,11 @@ GET, so a successful `get_multi` entry looks like `{:ok, [%{value: ...}]}`.
 
 | Option | Default | Notes |
 |--------|---------|-------|
-| `version:` | `:v2c` | GETBULK needs v2c; pass `version: :v1` for v1-only agents |
+| `version:` | `:v2c` | `get_multi` honours `version: :v1`; the walk and bulk functions send GETBULK and reject `:v1` |
 | `max_concurrent:` | 10 | requests in flight at once; raise it for large fleets |
-| `timeout:` | 10 000 ms | per PDU, the default for requests without their own |
-| `retries:` | from config | per PDU |
-| `walk_timeout:` | 20 min | whole-walk cap for `walk_multi` / `walk_table_multi`, never above 30 min |
+| `timeout:` | 5 000 ms (`config :snmpkit, timeout:`) | per PDU, the default for requests without their own |
+| `retries:` | 1 (`config :snmpkit, retries:`) | per PDU |
+| `walk_timeout:` | `max(timeout * 10, 20 min)` | whole-walk cap for `walk_multi` / `walk_table_multi`, never above 30 min |
 | `max_repetitions:` | walk default | never capped by the library; tune it to your network |
 
 Walks keep one GETBULK in flight per target and stop on end-of-MIB view, on
@@ -68,4 +68,4 @@ leaving the requested subtree, or when `walk_timeout` expires.
   [high performance livebook](../livebooks/05_high_performance.livemd) has a
   table of starting points.
 - Timeouts are per PDU, so a slow walk fails one bulk request at a time. See
-  [TIMEOUT_DOCUMENTATION.md](../TIMEOUT_DOCUMENTATION.md).
+  [timeouts.md](timeouts.md).

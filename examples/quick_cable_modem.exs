@@ -1,11 +1,13 @@
 #!/usr/bin/env elixir
 
 # Quick Cable Modem Simulation Example
-# This shows the simplest way to create a cable modem simulation without walk files
+# This shows the simplest way to create a cable modem simulation without walk files.
+# The device keeps running on port 1161 until Ctrl-C.
+#
+# Run from a checkout:   mix run examples/quick_cable_modem.exs
+# Standalone:            elixir examples/quick_cable_modem.exs
 
-Mix.install([
-  {:snmpkit, "~> 1.3"}
-])
+unless Code.ensure_loaded?(SnmpKit), do: Mix.install([{:snmpkit, "~> 2.0"}])
 
 # Create essential cable modem OIDs
 cable_modem_oids = %{
@@ -46,7 +48,7 @@ cable_modem_oids = %{
 )
 
 # Start the simulated cable modem
-{:ok, device} = SnmpKit.Sim.start_device(profile, port: 1161)
+{:ok, _device} = SnmpKit.Sim.start_device(profile, port: 1161)
 
 IO.puts("✅ Cable modem simulation started on port 1161")
 

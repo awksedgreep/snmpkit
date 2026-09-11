@@ -52,9 +52,15 @@ Everything below runs against a simulated device, so it works offline.
 
 ```elixir
 # A simulated router on localhost:1161, built from a walk file that ships
-# with the library (also :cable_modem and :switch)
+# with the library (also :cable_modem and :switch). v3_users: is only
+# needed for the SNMPv3 call below.
 {:ok, profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(:router)
-{:ok, _device} = SnmpKit.Sim.start_device(profile, port: 1161)
+{:ok, _device} =
+  SnmpKit.Sim.start_device(profile,
+    port: 1161,
+    v3_users: [%{name: "admin", auth: :sha256, auth_password: "auth-secret",
+                 priv: :aes128, priv_password: "priv-secret"}]
+  )
 target = "127.0.0.1:1161"
 
 # GET returns one enriched varbind map
@@ -149,7 +155,7 @@ Every operation returns enriched varbind maps:
   oid_list: [1, 3, 6, 1, 2, 1, 1, 3, 0],
   type: :timeticks,
   value: 12345678,
-  formatted: "1 day, 10:17:36.78"
+  formatted: "1 day 10 hours 17 minutes 36 seconds 78 centiseconds"
 }
 ```
 
@@ -186,7 +192,7 @@ SnmpKit.SNMP.get_multi(requests, return_format: :map)
 ```
 
 See [Concurrent Multi](docs/concurrent-multi.md) and the
-[timeout guide](TIMEOUT_DOCUMENTATION.md).
+[timeout guide](docs/timeouts.md).
 
 ## Configuration
 
@@ -197,7 +203,7 @@ changed at runtime through `SnmpKit.SnmpMgr.Config`:
 # config/config.exs
 config :snmpkit,
   community: "public",
-  timeout: 5_000,          # per-PDU timeout for single-target calls, ms
+  timeout: 5_000,          # per-PDU timeout, ms; walks are capped by walk_timeout:
   retries: 1,
   port: 161,
   version: :v2c,
@@ -217,7 +223,7 @@ config :snmpkit,
 - [2.0 migration guide](docs/v2-migration.md)
 - [Unified API guide](docs/unified-api-guide.md)
 - [Concurrent multi-target operations](docs/concurrent-multi.md)
-- [Timeouts and retries](TIMEOUT_DOCUMENTATION.md)
+- [Timeouts and retries](docs/timeouts.md)
 - [MIB guide](docs/mib-guide.md) and [checking the parser against libsmi and net-snmp](docs/mib-parser-oracle.md)
 - [Testing guide](docs/testing-guide.md)
 - Livebooks: [quickstart](livebooks/01_quickstart.livemd), [SNMP operations](livebooks/02_snmp_operations.livemd), [MIB management](livebooks/03_mib_management.livemd), [device simulation](livebooks/04_device_simulation.livemd), [high performance](livebooks/05_high_performance.livemd), [your own SNMP agent](livebooks/06_snmp_agent.livemd), [SNMPv3](livebooks/07_snmpv3.livemd)
@@ -226,7 +232,7 @@ config :snmpkit,
 
 ## Command line
 
-Four mix tasks give you a shell without writing a script:
+Five mix tasks give you a shell without writing a script:
 
 ```sh
 mix snmpkit.get 192.168.1.1 sysDescr.0 sysUpTime.0 -c public
@@ -240,8 +246,8 @@ mix snmpkit.sim devices.yaml                          # a whole population from 
 ## Development
 
 ```sh
-mix test                       # unit + integration suite
-mix test --include snmpv3      # SNMPv3 suites
+mix test                       # unit + integration suite, SNMPv3 included
+mix test --include performance # timing-sensitive tests
 mix test --include mib_oracle  # cross-check the MIB parser (needs smilint / snmptranslate)
 mix lint                       # format check, dialyzer
 ```

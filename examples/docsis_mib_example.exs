@@ -2,10 +2,15 @@
 
 # Example: Using Full MIB Compilation for DOCSIS Cable Modem Management
 #
-# This example demonstrates how to compile and use specialized MIBs like DOCSIS
-# that are not included in the built-in stubs. The MIB stub system handles
-# common MIB-II objects, but for specialized protocols like DOCSIS, you'll
-# want to compile the actual MIB files.
+# This example demonstrates how to compile and use specialized MIBs. The
+# built-in tables cover the common IETF MIBs and the core of DOCS-IF-MIB; for
+# the rest of DOCSIS and for vendor MIBs you compile the MIB files. When run
+# from a checkout it compiles DOCS-IF-MIB from the test fixtures.
+#
+# Run from a checkout:   mix run examples/docsis_mib_example.exs
+# Standalone:            elixir examples/docsis_mib_example.exs
+
+unless Code.ensure_loaded?(SnmpKit), do: Mix.install([{:snmpkit, "~> 2.0"}])
 
 defmodule DocsisExample do
   @moduledoc """
@@ -34,31 +39,33 @@ defmodule DocsisExample do
   end
 
   defp show_stub_limitations do
-    IO.puts("1. Built-in MIB Stubs Coverage:")
+    IO.puts("1. Built-in MIB Coverage:")
     IO.puts("")
 
-    # Show what's available in stubs
-    stub_groups = [
-      {"system", "Basic system info - ✓ Available"},
-      {"if", "Standard interfaces - ✓ Available"},
-      {"ifX", "Extended interfaces - ✓ Available"},
-      {"ip", "IP statistics - ✓ Available"},
-      {"docsis", "DOCSIS cable modem - ✗ Not available"},
-      {"cableDataPrivateMib", "Cable data MIB - ✗ Not available"},
-      {"docsIf", "DOCSIS interface - ✗ Not available"}
+    # What resolves without loading anything
+    names = [
+      {"system", "MIB-II system group"},
+      {"ifTable", "MIB-II interfaces"},
+      {"ifXTable", "IF-MIB extended interfaces"},
+      {"ip", "IP statistics"},
+      {"docsIfCmStatusValue", "DOCS-IF-MIB cable modem status"},
+      {"docsIfDownChannelFrequency", "DOCS-IF-MIB downstream channel"},
+      {"docsDevSwCurrentVers", "DOCS-CABLE-DEVICE-MIB software version"},
+      {"docsIf3CmStatusValue", "DOCS-IF3-MIB (DOCSIS 3.0)"}
     ]
 
-    for {name, status} <- stub_groups do
-      case SnmpKit.SnmpMgr.MIB.resolve(name) do
+    for {name, description} <- names do
+      case SnmpKit.MIB.resolve(name) do
         {:ok, oid} ->
-          IO.puts("  #{String.pad_trailing(name, 20)} → #{inspect(oid)} #{status}")
+          IO.puts("  #{String.pad_trailing(name, 28)} built in   #{Enum.join(oid, ".")}  (#{description})")
+
         {:error, :not_found} ->
-          IO.puts("  #{String.pad_trailing(name, 20)} → Not found - #{status}")
+          IO.puts("  #{String.pad_trailing(name, 28)} not built in  (#{description}; compile the MIB)")
       end
     end
 
     IO.puts("")
-    IO.puts("For specialized protocols like DOCSIS, you need to compile the MIB files.")
+    IO.puts("Anything not built in resolves after its MIB is compiled and loaded.")
     IO.puts("")
   end
 
@@ -70,10 +77,10 @@ defmodule DocsisExample do
     IO.puts("")
 
     workflow_steps = [
-      "Download DOCSIS MIB files from CableLabs or vendor",
+      "Download DOCSIS MIB files from CableLabs or the vendor",
       "Place MIB files in a mibs/ directory",
-      "Compile MIBs using SnmpKit.SnmpMgr.MIB.compile/2",
-      "Load compiled MIBs using SnmpKit.SnmpMgr.MIB.load/1",
+      "Compile them with SnmpKit.MIB.compile/2 (or compile_dir/2)",
+      "Register the result with SnmpKit.MIB.load/1",
       "Use symbolic names in SNMP operations"
     ]
 
@@ -85,42 +92,64 @@ defmodule DocsisExample do
 
     IO.puts("")
     show_code_examples()
+    compile_fixture_mib()
   end
 
   defp show_code_examples do
     IO.puts("Code Examples:")
     IO.puts("")
 
-    IO.puts("# Compile a single DOCSIS MIB file")
-    IO.puts(~S|{:ok, compiled_path} = SnmpKit.SnmpMgr.MIB.compile("mibs/DOCS-IF-MIB.mib")|)
+    IO.puts("# Compile a single DOCSIS MIB file; the result is a map with :symbols and :warnings")
+    IO.puts(~S|{:ok, compiled} = SnmpKit.MIB.compile("mibs/DOCS-IF-MIB.mib")|)
     IO.puts("")
 
     IO.puts("# Compile all MIBs in a directory")
-    IO.puts(~S|{:ok, results} = SnmpKit.SnmpMgr.MIB.compile_dir("mibs/docsis/")|)
+    IO.puts(~S|{:ok, compiled_list} = SnmpKit.MIB.compile_dir("mibs/docsis/")|)
     IO.puts("")
 
-    IO.puts("# Load compiled MIB")
-    IO.puts(~S|{:ok, mib_data} = SnmpKit.SnmpMgr.MIB.load("DOCS-IF-MIB.bin")|)
+    IO.puts("# Register a compiled MIB (or a .bin written by SnmpKit.MIB.Compiler.write_compiled/2)")
+    IO.puts(~S|:ok = SnmpKit.MIB.load(compiled)|)
     IO.puts("")
 
-    IO.puts("# Parse and integrate MIB (combines compilation + loading)")
-    IO.puts(~S|{:ok, _} = SnmpKit.SnmpMgr.MIB.load_and_integrate_mib("mibs/DOCS-IF-MIB.mib")|)
+    IO.puts("# Compile and register in one step")
+    IO.puts(~S|:ok = SnmpKit.MIB.load_and_integrate_mib("mibs/DOCS-IF-MIB.mib")|)
     IO.puts("")
   end
 
+  # From a checkout the DOCSIS MIBs are in the test fixtures; compile one for real.
+  @fixture "test/fixtures/mibs/docsis/DOCS-IF-MIB"
+
+  defp compile_fixture_mib do
+    if File.exists?(@fixture) do
+      IO.puts("Compiling #{@fixture}:")
+
+      case SnmpKit.MIB.compile(@fixture) do
+        {:ok, compiled} ->
+          IO.puts("  #{map_size(compiled.symbols)} symbols, #{length(compiled.warnings)} warnings")
+          :ok = SnmpKit.MIB.load(compiled)
+          {:ok, oid} = SnmpKit.MIB.resolve("docsIfCmStatusTxPower")
+          IO.puts("  docsIfCmStatusTxPower -> #{Enum.join(oid, ".")} (after loading)")
+
+        {:error, reason} ->
+          IO.puts("  compile failed: #{inspect(reason)}")
+      end
+
+      IO.puts("")
+    end
+  end
+
   defp show_integration do
-    IO.puts("3. Integration with Built-in Stubs:")
+    IO.puts("3. Integration with the Built-in Tables:")
     IO.puts("")
 
-    IO.puts("The MIB compilation system works alongside the built-in stubs:")
+    IO.puts("Compiled MIBs and the built-in tables share one registry:")
     IO.puts("")
 
     integration_points = [
-      "Built-in stubs handle common MIB-II objects (system, if, ip, etc.)",
-      "Compiled MIBs add specialized objects (DOCSIS, vendor-specific, etc.)",
-      "Resolution tries compiled MIBs first, then falls back to stubs",
-      "Both systems use the same API - completely transparent to users",
-      "Can mix stub names and compiled names in the same operation"
+      "Built-in tables cover the common IETF MIBs (system, interfaces, ip, ...)",
+      "Compiled MIBs add specialized objects (DOCSIS, vendor-specific, ...)",
+      "resolve/1, reverse_lookup/1 and :formatted values use both",
+      "Built-in and compiled names can be mixed in the same operation"
     ]
 
     integration_points
@@ -137,17 +166,17 @@ defmodule DocsisExample do
     IO.puts("Mixed Usage Example:")
     IO.puts("")
 
-    IO.puts("# Query combining stubs and compiled MIBs")
-    IO.puts(~S|{:ok, results} = SnmpKit.SnmpLib.Manager.get_multi("192.168.1.100", [|)
-    IO.puts(~S|  "sysDescr.0",           # Built-in stub|)
-    IO.puts(~S|  "sysUpTime.0",          # Built-in stub|)
-    IO.puts(~S|  "docsIfCmCpeCmdIpAddress.0",  # Compiled DOCSIS MIB|)
-    IO.puts(~S|  "docsIfCmStatusValue.0"       # Compiled DOCSIS MIB|)
+    IO.puts("# One GET PDU mixing built-in and compiled names")
+    IO.puts(~S|{:ok, varbinds} = SnmpKit.SNMP.get("192.168.1.100", [|)
+    IO.puts(~S|  "sysDescr.0",                 # built in|)
+    IO.puts(~S|  "sysUpTime.0",                # built in|)
+    IO.puts(~S|  "docsIfCmStatusTxPower.2",    # compiled DOCS-IF-MIB|)
+    IO.puts(~S|  "docsDevSwCurrentVers.0"      # compiled DOCS-CABLE-DEVICE-MIB|)
     IO.puts(~S|])|)
     IO.puts("")
 
-IO.puts("# Bulk walk with compiled MIB names")
-    IO.puts(~S|{:ok, results} = SnmpKit.SnmpMgr.bulk_walk_pretty("192.168.1.100", "docsIfCmtsTable")|)
+    IO.puts("# Bulk walk with compiled MIB names")
+    IO.puts(~S|{:ok, rows} = SnmpKit.SNMP.bulk_walk_pretty("192.168.1.100", "docsIfCmtsCmStatusTable")|)
     IO.puts("")
   end
 
@@ -238,21 +267,18 @@ IO.puts("# Bulk walk with compiled MIB names")
     defmodule MibCompiler do
       def compile_all do
         # Compile DOCSIS MIBs
-        {:ok, docsis_results} = SnmpKit.SnmpMgr.MIB.compile_dir("mibs/docsis/")
-        IO.puts("Compiled #\{length(docsis_results)} DOCSIS MIBs")
+        {:ok, docsis} = SnmpKit.MIB.compile_dir("mibs/docsis/")
+        IO.puts("Compiled #\{length(docsis)} DOCSIS MIBs")
 
         # Compile vendor-specific MIBs
-        {:ok, cisco_results} = SnmpKit.SnmpMgr.MIB.compile_dir("mibs/cisco/")
-        IO.puts("Compiled #\{length(cisco_results)} Cisco MIBs")
+        {:ok, cisco} = SnmpKit.MIB.compile_dir("mibs/cisco/")
+        IO.puts("Compiled #\{length(cisco)} Cisco MIBs")
 
-        # Load all compiled MIBs
-        compiled_files = Path.wildcard("mibs/compiled/*.bin")
-        for file <- compiled_files do
-          {:ok, _} = SnmpKit.SnmpMgr.MIB.load(file)
-          IO.puts("Loaded #\{Path.basename(file)}")
+        # Register them; load/1 also accepts a .bin written by write_compiled/2
+        for compiled <- docsis ++ cisco do
+          :ok = SnmpKit.MIB.load(compiled)
+          IO.puts("Loaded #\{compiled.name}")
         end
-
-        IO.puts("All MIBs compiled and loaded successfully!")
       end
     end
 
@@ -266,25 +292,23 @@ IO.puts("# Bulk walk with compiled MIB names")
     IO.puts("=== Testing MIB Resolution System ===")
     IO.puts("")
 
-    # Test resolution priority
     test_objects = [
-      "sysDescr",           # Should resolve via stub
-      "ifName",             # Should resolve via stub
-      "docsIfCmStatusValue", # Would resolve via compiled MIB (if loaded)
-      "1.3.6.1.2.1.1.1"    # Numeric OID (always works, but tested as string)
+      "sysDescr",
+      "ifName",
+      "docsIfCmStatusValue",
+      "docsIfCmStatusTxPower",
+      "1.3.6.1.2.1.1.1"
     ]
 
-    IO.puts("Resolution test (stubs only - DOCSIS MIBs not loaded):")
+    IO.puts("Resolution with the built-in tables only (nothing loaded):")
+
     for object <- test_objects do
-      case SnmpKit.SnmpMgr.MIB.resolve(object) do
+      case SnmpKit.MIB.resolve(object) do
         {:ok, oid} ->
-          IO.puts("  ✓ #{String.pad_trailing(object, 25)} → #{inspect(oid)}")
-        {:error, :not_found} ->
-          if String.starts_with?(object, "1.") do
-            IO.puts("  ✓ #{String.pad_trailing(object, 25)} → Numeric OID (passthrough)")
-          else
-            IO.puts("  ✗ #{String.pad_trailing(object, 25)} → Not found (would need compiled MIB)")
-          end
+          IO.puts("  #{String.pad_trailing(object, 25)} -> #{Enum.join(oid, ".")}")
+
+        {:error, reason} ->
+          IO.puts("  #{String.pad_trailing(object, 25)} -> #{inspect(reason)} (compile its MIB)")
       end
     end
   end

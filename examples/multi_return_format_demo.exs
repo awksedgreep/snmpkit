@@ -2,11 +2,15 @@
 
 # Multi Return Format Demo
 #
-# This example demonstrates the new return_format options available in
-# SnmpKit.SnmpMgr.Multi functions, showing how to get better host-to-result
-# association for multi-target SNMP operations.
+# This example demonstrates the return_format options of the multi-target
+# functions, showing how to associate results with their hosts. The targets
+# are unresolvable names, so every result is an error; the shapes are the
+# point.
+#
+# Run from a checkout:   mix run examples/multi_return_format_demo.exs
+# Standalone:            elixir examples/multi_return_format_demo.exs
 
-Mix.install([{:snmpkit, path: "."}])
+unless Code.ensure_loaded?(SnmpKit), do: Mix.install([{:snmpkit, "~> 2.0"}])
 
 defmodule MultiReturnFormatDemo do
   @moduledoc """
@@ -103,7 +107,7 @@ defmodule MultiReturnFormatDemo do
     IO.puts "\nUsing :map format for easy result processing:"
     map_results = SnmpKit.SnmpMgr.get_bulk_multi(requests, return_format: :map, max_repetitions: 5)
 
-    Enum.each(map_results, fn {{host, oid}, result} ->
+    Enum.each(map_results, fn {{host, _oid}, result} ->
       case result do
         {:ok, data} when is_list(data) ->
           IO.puts "  ✅ #{host}: Retrieved #{length(data)} interface entries"
@@ -153,7 +157,7 @@ defmodule MultiReturnFormatDemo do
     # Check specific device
     key = {"router1.example.com", "1.3.6.1.2.1.1.1.0"}
     case Map.get(map_results, key) do
-      {:ok, description} ->
+      {:ok, [%{formatted: description}]} ->
         IO.puts "   Router1 description: #{description}"
       {:error, reason} ->
         IO.puts "   Router1 unavailable: #{inspect(reason)}"

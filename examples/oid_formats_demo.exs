@@ -4,10 +4,11 @@
 # This example demonstrates how SnmpKit supports both standard OID formats:
 # - Traditional format: "1.3.6.1.2.1.1.1.0"
 # - Standard format with leading dot: ".1.3.6.1.2.1.1.1.0"
+#
+# Run from a checkout:   mix run examples/oid_formats_demo.exs
+# Standalone:            elixir examples/oid_formats_demo.exs
 
-Mix.install([
-  {:snmpkit, path: "."}
-])
+unless Code.ensure_loaded?(SnmpKit), do: Mix.install([{:snmpkit, "~> 2.0"}])
 
 defmodule OIDFormatsDemo do
   @moduledoc """
