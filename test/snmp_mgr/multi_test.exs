@@ -3,6 +3,15 @@ defmodule SnmpKit.SnmpMgr.MultiTest do
 
   alias SnmpKit.SnmpMgr.{Multi, RequestIdGenerator, Engine}
 
+  # These tests pin timeout handling against unreachable targets; the default
+  # retry (one re-send per PDU) would only double them.
+  setup_all do
+    previous = SnmpKit.SnmpMgr.Config.get_default_retries()
+    SnmpKit.SnmpMgr.Config.set_default_retries(0)
+    on_exit(fn -> SnmpKit.SnmpMgr.Config.set_default_retries(previous) end)
+    :ok
+  end
+
   setup do
     # Start all required services (or use existing ones)
     case RequestIdGenerator.start_link() do

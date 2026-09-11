@@ -5,14 +5,20 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
   Single-target walks still run synchronously in the caller, while multi-target
   walks can share one caller process and one UDP socket without spawning a task
   per target.
+
+  `:timeout` (per PDU), `:retries` (re-sends of a timed-out PDU) and
+  `:walk_timeout` (cap on the whole walk) follow the model described in
+  `SnmpKit.SnmpMgr.Config`; a timed-out step is re-sent under a fresh request
+  id while retries and walk time remain. Both entry points return
+  `{:error, :services_not_started}` per walk when the manager services are
+  not running.
   """
 
   require Logger
 
   alias SnmpKit.SnmpLib.{PDU, Transport}
-  alias SnmpKit.SnmpMgr.{Engine, RequestIdGenerator}
+  alias SnmpKit.SnmpMgr.Engine
 
-  @default_timeout 30_000
   @default_walk_timeout 1_200_000
   @max_walk_timeout 1_800_000
   @default_max_repetitions 30
@@ -22,11 +28,14 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
   @default_slow_response_ms 750
   @doc """
   Performs a full SNMP walk for a given target and root OID.
+
+  `timeout` is the per-PDU timeout unless `request.opts` carries its own
+  `:timeout`.
   """
   def walk(request, timeout) do
-    case build_walk_state(request, timeout, 0) do
-      {:ok, state} -> walk_loop(state)
-      {:error, reason} -> {:error, reason}
+    with {:ok, socket} <- shared_socket(),
+         {:ok, state} <- build_walk_state(request, timeout, 0) do
+      walk_loop(%{state | socket: socket})
     end
   end
 
@@ -35,66 +44,86 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
 
   Returns one ordered result per request, preserving input order.
   """
-  def walk_multi(requests, opts \\ []) do
-    if requests == [] do
-      []
-    else
-      socket = Engine.get_socket()
-      max_concurrent = max(1, Keyword.get(opts, :max_concurrent, 10))
-      global_timeout = Keyword.get(opts, :timeout, @default_timeout)
+  def walk_multi(requests, opts \\ [])
 
-      state = %{
-        socket: socket,
-        queue: :queue.from_list(Enum.with_index(requests)),
-        active: %{},
-        results: %{},
-        total: length(requests),
-        global_timeout: global_timeout,
-        max_concurrent: max_concurrent
-      }
+  def walk_multi([], _opts), do: []
 
-      state
-      |> launch_walks()
-      |> await_walks()
-      |> ordered_results()
+  def walk_multi(requests, opts) do
+    case shared_socket() do
+      {:ok, socket} ->
+        max_concurrent = max(1, Keyword.get(opts, :max_concurrent, 10))
+        global_timeout = Keyword.get(opts, :timeout, SnmpKit.SnmpMgr.Config.get(:timeout))
+
+        state = %{
+          socket: socket,
+          queue: :queue.from_list(Enum.with_index(requests)),
+          active: %{},
+          results: %{},
+          total: length(requests),
+          global_timeout: global_timeout,
+          max_concurrent: max_concurrent
+        }
+
+        state
+        |> launch_walks()
+        |> await_walks()
+        |> ordered_results()
+
+      {:error, reason} ->
+        Enum.map(requests, fn _ -> {:error, reason} end)
+    end
+  end
+
+  defp shared_socket do
+    case Engine.get_socket() do
+      {:error, reason} -> {:error, reason}
+      socket -> {:ok, socket}
     end
   end
 
   defp walk_loop(state) do
-    case send_walk_request(Engine.get_socket(), state) do
-      {:ok, state} ->
-        deadline = now_ms() + min(state.timeout, remaining_walk_time(state))
-        await_walk_message(state, deadline)
-
-      {:error, reason} ->
-        {:error, reason}
+    case send_walk_request(state.socket, state) do
+      {:ok, state} -> await_walk_message(state)
+      {:error, reason} -> {:error, reason}
     end
   end
 
   # Waits for the response to *this* request. Messages for other request ids
-  # (late replies to an earlier step) are dropped; re-sending here would put a
-  # duplicate PDU on the wire and orphan the outstanding registration.
-  defp await_walk_message(state, deadline) do
-    receive_timeout = max(deadline - now_ms(), 0)
+  # (late replies to an earlier step) are dropped. A timeout re-sends the step
+  # under a fresh request id while retries remain.
+  defp await_walk_message(state) do
+    receive_timeout = max(state.request_deadline_ms - now_ms(), 0)
 
     receive do
       {:snmp_response, request_id, response_data} when request_id == state.request_id ->
         handle_walk_response(state, response_data, &walk_loop/1)
 
       {:snmp_timeout, request_id} when request_id == state.request_id ->
-        Logger.warning("SNMP walk request timeout for target #{inspect(state.request.target)}")
-        {:error, :timeout}
+        retry_or_fail(state)
 
       {:snmp_response, _stale_id, _data} ->
-        await_walk_message(state, deadline)
+        await_walk_message(state)
 
       {:snmp_timeout, _stale_id} ->
-        await_walk_message(state, deadline)
+        await_walk_message(state)
     after
       receive_timeout ->
         Engine.unregister_request(Engine, state.request_id)
-        Logger.warning("SNMP walk internal timeout for target #{inspect(state.request.target)}")
-        {:error, :timeout}
+        retry_or_fail(state)
+    end
+  end
+
+  defp retry_or_fail(state) do
+    case retry_walk_request(state.socket, state) do
+      {:ok, state} ->
+        await_walk_message(state)
+
+      {:error, reason} ->
+        Logger.warning(
+          "SNMP walk request failed for target #{inspect(state.request.target)}: #{inspect(reason)}"
+        )
+
+        {:error, reason}
     end
   end
 
@@ -132,7 +161,7 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
         state
 
       true ->
-        receive_timeout = receive_timeout(state.active)
+        receive_timeout = receive_timeout(state.active, state.global_timeout)
 
         receive do
           {:snmp_response, request_id, response_data} ->
@@ -197,19 +226,25 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
 
   defp handle_multi_timeout(state, request_id) do
     case Map.pop(state.active, request_id) do
-      {nil, active} ->
-        %{state | active: active}
+      {nil, active} -> %{state | active: active}
+      {walk_state, active} -> retry_walk_step(%{state | active: active}, walk_state)
+    end
+  end
 
-      {walk_state, active} ->
+  # Re-sends a step whose PDU timed out while retries remain; otherwise the
+  # walk fails.
+  defp retry_walk_step(state, walk_state) do
+    case retry_walk_request(state.socket, walk_state) do
+      {:ok, next_state} ->
+        %{state | active: Map.put(state.active, next_state.request_id, next_state)}
+
+      {:error, reason} ->
         Logger.warning(
-          "SNMP walk request timeout for target #{inspect(walk_state.request.target)}"
+          "SNMP walk request failed for target #{inspect(walk_state.request.target)}: " <>
+            inspect(reason)
         )
 
-        %{
-          state
-          | active: active,
-            results: Map.put(state.results, walk_state.index, {:error, :timeout})
-        }
+        %{state | results: Map.put(state.results, walk_state.index, {:error, reason})}
     end
   end
 
@@ -229,12 +264,7 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
 
         request_expired?(walk_state, now) ->
           Engine.unregister_request(Engine, request_id)
-
-          Logger.warning(
-            "SNMP walk internal timeout for target #{inspect(walk_state.request.target)}"
-          )
-
-          %{acc | results: Map.put(acc.results, walk_state.index, {:error, :timeout})}
+          retry_walk_step(acc, walk_state)
 
         true ->
           %{acc | active: Map.put(acc.active, request_id, walk_state)}
@@ -247,7 +277,7 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
     |> Enum.map(fn index -> Map.get(state.results, index, {:error, :timeout}) end)
   end
 
-  defp receive_timeout(active) do
+  defp receive_timeout(active, global_timeout) do
     now = now_ms()
 
     active
@@ -255,36 +285,49 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
     |> Enum.map(fn walk_state ->
       min(walk_state.deadline_ms - now, walk_state.request_deadline_ms - now)
     end)
-    |> Enum.min(fn -> @default_timeout end)
+    |> Enum.min(fn -> global_timeout end)
     |> max(0)
     |> Kernel.+(50)
   end
 
+  # A new step gets the full retry budget.
   defp send_walk_request(socket, walk_state) do
-    request_id = RequestIdGenerator.next_id()
+    transmit_walk_request(socket, %{walk_state | retries_left: walk_state.retries})
+  end
+
+  # Re-sends the current step after a timeout while retries remain.
+  defp retry_walk_request(socket, %{retries_left: left} = walk_state) when left > 0 do
+    transmit_walk_request(socket, %{walk_state | retries_left: left - 1})
+  end
+
+  defp retry_walk_request(_socket, _walk_state), do: {:error, :timeout}
+
+  # Registers a fresh request id and sends the GETBULK for the current step,
+  # bounded by the time left in the walk.
+  defp transmit_walk_request(socket, walk_state) do
     per_pdu_timeout = min(walk_state.timeout, remaining_walk_time(walk_state))
 
     if per_pdu_timeout <= 0 do
       {:error, :timeout}
     else
-      Engine.register_request(Engine, request_id, self(), per_pdu_timeout)
+      with {:ok, request_id} <- Engine.register_next_request(Engine, self(), per_pdu_timeout) do
+        case build_and_send_get_bulk(socket, walk_state, request_id) do
+          :ok ->
+            request_started_ms = now_ms()
 
-      case build_and_send_get_bulk(socket, walk_state, request_id) do
-        :ok ->
-          request_started_ms = now_ms()
+            {:ok,
+             %{
+               walk_state
+               | request_id: request_id,
+                 request_started_ms: request_started_ms,
+                 request_deadline_ms: request_started_ms + per_pdu_timeout,
+                 request_count: walk_state.request_count + 1
+             }}
 
-          {:ok,
-           %{
-             walk_state
-             | request_id: request_id,
-               request_started_ms: request_started_ms,
-               request_deadline_ms: request_started_ms + per_pdu_timeout,
-               request_count: walk_state.request_count + 1
-           }}
-
-        {:error, reason} ->
-          Engine.unregister_request(Engine, request_id)
-          {:error, reason}
+          {:error, reason} ->
+            Engine.unregister_request(Engine, request_id)
+            {:error, reason}
+        end
       end
     end
   end
@@ -301,7 +344,10 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
          %{
            index: index,
            request: request,
+           socket: nil,
            timeout: timeout,
+           retries: request_retries(request),
+           retries_left: 0,
            walk_timeout: walk_timeout,
            root_oid: root_oid_list,
            next_oid: root_oid_list,
@@ -364,18 +410,12 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
       pdu = PDU.build_get_bulk_request(oid_list, request_id, 0, max_repetitions)
       message = PDU.build_message(pdu, community, version)
 
-      socket =
-        case target.host do
-          {_, _, _, _, _, _, _, _} -> Engine.get_socket(Engine, :inet6)
-          _ -> socket
-        end
-
-      case PDU.encode_message(message) do
-        {:ok, encoded_message} ->
-          Transport.send_packet(socket, target.host, target.port, encoded_message)
-
+      with {:ok, socket} <- socket_for(socket, target.host),
+           {:ok, encoded_message} <- PDU.encode_message(message) do
+        Transport.send_packet(socket, target.host, target.port, encoded_message)
+      else
         {:error, reason} ->
-          Logger.error("Failed to build walk message: #{inspect(reason)}")
+          Logger.error("Failed to send walk request: #{inspect(reason)}")
           {:error, reason}
       end
     rescue
@@ -384,6 +424,16 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
         {:error, {:exception, error}}
     end
   end
+
+  # IPv6 targets go out on the engine's IPv6 socket
+  defp socket_for(_default, {_, _, _, _, _, _, _, _}) do
+    case Engine.get_socket(Engine, :inet6) do
+      {:error, reason} -> {:error, {:ipv6_socket, reason}}
+      socket -> {:ok, socket}
+    end
+  end
+
+  defp socket_for(default, _host), do: {:ok, default}
 
   defp remaining_walk_time(walk_state), do: max(walk_state.deadline_ms - now_ms(), 0)
 
@@ -400,6 +450,13 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
   defp request_timeout(request, global_timeout) do
     timeout = Keyword.get(request.opts, :timeout, global_timeout)
     if is_integer(timeout) and timeout > 0, do: timeout, else: global_timeout
+  end
+
+  defp request_retries(request) do
+    case Keyword.get(request.opts, :retries) do
+      retries when is_integer(retries) and retries >= 0 -> retries
+      _ -> SnmpKit.SnmpMgr.Config.get(:retries)
+    end
   end
 
   defp initial_max_repetitions(request) do

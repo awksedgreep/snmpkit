@@ -16,6 +16,11 @@ defmodule SnmpKit.SnmpMgr.Engine do
   - `:port` - local UDP port (default 0, ephemeral)
   - `:buffer_size` - socket receive buffer in bytes (default 4 MiB)
   - `:max_queue_depth` - mailbox depth treated as 100% for `health_check/1`
+  - `:inet6_opts` - extra `:gen_udp.open/2` options for the IPv6 socket, which
+    is opened on first use (default `[]`)
+
+  Every call returns `{:error, :services_not_started}` when the engine
+  process is not running, instead of exiting the caller with `:noproc`.
   """
 
   use GenServer
@@ -35,6 +40,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
     :port,
     :buffer_size,
     :max_queue_depth,
+    :inet6_opts,
     :created_at
   ]
 
@@ -50,28 +56,86 @@ defmodule SnmpKit.SnmpMgr.Engine do
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 
+  @typedoc "Reply of `health_check/1`."
+  @type health :: %{
+          status: :healthy | :warning | :critical | :error,
+          port: :inet.port_number(),
+          queue_depth: non_neg_integer(),
+          max_queue_depth: non_neg_integer(),
+          uptime_ms: non_neg_integer()
+        }
+
+  @typedoc "Returned by every call when the engine process is not running."
+  @type not_started :: {:error, :services_not_started}
+
+  # register_next_request/3 draws this many ids before giving up; the counter
+  # is sequential, so consecutive collisions mean the id space is full.
+  @max_id_attempts 16
+
   @doc """
   Registers a request for response correlation.
+
+  Refused with `{:error, :request_id_in_use}` while an earlier registration
+  of the same id is still pending, so a wrapped-around id can never take
+  another caller's response or its timeout. `register_next_request/3` draws
+  a fresh id and retries on a collision.
 
   ## Parameters
   - `engine` - Engine PID or name
   - `request_id` - Unique request identifier
   - `caller_pid` - Process to send response to
-  - `timeout_ms` - Timeout in milliseconds (optional)
+  - `timeout_ms` - Timeout in milliseconds (default: the `:timeout` in
+    `SnmpKit.SnmpMgr.Config`)
 
   ## Examples
 
       SnmpKit.SnmpMgr.Engine.register_request(engine, 12345, self(), 5000)
   """
-  @spec register_request(GenServer.server(), integer(), pid(), non_neg_integer()) :: :ok
-  def register_request(engine, request_id, caller_pid, timeout_ms \\ 5000) do
-    GenServer.call(engine, {:register_request, request_id, caller_pid, timeout_ms})
+  @spec register_request(GenServer.server(), integer(), pid(), non_neg_integer()) ::
+          :ok | {:error, :request_id_in_use} | not_started()
+  def register_request(
+        engine,
+        request_id,
+        caller_pid,
+        timeout_ms \\ SnmpKit.SnmpMgr.Config.get(:timeout)
+      ) do
+    call(engine, {:register_request, request_id, caller_pid, timeout_ms})
+  end
+
+  @doc """
+  Draws the next id from `SnmpKit.SnmpMgr.RequestIdGenerator` and registers
+  it, retrying with a fresh id while the drawn one is still pending.
+
+  Returns `{:error, :services_not_started}` when the generator or the engine
+  is not running, and `{:error, :request_id_space_exhausted}` after
+  #{@max_id_attempts} consecutive collisions.
+  """
+  @spec register_next_request(GenServer.server(), pid(), non_neg_integer()) ::
+          {:ok, pos_integer()} | {:error, :request_id_space_exhausted} | not_started()
+  def register_next_request(engine, caller_pid, timeout_ms) do
+    register_next_request(engine, caller_pid, timeout_ms, @max_id_attempts)
+  end
+
+  defp register_next_request(_engine, _caller_pid, _timeout_ms, 0),
+    do: {:error, :request_id_space_exhausted}
+
+  defp register_next_request(engine, caller_pid, timeout_ms, attempts) do
+    with {:ok, request_id} <- SnmpKit.SnmpMgr.RequestIdGenerator.fetch_next_id(),
+         :ok <- register_request(engine, request_id, caller_pid, timeout_ms) do
+      {:ok, request_id}
+    else
+      {:error, :request_id_in_use} ->
+        register_next_request(engine, caller_pid, timeout_ms, attempts - 1)
+
+      {:error, _} = error ->
+        error
+    end
   end
 
   @doc """
   Unregisters a request (used when caller times out locally).
 
-  ## Parameters  
+  ## Parameters
   - `engine` - Engine PID or name
   - `request_id` - Request identifier to unregister
   """
@@ -84,51 +148,66 @@ defmodule SnmpKit.SnmpMgr.Engine do
   Gets engine statistics: pending request count, correlation metrics, socket
   counters (`:socket_stats`), the local `:port` and `:recv_queue_length`.
   """
-  @spec get_stats(GenServer.server()) :: map()
+  @spec get_stats(GenServer.server()) :: map() | not_started()
   def get_stats(engine \\ __MODULE__) do
-    GenServer.call(engine, :get_stats)
+    call(engine, :get_stats)
   end
 
-  @doc "The shared UDP socket. Send request PDUs on it after `register_request/4`."
-  @spec get_socket(GenServer.server(), :inet | :inet6) :: :gen_udp.socket() | {:error, term()}
+  @doc """
+  The shared UDP socket. Send request PDUs on it after `register_request/4`.
+
+  The IPv6 socket is opened on first use; when `:gen_udp.open/2` fails the
+  reply is that `{:error, reason}`.
+  """
+  @spec get_socket(GenServer.server(), :inet | :inet6) ::
+          :gen_udp.socket() | {:error, term()} | not_started()
   def get_socket(engine \\ __MODULE__, family \\ :inet)
 
   def get_socket(engine, :inet6) do
-    GenServer.call(engine, {:get_socket, :inet6})
+    call(engine, {:get_socket, :inet6})
   end
 
   def get_socket(engine, :inet) do
-    GenServer.call(engine, :get_socket)
+    call(engine, :get_socket)
   end
 
   @doc "The local UDP port the shared socket is bound to."
-  @spec get_port(GenServer.server()) :: :inet.port_number()
+  @spec get_port(GenServer.server()) :: :inet.port_number() | not_started()
   def get_port(engine \\ __MODULE__) do
-    GenServer.call(engine, :get_port)
+    call(engine, :get_port)
   end
 
   @doc "Socket buffer statistics: largest datagram seen relative to the receive buffer, mailbox depth."
-  @spec get_buffer_stats(GenServer.server()) :: map()
+  @spec get_buffer_stats(GenServer.server()) :: map() | not_started()
   def get_buffer_stats(engine \\ __MODULE__) do
-    GenServer.call(engine, :get_buffer_stats)
+    call(engine, :get_buffer_stats)
   end
 
   @doc """
   Health based on how many datagrams are waiting in the engine's mailbox
-  relative to `:max_queue_depth`: `:healthy` (< 50%), `:warning` (< 80%),
-  `:critical`, or `:error` if the socket is gone.
+  relative to `:max_queue_depth`. The `:status` is `:healthy` (< 50%),
+  `:warning` (< 80%), `:critical`, or `:error` if the socket is gone; the
+  rest of the map is the port, the queue depth and limit, and the uptime.
   """
-  @spec health_check(GenServer.server()) :: :healthy | :warning | :critical | :error
+  @spec health_check(GenServer.server()) :: health() | not_started()
   def health_check(engine \\ __MODULE__) do
-    GenServer.call(engine, :health_check)
+    call(engine, :health_check)
   end
 
   @doc """
   Gets the number of pending requests.
   """
-  @spec pending_count(GenServer.server()) :: non_neg_integer()
+  @spec pending_count(GenServer.server()) :: non_neg_integer() | not_started()
   def pending_count(engine) do
-    GenServer.call(engine, :pending_count)
+    call(engine, :pending_count)
+  end
+
+  # Every call goes through here so a stopped engine answers
+  # {:error, :services_not_started} instead of exiting the caller with :noproc.
+  defp call(engine, message) do
+    GenServer.call(engine, message)
+  catch
+    :exit, {:noproc, _} -> {:error, :services_not_started}
   end
 
   @doc """
@@ -162,6 +241,7 @@ defmodule SnmpKit.SnmpMgr.Engine do
            port: actual_port,
            buffer_size: buffer_size,
            max_queue_depth: Keyword.get(opts, :max_queue_depth, @default_max_queue_depth),
+           inet6_opts: Keyword.get(opts, :inet6_opts, []),
            created_at: System.monotonic_time(:millisecond)
          }}
 
@@ -177,6 +257,13 @@ defmodule SnmpKit.SnmpMgr.Engine do
     if state.socket, do: :gen_udp.close(state.socket)
     if state.socket6, do: :gen_udp.close(state.socket6)
     :ok
+  end
+
+  @impl true
+  def handle_call({:register_request, request_id, _caller_pid, _timeout_ms}, _from, state)
+      when is_map_key(state.pending_requests, request_id) do
+    # The earlier registration keeps its timer and gets its response.
+    {:reply, {:error, :request_id_in_use}, state}
   end
 
   @impl true
@@ -234,19 +321,17 @@ defmodule SnmpKit.SnmpMgr.Engine do
   # The IPv6 socket is opened on first use so IPv4-only hosts never need one.
   @impl true
   def handle_call({:get_socket, :inet6}, _from, %{socket6: nil} = state) do
-    case :gen_udp.open(0, [
-           :binary,
-           :inet6,
-           {:ipv6_v6only, true},
-           {:active, true},
-           {:recbuf, state.buffer_size}
-         ]) do
+    opts =
+      [:binary, :inet6, {:ipv6_v6only, true}, {:active, true}, {:recbuf, state.buffer_size}] ++
+        state.inet6_opts
+
+    case :gen_udp.open(0, opts) do
       {:ok, socket6} ->
         {:reply, socket6, %{state | socket6: socket6}}
 
       {:error, reason} ->
         Logger.error("Failed to open engine IPv6 UDP socket: #{inspect(reason)}")
-        {:reply, nil, state}
+        {:reply, {:error, reason}, state}
     end
   end
 

@@ -7,6 +7,15 @@ defmodule SnmpKit.SnmpMgr.MultiTimeoutTest do
   @moduletag :timeout_fix
   @moduletag timeout: 60_000
 
+  # These tests pin the per-PDU timeout semantics against unreachable
+  # targets; the default retry (one re-send per PDU) would only double them.
+  setup_all do
+    previous = SnmpKit.SnmpMgr.Config.get_default_retries()
+    SnmpKit.SnmpMgr.Config.set_default_retries(0)
+    on_exit(fn -> SnmpKit.SnmpMgr.Config.set_default_retries(previous) end)
+    :ok
+  end
+
   describe "walk_multi timeout behavior" do
     test "walk_multi does not timeout from Task.async_stream when individual PDUs respond within timeout" do
       # This test simulates the bug scenario where:
