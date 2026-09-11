@@ -44,26 +44,15 @@ defmodule SnmpKit.SnmpMgr.Core do
   defp do_send_get_request_with_type(target, oid, opts) do
     {host, updated_opts} = split_target(target, opts)
 
-    # Convert oid to proper format - always work with lists internally
-    oid_parsed =
-      case parse_oid(oid) do
-        {:ok, oid_list} -> oid_list
-        # Safe fallback
-        {:error, _} -> [1, 3]
+    with {:ok, oid_parsed} <- parse_single_oid(oid) do
+      # Generate string representation only for final response
+      oid_string = Enum.join(oid_parsed, ".")
+      snmp_lib_opts = map_options_to_snmp_lib(updated_opts)
+
+      case SnmpKit.SnmpLib.Manager.get(host, oid_parsed, snmp_lib_opts) do
+        {:ok, {type, value}} -> {:ok, {oid_string, type, value}}
+        {:error, reason} -> {:error, reason}
       end
-
-    # Generate string representation only for final response
-    oid_string = Enum.join(oid_parsed, ".")
-
-    # Map options to snmp_lib format
-    snmp_lib_opts = map_options_to_snmp_lib(updated_opts)
-
-    case SnmpKit.SnmpLib.Manager.get(host, oid_parsed, snmp_lib_opts) do
-      {:ok, {type, value}} ->
-        {:ok, {oid_string, type, value}}
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 
@@ -133,14 +122,21 @@ defmodule SnmpKit.SnmpMgr.Core do
 
   defp parse_oids(oids) do
     Enum.reduce_while(oids, {:ok, []}, fn oid, {:ok, acc} ->
-      case parse_oid(oid) do
+      case parse_single_oid(oid) do
         {:ok, list} -> {:cont, {:ok, [list | acc]}}
-        {:error, reason} -> {:halt, {:error, {:invalid_oid, oid, reason}}}
+        error -> {:halt, error}
       end
     end)
     |> case do
       {:ok, acc} -> {:ok, Enum.reverse(acc)}
       error -> error
+    end
+  end
+
+  defp parse_single_oid(oid) do
+    case parse_oid(oid) do
+      {:ok, list} -> {:ok, list}
+      {:error, reason} -> {:error, {:invalid_oid, oid, reason}}
     end
   end
 
@@ -165,33 +161,15 @@ defmodule SnmpKit.SnmpMgr.Core do
   defp do_send_get_next_request(target, oid, opts) do
     {host, updated_opts} = split_target(target, opts)
 
-    # Convert oid to proper format
-    oid_parsed =
-      case parse_oid(oid) do
-        {:ok, oid_list} -> oid_list
-        {:error, _} -> oid
+    with {:ok, oid_parsed} <- parse_single_oid(oid) do
+      snmp_lib_opts = map_options_to_snmp_lib(updated_opts)
+
+      # SnmpKit.SnmpLib.Manager.get_next handles the version logic (GETNEXT
+      # for v1, GETBULK for v2c+); the OID is stringified only for the result.
+      case SnmpKit.SnmpLib.Manager.get_next(host, oid_parsed, snmp_lib_opts) do
+        {:ok, {next_oid, type, value}} -> {:ok, {oid_to_string(next_oid), type, value}}
+        {:error, reason} -> {:error, reason}
       end
-
-    # Map options to snmp_lib format
-    snmp_lib_opts = map_options_to_snmp_lib(updated_opts)
-
-    # Use the new SnmpKit.SnmpLib.Manager.get_next function which properly handles version logic
-    case SnmpKit.SnmpLib.Manager.get_next(host, oid_parsed, snmp_lib_opts) do
-      {:ok, {next_oid, type, value}} ->
-        # ALWAYS preserve type information - this is critical for SNMP
-        # Convert OID to string only for final response format
-        next_oid_string =
-          if is_list(next_oid) do
-            Enum.join(next_oid, ".")
-          else
-            # Should not happen, but handle gracefully
-            to_string(next_oid)
-          end
-
-        {:ok, {next_oid_string, type, value}}
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 
@@ -219,23 +197,10 @@ defmodule SnmpKit.SnmpMgr.Core do
   defp do_send_set_request(target, oid, value, opts) do
     {host, updated_opts} = split_target(target, opts)
 
-    # Convert oid to proper format
-    oid_parsed =
-      case parse_oid(oid) do
-        {:ok, oid_list} -> oid_list
-        {:error, _} -> oid
-      end
-
-    # Convert value to snmp_lib format expected by SnmpKit.SnmpLib.Manager
-    typed_value = typed_set_value(value)
-
-    # Map options to snmp_lib format
-    snmp_lib_opts = map_options_to_snmp_lib(updated_opts)
-
-    # Use SnmpKit.SnmpLib.Manager for the actual operation
-    case SnmpKit.SnmpLib.Manager.set(host, oid_parsed, typed_value, snmp_lib_opts) do
-      {:ok, result} -> {:ok, result}
-      {:error, reason} -> {:error, reason}
+    with {:ok, oid_parsed} <- parse_single_oid(oid) do
+      typed_value = typed_set_value(value)
+      snmp_lib_opts = map_options_to_snmp_lib(updated_opts)
+      SnmpKit.SnmpLib.Manager.set(host, oid_parsed, typed_value, snmp_lib_opts)
     end
   end
 
@@ -320,27 +285,11 @@ defmodule SnmpKit.SnmpMgr.Core do
 
     case version do
       v2 when v2 in [:v2c, :v3] ->
-        # Parse target to extract host and port
         {host, updated_opts} = split_target(target, opts)
 
-        # Convert oid to proper format
-        oid_parsed =
-          case parse_oid(oid) do
-            {:ok, oid_list} -> oid_list
-            {:error, _} -> oid
-          end
-
-        # Map options to snmp_lib format
-        snmp_lib_opts = map_options_to_snmp_lib(updated_opts)
-
-        # Use SnmpKit.SnmpLib.Manager for the actual operation
-        case SnmpKit.SnmpLib.Manager.get_bulk(host, oid_parsed, snmp_lib_opts) do
-          {:ok, results} ->
-            # Process the results to extract varbinds in 3-tuple format
-            {:ok, results}
-
-          {:error, reason} ->
-            {:error, reason}
+        with {:ok, oid_parsed} <- parse_single_oid(oid) do
+          snmp_lib_opts = map_options_to_snmp_lib(updated_opts)
+          SnmpKit.SnmpLib.Manager.get_bulk(host, oid_parsed, snmp_lib_opts)
         end
 
       _ ->
@@ -408,54 +357,40 @@ defmodule SnmpKit.SnmpMgr.Core do
   """
   @spec parse_oid(oid()) :: {:ok, list(non_neg_integer())} | {:error, term()}
   def parse_oid(oid) when is_list(oid) do
-    # Already a list - validate and return
     case SnmpKit.SnmpLib.OID.valid_oid?(oid) do
-      :ok ->
-        {:ok, oid}
-
-      {:error, :empty_oid} ->
-        # Empty list fallback
-        {:ok, [1, 3]}
-
-      {:error, _reason} ->
-        case oid do
-          # Single [1] is invalid, use [1,3]
-          [1] -> {:ok, [1, 3]}
-          _ -> {:error, :invalid_oid_list}
-        end
+      :ok -> {:ok, oid}
+      {:error, :empty_oid} -> {:error, :empty_oid}
+      {:error, _reason} -> {:error, :invalid_oid_list}
     end
   end
 
   def parse_oid(oid) when is_binary(oid) do
-    # Handle empty string case
-    case String.trim(oid) do
-      "" ->
-        {:ok, [1, 3]}
+    trimmed = String.trim(oid)
 
-      trimmed ->
-        # Try MIB registry first for symbolic names like "sysDescr.0"
-        case SnmpKit.MIB.Registry.resolve_name(trimmed) do
-          {:ok, oid_list} when is_list(oid_list) and length(oid_list) > 0 ->
-            {:ok, oid_list}
+    case SnmpKit.SnmpLib.OID.string_to_list(trimmed) do
+      {:ok, oid_list} ->
+        {:ok, oid_list}
 
-          {:error, _} ->
-            # Try numeric string parsing
-            case SnmpKit.SnmpLib.OID.string_to_list(trimmed) do
-              {:ok, oid_list} when is_list(oid_list) and length(oid_list) > 0 ->
-                {:ok, oid_list}
+      {:error, :empty_oid} ->
+        {:error, :empty_oid}
 
-              {:error, _} ->
-                # Fall back to MIB GenServer for container OIDs like "system", "interfaces"
-                case SnmpKit.SnmpMgr.MIB.resolve(trimmed) do
-                  {:ok, oid_list} when is_list(oid_list) -> {:ok, oid_list}
-                  error -> error
-                end
-            end
-        end
+      {:error, _} ->
+        # Symbolic names ("sysDescr.0", "system", "interfaces"): the running
+        # registry knows MIBs loaded at runtime, so it answers first; the
+        # static built-in table serves when the registry is not running.
+        resolve_name(trimmed)
     end
   end
 
   def parse_oid(_), do: {:error, :invalid_oid_input}
+
+  defp resolve_name(name) do
+    if Process.whereis(SnmpKit.SnmpMgr.MIB) do
+      SnmpKit.SnmpMgr.MIB.resolve(name)
+    else
+      SnmpKit.MIB.Registry.resolve_name(name)
+    end
+  end
 
   # Type information must never be inferred - it must be preserved from SNMP responses
   # Removing type inference functions to prevent loss of critical type information

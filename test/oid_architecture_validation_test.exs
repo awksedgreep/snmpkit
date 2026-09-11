@@ -24,9 +24,9 @@ defmodule SnmpKit.OidArchitectureValidationTest do
       assert {:ok, [1, 3, 6, 1, 2, 1, 1, 1, 0]} =
                SnmpKit.SnmpMgr.Core.parse_oid([1, 3, 6, 1, 2, 1, 1, 1, 0])
 
-      # Test empty cases get proper fallbacks
-      assert {:ok, [1, 3]} = SnmpKit.SnmpMgr.Core.parse_oid("")
-      assert {:ok, [1, 3]} = SnmpKit.SnmpMgr.Core.parse_oid([])
+      # Empty or too-short input is an error, never a substitute OID
+      assert {:error, :empty_oid} = SnmpKit.SnmpMgr.Core.parse_oid("")
+      assert {:error, :empty_oid} = SnmpKit.SnmpMgr.Core.parse_oid([])
 
       # Test invalid cases
       assert {:error, :invalid_oid_input} = SnmpKit.SnmpMgr.Core.parse_oid(123)
@@ -83,8 +83,8 @@ defmodule SnmpKit.OidArchitectureValidationTest do
       test_cases = [
         {"1.3.6.1.2.1.1.1.0", [1, 3, 6, 1, 2, 1, 1, 1, 0]},
         {[1, 3, 6, 1, 2, 1, 1, 1, 0], [1, 3, 6, 1, 2, 1, 1, 1, 0]},
-        {"", [1, 3]},
-        {[], [1, 3]}
+        {"sysDescr.0", [1, 3, 6, 1, 2, 1, 1, 1, 0]},
+        {"system", [1, 3, 6, 1, 2, 1, 1]}
       ]
 
       Enum.each(test_cases, fn {input, expected} ->
@@ -178,28 +178,44 @@ defmodule SnmpKit.OidArchitectureValidationTest do
       end)
     end
 
-    test "empty OID cases have consistent fallbacks" do
-      # Only test cases that actually get fallback treatment in parse_oid
-      empty_cases = ["", [], "   "]
+    test "empty OID inputs are errors, not fallbacks" do
+      for empty_input <- ["", [], "   "] do
+        assert {:error, :empty_oid} = SnmpKit.SnmpMgr.Core.parse_oid(empty_input),
+               "Empty input #{inspect(empty_input)} must be rejected"
+      end
 
-      Enum.each(empty_cases, fn empty_input ->
-        case SnmpKit.SnmpMgr.Core.parse_oid(empty_input) do
-          {:ok, [1, 3]} ->
-            # Expected fallback
-            :ok
-
-          {:ok, other} ->
-            flunk(
-              "Empty input #{inspect(empty_input)} should fallback to [1, 3], got #{inspect(other)}"
-            )
-
-          {:error, reason} ->
-            flunk("Empty input #{inspect(empty_input)} should not error, got #{inspect(reason)}")
-        end
-      end)
-
-      # "." is treated as an invalid OID string, not empty
       assert {:error, _} = SnmpKit.SnmpMgr.Core.parse_oid(".")
+    end
+
+    test "single-object requests reject an invalid OID without touching the network" do
+      # 192.0.2.1 is TEST-NET; a request that reached the socket would wait
+      # for the full timeout instead of failing at once.
+      blackhole = "192.0.2.1"
+      opts = [timeout: 2_000, retries: 0]
+
+      for bad <- ["not.an.oid", "", []] do
+        {elapsed_us, result} =
+          :timer.tc(fn ->
+            SnmpKit.SnmpMgr.Core.send_get_request_with_type(blackhole, bad, opts)
+          end)
+
+        assert {:error, {:invalid_oid, ^bad, _reason}} = result
+        assert elapsed_us < 500_000
+
+        assert {:error, {:invalid_oid, ^bad, _}} =
+                 SnmpKit.SnmpMgr.Core.send_get_next_request(blackhole, bad, opts)
+
+        assert {:error, {:invalid_oid, ^bad, _}} =
+                 SnmpKit.SnmpMgr.Core.send_set_request(blackhole, bad, "x", opts)
+
+        assert {:error, {:invalid_oid, ^bad, _}} =
+                 SnmpKit.SnmpMgr.Core.send_get_bulk_request(blackhole, bad, opts)
+      end
+
+      assert {:error, {:invalid_oid, "not.an.oid", :not_found}} =
+               SnmpKit.SNMP.set(blackhole, "not.an.oid", "Server Room A", opts)
+
+      assert {:error, {:invalid_oid, "", :empty_oid}} = SnmpKit.SNMP.get(blackhole, "", opts)
     end
 
     test "type information is preserved throughout operations" do

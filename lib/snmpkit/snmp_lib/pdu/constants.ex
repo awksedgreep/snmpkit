@@ -190,26 +190,25 @@ defmodule SnmpKit.SnmpLib.PDU.Constants do
   def normalize_version(v) when is_integer(v), do: v
   def normalize_version(_), do: 0
 
+  # OID lists pass through untouched (the encoder validates them); a dotted
+  # numeric string is parsed. Anything else raises: PDU builders have a bare
+  # return contract, and an unparseable OID must never be encoded as some
+  # other object.
   def normalize_oid(oid) when is_list(oid), do: oid
 
   def normalize_oid(oid) when is_binary(oid) do
-    try do
-      oid
-      |> String.split(".")
-      |> Enum.map(fn part ->
-        case Integer.parse(part) do
-          {num, ""} when num >= 0 -> num
-          _ -> throw(:invalid_oid)
-        end
-      end)
-    catch
-      # Safe default for invalid OID strings
-      :invalid_oid -> [1, 3, 6, 1]
+    case SnmpKit.SnmpLib.OID.string_to_list(oid) do
+      {:ok, oid_list} ->
+        oid_list
+
+      {:error, reason} ->
+        raise ArgumentError, "invalid OID #{inspect(oid)}: #{inspect(reason)}"
     end
   end
 
-  # Safe default for invalid types
-  def normalize_oid(_), do: [1, 3, 6, 1]
+  def normalize_oid(oid) do
+    raise ArgumentError, "OID must be a list of integers or a dotted string, got: #{inspect(oid)}"
+  end
 
   # New utility functions for type conversion
   def pdu_type_to_tag(:get_request), do: @get_request
