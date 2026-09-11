@@ -25,14 +25,7 @@ defmodule Mix.Tasks.Snmpkit.Mib.Lint do
 
   @impl true
   def run(argv) do
-    {opts, paths, invalid} =
-      OptionParser.parse(argv,
-        strict: [context: :keep, strict: :boolean, quiet: :boolean],
-        aliases: [q: :quiet]
-      )
-
-    if invalid != [],
-      do: Mix.raise("unknown option(s): " <> Enum.map_join(invalid, ", ", &elem(&1, 0)))
+    {opts, paths} = CLI.parse(argv, context: :keep, strict: :boolean)
 
     if paths == [], do: Mix.raise("usage: mix snmpkit.mib.lint PATH [PATH ...] [options]")
 
@@ -41,7 +34,7 @@ defmodule Mix.Tasks.Snmpkit.Mib.Lint do
     context =
       opts
       |> Keyword.get_values(:context)
-      |> Enum.flat_map(&expand/1)
+      |> CLI.expand_mib_paths()
       |> Enum.flat_map(fn file ->
         case SnmpKit.MIB.Compiler.compile(file, []) do
           {:ok, compiled} ->
@@ -55,7 +48,7 @@ defmodule Mix.Tasks.Snmpkit.Mib.Lint do
 
     results =
       paths
-      |> Enum.flat_map(&expand/1)
+      |> CLI.expand_mib_paths()
       |> Enum.map(fn file ->
         case SnmpKit.MIB.Lint.check(file, context: context) do
           {:ok, report} ->
@@ -76,24 +69,6 @@ defmodule Mix.Tasks.Snmpkit.Mib.Lint do
     Mix.shell().info("#{length(results)} file(s), #{errors} error(s), #{warnings} warning(s)")
 
     if errors > 0 or (opts[:strict] == true and warnings > 0), do: exit({:shutdown, 1})
-  end
-
-  defp expand(path) do
-    cond do
-      File.dir?(path) ->
-        path
-        |> File.ls!()
-        |> Enum.sort()
-        |> Enum.map(&Path.join(path, &1))
-        |> Enum.filter(&File.regular?/1)
-        |> Enum.reject(&(Path.extname(&1) in [".txt", ".log", ".bin", ".json", ".md"]))
-
-      File.regular?(path) ->
-        [path]
-
-      true ->
-        Mix.raise("no such file or directory: #{path}")
-    end
   end
 
   defp describe({:snmp_lib_compilation_failed, [%{message: message} | _]}), do: message

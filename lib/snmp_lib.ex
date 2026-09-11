@@ -22,7 +22,7 @@ defmodule SnmpKit.SnmpLib do
     host, returning `{type, value}` tuples
   - `SnmpKit.SnmpLib.Walker` - GETNEXT/GETBULK walks at this level
   - `SnmpKit.SnmpLib.ErrorHandler` - retry with exponential backoff, error
-    classification, per-device circuit breakers
+    classification, adaptive timeouts, device quarantine
   - `SnmpKit.SnmpLib.Security` and `Security.{USM, Auth, Priv, Keys}` -
     SNMPv3 USM per RFC 3414 (MD5, SHA-1, SHA-2 family per RFC 7860; DES and
     AES-128/192/256)
@@ -114,13 +114,13 @@ defmodule SnmpKit.SnmpLib do
         "SNMPv2c exception values",
         "Multibyte OID support",
         "Low-level manager API",
-        "Retry, error classification and circuit breakers",
+        "Retry, error classification and device quarantine",
         "SNMPv3 USM: MD5/SHA/SHA-2 authentication, DES/AES privacy"
       ],
       modules: %{
         "SnmpKit.SnmpLib.Manager" => "Low-level SNMP operations (GET, GETNEXT, SET, GETBULK)",
         "SnmpKit.SnmpLib.Walker" => "GETNEXT/GETBULK walks",
-        "SnmpKit.SnmpLib.ErrorHandler" => "Retry logic and circuit breakers",
+        "SnmpKit.SnmpLib.ErrorHandler" => "Retry, error classification and device quarantine",
         "SnmpKit.SnmpLib.PDU" => "SNMP PDU encoding/decoding",
         "SnmpKit.SnmpLib.ASN1" => "ASN.1 BER encoding/decoding",
         "SnmpKit.SnmpLib.OID" => "OID manipulation utilities",

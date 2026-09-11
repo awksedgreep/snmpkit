@@ -302,6 +302,29 @@ defmodule SnmpKit.MIB.Compiler do
     end
   end
 
+  @doc """
+  Writes a compiled MIB to `output_dir` as `NAME.bin`, in the form
+  `load_compiled/1` reads back.
+
+  The directory is created if needed. Returns the path written.
+
+  ## Examples
+
+      {:ok, compiled} = SnmpKit.MIB.Compiler.compile("IF-MIB.mib")
+      {:ok, "priv/compiled/IF-MIB.bin"} =
+        SnmpKit.MIB.Compiler.write_compiled(compiled, "priv/compiled")
+  """
+  @spec write_compiled(compiled_mib(), Path.t()) :: {:ok, Path.t()} | {:error, term()}
+  def write_compiled(%{name: name} = compiled, output_dir) when is_binary(name) do
+    path = Path.join(output_dir, name <> ".bin")
+    data = :erlang.term_to_binary(Map.put(compiled, :__type__, :compiled_mib))
+
+    with :ok <- File.mkdir_p(output_dir),
+         :ok <- File.write(path, data) do
+      {:ok, path}
+    end
+  end
+
   # Private helper functions
 
   # TODO: The following functions are for future MIB compilation features

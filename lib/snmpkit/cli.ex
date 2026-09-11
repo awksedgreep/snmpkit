@@ -24,15 +24,46 @@ defmodule SnmpKit.CLI do
 
   @aliases [c: :community, v: :version, t: :timeout, r: :retries, p: :port, O: :output, q: :quiet]
 
-  @doc "Parses task arguments into `{opts, positional}`; unknown switches abort the task."
-  def parse(argv) do
-    {opts, positional, invalid} = OptionParser.parse(argv, strict: @switches, aliases: @aliases)
+  # Integer switches with a meaningful range: {min, max | nil}.
+  @ranges [
+    timeout: {1, nil},
+    retries: {0, nil},
+    port: {1, 65_535},
+    max_repetitions: {1, nil},
+    walk_timeout: {1, nil}
+  ]
+
+  # Files a MIB directory may contain that are never MIB sources.
+  @skipped_extensions [".log", ".bin", ".json", ".md"]
+
+  @doc """
+  Parses task arguments into `{opts, positional}`; unknown switches and
+  out-of-range values abort the task. `extra` adds task-specific switches.
+  """
+  def parse(argv, extra \\ []) do
+    {opts, positional, invalid} =
+      OptionParser.parse(argv, strict: @switches ++ extra, aliases: @aliases)
 
     if invalid != [] do
       Mix.raise("unknown option(s): " <> Enum.map_join(invalid, ", ", fn {k, _} -> k end))
     end
 
+    check_ranges!(opts)
     {opts, positional}
+  end
+
+  defp check_ranges!(opts) do
+    Enum.each(@ranges, fn {key, {min, max}} ->
+      case Keyword.fetch(opts, key) do
+        {:ok, value} when value < min or (is_integer(max) and value > max) ->
+          flag = "--" <> String.replace(Atom.to_string(key), "_", "-")
+          range = if max, do: "between #{min} and #{max}", else: "at least #{min}"
+          Mix.raise("#{flag} must be #{range}, got #{value}")
+
+        _ ->
+          :ok
+      end
+    end)
   end
 
   @doc "Translates parsed CLI options into `SnmpKit.SNMP` call options."
@@ -60,6 +91,47 @@ defmodule SnmpKit.CLI do
     Mix.Task.run("app.start", [])
   end
 
+  @doc """
+  Expands MIB file and directory arguments into a list of files.
+
+  A directory contributes its regular files, sorted, minus obvious non-MIBs
+  (`#{Enum.join(@skipped_extensions, ", ")}`). A missing path, an unreadable
+  directory or a directory with no candidate files is a task error.
+  """
+  def expand_mib_paths(paths), do: Enum.flat_map(paths, &expand_mib_path/1)
+
+  defp expand_mib_path(path) do
+    cond do
+      File.dir?(path) ->
+        files =
+          case File.ls(path) do
+            {:ok, entries} ->
+              entries
+              |> Enum.sort()
+              |> Enum.map(&Path.join(path, &1))
+              |> Enum.filter(&File.regular?/1)
+              |> Enum.reject(&(Path.extname(&1) in @skipped_extensions))
+
+            {:error, reason} ->
+              Mix.raise("cannot read directory #{path}: #{:file.format_error(reason)}")
+          end
+
+        if files == [] do
+          Mix.raise(
+            "no MIB files in #{path} (#{Enum.join(@skipped_extensions, ", ")} files are skipped)"
+          )
+        end
+
+        files
+
+      File.regular?(path) ->
+        [path]
+
+      true ->
+        Mix.raise("no such file or directory: #{path}")
+    end
+  end
+
   @doc ~S"""
   One line per varbind, like `snmpwalk`: `ifDescr.1 = OCTET STRING: "eth0"`.
   With `raw: true` the value is printed instead of the formatted text.
@@ -83,7 +155,11 @@ defmodule SnmpKit.CLI do
 
   defp quote_if_string(_type, formatted, _value), do: formatted
 
-  @doc "Prints a result or raises a Mix error with the reason."
-  def report({:error, reason}, what), do: Mix.raise("#{what} failed: #{inspect(reason)}")
-  def report(other, _what), do: other
+  @doc """
+  Returns the value of an `{:ok, value}` result; any other result is a Mix
+  error naming the operation.
+  """
+  def unwrap!({:ok, value}, _what), do: value
+  def unwrap!({:error, reason}, what), do: Mix.raise("#{what} failed: #{inspect(reason)}")
+  def unwrap!(other, what), do: Mix.raise("#{what} returned #{inspect(other)}")
 end

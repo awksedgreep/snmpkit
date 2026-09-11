@@ -28,7 +28,6 @@ SNMP manager tests, including:
 - Core SNMP operations (GET, SET, WALK)
 - Bulk operations
 - Table processing
-- Circuit breaker functionality
 - Multi-target operations
 - Stream processing
 - Adaptive walking

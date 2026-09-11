@@ -102,4 +102,118 @@ defmodule Mix.Tasks.SnmpkitTest do
       Mix.Task.run("snmpkit.get", ["h", "o", "--bogus"])
     end
   end
+
+  test "out-of-range option values are Mix errors naming the flag", %{target: target} do
+    assert_raise Mix.Error, "--timeout must be at least 1, got 0", fn ->
+      run("snmpkit.get", [target, "sysDescr.0", "--timeout", "0"])
+    end
+
+    assert_raise Mix.Error, "--port must be between 1 and 65535, got 99999", fn ->
+      run("snmpkit.get", [target, "sysDescr.0", "-p", "99999"])
+    end
+
+    assert_raise Mix.Error, "--max-repetitions must be at least 1, got -5", fn ->
+      run("snmpkit.walk", [target, "system", "--max-repetitions", "-5"])
+    end
+
+    assert_raise Mix.Error, "--retries must be at least 0, got -1", fn ->
+      run("snmpkit.walk", [target, "system", "-r", "-1"])
+    end
+
+    assert_raise Mix.Error, "--walk-timeout must be at least 1, got 0", fn ->
+      run("snmpkit.walk", [target, "system", "--walk-timeout", "0"])
+    end
+
+    assert_raise Mix.Error, "--port must be between 1 and 65535, got 0", fn ->
+      run("snmpkit.sim", ["--device", "switch", "--port", "0"])
+    end
+  end
+
+  test "snmpkit.walk rejects more than one OID instead of dropping the rest", %{target: target} do
+    assert_raise Mix.Error, ~r/usage: mix snmpkit.walk.*one OID.*"ifTable"/s, fn ->
+      run("snmpkit.walk", [target, "system", "ifTable"])
+    end
+  end
+
+  test "snmpkit.sim --device typo lists the bundled devices and suggests the closest" do
+    assert_raise Mix.Error,
+                 ~r/unknown device "swtch" \(did you mean switch\?\).*cable_modem, router, switch/,
+                 fn ->
+                   run("snmpkit.sim", ["--device", "swtch"])
+                 end
+
+    assert_raise Mix.Error, ~r/unknown device "zzz"; --device takes cable_modem/, fn ->
+      run("snmpkit.sim", ["--device", "zzz"])
+    end
+
+    assert_raise Mix.Error, ~r/expected one config file, got: a.json b.json/, fn ->
+      run("snmpkit.sim", ["a.json", "b.json"])
+    end
+  end
+
+  test "MIB directories: .txt is compiled, all-filtered and unreadable dirs are errors" do
+    dir = Path.join(System.tmp_dir!(), "snmpkit-mibdir-#{System.unique_integer([:positive])}")
+    File.mkdir_p!(dir)
+    on_exit(fn -> File.chmod(dir, 0o755) && File.rm_rf(dir) end)
+
+    File.write!(Path.join(dir, "notes.md"), "# not a MIB\n")
+    File.write!(Path.join(dir, "IF-MIB.bin"), <<131, 106>>)
+
+    assert_raise Mix.Error, ~r/^no MIB files in #{Regex.escape(dir)} \(.*\.bin.* skipped\)/, fn ->
+      run("snmpkit.mib.lint", [dir])
+    end
+
+    File.cp!("test/fixtures/mibs/working/IF-MIB.mib", Path.join(dir, "IF-MIB.txt"))
+    out = run("snmpkit.mib.compile", [dir, "--quiet"])
+    assert out =~ ~r/^1 compiled, 0 failed/m
+
+    File.chmod!(dir, 0o000)
+
+    case File.ls(dir) do
+      # root reads it anyway; nothing to test
+      {:ok, _} ->
+        :ok
+
+      {:error, _} ->
+        assert_raise Mix.Error,
+                     ~r/cannot read directory #{Regex.escape(dir)}: permission denied/,
+                     fn ->
+                       run("snmpkit.mib.compile", [dir])
+                     end
+    end
+  end
+
+  test "snmpkit.mib.lint uses the shared option parser" do
+    assert_raise Mix.Error, ~r/unknown option\(s\): --bogus/, fn ->
+      run("snmpkit.mib.lint", ["test/fixtures/mibs/working/IF-MIB.mib", "--bogus"])
+    end
+
+    out =
+      run("snmpkit.mib.lint", [
+        "test/fixtures/mibs/working/IF-MIB.mib",
+        "-q",
+        "--context",
+        "test/fixtures/mibs/working/SNMPv2-SMI.mib",
+        "--context",
+        "test/fixtures/mibs/working/SNMPv2-TC.mib"
+      ])
+
+    assert out =~ ~r/^1 file\(s\), \d+ error\(s\), \d+ warning\(s\)$/m
+  end
+
+  test "snmpkit.mib.compile -O writes a file load_compiled/1 reads back" do
+    out_dir =
+      Path.join(System.tmp_dir!(), "snmpkit-compiled-#{System.unique_integer([:positive])}")
+
+    on_exit(fn -> File.rm_rf(out_dir) end)
+
+    out = run("snmpkit.mib.compile", ["test/fixtures/mibs/working/IF-MIB.mib", "-O", out_dir])
+    path = Path.join(out_dir, "IF-MIB.bin")
+    assert out =~ "wrote #{path}"
+
+    assert {:ok, %{__type__: :compiled_mib, name: "IF-MIB", symbols: symbols}} =
+             SnmpKit.MIB.Compiler.load_compiled(path)
+
+    assert Map.has_key?(symbols, "ifDescr")
+  end
 end

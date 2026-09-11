@@ -27,12 +27,11 @@ defmodule Mix.Tasks.Snmpkit.Mib.Compile do
     if paths == [], do: Mix.raise("usage: mix snmpkit.mib.compile PATH [PATH ...] [options]")
 
     CLI.ensure_app_started()
-    files = Enum.flat_map(paths, &expand/1)
-    compile_opts = if opts[:output], do: [output_dir: opts[:output], format: :binary], else: []
+    files = CLI.expand_mib_paths(paths)
 
     results =
       Enum.map(files, fn file ->
-        case SnmpKit.MIB.Compiler.compile(file, compile_opts) do
+        case SnmpKit.MIB.Compiler.compile(file, []) do
           {:ok, compiled} ->
             unless opts[:quiet] do
               Mix.shell().info("compiled #{file} (#{map_size(compiled.symbols)} symbols)")
@@ -42,6 +41,7 @@ defmodule Mix.Tasks.Snmpkit.Mib.Compile do
               end)
             end
 
+            if opts[:output], do: write(compiled, opts[:output], opts[:quiet])
             {:ok, file, length(compiled.warnings)}
 
           {:error, errors} ->
@@ -71,21 +71,10 @@ defmodule Mix.Tasks.Snmpkit.Mib.Compile do
     if failed > 0, do: exit({:shutdown, 1})
   end
 
-  defp expand(path) do
-    cond do
-      File.dir?(path) ->
-        path
-        |> File.ls!()
-        |> Enum.sort()
-        |> Enum.map(&Path.join(path, &1))
-        |> Enum.filter(&File.regular?/1)
-        |> Enum.reject(&(Path.extname(&1) in [".txt", ".log", ".bin", ".json", ".md"]))
-
-      File.regular?(path) ->
-        [path]
-
-      true ->
-        Mix.raise("no such file or directory: #{path}")
+  defp write(compiled, dir, quiet) do
+    case SnmpKit.MIB.Compiler.write_compiled(compiled, dir) do
+      {:ok, path} -> unless quiet, do: Mix.shell().info("  wrote #{path}")
+      {:error, reason} -> Mix.raise("cannot write #{compiled.name} to #{dir}: #{inspect(reason)}")
     end
   end
 
