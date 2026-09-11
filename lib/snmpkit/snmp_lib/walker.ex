@@ -43,6 +43,8 @@ defmodule SnmpKit.SnmpLib.Walker do
                                               max_repetitions: 50, timeout: 15_000)
   """
 
+  alias SnmpKit.SnmpLib.Types
+
   @default_max_repetitions 30
   @default_timeout 10_000
   @default_max_retries 3
@@ -477,7 +479,7 @@ defmodule SnmpKit.SnmpLib.Walker do
       state.socket,
       state.host,
       state.current_oid,
-      merge_bulk_options(state.opts, state.bulk_size)
+      state.opts |> merge_bulk_options(state.bulk_size) |> Keyword.put(:keep_exceptions, true)
     )
   end
 
@@ -538,48 +540,16 @@ defmodule SnmpKit.SnmpLib.Walker do
   defp cleanup_streaming_state(_state), do: :ok
 
   # Helper functions
+  # Both stop at the first exception varbind or the first OID outside the
+  # prefix (SnmpKit.SnmpLib.Types.take_in_scope/2 is the one shared rule).
   defp filter_table_varbinds(varbinds, table_prefix) do
-    valid_varbinds =
-      Enum.take_while(varbinds, fn
-        {oid, type, value} ->
-          case value do
-            nil
-            when is_atom(type) and type in [:end_of_mib_view, :no_such_object, :no_such_instance] ->
-              false
-
-            _ ->
-              oid_in_table?(oid, table_prefix)
-          end
-
-        {_oid, _value} ->
-          # Reject 2-tuple format - type information must be preserved
-          false
-      end)
-
-    continue? = length(valid_varbinds) == length(varbinds)
-    {valid_varbinds, continue?}
+    {valid_varbinds, done?} = Types.take_in_scope(varbinds, table_prefix)
+    {valid_varbinds, not done?}
   end
 
   defp filter_subtree_varbinds(varbinds, subtree_prefix) do
-    valid_varbinds =
-      Enum.take_while(varbinds, fn
-        {oid, type, value} ->
-          case value do
-            nil
-            when is_atom(type) and type in [:end_of_mib_view, :no_such_object, :no_such_instance] ->
-              false
-
-            _ ->
-              oid_in_subtree?(oid, subtree_prefix)
-          end
-
-        {_oid, _value} ->
-          # Reject 2-tuple format - type information must be preserved
-          false
-      end)
-
-    continue? = length(valid_varbinds) == length(varbinds)
-    {valid_varbinds, continue?}
+    {valid_varbinds, done?} = Types.take_in_scope(varbinds, subtree_prefix)
+    {valid_varbinds, not done?}
   end
 
   defp oid_in_table?(oid, table_prefix) when is_list(oid) and is_list(table_prefix) do

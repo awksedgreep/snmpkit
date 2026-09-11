@@ -98,14 +98,22 @@ defmodule SnmpKit.WalkUnitTest do
              "Walk module should not contain type inference code"
     end
 
-    test "bulk module source code rejects 2-tuple responses" do
-      bulk_source = File.read!("lib/snmpkit/snmp_mgr/bulk.ex")
+    test "bulk and walker filter responses through the shared scope helper, which rejects 2-tuples" do
+      # Bulk and Walker both page through SnmpKit.SnmpLib.Types.take_in_scope/2;
+      # a varbind without type information never makes it into a walk result
+      assert {[], true} =
+               SnmpKit.SnmpLib.Types.take_in_scope([{[1, 3, 6, 1, 2, 1, 1, 1, 0], "x"}], [1, 3, 6])
 
-      assert String.contains?(bulk_source, "type_information_lost") or
-               String.contains?(bulk_source, "Reject 2-tuple format"),
-             "Bulk module should reject responses without type information"
+      assert {[{[1, 3, 6, 1, 2, 1, 1, 1, 0], :octet_string, "x"}], true} =
+               SnmpKit.SnmpLib.Types.take_in_scope(
+                 [
+                   {[1, 3, 6, 1, 2, 1, 1, 1, 0], :octet_string, "x"},
+                   {[1, 3, 6, 1, 2, 1, 1, 2, 0], "y"}
+                 ],
+                 [1, 3, 6]
+               )
 
-      refute String.contains?(bulk_source, "infer_snmp_type"),
+      refute String.contains?(File.read!("lib/snmpkit/snmp_mgr/bulk.ex"), "infer_snmp_type"),
              "Bulk module should not contain type inference code"
     end
 
@@ -322,10 +330,9 @@ defmodule SnmpKit.WalkUnitTest do
       refute String.contains?(bulk_source, "infer_snmp_type(value)"),
              "Bulk should not infer types in result filtering"
 
-      # Should reject 2-tuple format
-      assert String.contains?(bulk_source, "false") and
-               String.contains?(bulk_source, "2-tuple"),
-             "Bulk should reject 2-tuple format in filtering"
+      # Scope filtering (which rejects 2-tuples) is the shared helper, not a local copy
+      assert String.contains?(bulk_source, "Types.take_in_scope("),
+             "Bulk should page through SnmpKit.SnmpLib.Types.take_in_scope/2"
     end
 
     test "core exposes the typed request functions" do

@@ -104,6 +104,7 @@ defmodule SnmpKit.SnmpLib.Types do
   @max_timeticks 4_294_967_295
   @max_counter64 18_446_744_073_709_551_615
   @max_unsigned32 4_294_967_295
+  @exception_types [:no_such_object, :no_such_instance, :end_of_mib_view]
 
   ## Enhanced Type System
 
@@ -577,12 +578,79 @@ defmodule SnmpKit.SnmpLib.Types do
       false = SnmpKit.SnmpLib.Types.is_exception_type?(:integer)
   """
   @spec is_exception_type?(snmp_type()) :: boolean()
-  def is_exception_type?(type)
-      when type in [:no_such_object, :no_such_instance, :end_of_mib_view] do
-    true
-  end
+  def is_exception_type?(type) when type in @exception_types, do: true
 
   def is_exception_type?(_), do: false
+
+  @doc """
+  True for a varbind that ends a walk: one carrying an SNMPv2 exception
+  (`noSuchObject`, `noSuchInstance`, `endOfMibView`) in its type or value slot.
+
+  The decoder emits exceptions as `{oid, :end_of_mib_view, nil}`; the value
+  forms `:end_of_mib_view` and `{:end_of_mib_view, nil}` are accepted too.
+
+  ## Examples
+
+      true = SnmpKit.SnmpLib.Types.end_of_mib?({[1, 3, 6], :end_of_mib_view, nil})
+      true = SnmpKit.SnmpLib.Types.end_of_mib?({[1, 3, 6], :no_such_instance, nil})
+      false = SnmpKit.SnmpLib.Types.end_of_mib?({[1, 3, 6], :integer, 1})
+  """
+  @spec end_of_mib?(term()) :: boolean()
+  def end_of_mib?({_oid, type, _value}) when type in @exception_types, do: true
+  def end_of_mib?({_oid, _type, value}) when value in @exception_types, do: true
+  def end_of_mib?({_oid, _type, {value, _}}) when value in @exception_types, do: true
+  def end_of_mib?(_), do: false
+
+  @doc """
+  True when `oid` (list or dotted string) lies under `root`.
+
+  ## Examples
+
+      true = SnmpKit.SnmpLib.Types.in_scope?([1, 3, 6, 1, 2, 1, 1, 1, 0], [1, 3, 6, 1, 2, 1, 1])
+      true = SnmpKit.SnmpLib.Types.in_scope?("1.3.6.1.2.1.1.1.0", [1, 3, 6, 1, 2, 1, 1])
+      false = SnmpKit.SnmpLib.Types.in_scope?([1, 3, 6, 1, 2, 1, 2], [1, 3, 6, 1, 2, 1, 1])
+  """
+  @spec in_scope?(term(), [non_neg_integer()]) :: boolean()
+  def in_scope?(oid, root) when is_list(oid) and is_list(root), do: List.starts_with?(oid, root)
+
+  def in_scope?(oid, root) when is_binary(oid) and is_list(root) do
+    case SnmpKit.SnmpLib.OID.string_to_list(oid) do
+      {:ok, oid_list} -> List.starts_with?(oid_list, root)
+      _ -> false
+    end
+  end
+
+  def in_scope?(_, _), do: false
+
+  @doc """
+  Splits a GETNEXT/GETBULK response into the leading varbinds a walk keeps
+  and whether the walk is finished.
+
+  Keeps `{oid, type, value}` varbinds up to the first exception
+  (`end_of_mib?/1`) or the first OID outside `root`; everything from that
+  point on is dropped. `done?` is true when something was cut, so the caller
+  knows not to ask for more. Every walk stack (`SnmpKit.SnmpLib.Walker`,
+  `SnmpKit.SnmpMgr.V2Walk`, `SnmpKit.SnmpMgr.Bulk`, `SnmpKit.SnmpMgr.AdaptiveWalk`)
+  terminates on this one rule.
+
+  ## Examples
+
+      {[{[1, 3, 6, 1, 1], :integer, 1}], true} =
+        SnmpKit.SnmpLib.Types.take_in_scope(
+          [{[1, 3, 6, 1, 1], :integer, 1}, {[1, 3, 6, 1, 2], :end_of_mib_view, nil}],
+          [1, 3, 6, 1]
+        )
+  """
+  @spec take_in_scope([term()], [non_neg_integer()]) :: {[tuple()], boolean()}
+  def take_in_scope(varbinds, root) when is_list(varbinds) and is_list(root) do
+    kept =
+      Enum.take_while(varbinds, fn
+        {oid, _type, _value} = varbind -> not end_of_mib?(varbind) and in_scope?(oid, root)
+        _ -> false
+      end)
+
+    {kept, length(kept) < length(varbinds)}
+  end
 
   @doc """
   Returns the maximum value for a numeric SNMP type.

@@ -181,20 +181,10 @@ defmodule SnmpKit.SnmpMgr.Walk do
             {:ok, Enum.reverse(acc)}
         end
 
-      {:error, {:snmp_error, :endOfMibView}} ->
-        # Reached end of MIB
-        {:ok, Enum.reverse(acc)}
-
-      {:error, {:snmp_error, :noSuchName}} ->
-        # No more objects
-        {:ok, Enum.reverse(acc)}
-
-      {:error, :end_of_mib_view} ->
-        # Reached end of MIB (alternative format)
-        {:ok, Enum.reverse(acc)}
-
-      {:error, :no_such_name} ->
-        # No more objects (alternative format)
+      # End of the MIB: an SNMPv2 exception varbind (surfaced by Core as an
+      # error) or an SNMPv1 noSuchName error status
+      {:error, reason}
+      when reason in [:end_of_mib_view, :no_such_object, :no_such_instance, :no_such_name] ->
         {:ok, Enum.reverse(acc)}
 
       {:error, _} = error ->
@@ -207,10 +197,8 @@ defmodule SnmpKit.SnmpMgr.Walk do
     {:ok, Enum.reverse(acc)}
   end
 
-  defp still_in_scope?(current_oid, root_oid) do
-    # Check if current OID is still within the root OID scope
-    List.starts_with?(current_oid, root_oid)
-  end
+  defp still_in_scope?(current_oid, root_oid),
+    do: SnmpKit.SnmpLib.Types.in_scope?(current_oid, root_oid)
 
   # OID resolution helper - delegates to canonical Core.parse_oid
   defp resolve_oid(oid), do: SnmpKit.SnmpMgr.Core.parse_oid(oid)

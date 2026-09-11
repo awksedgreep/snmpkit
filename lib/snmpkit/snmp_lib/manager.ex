@@ -81,7 +81,8 @@ defmodule SnmpKit.SnmpLib.Manager do
           port: pos_integer(),
           local_port: non_neg_integer(),
           max_repetitions: pos_integer(),
-          non_repeaters: non_neg_integer()
+          non_repeaters: non_neg_integer(),
+          keep_exceptions: boolean()
         ]
 
   ## Public API
@@ -260,7 +261,13 @@ defmodule SnmpKit.SnmpLib.Manager do
     if opts[:version] == :v1 do
       {:error, :getbulk_requires_v2c}
     else
+      # Walks pass keep_exceptions: true so the endOfMibView / noSuchObject
+      # markers that end a walk reach them (as {oid, exception, nil}) instead
+      # of being filtered out here
+      keep_exceptions? = opts[:keep_exceptions] == true
+
       case perform_bulk_operation(socket, host, normalized_oid, opts) do
+        {:ok, response} when keep_exceptions? -> Response.extract_varbinds(response)
         {:ok, response} -> Response.extract_bulk_result(response)
         {:error, reason} -> {:error, reason}
       end

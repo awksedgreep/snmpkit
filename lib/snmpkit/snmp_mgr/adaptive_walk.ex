@@ -6,6 +6,8 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
   bulk parameters based on device response characteristics for optimal performance.
   """
 
+  alias SnmpKit.SnmpLib.Types
+
   @default_initial_bulk_size 10
   @default_max_entries 1_000
 
@@ -192,41 +194,34 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
       opts
       |> Keyword.put(:max_repetitions, bulk_size)
       |> Keyword.put(:version, :v2c)
+      |> Keyword.put(:keep_exceptions, true)
 
     case SnmpKit.SnmpMgr.Core.send_get_bulk_request(target, current_oid, bulk_opts) do
       {:ok, results} ->
-        # Check for end of MIB conditions first
-        if has_end_of_mib?(results) do
-          {:ok, Enum.reverse(acc)}
-        else
-          # Filter results based on base OID
-          filtered_results = filter_results_by_base_oid(results, filter_oid)
+        # Stop at the first end-of-MIB marker or OID outside the base OID
+        {in_scope, done?} = Types.take_in_scope(results, filter_oid)
 
-          # Stop if no more results in scope
-          if Enum.empty?(filtered_results) do
+        case List.last(in_scope) do
+          nil ->
             {:ok, Enum.reverse(acc)}
-          else
-            # Get next OID for continuation
-            next_oid = get_next_oid(results)
 
-            # Stop if we can't determine next OID or if it's the same (no progress)
-            if next_oid == nil or next_oid == current_oid do
-              {:ok, Enum.reverse(acc)}
+          # Same OID back: the agent is not making progress, the page repeats
+          {^current_oid, _, _} ->
+            {:ok, Enum.reverse(acc)}
+
+          {next_oid, _, _} ->
+            new_acc = Enum.reverse(in_scope) ++ acc
+
+            if done? do
+              {:ok, Enum.reverse(new_acc)}
             else
-              # Add filtered results to accumulator
-              new_acc = Enum.reverse(filtered_results) ++ acc
-              new_remaining = remaining - length(filtered_results)
-
-              # Continue recursively
+              new_remaining = remaining - length(in_scope)
               simple_bulk_walk(target, next_oid, filter_oid, new_acc, new_remaining, opts)
             end
-          end
         end
 
-      {:error, :endOfMibView} ->
-        {:ok, Enum.reverse(acc)}
-
-      {:error, :noSuchName} ->
+      # A v1-style error status at the end of the MIB also ends the walk
+      {:error, reason} when reason in [:end_of_mib_view, :no_such_name] ->
         {:ok, Enum.reverse(acc)}
 
       {:error, _} = error ->
@@ -236,79 +231,6 @@ defmodule SnmpKit.SnmpMgr.AdaptiveWalk do
 
   defp simple_bulk_walk(_target, _current_oid, _filter_oid, acc, 0, _opts) do
     {:ok, Enum.reverse(acc)}
-  end
-
-  # Check if any result contains end-of-MIB indicators
-  defp has_end_of_mib?(results) do
-    Enum.any?(results, fn result ->
-      case result do
-        {_oid, :endOfMibView, _} -> true
-        {_oid, :noSuchObject, _} -> true
-        {_oid, :noSuchInstance, _} -> true
-        _ -> false
-      end
-    end)
-  end
-
-  # Filter results to only include those within the base OID scope
-  # Results should always be in {oid_list, type, value} format internally
-  defp filter_results_by_base_oid(results, filter_oid) do
-    Enum.filter(results, fn result ->
-      case result do
-        {oid_list, _type, _value} when is_list(oid_list) ->
-          oid_in_scope?(oid_list, filter_oid)
-
-        # Legacy support for mixed formats - convert and warn
-        {oid_string, _type, _value} when is_binary(oid_string) ->
-          case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
-            {:ok, oid_list} ->
-              # TODO: Fix upstream to return list format consistently
-              oid_in_scope?(oid_list, filter_oid)
-
-            _ ->
-              false
-          end
-
-        _ ->
-          false
-      end
-    end)
-  end
-
-  # Get the next OID for continuing the walk
-  # Should always return list format for internal operations
-  defp get_next_oid(results) do
-    case List.last(results) do
-      {oid_list, _type, _value} when is_list(oid_list) ->
-        oid_list
-
-      # Legacy support for mixed formats - convert and return list
-      {oid_string, _type, _value} when is_binary(oid_string) ->
-        case SnmpKit.SnmpLib.OID.string_to_list(oid_string) do
-          {:ok, oid_list} ->
-            # TODO: Fix upstream to return list format consistently
-            oid_list
-
-          _ ->
-            nil
-        end
-
-      _ ->
-        nil
-    end
-  end
-
-  # Check if OID is within scope of the filter OID
-  defp oid_in_scope?(oid_list, filter_oid) do
-    case filter_oid do
-      [] ->
-        # Empty filter means accept everything
-        true
-
-      _ ->
-        # Check if OID starts with filter OID
-        List.starts_with?(oid_list, filter_oid)
-    end
   end
 
   defp adaptive_table_walk(target, current_oid, root_oid, acc, remaining, opts) do
