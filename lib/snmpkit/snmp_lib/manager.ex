@@ -37,7 +37,7 @@ defmodule SnmpKit.SnmpLib.Manager do
   - `community`: SNMP community string (default: "public")
   - `version`: SNMP version (:v1, :v2c) (default: :v2c)
   - `timeout`: Operation timeout in milliseconds (default: 5000)
-  - `retries`: Number of retry attempts (default: 3)
+  - `retries`: Number of retry attempts (default: 1)
   - `port`: SNMP port (default: 161)
   - `local_port`: Local source port (default: 0 for random)
   """
@@ -49,7 +49,7 @@ defmodule SnmpKit.SnmpLib.Manager do
   @default_community "public"
   @default_version :v2c
   @default_timeout 5_000
-  @default_retries 3
+  @default_retries 1
   @default_port 161
   @default_local_port 0
   @default_max_repetitions 30

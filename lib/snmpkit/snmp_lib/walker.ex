@@ -47,7 +47,7 @@ defmodule SnmpKit.SnmpLib.Walker do
 
   @default_max_repetitions 30
   @default_timeout 10_000
-  @default_max_retries 3
+  @default_max_retries 1
   @default_retry_delay 1_000
   @max_bulk_size 100
   @min_bulk_size 5

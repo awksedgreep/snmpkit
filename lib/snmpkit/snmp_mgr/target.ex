@@ -127,7 +127,7 @@ defmodule SnmpKit.SnmpMgr.Target do
   Validates that a target responds to an SNMP probe.
   """
   def validate_connectivity(%{host: host, port: port}, timeout \\ 5000) do
-    case SnmpKit.SnmpLib.Manager.ping(host, port: port, timeout: timeout, retries: 0) do
+    case SnmpKit.SnmpLib.Manager.ping(host, port: port, timeout: timeout) do
       {:ok, :reachable} ->
         :ok
 

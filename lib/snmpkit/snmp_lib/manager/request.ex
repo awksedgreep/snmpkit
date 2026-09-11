@@ -10,7 +10,7 @@ defmodule SnmpKit.SnmpLib.Manager.Request do
   @default_community "public"
   @default_version :v2c
   @default_timeout 5_000
-  @default_retries 3
+  @default_retries 1
   @default_port 161
 
   # Socket management
