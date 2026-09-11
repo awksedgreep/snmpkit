@@ -21,7 +21,7 @@ A MIB defines the structure and meaning of SNMP data:
 - Defines data types for each object
 - Organizes objects into a hierarchical tree
 
-SnmpKit includes standard MIBs (SNMPv2-MIB, IF-MIB, etc.) loaded by default.
+SnmpKit includes standard MIBs (SNMPv2-MIB, IF-MIB, etc.) loaded by default. Compiling and loading your own MIB files is covered in [docs/mib-guide.md](../docs/mib-guide.md).
 
 ## OID Name Resolution
 
@@ -154,9 +154,9 @@ SnmpKit includes these standard MIBs:
 | udp | 1.3.6.1.2.1.7 | UDP statistics |
 | snmp | 1.3.6.1.2.1.11 | SNMP statistics |
 | host | 1.3.6.1.2.1.25 | Host resources (storage, device, processor, SW tables) |
-| docsis | 1.3.6.1.2.1.10.127 | DOCSIS IF-MIB (downstream, upstream, signal quality, CM status) |
+| docsIfMib | 1.3.6.1.2.1.10.127 | DOCSIS IF-MIB (downstream, upstream, signal quality, CM status) |
 
-Note: The deprecated AT group (1.3.6.1.2.1.3) and ICMP group are not included.
+Note: The deprecated AT group (1.3.6.1.2.1.3) is not included; `icmp` resolves to its group OID (1.3.6.1.2.1.5) but has no objects under it.
 
 ```elixir
 groups = ["system", "interfaces", "ip", "tcp", "udp", "snmp"]

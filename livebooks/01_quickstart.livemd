@@ -27,7 +27,7 @@ We'll create a simple cable modem simulation to test against - no real network r
 device_oids = %{
   "1.3.6.1.2.1.1.1.0" => "ARRIS SURFboard SB8200 DOCSIS 3.1 Cable Modem",
   "1.3.6.1.2.1.1.2.0" => "1.3.6.1.4.1.4115.1.20.1",
-  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 123456},
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 123456},  # type only; the device serves its own uptime
   "1.3.6.1.2.1.1.4.0" => "admin@example.com",
   "1.3.6.1.2.1.1.5.0" => "cable-modem-01",
   "1.3.6.1.2.1.1.6.0" => "Home Office",
@@ -127,6 +127,6 @@ IO.puts("1.3.6.1.2.1.1.1.0 -> #{name}")
 Now that you have the basics, explore:
 
 - **[SNMP Operations](02_snmp_operations.livemd)** - Bulk operations, multi-target, streaming
-- **[MIB Management](03_mib_management.livemd)** - Tree navigation, compiling custom MIBs
+- **[MIB Management](03_mib_management.livemd)** - Tree navigation, enhanced resolution
 - **[Device Simulation](04_device_simulation.livemd)** - Building realistic test devices
 - **[High Performance](05_high_performance.livemd)** - Polling at scale with the shared-socket engine

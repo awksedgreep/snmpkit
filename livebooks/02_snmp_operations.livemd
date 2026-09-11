@@ -99,7 +99,7 @@ IO.puts("  Name: #{result.name}")
 ```elixir
 cm_target = "127.0.0.1:1161"
 
-# Custom timeout and community
+# Per-PDU timeout (default 5000 ms) and community
 {:ok, result} = SNMP.get(cm_target, "sysUpTime.0",
   timeout: 5000,
   community: "public"
@@ -264,6 +264,8 @@ end)
 
 ## Error Handling
 
+Retries default to 1, so an unreachable target fails after `timeout * 2`; pass `retries: 0` for a single attempt. A mistyped OID is rejected before anything is sent.
+
 ```elixir
 # Timeout handling
 case SNMP.get("192.168.255.255:161", "sysDescr.0", timeout: 1000) do
@@ -271,6 +273,10 @@ case SNMP.get("192.168.255.255:161", "sysDescr.0", timeout: 1000) do
   {:error, :timeout} -> IO.puts("Request timed out")
   {:error, reason} -> IO.puts("Error: #{inspect(reason)}")
 end
+
+# Invalid OID: {:error, {:invalid_oid, input, reason}}
+{:error, {:invalid_oid, input, reason}} = SNMP.get("127.0.0.1:1161", "sysDescr.O")
+IO.puts("Rejected #{inspect(input)}: #{reason}")
 ```
 
 ## Next Steps
