@@ -13,6 +13,14 @@ Mix.install([
 alias SnmpKit.{SNMP, Sim}
 alias SnmpKit.SnmpSim.ProfileLoader
 
+# A free UDP port on the loopback interface, so the notebook runs anywhere
+free_port = fn ->
+  {:ok, socket} = :gen_udp.open(0, ip: {127, 0, 0, 1})
+  {:ok, port} = :inet.port(socket)
+  :gen_udp.close(socket)
+  port
+end
+
 IO.puts("SNMPv3 modules ready!")
 ```
 
@@ -42,10 +50,11 @@ serves the bundled router profile to three users, one per security level.
 
 ```elixir
 {:ok, profile} = ProfileLoader.load_profile(:router)
+port = free_port.()
 
 {:ok, device} =
   Sim.start_device(profile,
-    port: 1163,
+    port: port,
     bind_address: "127.0.0.1",
     device_id: "core-router-1",
     v3_users: [
@@ -61,7 +70,7 @@ serves the bundled router profile to three users, one per security level.
     ]
   )
 
-target = "127.0.0.1:1163"
+target = "127.0.0.1:#{port}"
 ```
 
 The device's engine id is derived from `device_id`, so it stays the same
@@ -108,6 +117,16 @@ for {index, row} <- Enum.sort(table) do
 end
 ```
 
+GETBULK exists since SNMPv2c, so it runs over v2c or v3 and is refused for
+`version: :v1`:
+
+```elixir
+{:ok, page} = SNMP.get_bulk(target, "ifTable", auth_priv ++ [max_repetitions: 3])
+IO.inspect(Enum.map(page, & &1.name), label: "first page over v3")
+
+SNMP.get_bulk(target, "ifTable", version: :v1)
+```
+
 ## What happened under the hood
 
 The first request to a target discovers its engine id and clock, and the
@@ -116,19 +135,19 @@ result is cached per `{host, port}`. Later requests skip discovery, and a
 transparently.
 
 ```elixir
-{:ok, engine_id} = SnmpKit.SnmpLib.Security.USM.discover_engine("127.0.0.1", port: 1163)
+{:ok, engine_id} = SnmpKit.SnmpLib.Security.USM.discover_engine("127.0.0.1", port: port)
 IO.puts("engine id: #{Base.encode16(engine_id)}")
 
-SnmpKit.SnmpLib.Security.EngineCache.lookup({{127, 0, 0, 1}, 1163})
+SnmpKit.SnmpLib.Security.EngineCache.lookup({{127, 0, 0, 1}, port})
 ```
 
 Clear the cache to force a fresh discovery, for instance after replacing a
 device:
 
 ```elixir
-SnmpKit.SnmpLib.Security.EngineCache.clear({{127, 0, 0, 1}, 1163})
+SnmpKit.SnmpLib.Security.EngineCache.clear({{127, 0, 0, 1}, port})
 {:ok, _} = SNMP.get(target, "sysUpTime.0", auth_priv)
-SnmpKit.SnmpLib.Security.EngineCache.lookup({{127, 0, 0, 1}, 1163}) != nil
+SnmpKit.SnmpLib.Security.EngineCache.lookup({{127, 0, 0, 1}, port}) != nil
 ```
 
 ## When it goes wrong
@@ -175,7 +194,7 @@ user. Reads work for everyone; SET needs `access: :write`.
 ```elixir
 {:ok, agent} =
   SnmpKit.Agent.start_link(
-    port: 1164,
+    port: 0,
     bind_address: "127.0.0.1",
     communities: [],
     v3_users: [
@@ -192,7 +211,7 @@ user. Reads work for everyone; SET needs `access: :write`.
     system: [descr: "orders-api 3.2", name: "orders-01"]
   )
 
-agent_target = "127.0.0.1:1164"
+agent_target = "127.0.0.1:#{SnmpKit.Agent.port(agent)}"
 
 {:ok, %{value: name}} = SNMP.get(agent_target, "sysName.0", auth_only)
 IO.puts("monitor reads sysName: #{name}")
@@ -207,7 +226,8 @@ gets no answer.
 ## Many devices
 
 Multi-target calls take per-request options, so a mixed fleet of v2c and
-v3 devices is one call.
+v3 devices is one call. `timeout:` and `retries:` apply per PDU here as
+everywhere else.
 
 ```elixir
 requests = [
@@ -216,7 +236,7 @@ requests = [
   {target, "sysUpTime.0", no_auth}
 ]
 
-SNMP.get_multi(requests, timeout: 2_000)
+SNMP.get_multi(requests, timeout: 2_000, retries: 1)
 |> Enum.zip(requests)
 |> Enum.map(fn {result, {host, oid, _}} -> {host, oid, result} end)
 ```
@@ -231,4 +251,5 @@ GenServer.stop(device)
 ## Next Steps
 
 - **[Your Own SNMP Agent](06_snmp_agent.livemd)** - scalars, tables and handlers behind those users
+- **[Traps and Informs](08_traps_and_informs.livemd)** - notifications, which SnmpKit sends and receives over v1 and v2c
 - **[Device Simulation](04_device_simulation.livemd)** - more ways to build the devices you test against

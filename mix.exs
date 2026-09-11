@@ -125,6 +125,8 @@ defmodule Snmpkit.MixProject do
         "livebooks/05_high_performance.livemd",
         "livebooks/06_snmp_agent.livemd",
         "livebooks/07_snmpv3.livemd",
+        "livebooks/08_traps_and_informs.livemd",
+        "livebooks/09_telemetry_and_rates.livemd",
         "examples/README.md"
       ],
       groups_for_modules: [

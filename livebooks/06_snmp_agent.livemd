@@ -24,12 +24,12 @@ answer those tools directly, with no net-snmp sidecar and no AgentX bridge.
 ## Start an agent
 
 Communities and SNMPv3 users carry an access level. Reads work for everyone;
-SET needs `:write`.
+SET needs `:write`. `port: 0` picks a free port, which `port/1` reads back.
 
 ```elixir
 {:ok, agent} =
   SnmpKit.Agent.start_link(
-    port: 1161,
+    port: 0,
     bind_address: "127.0.0.1",
     communities: %{"public" => :read, "private" => :write},
     v3_users: [
@@ -84,6 +84,38 @@ A `:write` principal can change the writable one; a `:read` one cannot.
 {:ok, {:integer, 45}} = SnmpKit.Agent.get(agent, [1, 3, 6, 1, 4, 1, 99999, 2, 0])
 ```
 
+A community the agent does not know is dropped without a response, as
+SNMP requires, so the manager sees a timeout rather than an error:
+
+```elixir
+SNMP.get(target, "sysName.0", community: "guess", timeout: 500, retries: 0)
+```
+
+A SET with several varbinds is checked as a whole before anything is
+written: if one varbind is refused, none is applied. `:bits` objects
+(an OCTET STRING on the wire) take SET like any other scalar.
+
+```elixir
+:ok = SnmpKit.Agent.put(agent, [1, 3, 6, 1, 4, 1, 99999, 3, 0], :bits, <<0b1000_0000>>, writable: true)
+
+:ok =
+  SNMP.set_many(
+    target,
+    [{[1, 3, 6, 1, 4, 1, 99999, 2, 0], 60}, {[1, 3, 6, 1, 4, 1, 99999, 3, 0], <<0b1100_0000>>}],
+    community: "private"
+  )
+
+# the version string is read-only, so the whole SET fails and 60 stays
+{:error, :not_writable} =
+  SNMP.set_many(
+    target,
+    [{[1, 3, 6, 1, 4, 1, 99999, 2, 0], 70}, {[1, 3, 6, 1, 4, 1, 99999, 1, 0], "4.0.0"}],
+    community: "private"
+  )
+
+{:ok, {:integer, 60}} = SnmpKit.Agent.get(agent, [1, 3, 6, 1, 4, 1, 99999, 2, 0])
+```
+
 ## Tables
 
 `SnmpKit.Agent.Table` turns a function that returns rows into a table.
@@ -111,7 +143,11 @@ table
 ```
 
 Walks, GETBULK and `walk_table` all work against it, because the agent
-implements GETNEXT and GETBULK properly across every subtree.
+implements GETNEXT and GETBULK properly across every subtree. The rows
+function is called once per request, so one PDU sees a consistent
+snapshot; within it the cells are sorted once and each GETNEXT step is a
+binary search, so a walk costs one rows call and one sort per PDU rather
+than per object.
 
 ```elixir
 {:ok, rows} = SNMP.bulk_walk(target, "interfaces", max_repetitions: 50)
@@ -160,6 +196,14 @@ Handlers run in the request's worker process, so several managers can be
 answered at once. A handler that raises produces a `genErr` response; the
 agent stays up.
 
+A handler without `set/3` is read-only (`notWritable`). To accept SET,
+implement `check_set/3` and `set/3`: the agent calls `check_set/3` for
+every varbind first and runs no `set/3` unless all of them return `:ok`.
+There is no undo phase, so a `set/3` that fails after earlier varbinds
+were written leaves those writes in place and answers `commitFailed`;
+a `check_set/3` that guarantees `set/3` succeeds gives your objects
+all-or-nothing behaviour.
+
 ## SNMPv3
 
 The same data over USM. Discovery, key localization and time
@@ -183,8 +227,10 @@ name
 
 ## Notifications
 
-`notify/4` sends a v2c trap (or an inform) to the configured targets with
-the agent's own `sysUpTime`. Here the receiver runs in the same VM.
+`notify/4` sends a v2c trap (or an inform, with `inform: true`) to the
+configured targets with the agent's own `sysUpTime`. Here the receiver
+runs in the same VM; the [traps and informs](08_traps_and_informs.livemd)
+notebook covers receivers, handlers and informs in depth.
 
 ```elixir
 {:ok, receiver} = SnmpKit.Trap.start_link(port: 0, bind_address: "127.0.0.1", handler: self())
@@ -215,7 +261,7 @@ children = [
    port: 161,
    name: MyApp.Agent,
    communities: %{"public" => :read},
-   v3_users: [%{name: "monitor", auth: :sha256, auth_password: System.fetch_env!("SNMP_AUTH")}],
+   v3_users: [%{name: "monitor", auth: :sha256, auth_password: System.get_env("SNMP_AUTH", "monitor-secret")}],
    system: [descr: "orders-api", name: Atom.to_string(node())],
    subtrees: [
      {"ifEntry", SnmpKit.Agent.Table, columns: [{1, :integer}, {2, :octet_string}], rows: &MyApp.Ports.rows/0},
@@ -223,10 +269,15 @@ children = [
    ],
    notify_targets: ["nms.example.com"]}
 ]
+
+children
 ```
 
-Every request emits `[:snmpkit, :agent, :request]` with its duration, PDU
-type, principal and error status, ready for `Telemetry.Metrics`.
+Every answered request emits `[:snmpkit, :agent, :request]` with its
+duration, PDU type, version, principal, error status and varbind count,
+ready for `Telemetry.Metrics` (see
+[telemetry and rates](09_telemetry_and_rates.livemd)). Dropped requests
+emit nothing; `SnmpKit.Agent.stats/1` counts them.
 
 ## Clean up
 
@@ -238,4 +289,6 @@ SnmpKit.Agent.stop(agent)
 ## Next Steps
 
 - **[SNMPv3](07_snmpv3.livemd)** - Users, security levels and what the reports mean
+- **[Traps and Informs](08_traps_and_informs.livemd)** - Receiving notifications, and sending them from agents and devices
+- **[Telemetry and Rates](09_telemetry_and_rates.livemd)** - The agent's `:telemetry` events among the others
 - **[Device Simulation](04_device_simulation.livemd)** - Simulated devices for the manager side of your tests

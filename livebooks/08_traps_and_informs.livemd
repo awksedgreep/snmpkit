@@ -1,0 +1,420 @@
+# Traps and Informs
+
+Receive SNMP notifications from your network, and send your own, from a
+manager, a simulated device or your own agent.
+
+## Setup
+
+```elixir
+Mix.install([
+  {:snmpkit, "~> 2.0"}
+])
+
+alias SnmpKit.{SNMP, Sim}
+alias SnmpKit.SnmpSim.ProfileLoader
+
+# A free UDP port on the loopback interface, so the notebook runs anywhere
+free_port = fn ->
+  {:ok, socket} = :gen_udp.open(0, ip: {127, 0, 0, 1})
+  {:ok, port} = :inet.port(socket)
+  :gen_udp.close(socket)
+  port
+end
+
+IO.puts("Notification modules ready!")
+```
+
+## Three kinds of notification
+
+Polling asks the device; a notification lets the device speak first: a
+link went down, a fan failed, the box rebooted. SNMP has three kinds.
+
+| Kind | Version | Acknowledged | Sent with |
+|------|---------|--------------|-----------|
+| trap | SNMPv1 | no | `SNMP.send_trap/4` with `version: :v1` |
+| trap | SNMPv2c | no | `SNMP.send_trap/4` |
+| inform | SNMPv2c | yes, the receiver answers | `SNMP.send_inform/4` |
+
+A trap is fire and forget: one datagram, and `:ok` means it was handed to
+the socket. An inform is re-sent until the receiver acknowledges it, so
+the sender learns whether it arrived. All three go to UDP port 162 by
+default.
+
+`SnmpKit.Trap` receives all three. The senders live in
+`SnmpKit.SnmpMgr.Notify`, reachable as `SnmpKit.SNMP.send_trap/4` and
+`SnmpKit.SNMP.send_inform/4`.
+
+## Start a receiver
+
+A receiver is a GenServer bound to a UDP port. Port 162 needs a
+privileged process; `port: 0` picks a free port, which `port/1` reads
+back. The simplest handler is a pid, which gets one
+`{:snmp_trap, notification}` message per notification.
+
+```elixir
+{:ok, receiver} =
+  SnmpKit.Trap.start_link(port: 0, bind_address: "127.0.0.1", handler: self())
+
+trap_port = SnmpKit.Trap.port(receiver)
+receiver_target = "127.0.0.1:#{trap_port}"
+```
+
+## Send a trap
+
+`send_trap/4` takes the target (`"host"`, `"host:port"` or
+`{host, port}`), the trap OID, a list of `{oid, type, value}` varbinds
+and options. OIDs may be lists, dotted strings or MIB names. The
+`sysUpTime.0` and `snmpTrapOID.0` varbinds every SNMPv2 notification
+starts with are added for you.
+
+```elixir
+:ok = SNMP.send_trap(receiver_target, "linkDown", [{"ifIndex.3", :integer, 3}])
+
+receive do
+  {:snmp_trap, notification} -> notification
+after
+  2_000 -> :no_trap
+end
+```
+
+## What a notification looks like
+
+Every handler gets the same map, whatever the version:
+
+- `kind` - `:trap` or `:inform`
+- `version` - `:v1` or `:v2c`
+- `community`, `source` (sender address and port), `received_at`
+- `trap_oid` and `trap_name` (`nil` when the MIB does not know the OID)
+- `uptime` - the sender's `sysUpTime`, in centiseconds
+- `varbinds` - enriched maps, as every `SnmpKit.SNMP` call returns; for
+  v2c the `sysUpTime.0` and `snmpTrapOID.0` varbinds are kept here as
+  well as lifted into `uptime` and `trap_oid`
+- `request_id` - v2c only
+- `agent_address`, `enterprise`, `generic_trap`, `specific_trap` - the
+  SNMPv1 trap fields (`agent_address` falls back to the sender for v2c)
+
+Options on the sending side: `community:` (default from
+`SnmpKit.SnmpMgr.Config`), `uptime:` (default: the VM's uptime, in
+centiseconds), `request_id:` and `version:` (`:v2c` or `:v1`).
+
+```elixir
+:ok =
+  SNMP.send_trap(receiver_target, "warmStart", [],
+    community: "ops",
+    uptime: 4242,
+    request_id: 77
+  )
+
+receive do
+  {:snmp_trap, n} -> Map.take(n, [:kind, :version, :community, :trap_name, :uptime, :request_id])
+after
+  2_000 -> :no_trap
+end
+```
+
+## SNMPv1 traps
+
+An SNMPv1 trap PDU has no `snmpTrapOID`; it carries an enterprise OID, a
+generic trap number (0 `coldStart` to 5 `egpNeighborLoss`, 6 for
+enterprise-specific), a specific trap number, the agent's address and a
+time stamp. SnmpKit maps between the two forms per RFC 3584: a standard
+trap name becomes the matching generic trap, and the receiver derives
+`trap_oid` back from the fields.
+
+```elixir
+:ok =
+  SNMP.send_trap(receiver_target, "linkDown", [{"ifIndex.3", :integer, 3}],
+    version: :v1,
+    agent_addr: {10, 1, 2, 3}
+  )
+
+receive do
+  {:snmp_trap, %{version: :v1} = n} ->
+    Map.take(n, [:trap_oid, :trap_name, :enterprise, :generic_trap, :specific_trap, :agent_address])
+after
+  2_000 -> :no_trap
+end
+```
+
+An enterprise-specific trap, `enterprise.0.N` in SNMPv2 form, becomes
+generic trap 6 with specific trap `N`. Override any field with
+`enterprise:`, `generic_trap:` or `specific_trap:` if a legacy receiver
+wants something else.
+
+```elixir
+disk_full = "1.3.6.1.4.1.99999.0.7"
+
+:ok =
+  SNMP.send_trap(receiver_target, disk_full, [{"1.3.6.1.4.1.99999.1.0", :octet_string, "/var"}],
+    version: :v1
+  )
+
+receive do
+  {:snmp_trap, %{version: :v1} = n} ->
+    Map.take(n, [:trap_oid, :trap_name, :enterprise, :generic_trap, :specific_trap])
+after
+  2_000 -> :no_trap
+end
+```
+
+## Informs
+
+An inform is acknowledged: the receiver answers with a Response PDU
+carrying the same request id, and `send_inform/4` returns `:ok` only when
+that answer arrives. It waits `timeout:` (default 5000 ms) and re-sends
+`retries:` times (default 1) before giving up.
+
+```elixir
+:ok = SNMP.send_inform(receiver_target, "linkUp", [{"ifIndex.3", :integer, 3}])
+
+receive do
+  {:snmp_trap, %{kind: :inform} = n} -> {n.kind, n.version, n.trap_name, n.request_id}
+after
+  2_000 -> :no_inform
+end
+```
+
+The receiver counts what it acknowledged:
+
+```elixir
+SnmpKit.Trap.stats(receiver)
+```
+
+When nobody answers, the result is `{:error, :timeout}` after
+`timeout * (retries + 1)` milliseconds:
+
+```elixir
+nobody = "127.0.0.1:#{free_port.()}"
+
+{elapsed_us, result} =
+  :timer.tc(fn -> SNMP.send_inform(nobody, "linkUp", [], timeout: 300, retries: 2) end)
+
+{result, div(elapsed_us, 1000)}
+```
+
+Informs exist since SNMPv2c, so `version: :v1` is refused:
+
+```elixir
+SNMP.send_inform(receiver_target, "linkUp", [], version: :v1)
+```
+
+## Handlers
+
+A handler is a pid, a function of one argument, or `{module, function,
+extra_args}` with the notification prepended to `extra_args`. Function
+and MFA handlers run in a fresh process per notification, so a slow
+handler never blocks the socket, and one that raises is logged while the
+receiver stays up.
+
+```elixir
+me = self()
+
+{:ok, fun_receiver} =
+  SnmpKit.Trap.start_link(
+    port: 0,
+    bind_address: "127.0.0.1",
+    handler: fn n -> send(me, {:alert, n.trap_name, n.source}) end
+  )
+
+defmodule Alerts do
+  def handle(notification, pid, tag), do: send(pid, {tag, notification.trap_name})
+end
+
+{:ok, mfa_receiver} =
+  SnmpKit.Trap.start_link(
+    port: 0,
+    bind_address: "127.0.0.1",
+    handler: {Alerts, :handle, [me, :mfa]}
+  )
+
+:ok = SNMP.send_trap("127.0.0.1:#{SnmpKit.Trap.port(fun_receiver)}", "warmStart")
+:ok = SNMP.send_trap("127.0.0.1:#{SnmpKit.Trap.port(mfa_receiver)}", "coldStart")
+
+from_fun =
+  receive do
+    {:alert, name, source} -> {name, source}
+  after
+    2_000 -> :nothing
+  end
+
+from_mfa =
+  receive do
+    {:mfa, name} -> name
+  after
+    2_000 -> :nothing
+  end
+
+{from_fun, from_mfa}
+```
+
+## Filtering by community
+
+`communities:` lists the community strings a receiver accepts; anything
+else is dropped, counted under `rejected_community` and reported as a
+`[:snmpkit, :trap, :rejected]` telemetry event. Undecodable packets and
+SNMPv3 datagrams are counted the same way, under `decode_errors` and
+`unsupported`.
+
+```elixir
+{:ok, strict} =
+  SnmpKit.Trap.start_link(
+    port: 0,
+    bind_address: "127.0.0.1",
+    handler: self(),
+    communities: ["traps-only"]
+  )
+
+strict_target = "127.0.0.1:#{SnmpKit.Trap.port(strict)}"
+
+:ok = SNMP.send_trap(strict_target, "warmStart", [], community: "public")
+:ok = SNMP.send_trap(strict_target, "warmStart", [], community: "traps-only")
+
+accepted =
+  receive do
+    {:snmp_trap, n} -> n.community
+  after
+    2_000 -> :no_trap
+  end
+
+{accepted, SnmpKit.Trap.stats(strict)}
+```
+
+## Trap names and the MIB
+
+The standard traps live under `snmpTraps` (`1.3.6.1.6.3.1.1.5`) and
+`snmpTrapOID` is the object whose `.0` instance carries the trap OID in
+an SNMPv2 notification. All of them resolve through the MIB registry, in
+both directions, which is where `trap_name` comes from.
+
+```elixir
+for name <- ["coldStart", "warmStart", "linkDown", "linkUp", "authenticationFailure", "snmpTrapOID"] do
+  {:ok, oid} = SnmpKit.MIB.resolve(name)
+  IO.puts("#{String.pad_trailing(name, 22)} #{Enum.join(oid, ".")}")
+end
+
+SnmpKit.MIB.reverse_lookup([1, 3, 6, 1, 6, 3, 1, 1, 5, 1])
+```
+
+A vendor's traps get names the same way once its MIB is compiled and
+loaded (see [MIB management](03_mib_management.livemd)); until then they
+are named by the nearest known ancestor, as `enterprises.99999.0.7` was
+above. A name nothing knows is refused before anything is sent:
+
+```elixir
+SNMP.send_trap(receiver_target, "noSuchTrap")
+```
+
+## From a simulated device
+
+`SnmpKit.Sim.send_trap/4` sends from a simulated device with the device's
+own community and `sysUpTime` (a few centiseconds, for a device started a
+moment ago); `to:` names the receiver.
+
+```elixir
+{:ok, profile} = ProfileLoader.load_profile(:router)
+
+{:ok, device} =
+  Sim.start_device(profile, port: free_port.(), bind_address: "127.0.0.1", community: "lab")
+
+:ok = Sim.send_trap(device, "linkDown", [{"ifIndex.1", :integer, 1}], to: receiver_target)
+
+receive do
+  {:snmp_trap, n} -> {n.community, n.uptime, n.trap_name}
+after
+  2_000 -> :no_trap
+end
+```
+
+## From your own agent
+
+`SnmpKit.Agent.notify/4` sends to the agent's `notify_targets:` (or to
+`targets:` in the call) with the agent's `sysUpTime`; `inform: true`
+sends informs and waits for the acknowledgements. The
+[agent notebook](06_snmp_agent.livemd) shows the trap; here is the inform,
+and what a failed target looks like.
+
+```elixir
+{:ok, agent} =
+  SnmpKit.Agent.start_link(
+    port: 0,
+    bind_address: "127.0.0.1",
+    notify_targets: [{"127.0.0.1", trap_port}]
+  )
+
+:ok = SnmpKit.Agent.notify(agent, "coldStart", [], inform: true)
+
+receive do
+  {:snmp_trap, n} -> {n.kind, n.trap_name, n.uptime}
+after
+  2_000 -> :no_inform
+end
+```
+
+```elixir
+SnmpKit.Agent.notify(agent, "coldStart", [],
+  targets: [nobody],
+  inform: true,
+  timeout: 300,
+  retries: 0
+)
+```
+
+## SNMPv3
+
+Notifications in SnmpKit are SNMPv1 and SNMPv2c. `SnmpKit.Trap` counts
+SNMPv3 datagrams under `unsupported` and drops them, and the senders'
+`version:` option takes `:v1` or `:v2c`. Devices that speak v3 for
+polling almost always allow a v2c trap destination alongside, which is
+how they are usually configured for a receiver like this one.
+
+## In production
+
+Put the receiver in your supervision tree. Binding port 162 needs root or
+a capability such as `setcap cap_net_bind_service=+ep` on the BEAM
+binary; a high port with a firewall redirect works too.
+
+```elixir
+children = [
+  {SnmpKit.Trap,
+   port: 162,
+   bind_address: "0.0.0.0",
+   communities: ["public"],
+   handler: {Alerts, :handle, [self(), :production]}}
+]
+
+children
+```
+
+Each accepted notification emits `[:snmpkit, :trap, :received]` with its
+kind, version, trap OID and name, community and source; rejected ones emit
+`[:snmpkit, :trap, :rejected]` with the reason.
+
+## Clean up
+
+```elixir
+for r <- [receiver, fun_receiver, mfa_receiver, strict], do: SnmpKit.Trap.stop(r)
+SnmpKit.Agent.stop(agent)
+SnmpKit.SnmpSim.stop_device(device)
+```
+
+## Summary
+
+- `SnmpKit.Trap.start_link/1` receives SNMPv1 traps, SNMPv2c traps and
+  informs on one port and hands each to a pid, a function or an MFA;
+  informs are acknowledged for you
+- Every handler gets the same map: `kind`, `version`, `trap_oid`,
+  `trap_name`, `uptime`, enriched `varbinds`, plus the v1 fields
+- `SNMP.send_trap/4` sends v2c (or v1) traps; `SNMP.send_inform/4` waits
+  for the acknowledgement with `timeout:` and `retries:` and returns
+  `{:error, :timeout}` when none comes
+- `SnmpKit.Sim.send_trap/4` and `SnmpKit.Agent.notify/4` send with the
+  device's or agent's own community and uptime
+- Trap OIDs and varbind OIDs may be MIB names, and `trap_name` is resolved
+  through the same registry
+- Everything here is v1/v2c; SNMPv3 notifications are dropped
+
+## Next Steps
+
+- **[Your Own SNMP Agent](06_snmp_agent.livemd)** - The agent whose `notify/4` you just used
+- **[Telemetry and Rates](09_telemetry_and_rates.livemd)** - The `:telemetry` events receivers emit
+- **[Device Simulation](04_device_simulation.livemd)** - Devices to send traps from

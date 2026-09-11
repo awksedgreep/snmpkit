@@ -1,0 +1,408 @@
+# Telemetry and Rates
+
+Watch what SnmpKit is doing through `:telemetry`, and turn the counters
+you poll into rates with `SnmpKit.SNMP.Rate`.
+
+## Setup
+
+```elixir
+Mix.install([
+  {:snmpkit, "~> 2.0"}
+])
+
+alias SnmpKit.{SNMP, Sim}
+alias SnmpKit.SNMP.Rate
+alias SnmpKit.SnmpSim.ProfileLoader
+
+# A free UDP port on the loopback interface, so the notebook runs anywhere
+free_port = fn ->
+  {:ok, socket} = :gen_udp.open(0, ip: {127, 0, 0, 1})
+  {:ok, port} = :inet.port(socket)
+  :gen_udp.close(socket)
+  port
+end
+
+IO.puts("Telemetry and rate modules ready!")
+```
+
+## A device to poll
+
+One simulated device with an interface and two octet counters. A
+simulated device's counters stand still unless something moves them;
+`SnmpKit.SnmpSim.Device.update_counter/3` keeps a running total per OID
+that overrides the profile's value, so we seed the totals once and add to
+them between polls.
+
+```elixir
+oids = %{
+  "1.3.6.1.2.1.1.1.0" => "rates demo",
+  "1.3.6.1.2.1.1.3.0" => %{type: "TimeTicks", value: 0},
+  "1.3.6.1.2.1.1.5.0" => "edge-01",
+  "1.3.6.1.2.1.2.2.1.2.1" => "eth0",
+  "1.3.6.1.2.1.2.2.1.5.1" => %{type: "Gauge32", value: 1_000_000_000},
+  "1.3.6.1.2.1.2.2.1.10.1" => %{type: "Counter32", value: 1_000_000},
+  "1.3.6.1.2.1.2.2.1.16.1" => %{type: "Counter32", value: 500_000}
+}
+
+{:ok, profile} = ProfileLoader.load_profile(:edge, {:manual, oids})
+port = free_port.()
+{:ok, device} = Sim.start_device(profile, port: port, bind_address: "127.0.0.1", device_id: "edge-01")
+target = "127.0.0.1:#{port}"
+
+if_in_octets = "1.3.6.1.2.1.2.2.1.10.1"
+if_out_octets = "1.3.6.1.2.1.2.2.1.16.1"
+:ok = SnmpKit.SnmpSim.Device.update_counter(device, if_in_octets, 1_000_000)
+:ok = SnmpKit.SnmpSim.Device.update_counter(device, if_out_octets, 500_000)
+
+{:ok, %{formatted: descr}} = SNMP.get(target, "sysDescr.0")
+descr
+```
+
+## The events
+
+`SnmpKit.Telemetry` documents every event. Three are spans, emitted as
+`:start`, `:stop` and `:exception` with the standard `:telemetry.span/3`
+measurements (`system_time` on start, `duration` on stop and exception):
+
+| Span | Around | Metadata |
+|------|--------|----------|
+| `[:snmpkit, :request, _]` | one single-target PDU exchange (`get`, `get_next`, `set`, `get_bulk`), retries included | `operation`, `target`, `oid`, `version`; on stop `result` (`:ok`/`:error`) and `reason` |
+| `[:snmpkit, :walk, _]` | a whole single-target walk (`walk`, `walk_table`, `bulk_walk`, `adaptive_walk`) | `operation`, `target`, `root_oid`; on stop `result`, `reason`, `count` (varbinds) |
+| `[:snmpkit, :multi, _]` | a multi-target call (`get_multi`, `get_bulk_multi`, `walk_multi`, `walk_table_multi`, `execute_mixed`) | `operation`, `request_count`; on stop `ok_count`, `error_count` |
+
+Five are plain events:
+
+| Event | Measurements | Metadata |
+|-------|--------------|----------|
+| `[:snmpkit, :engine, :timeout]` | `%{count: 1}` | `request_id`, `target` |
+| `[:snmpkit, :trap, :received]` | `%{count: 1}` | `kind`, `version`, `trap_oid`, `trap_name`, `community`, `source` |
+| `[:snmpkit, :trap, :rejected]` | `%{count: 1}` | `reason` (`:community`, `:decode_error`, `:unsupported`), `source` |
+| `[:snmpkit, :sim, :request]` | `%{duration}` | `device_id`, `port`, `pdu_type`, `result` (`:ok`/`:error_injected`) |
+| `[:snmpkit, :agent, :request]` | `%{duration}` | `pdu_type`, `version`, `principal`, `error_status`, `varbinds` |
+
+Durations are in native time units; convert them with
+`System.convert_time_unit/3`.
+
+## Attach a handler
+
+Handlers run in the process that emits the event, so keep them quick.
+This one forwards every event to the notebook process; `show_events`
+drains and prints them.
+
+```elixir
+events = [
+  [:snmpkit, :request, :start],
+  [:snmpkit, :request, :stop],
+  [:snmpkit, :request, :exception],
+  [:snmpkit, :walk, :start],
+  [:snmpkit, :walk, :stop],
+  [:snmpkit, :walk, :exception],
+  [:snmpkit, :multi, :start],
+  [:snmpkit, :multi, :stop],
+  [:snmpkit, :multi, :exception],
+  [:snmpkit, :engine, :timeout],
+  [:snmpkit, :trap, :received],
+  [:snmpkit, :trap, :rejected],
+  [:snmpkit, :sim, :request],
+  [:snmpkit, :agent, :request]
+]
+
+me = self()
+:telemetry.detach("livebook-snmpkit")
+
+:ok =
+  :telemetry.attach_many(
+    "livebook-snmpkit",
+    events,
+    fn event, measurements, metadata, _config ->
+      send(me, {:telemetry, event, measurements, metadata})
+    end,
+    nil
+  )
+
+show_events = fn ->
+  Stream.repeatedly(fn ->
+    receive do
+      {:telemetry, event, measurements, metadata} -> {event, measurements, metadata}
+    after
+      200 -> nil
+    end
+  end)
+  |> Enum.take_while(&(&1 != nil))
+  |> Enum.each(fn {event, measurements, metadata} ->
+    duration =
+      case measurements do
+        %{duration: d} -> " #{System.convert_time_unit(d, :native, :microsecond)} us"
+        _ -> ""
+      end
+
+    IO.puts("#{Enum.join(event, ".")}#{duration}")
+    IO.puts("    #{inspect(Map.drop(metadata, [:telemetry_span_context]))}")
+  end)
+end
+
+:ok
+```
+
+## Requests, walks and multi-target calls
+
+A single GET is one request span, and the simulated device on the other
+end times itself answering it:
+
+```elixir
+{:ok, _} = SNMP.get(target, "sysName.0")
+show_events.()
+```
+
+A walk is one span for the whole walk, with the varbind count on stop;
+its PDUs are not spanned one by one.
+
+```elixir
+{:ok, _} = SNMP.walk(target, "system")
+show_events.()
+```
+
+A failed request carries the reason. With `retries: 0` this one gives up
+after a single timeout:
+
+```elixir
+nobody = "127.0.0.1:#{free_port.()}"
+{:error, :timeout} = SNMP.get(nobody, "sysName.0", timeout: 300, retries: 0)
+show_events.()
+```
+
+Multi-target calls are spanned as one call with `ok_count` and
+`error_count`; the shared-socket engine reports every request it gave up
+on as `[:snmpkit, :engine, :timeout]`:
+
+```elixir
+SNMP.get_multi([{target, "sysName.0"}, {nobody, "sysName.0"}], timeout: 300, retries: 0)
+show_events.()
+```
+
+## Receivers and agents
+
+A trap receiver emits `received` for every notification it hands to its
+handler and `rejected` for the ones it drops:
+
+```elixir
+{:ok, receiver} = SnmpKit.Trap.start_link(port: 0, bind_address: "127.0.0.1", communities: ["ok"])
+receiver_target = "127.0.0.1:#{SnmpKit.Trap.port(receiver)}"
+
+:ok = SNMP.send_trap(receiver_target, "linkDown", [{"ifIndex.1", :integer, 1}], community: "ok")
+:ok = SNMP.send_trap(receiver_target, "linkDown", [], community: "bad")
+Process.sleep(100)
+show_events.()
+```
+
+Your own agent (`SnmpKit.Agent`) times every request it answers, tagged
+with the principal that asked:
+
+```elixir
+{:ok, agent} =
+  SnmpKit.Agent.start_link(port: 0, bind_address: "127.0.0.1", communities: %{"public" => :read})
+
+{:ok, _} = SNMP.get("127.0.0.1:#{SnmpKit.Agent.port(agent)}", "sysUpTime.0")
+show_events.()
+```
+
+## Metrics
+
+For dashboards, point `Telemetry.Metrics` at the stop events: a
+`summary("snmpkit.request.stop.duration", unit: {:native, :millisecond}, tags: [:operation, :result])`
+gives request latency per operation, a
+`counter("snmpkit.engine.timeout.count")` counts engine timeouts, and
+`distribution("snmpkit.walk.stop.count", tags: [:root_oid])` shows how big
+your walks are. Detach the notebook handler when you are done with it:
+
+```elixir
+:telemetry.detach("livebook-snmpkit")
+```
+
+## Rates from two samples
+
+Counters only ever go up, so two samples of the same object are a delta,
+and a delta over an interval is a rate. `Rate.delta/3` and `Rate.rate/4`
+take the enriched maps `SNMP.get/3` returns, `{type, value}` tuples, or
+bare integers with a `type:` option.
+
+```elixir
+{:ok, t0} = SNMP.get(target, "ifInOctets.1")
+
+# 250 kB arrive on eth0 ...
+:ok = SnmpKit.SnmpSim.Device.update_counter(device, if_in_octets, 250_000)
+Process.sleep(1_000)
+
+{:ok, t1} = SNMP.get(target, "ifInOctets.1")
+
+{:ok, delta} = Rate.delta(t0, t1)
+{:ok, rate} = Rate.rate(t0, t1, 1_000)
+
+mbit = fn bytes_per_second -> :erlang.float_to_binary(bytes_per_second * 8 / 1_000_000, decimals: 1) end
+
+IO.puts("#{t0.value} -> #{t1.value}: #{delta} bytes, #{trunc(rate)} bytes/s, #{mbit.(rate)} Mbit/s")
+```
+
+## Wraps
+
+A Counter32 wraps to zero after 4,294,967,295 and a Counter64 after
+2^64 - 1. `delta/3` assumes a counter that went down has wrapped once,
+which is right for a busy 32-bit counter; gauges and integers can go
+down, so their delta is the plain difference.
+
+```elixir
+{:ok, 1296} = Rate.delta({:counter32, 4_294_967_000}, {:counter32, 1_000})
+{:ok, 129.6} = Rate.rate({:counter32, 4_294_967_000}, {:counter32, 1_000}, 10_000)
+{:ok, -30} = Rate.delta({:gauge32, 50}, {:gauge32, 20})
+{:ok, 100.0} = Rate.rate(100, 200, 1_000, type: :counter64)
+
+Rate.delta({:counter32, 1}, {:counter64, 2})
+```
+
+A counter that wrapped *twice* between samples cannot be told from one
+that wrapped once, and its delta is under-reported. A 32-bit octet
+counter wraps in under 35 seconds at 1 Gbit/s, so either poll faster
+than that or give `max_rate:`, the highest rate the object can plausibly
+show, and a rate only a double wrap explains becomes an error:
+
+```elixir
+Rate.rate({:counter32, 100}, {:counter32, 50}, 1_000, max_rate: 125_000_000)
+```
+
+## Whole walks with `rates/3`
+
+`rates/3` pairs two walks (or two `get_multi` results) by OID and rates
+every counter, gauge and integer present in both. When both samples
+carry `sysUpTime.0` the interval comes from the device's own clock,
+which is more accurate than yours and reveals a restart.
+
+```elixir
+{:ok, w0} = SNMP.walk(target, [1, 3, 6, 1, 2, 1])
+
+# a second of traffic at about 1 Gbit/s in, 320 Mbit/s out
+:ok = SnmpKit.SnmpSim.Device.update_counter(device, if_in_octets, 125_000_000)
+:ok = SnmpKit.SnmpSim.Device.update_counter(device, if_out_octets, 40_000_000)
+Process.sleep(1_000)
+
+{:ok, w1} = SNMP.walk(target, [1, 3, 6, 1, 2, 1])
+{:ok, rates} = Rate.rates(w0, w1)
+
+for %{name: name, type: type, delta: delta, rate: rate} <- rates do
+  IO.puts("#{String.pad_trailing(name, 14)} #{String.pad_trailing("#{type}", 10)} delta #{delta}  #{mbit.(rate)} Mbit/s")
+end
+
+rates
+```
+
+Strings, OIDs, addresses and TimeTicks are never candidates. `ifSpeed.1`
+is a gauge, so it is rated (and did not move). Each entry keeps the
+`previous` and `current` values next to the `delta` and `rate`.
+
+## Restarts, and the 497-day wrap
+
+If `sysUpTime.0` went backwards the device restarted and its counters
+were reset, so `rates/3` refuses to invent rates from them:
+
+```elixir
+before_reboot = [
+  %{oid: "1.3.6.1.2.1.1.3.0", name: "sysUpTime.0", type: :timeticks, value: 8_640_000},
+  %{oid: "1.3.6.1.2.1.2.2.1.10.1", name: "ifInOctets.1", type: :counter32, value: 3_000_000_000}
+]
+
+after_reboot = [
+  %{oid: "1.3.6.1.2.1.1.3.0", name: "sysUpTime.0", type: :timeticks, value: 500},
+  %{oid: "1.3.6.1.2.1.2.2.1.10.1", name: "ifInOctets.1", type: :counter32, value: 20_000}
+]
+
+Rate.rates(before_reboot, after_reboot)
+```
+
+`sysUpTime` is itself a 32-bit TimeTicks value and wraps after 2^32
+centiseconds, about 497 days. From two samples a wrap looks exactly like
+a restart, so `rates/3` reports `{:error, :device_restarted}` for it too.
+When a poll may span that boundary, pass `interval_ms:` from your own
+clock; it always takes priority over the uptime varbinds, and it is also
+what to pass when the samples carry no `sysUpTime.0` at all.
+
+```elixir
+{:ok, [entry]} = Rate.rates(before_reboot, after_reboot, interval_ms: 10_000)
+entry
+```
+
+```elixir
+{:ok, 15_000} = Rate.interval_from_uptime(1_000, 2_500)
+Rate.interval_from_uptime(4_294_967_195, 5)
+```
+
+## Objects that cannot be rated
+
+A candidate without a previous sample, whose type changed, or whose rate
+exceeds `max_rate:` is left out by default. With `unrateable: :error`
+the first such object is reported instead, which is the right setting
+when a missing rate should fail a poll rather than pass silently.
+
+```elixir
+{:ok, w2} = SNMP.walk(target, [1, 3, 6, 1, 2, 1])
+without_out = Enum.reject(w1, &(&1.name == "ifOutOctets.1"))
+
+{:ok, skipped} = Rate.rates(without_out, w2, interval_ms: 1_000)
+IO.inspect(Enum.map(skipped, & &1.name), label: "rated with :skip")
+
+Rate.rates(without_out, w2, interval_ms: 1_000, unrateable: :error)
+```
+
+## A polling loop
+
+Keep the previous walk, rate each new one against it, and carry the new
+one forward. `max_rate:` is the interface's line rate in bytes per
+second.
+
+```elixir
+line_rate = div(1_000_000_000, 8)
+
+Enum.reduce(1..3, w2, fn cycle, previous ->
+  :ok = SnmpKit.SnmpSim.Device.update_counter(device, if_in_octets, :rand.uniform(100_000_000))
+  :ok = SnmpKit.SnmpSim.Device.update_counter(device, if_out_octets, :rand.uniform(100_000_000))
+  Process.sleep(1_000)
+
+  {:ok, current} = SNMP.walk(target, [1, 3, 6, 1, 2, 1])
+  {:ok, rates} = Rate.rates(previous, current, max_rate: line_rate)
+
+  for %{name: name, rate: rate} <- rates, String.contains?(name, "Octets") do
+    IO.puts("cycle #{cycle}: #{String.pad_trailing(name, 14)} #{mbit.(rate)} Mbit/s")
+  end
+
+  current
+end)
+
+:ok
+```
+
+## Clean up
+
+```elixir
+SnmpKit.Trap.stop(receiver)
+SnmpKit.Agent.stop(agent)
+SnmpKit.SnmpSim.stop_device(device)
+```
+
+## Summary
+
+- `SnmpKit.Telemetry` lists every event: `request`, `walk` and `multi`
+  spans on the manager side, `engine.timeout`, `trap.received` and
+  `trap.rejected`, `sim.request` and `agent.request`
+- Attach with `:telemetry.attach_many/4` or point `Telemetry.Metrics` at
+  the stop events; durations are native time units
+- `Rate.delta/3` and `Rate.rate/4` turn two samples into a delta and a
+  per-second rate, wrap-corrected for Counter32 and Counter64
+- `Rate.rates/3` pairs whole walks by OID, reads the interval from
+  `sysUpTime.0` (or `interval_ms:`), and reports a restart instead of
+  rating reset counters
+- `max_rate:` catches a double wrap; `unrateable: :error` makes a missing
+  rate a failure; `sysUpTime` itself wraps after about 497 days
+
+## Next Steps
+
+- **[High Performance](05_high_performance.livemd)** - The multi-target calls whose `multi` spans you saw
+- **[Traps and Informs](08_traps_and_informs.livemd)** - The receivers behind `trap.received`
+- **[Your Own SNMP Agent](06_snmp_agent.livemd)** - The agent behind `agent.request`
