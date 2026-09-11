@@ -239,7 +239,9 @@ defmodule SnmpKit.SnmpLib.WalkerTest do
           end)
         end)
 
-      results = Task.await_many(tasks, 1000)
+      # Each walk retries at 100 ms; under a loaded full-suite run three of
+      # them can take longer than a second, which is not what this asserts.
+      results = Task.await_many(tasks, 5000)
 
       # All should complete (with errors due to invalid host)
       assert length(results) == 3
