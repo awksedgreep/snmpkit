@@ -194,6 +194,24 @@ defmodule SnmpKit.SnmpMgr.Format do
   def format_by_type(_type, value), do: inspect(value)
 
   # Enrichment helpers
+
+  @typedoc """
+  The varbind map every SnmpMgr read operation returns.
+
+  `:name` is present when `include_names` is true (the default) and
+  `:formatted` when `include_formatted` is true (the default); pass
+  `include_names: false, include_formatted: false` for the bare
+  `%{oid, oid_list, type, value}` map.
+  """
+  @type enriched_varbind :: %{
+          required(:oid) => String.t(),
+          required(:oid_list) => [non_neg_integer()],
+          required(:type) => atom(),
+          required(:value) => any(),
+          optional(:name) => String.t() | nil,
+          optional(:formatted) => String.t()
+        }
+
   @doc """
   Enrich a single varbind tuple into a standardized map.
 
@@ -203,6 +221,7 @@ defmodule SnmpKit.SnmpMgr.Format do
   - include_formatted (default true)
   """
   # Provide default opts once, then pattern match in subsequent clauses
+  @spec enrich_varbind(tuple() | map(), keyword()) :: enriched_varbind()
   def enrich_varbind(varbind, opts \\ [])
   # Idempotent: if a map already looks enriched, return it unchanged.
   def enrich_varbind(%{oid: _oid, type: _type, value: _value} = already_enriched, _opts) do
@@ -300,6 +319,7 @@ defmodule SnmpKit.SnmpMgr.Format do
   Enrich a list of varbind tuples into standardized maps.
   Idempotent with respect to already-enriched maps.
   """
+  @spec enrich_varbinds([tuple() | map()], keyword()) :: [enriched_varbind()]
   def enrich_varbinds(list, opts \\ []) when is_list(list) do
     Enum.map(list, fn
       %{oid: _oid, type: _type, value: _value} = m -> enrich_varbind(m, opts)

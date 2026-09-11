@@ -411,6 +411,66 @@ defmodule SnmpKit.SnmpLib.TypesTest do
     end
   end
 
+  describe "walk termination helpers" do
+    @root [1, 3, 6, 1, 2, 1, 1]
+
+    test "end_of_mib?/1 is true for every SNMPv2 exception in the type slot" do
+      for exception <- [:end_of_mib_view, :no_such_object, :no_such_instance] do
+        assert Types.end_of_mib?({@root ++ [1, 0], exception, nil})
+        # value-slot spellings some paths still produce
+        assert Types.end_of_mib?({@root ++ [1, 0], :null, exception})
+        assert Types.end_of_mib?({@root ++ [1, 0], :null, {exception, nil}})
+      end
+    end
+
+    test "end_of_mib?/1 is false for data and for non-varbinds" do
+      refute Types.end_of_mib?({@root ++ [1, 0], :octet_string, "x"})
+      refute Types.end_of_mib?({@root ++ [1, 0], :null, nil})
+      refute Types.end_of_mib?({@root ++ [1, 0], :integer, 0})
+      refute Types.end_of_mib?({@root ++ [1, 0], "x"})
+      refute Types.end_of_mib?(nil)
+    end
+
+    test "in_scope?/2 accepts list and dotted-string OIDs under the root" do
+      assert Types.in_scope?(@root ++ [1, 0], @root)
+      assert Types.in_scope?(@root, @root)
+      assert Types.in_scope?("1.3.6.1.2.1.1.1.0", @root)
+      refute Types.in_scope?([1, 3, 6, 1, 2, 1, 2], @root)
+      refute Types.in_scope?("1.3.6.1.2.1.2.1", @root)
+      refute Types.in_scope?("not an oid", @root)
+      refute Types.in_scope?(nil, @root)
+    end
+
+    test "take_in_scope/2 cuts at the first exception and reports the walk as done" do
+      for exception <- [:end_of_mib_view, :no_such_object, :no_such_instance] do
+        page = [
+          {@root ++ [1, 0], :octet_string, "a"},
+          {@root ++ [2, 0], exception, nil},
+          {@root ++ [3, 0], :timeticks, 1}
+        ]
+
+        assert {[{_, :octet_string, "a"}], true} = Types.take_in_scope(page, @root)
+      end
+    end
+
+    test "take_in_scope/2 cuts at the first OID outside the root" do
+      page = [
+        {@root ++ [1, 0], :octet_string, "a"},
+        {[1, 3, 6, 1, 2, 1, 2, 1, 0], :integer, 2},
+        {@root ++ [3, 0], :timeticks, 1}
+      ]
+
+      assert {[{_, :octet_string, "a"}], true} = Types.take_in_scope(page, @root)
+    end
+
+    test "take_in_scope/2 keeps a clean page whole and a marker-only page empty" do
+      page = [{@root ++ [1, 0], :octet_string, "a"}, {@root ++ [2, 0], :integer, 2}]
+      assert {^page, false} = Types.take_in_scope(page, @root)
+      assert {[], false} = Types.take_in_scope([], @root)
+      assert {[], true} = Types.take_in_scope([{@root, :end_of_mib_view, nil}], @root)
+    end
+  end
+
   describe "Type value ranges" do
     test "returns correct maximum values" do
       assert Types.max_value(:integer) == 2_147_483_647

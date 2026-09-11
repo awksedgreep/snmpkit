@@ -346,6 +346,11 @@ defmodule SnmpKit.SnmpMgr.Core do
         do: [{:non_repeaters, non_repeaters} | mapped],
         else: mapped
 
+    mapped =
+      if Keyword.get(opts, :keep_exceptions) == true,
+        do: [{:keep_exceptions, true} | mapped],
+        else: mapped
+
     mapped
   end
 

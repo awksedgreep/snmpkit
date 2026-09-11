@@ -7,6 +7,8 @@ defmodule SnmpKit.SnmpLib.Manager.Response do
 
   require Logger
 
+  alias SnmpKit.SnmpLib.Types
+
   # Result extraction
   def extract_get_result(%{pdu: %{error_status: error_status}} = response)
       when error_status != 0 do
@@ -116,26 +118,12 @@ defmodule SnmpKit.SnmpLib.Manager.Response do
     {:error, :invalid_response}
   end
 
-  def extract_bulk_result(%{pdu: %{varbinds: varbinds}}) do
-    valid_varbinds =
-      Enum.filter(varbinds, fn {_oid, type, value} ->
-        # Check for SNMPv2c exception values in both type and value fields
-        case {type, value} do
-          # Exception values in type field (from simulator)
-          {:no_such_object, _} -> false
-          {:no_such_instance, _} -> false
-          {:end_of_mib_view, _} -> false
-          # Exception values in value field (standard format)
-          {_, {:no_such_object, _}} -> false
-          {_, {:no_such_instance, _}} -> false
-          {_, {:end_of_mib_view, _}} -> false
-          # Valid varbind
-          _ -> true
-        end
-      end)
-
-    # Return documented 3-tuple varbind format {oid, type, value}
-    {:ok, valid_varbinds}
+  # Exception varbinds are dropped here; walks that need to see where the
+  # agent stopped use extract_varbinds/1 (Manager's keep_exceptions: true)
+  def extract_bulk_result(%{pdu: %{varbinds: _}} = response) do
+    with {:ok, varbinds} <- extract_varbinds(response) do
+      {:ok, Enum.reject(varbinds, &Types.end_of_mib?/1)}
+    end
   end
 
   def extract_bulk_result(%{pdu: %{error_status: error_status}}) when error_status != 0 do

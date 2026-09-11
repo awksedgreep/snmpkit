@@ -371,9 +371,12 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
   defp handle_walk_response(state, [], _continue_fun), do: {:ok, finalize_results(state)}
 
   defp handle_walk_response(state, varbinds, continue_fun) do
+    # Stop at the first exception varbind (endOfMibView, noSuchObject,
+    # noSuchInstance) or the first OID outside the root; the Engine hands
+    # over raw varbinds, so the markers arrive here as {oid, exception, nil}
     last_valid_varbind_index =
-      Enum.find_index(varbinds, fn {oid, type, _value} ->
-        is_end_of_mib_view?(type) or end_of_walk?(state.root_oid, oid)
+      Enum.find_index(varbinds, fn {oid, _type, _value} = varbind ->
+        SnmpKit.SnmpLib.Types.end_of_mib?(varbind) or end_of_walk?(state.root_oid, oid)
       end)
 
     case last_valid_varbind_index do
@@ -381,12 +384,18 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
         last_oid = elem(List.last(varbinds), 0)
         last_oid_list = if is_list(last_oid), do: last_oid, else: [last_oid]
 
-        state =
-          state
-          |> append_chunk(varbinds)
-          |> maybe_adjust_max_repetitions(length(varbinds))
+        # An agent answering with the OID we asked from is not making
+        # progress; the page repeats what we already hold
+        if last_oid_list == state.next_oid do
+          {:ok, finalize_results(state)}
+        else
+          state =
+            state
+            |> append_chunk(varbinds)
+            |> maybe_adjust_max_repetitions(length(varbinds))
 
-        continue_fun.(%{state | next_oid: last_oid_list})
+          continue_fun.(%{state | next_oid: last_oid_list})
+        end
 
       0 ->
         {:ok, finalize_results(state)}
@@ -441,11 +450,8 @@ defmodule SnmpKit.SnmpMgr.V2Walk do
   defp request_expired?(walk_state, now), do: now >= walk_state.request_deadline_ms
 
   defp end_of_walk?(root_oid_list, response_oid_list) do
-    not List.starts_with?(response_oid_list, root_oid_list)
+    not SnmpKit.SnmpLib.Types.in_scope?(response_oid_list, root_oid_list)
   end
-
-  defp is_end_of_mib_view?(:end_of_mib_view), do: true
-  defp is_end_of_mib_view?(_), do: false
 
   defp request_timeout(request, global_timeout) do
     timeout = Keyword.get(request.opts, :timeout, global_timeout)
