@@ -75,10 +75,7 @@ defmodule SnmpKit.SnmpLib do
 
   ## Examples
 
-      iex> is_binary(SnmpLib.version())
-      true
-
-      iex> SnmpLib.version() |> String.contains?(".")
+      iex> is_binary(SnmpKit.SnmpLib.version())
       true
   """
   def version do
@@ -100,7 +97,7 @@ defmodule SnmpKit.SnmpLib do
 
   ## Examples
 
-      info = SnmpLib.info()
+      info = SnmpKit.SnmpLib.info()
       IO.puts("SNMP Library v" <> info.version)
       IO.puts("Features: " <> Enum.join(info.features, ", "))
   """

@@ -80,8 +80,12 @@ appended as the instance.
 | `dependencies` | modules named in `IMPORTS` |
 | `warnings` | `[{line, message}]`, see below |
 
-`load/1` also accepts the path of a MIB written with `:format :binary`
-(`SnmpKit.MIB.Compiler.compile/2` with `output_dir:`).
+`load/1` also accepts the path of a compiled MIB written with
+`SnmpKit.MIB.Compiler.write_compiled/2` (or `mix snmpkit.mib.compile FILE -O DIR`),
+and `SnmpKit.SnmpMgr.MIB.loaded_mibs/0` lists the modules registered so far.
+When `config :snmpkit, input_roots: [...]` is set, `compile/2`,
+`parse_mib_file/2`, the linter and the mix tasks only read files under those
+directories.
 
 Batches:
 
@@ -104,11 +108,12 @@ Load base modules before the modules that import from them, the same order
 
 | Option | Default | Effect |
 |--------|---------|--------|
-| `output_dir:` | `"./priv/mibs"` | where `:binary` output is written |
-| `format:` | `:binary` | output format |
-| `validate:` | `true` | run post-compile validation |
-| `include_paths:` | `[]` | directories searched for imported modules |
 | `warnings_as_errors:` | `false` | turn parser warnings into compilation errors |
+| `format:` | `:binary` | recorded as `compiled.format`; nothing is written by `compile/2` |
+| `output_dir:`, `validate:`, `include_paths:`, `optimize:` | | accepted for compatibility, currently no effect |
+
+To write a compiled MIB to disk use `SnmpKit.MIB.Compiler.write_compiled(compiled, dir)`,
+which returns `{:ok, "dir/NAME.bin"}`.
 
 ### Errors
 
@@ -212,6 +217,6 @@ rest of the DOCSIS family and any private enterprise module.
   if libsmi also rejects it at that line, the file is broken rather than the
   parser. The [oracle test](mib-parser-oracle.md) documents the known
   differences.
-- **Slow resolution**: names are looked up in ETS; if resolution is slow you
-  are probably resolving inside a hot loop; resolve once and pass numeric
-  OIDs to the SNMP calls.
+- **Slow resolution**: every lookup is a call to the registry process; if
+  resolution is slow you are probably resolving inside a hot loop; resolve
+  once and pass numeric OIDs to the SNMP calls.

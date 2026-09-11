@@ -21,7 +21,7 @@ defmodule MyApp.PollerTest do
   end
 
   test "reads sysDescr", %{target: target} do
-    assert {:ok, %{value: "Cisco Router", type: :octet_string}} =
+    assert {:ok, %{value: "Cisco ISR 2901 Integrated Services Router", type: :octet_string}} =
              SnmpKit.SNMP.get(target, "sysDescr.0")
   end
 
@@ -58,6 +58,8 @@ Strings become `OCTET STRING`, integers `INTEGER`; use
 `%{type: "Counter32" | "Gauge32" | "TimeTicks" | "IpAddress" | ..., value: v}`
 for anything else. `SnmpKit.Sim.start_device(%{objects: map}, port: p)`
 accepts the same map (OID keys as strings or lists) without a profile step.
+`sysUpTime.0` is always the device's own uptime since it started, whatever
+value the profile carries for it.
 
 ### Recorded walks
 
@@ -78,16 +80,25 @@ snmpwalk -v2c -c public -On 192.168.1.1 .1 > test/fixtures/my_switch.walk
 
 Both `-On` numeric output and named output are understood.
 
-### Behaviours
+### Values over time
+
+A simulated device answers with the values in its profile on every poll;
+counters do not advance on their own, only `sysUpTime.0` does. To test rate
+calculations (`SnmpKit.SNMP.Rate`), start a second device, or a second
+manual profile, with the later counter values, or build the two samples by
+hand:
 
 ```elixir
-{:ok, profile} =
-  ProfileLoader.load_profile(:dynamic, {:manual, oids},
-    behaviors: [:counter_increment, :time_based_changes])
+t0 = %{type: :counter32, value: 4_294_967_000}
+t1 = %{type: :counter32, value: 1_000}
+{:ok, 129.6} = SnmpKit.SNMP.Rate.rate(t0, t1, 10_000)
 ```
 
-Counters then grow between polls and sysUpTime advances, which is what you
-want when testing rate calculations.
+`ProfileLoader.load_profile/3` accepts `behaviors:` for `{:walk_file, _}`
+sources (`:realistic_counters`, `:daily_patterns`, `{:increment_counters, cfg}`,
+...; see `SnmpKit.SnmpSim.BehaviorConfig`). They annotate the profile's OID
+map and are ignored for other sources; a device started from the profile
+still serves the recorded values.
 
 ## SNMPv3
 
@@ -125,7 +136,7 @@ user must be addressed at least at its own security level.
 
 SnmpKit.SnmpSim.ErrorInjector.inject_timeout(injector, probability: 1.0, duration_ms: 5_000)
 SnmpKit.SnmpSim.ErrorInjector.inject_packet_loss(injector, loss_rate: 0.3)
-SnmpKit.SnmpSim.ErrorInjector.inject_snmp_error(injector, :genErr, oids: ["1.3.6.1.2.1.1.5.0"])
+SnmpKit.SnmpSim.ErrorInjector.inject_snmp_error(injector, :genErr, target_oids: ["1.3.6.1.2.1.1.5.0"])
 SnmpKit.SnmpSim.ErrorInjector.simulate_device_failure(injector, :reboot, duration_ms: 2_000)
 SnmpKit.SnmpSim.ErrorInjector.clear_all_errors(injector)
 ```
@@ -240,13 +251,15 @@ config :logger, level: :warning
 
 | Tag | Purpose |
 |-----|---------|
-| `:snmpv3` | SNMPv3 suites (`mix test --include snmpv3`) |
+| `:unit`, `:integration`, `:snmpv3`, `:protocol`, `:slow`, `:docsis` | run by default; select one with `mix test --only <tag>` |
 | `:performance` | timing assertions |
+| `:memory` | memory-intensive MIB tests |
 | `:mib_oracle` | MIB parser cross-check against libsmi / net-snmp |
+| `:needs_simulator` | simulator tests bound to fixed ports (would clash in a parallel run) |
 | `:manual`, `:real_device` | need hardware or a person |
 
-`mix test <directory>` runs only some files in that directory; pass globs
-(`mix test test/snmp_mgr/*_test.exs`) or run the whole suite.
+Everything from `:performance` down is excluded in `test/test_helper.exs`;
+include a tag with `mix test --include <tag>`.
 
 ## Continuous integration
 
