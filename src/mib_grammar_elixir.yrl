@@ -1100,10 +1100,13 @@ make_defval_for_string(_Line, Str, Suffix) ->
     Atom = radix(Suffix),
     case lists:member(Atom, [h, 'H', b, 'B']) of
 	true ->
-	    case catch make_defval_for_string2(Str, Atom) of
+	    try make_defval_for_string2(Str, Atom) of
 		Defval when is_list(Defval) ->
 		    Defval;
-		_Error ->
+		_Other ->
+		    ""
+	    catch
+		_:_ ->
 		    ""
 	    end;
 	false ->
