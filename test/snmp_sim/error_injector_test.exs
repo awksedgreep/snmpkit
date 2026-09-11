@@ -351,4 +351,46 @@ defmodule SnmpKit.SnmpSim.ErrorInjectorTest do
       end
     end
   end
+
+  describe "seeded devices" do
+    # Runs the same 32 GET requests through a freshly seeded device with 50%
+    # packet loss and records which ones were answered.
+    defp accept_sequence(seed) do
+      port = PortHelper.get_port()
+
+      {:ok, device_pid} =
+        Device.start_link(%{
+          port: port,
+          device_type: :cable_modem,
+          device_id: "seeded_#{seed}_#{System.unique_integer([:positive])}",
+          community: "public",
+          seed: seed
+        })
+
+      {:ok, injector_pid} = ErrorInjector.start_link(device_pid, port)
+      :ok = ErrorInjector.inject_packet_loss(injector_pid, loss_rate: 0.5)
+
+      pdu = SnmpKit.SnmpLib.PDU.build_get_request([1, 3, 6, 1, 2, 1, 1, 1, 0], 1)
+
+      sequence =
+        for _ <- 1..32 do
+          case GenServer.call(device_pid, {:handle_snmp, pdu, %{}}) do
+            {:ok, _response} -> :answered
+            {:error, :packet_loss} -> :dropped
+          end
+        end
+
+      GenServer.stop(injector_pid)
+      Device.stop(device_pid)
+      sequence
+    end
+
+    test "the same seed replays the same accept/drop sequence, another seed differs" do
+      first = accept_sequence(7)
+
+      assert :answered in first and :dropped in first
+      assert accept_sequence(7) == first
+      assert accept_sequence(8) != first
+    end
+  end
 end

@@ -64,6 +64,11 @@ defmodule SnmpKit.SnmpSim.Device do
   - `:device_id` - Unique device identifier
   - `:community` - SNMP community string (default: "public")
   - `:mac_address` - MAC address (auto-generated if not provided)
+  - `:seed` - integer seed for the device process's random number generator.
+    Probabilistic error injection (`SnmpKit.SnmpSim.ErrorInjector`) draws
+    from it, so two devices started with the same seed and the same error
+    conditions answer an identical request sequence identically. Unseeded
+    devices use the VM's default per-process seeding.
 
   ## Examples
 
@@ -277,6 +282,13 @@ defmodule SnmpKit.SnmpSim.Device do
         raise "Missing required :device_id in device init args"
 
       {:ok, device_id} ->
+        # Error injection draws from this process's :rand state, so seeding it
+        # once here makes the injection sequence reproducible per device.
+        case Map.get(device_config, :seed) do
+          seed when is_integer(seed) -> :rand.seed(:exsss, {seed, seed, seed})
+          _ -> :ok
+        end
+
         port = Map.fetch!(device_config, :port)
         device_type = Map.fetch!(device_config, :device_type)
         community = Map.get(device_config, :community, @default_community)

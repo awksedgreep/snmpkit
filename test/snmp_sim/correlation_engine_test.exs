@@ -601,4 +601,50 @@ defmodule SnmpKit.SnmpSim.CorrelationEngineTest do
       assert high_result >= 60_000_000
     end
   end
+
+  describe "jitter: false" do
+    test "signal throughput and power consumption return the exact model value" do
+      # good SNR (0.95) at an optimal power level (1.0), no variation
+      assert 95_000_000.0 ==
+               CorrelationEngine.calculate_signal_throughput_correlation(
+                 32.0,
+                 5.0,
+                 100_000_000,
+                 jitter: false
+               )
+
+      # 12W base + 2.4W cpu + 1.44W network + 8W cooling
+      power =
+        CorrelationEngine.calculate_power_consumption_correlation(
+          %{cpu_utilization: 50.0, interface_utilization: 0.6, temperature: 35.0},
+          :cable_modem,
+          jitter: false
+        )
+
+      assert_in_delta power, 23.84, 1.0e-9
+    end
+
+    test "apply_correlations is exact and repeatable" do
+      state = %{temperature: 60.0, signal_quality: 80.0}
+      correlations = [{:temperature, :signal_quality, :negative, 0.5}]
+      now = ~U[2026-01-01 12:00:00Z]
+
+      run = fn ->
+        CorrelationEngine.apply_correlations(
+          :temperature,
+          60.0,
+          state,
+          correlations,
+          now,
+          jitter: false
+        )
+      end
+
+      # 60C is 0.2 above the 50 midpoint: 80 * (1 - 0.2 * 0.5 * 0.1) = 79.2, no
+      # time factor for a physical correlation and no noise
+      assert %{signal_quality: quality} = run.()
+      assert_in_delta quality, 79.2, 1.0e-9
+      assert run.() == run.()
+    end
+  end
 end
