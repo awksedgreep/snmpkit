@@ -24,6 +24,9 @@ defmodule Mix.Tasks.Snmpkit.Sim do
 
   alias SnmpKit.CLI
 
+  @usage "usage: mix snmpkit.sim CONFIG | --device TYPE [--port P] | --sample PATH"
+  @bundled ["cable_modem", "router", "switch"]
+
   @impl true
   def run(argv) do
     {opts, positional} = CLI.parse(argv)
@@ -33,19 +36,18 @@ defmodule Mix.Tasks.Snmpkit.Sim do
       opts[:sample] ->
         format = if Path.extname(opts[:sample]) in [".yaml", ".yml"], do: :yaml, else: :json
 
-        :ok =
-          SnmpKit.SnmpSim.write_sample_config(opts[:sample], format) |> CLI.report("write sample")
-
-        Mix.shell().info("wrote #{opts[:sample]}")
+        case SnmpKit.SnmpSim.write_sample_config(opts[:sample], format) do
+          :ok -> Mix.shell().info("wrote #{opts[:sample]}")
+          {:error, reason} -> Mix.raise("write sample failed: #{inspect(reason)}")
+        end
 
       opts[:device] ->
         port = opts[:port] || 1161
         community = opts[:community] || "public"
-        {:ok, profile} = load_profile(opts[:device]) |> CLI.report("load profile")
+        profile = load_profile(opts[:device]) |> CLI.unwrap!("load profile")
 
-        {:ok, _pid} =
-          SnmpKit.Sim.start_device(profile, port: port, community: community)
-          |> CLI.report("start device")
+        SnmpKit.Sim.start_device(profile, port: port, community: community)
+        |> CLI.unwrap!("start device")
 
         Mix.shell().info(
           "#{opts[:device]} listening on 127.0.0.1:#{port} (community #{community}); Ctrl-C to stop"
@@ -53,9 +55,9 @@ defmodule Mix.Tasks.Snmpkit.Sim do
 
         wait()
 
-      positional != [] ->
-        [config | _] = positional
-        {:ok, _sup} = SnmpKit.SnmpSim.start(config) |> CLI.report("start #{config}")
+      match?([_], positional) ->
+        [config] = positional
+        SnmpKit.SnmpSim.start(config) |> CLI.unwrap!("start #{config}")
 
         devices = SnmpKit.SnmpSim.list_devices()
         Mix.shell().info("started #{length(devices)} device(s) from #{config}; Ctrl-C to stop")
@@ -66,22 +68,37 @@ defmodule Mix.Tasks.Snmpkit.Sim do
 
         wait()
 
+      positional != [] ->
+        Mix.raise("#{@usage}\n\nexpected one config file, got: #{Enum.join(positional, " ")}")
+
       true ->
-        Mix.raise("usage: mix snmpkit.sim CONFIG | --device TYPE [--port P] | --sample PATH")
+        Mix.raise(@usage)
     end
   end
 
   defp load_profile(device) do
-    if File.regular?(device) do
-      SnmpKit.SnmpSim.ProfileLoader.load_profile(:recorded, {:walk_file, device})
-    else
-      case device do
-        "cable_modem" -> SnmpKit.SnmpSim.ProfileLoader.load_profile(:cable_modem)
-        "router" -> SnmpKit.SnmpSim.ProfileLoader.load_profile(:router)
-        "switch" -> SnmpKit.SnmpSim.ProfileLoader.load_profile(:switch)
-        other -> {:error, {:unknown_device, other}}
-      end
+    cond do
+      File.regular?(device) ->
+        SnmpKit.SnmpSim.ProfileLoader.load_profile(:recorded, {:walk_file, device})
+
+      device in @bundled ->
+        SnmpKit.SnmpSim.ProfileLoader.load_profile(String.to_existing_atom(device))
+
+      true ->
+        Mix.raise(
+          "unknown device #{inspect(device)}#{did_you_mean(device)}; " <>
+            "--device takes #{Enum.join(@bundled, ", ")} or the path of a walk file"
+        )
     end
+  end
+
+  defp did_you_mean(device) do
+    {closest, distance} =
+      @bundled
+      |> Enum.map(&{&1, String.jaro_distance(device, &1)})
+      |> Enum.max_by(&elem(&1, 1))
+
+    if distance >= 0.75, do: " (did you mean #{closest}?)", else: ""
   end
 
   # Overridable in tests through the :snmpkit_sim_wait application env

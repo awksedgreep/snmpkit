@@ -23,37 +23,46 @@ defmodule Mix.Tasks.Snmpkit.Walk do
 
   alias SnmpKit.CLI
 
+  @usage "usage: mix snmpkit.walk HOST [OID] [options]"
+
   @impl true
   def run(argv) do
     {opts, positional} = CLI.parse(argv)
 
     case positional do
-      [host | rest] ->
-        CLI.ensure_app_started()
-        oid = List.first(rest) || "system"
-        snmp_opts = CLI.snmp_opts(opts)
+      [host] ->
+        walk(host, "system", opts)
 
-        cond do
-          opts[:table] ->
-            {:ok, table} =
-              SnmpKit.SNMP.get_table(host, oid, Keyword.put(snmp_opts, :named, true))
-              |> CLI.report("walk #{host}")
+      [host, oid] ->
+        walk(host, oid, opts)
 
-            print_table(table)
+      [_host, _oid | extra] ->
+        Mix.raise("#{@usage}\n\nwalk takes one OID; extra: #{inspect(extra)}")
 
-          opts[:bulk] == false ->
-            {:ok, rows} = SnmpKit.SNMP.walk(host, oid, snmp_opts) |> CLI.report("walk #{host}")
-            Enum.each(rows, &Mix.shell().info(CLI.format_varbind(&1, opts)))
+      [] ->
+        Mix.raise(@usage)
+    end
+  end
 
-          true ->
-            {:ok, rows} =
-              SnmpKit.SNMP.bulk_walk(host, oid, snmp_opts) |> CLI.report("walk #{host}")
+  defp walk(host, oid, opts) do
+    CLI.ensure_app_started()
+    snmp_opts = CLI.snmp_opts(opts)
 
-            Enum.each(rows, &Mix.shell().info(CLI.format_varbind(&1, opts)))
-        end
+    cond do
+      opts[:table] ->
+        SnmpKit.SNMP.get_table(host, oid, Keyword.put(snmp_opts, :named, true))
+        |> CLI.unwrap!("walk #{host}")
+        |> print_table()
 
-      _ ->
-        Mix.raise("usage: mix snmpkit.walk HOST [OID] [options]")
+      opts[:bulk] == false ->
+        SnmpKit.SNMP.walk(host, oid, snmp_opts)
+        |> CLI.unwrap!("walk #{host}")
+        |> Enum.each(&Mix.shell().info(CLI.format_varbind(&1, opts)))
+
+      true ->
+        SnmpKit.SNMP.bulk_walk(host, oid, snmp_opts)
+        |> CLI.unwrap!("walk #{host}")
+        |> Enum.each(&Mix.shell().info(CLI.format_varbind(&1, opts)))
     end
   end
 

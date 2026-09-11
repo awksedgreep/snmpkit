@@ -39,10 +39,8 @@ defmodule Mix.Tasks.Snmpkit.Get do
             else: SnmpKit.SNMP.get(target, oids, CLI.snmp_opts(opts))
 
         result
-        |> CLI.report("GET #{host}")
-        |> case do
-          {:ok, varbinds} -> Enum.each(varbinds, &Mix.shell().info(CLI.format_varbind(&1, opts)))
-        end
+        |> CLI.unwrap!("GET #{host}")
+        |> Enum.each(&Mix.shell().info(CLI.format_varbind(&1, opts)))
 
       _ ->
         Mix.raise("usage: mix snmpkit.get HOST OID [OID ...] [options]")

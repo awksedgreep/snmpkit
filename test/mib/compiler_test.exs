@@ -189,4 +189,27 @@ defmodule SnmpKit.MIB.CompilerTest do
       assert map_size(compiled.symbols) == length(parsed.definitions)
     end
   end
+
+  describe "write_compiled/2" do
+    @tag :tmp_dir
+    test "round-trips through load_compiled/1, creating the directory", %{tmp_dir: dir} do
+      assert {:ok, compiled} = Compiler.compile("test/fixtures/mibs/working/IF-MIB.mib")
+
+      out_dir = Path.join(dir, "nested/out")
+      assert {:ok, path} = Compiler.write_compiled(compiled, out_dir)
+      assert path == Path.join(out_dir, "IF-MIB.bin")
+
+      assert {:ok, loaded} = Compiler.load_compiled(path)
+      assert loaded == Map.put(compiled, :__type__, :compiled_mib)
+    end
+
+    @tag :tmp_dir
+    test "reports filesystem errors", %{tmp_dir: dir} do
+      not_a_dir = Path.join(dir, "file")
+      File.write!(not_a_dir, "")
+
+      assert {:ok, compiled} = Compiler.compile("test/fixtures/mibs/working/IF-MIB.mib")
+      assert {:error, :eexist} = Compiler.write_compiled(compiled, not_a_dir)
+    end
+  end
 end
