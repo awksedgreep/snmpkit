@@ -400,20 +400,24 @@ defmodule SnmpKit.SnmpLib.Security do
         {:ok, <<>>}
 
       protocol ->
-        Keys.derive_priv_key(
-          protocol,
-          config[:priv_password],
-          config[:engine_id],
-          auth_protocol: priv_key_auth_protocol(config[:auth_protocol])
-        )
+        with {:ok, auth_protocol} <- priv_key_auth_protocol(config[:auth_protocol]) do
+          Keys.derive_priv_key(
+            protocol,
+            config[:priv_password],
+            config[:engine_id],
+            auth_protocol: auth_protocol
+          )
+        end
     end
   end
 
   # RFC 3414 8.1.1.1: the privacy key is derived with the user's authentication
-  # protocol. SNMPv3 has no authless privacy, so fall back to the RFC's MD5
-  # baseline when a caller builds such a user anyway.
-  defp priv_key_auth_protocol(auth_protocol) when auth_protocol in [nil, :none], do: :md5
-  defp priv_key_auth_protocol(auth_protocol), do: auth_protocol
+  # protocol. SNMPv3 has no authless privacy, so a user without one has no
+  # privacy key to derive or check; refuse rather than assume an MD5 baseline.
+  defp priv_key_auth_protocol(auth_protocol) when auth_protocol in [nil, :none],
+    do: {:error, :priv_requires_auth}
+
+  defp priv_key_auth_protocol(auth_protocol), do: {:ok, auth_protocol}
 
   defp validate_auth_password(user, password) do
     case user.auth_protocol do
@@ -436,14 +440,13 @@ defmodule SnmpKit.SnmpLib.Security do
         :ok
 
       protocol when password != "" ->
-        expected_key =
-          Keys.derive_priv_key(protocol, password, user.engine_id,
-            auth_protocol: priv_key_auth_protocol(user.auth_protocol)
-          )
-
-        case expected_key do
-          {:ok, key} when key == user.priv_key -> :ok
-          _ -> {:error, :invalid_priv_password}
+        with {:ok, auth_protocol} <- priv_key_auth_protocol(user.auth_protocol) do
+          case Keys.derive_priv_key(protocol, password, user.engine_id,
+                 auth_protocol: auth_protocol
+               ) do
+            {:ok, key} when key == user.priv_key -> :ok
+            _ -> {:error, :invalid_priv_password}
+          end
         end
 
       _ ->

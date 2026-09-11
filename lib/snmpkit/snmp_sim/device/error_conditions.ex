@@ -70,7 +70,7 @@ defmodule SnmpKit.SnmpSim.Device.ErrorConditions do
         false
 
       config ->
-        if should_apply_error?(config.probability) and
+        if should_apply_error?(packet_loss_probability(config)) and
              oid_matches_target?(pdu, config.target_oids) do
           Logger.debug("Device #{state.device_id} applying packet loss error injection")
           true
@@ -120,10 +120,20 @@ defmodule SnmpKit.SnmpSim.Device.ErrorConditions do
 
   @doc """
   Determine if error should be applied based on probability.
+
+  Draws from the calling process's `:rand` state. This runs inside the
+  `SnmpKit.SnmpSim.Device` process, which seeds that state from its `:seed`
+  option, so a seeded device replays the same decisions for the same
+  request sequence.
   """
   def should_apply_error?(probability) do
     :rand.uniform() < probability
   end
+
+  # `SnmpKit.SnmpSim.ErrorInjector.inject_packet_loss/2` sends the rate as
+  # `loss_rate:`; a hand-built condition may use `probability:` like the rest.
+  defp packet_loss_probability(%{probability: probability}), do: probability
+  defp packet_loss_probability(%{loss_rate: loss_rate}), do: loss_rate
 
   @doc """
   Check if PDU OIDs match target OIDs for error injection.

@@ -25,6 +25,13 @@ defmodule SnmpKit.SnmpSim.ErrorInjector do
       # Generate SNMP errors
       SnmpKit.SnmpSim.ErrorInjector.inject_snmp_error(device_pid, :noSuchName, ["1.3.6.1.2.1.2.2.1.99"])
 
+  ## Reproducible runs
+
+  Whether a given request is hit is decided inside the device process from
+  its own random state. Start the device with `seed: integer` (see
+  `SnmpKit.SnmpSim.Device.start_link/1`) and the same conditions produce the
+  same sequence of timeouts, drops and errors for the same requests.
+
   """
 
   use GenServer

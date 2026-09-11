@@ -25,13 +25,47 @@ defmodule SnmpKit.SNMP.Rate do
   busy 32-bit counter. `rates/3` compares `sysUpTime.0` when present and
   returns `{:error, :device_restarted}` if it went backwards; pass
   `sysUpTime.0` along with the objects you poll to get that protection.
+
+  `sysUpTime` is itself a 32-bit TimeTicks value and wraps after about 497
+  days. A wrap looks exactly like a restart, so `rates/3` reports
+  `{:error, :device_restarted}` for it too. When a poll may span that
+  boundary pass `interval_ms:` from your own clock; it always takes priority
+  over the uptime varbinds.
+
+  ## Multiple wraps
+
+  A counter that wrapped more than once between two samples cannot be told
+  from one that wrapped once, so its delta is under-reported. Poll fast
+  enough that no counter can wrap twice (a 32-bit octet counter wraps in
+  under 35 seconds at 1 Gbps), or give `max_rate:`, the highest per-second
+  rate the object can plausibly show, and a rate that only a multiple wrap
+  explains becomes `{:error, :implausible_rate}`.
+
+  ## Options
+
+    * `:type` - the SNMP type of bare numeric samples.
+    * `:max_rate` - per-second bound; a rate whose magnitude exceeds it is
+      reported as `:implausible_rate`.
+    * `:interval_ms` (`rates/3`) - elapsed time between the two samples,
+      takes priority over `sysUpTime.0`.
+    * `:unrateable` (`rates/3`) - `:skip` (default) leaves out entries that
+      could not be rated; `:error` returns `{:error, {:unrateable, oid, reason}}`
+      for the first one.
+
+  ## Sample values
+
+  Integer values are what the decoder produces. Hand-built samples may
+  carry floats for `:gauge32`, `:integer` and `:unsigned32`; a counter is an
+  integer by definition, so a float counter is `{:error, {:not_a_sample, _}}`.
   """
 
   @counter32_max 4_294_967_295
   @counter64_max 18_446_744_073_709_551_615
   @sys_uptime_oid "1.3.6.1.2.1.1.3.0"
+  @rateable_types [:counter32, :counter64, :gauge32, :integer, :unsigned32]
+  @float_types [:gauge32, :integer, :unsigned32]
 
-  @type sample :: map() | {atom(), integer()} | integer()
+  @type sample :: map() | {atom(), number()} | number()
 
   @doc """
   The increase from `previous` to `current`, wrap-corrected for
@@ -47,7 +81,7 @@ defmodule SnmpKit.SNMP.Rate do
       iex> SnmpKit.SNMP.Rate.delta({:counter32, 1}, {:counter64, 2})
       {:error, :type_mismatch}
   """
-  @spec delta(sample(), sample(), keyword()) :: {:ok, integer()} | {:error, term()}
+  @spec delta(sample(), sample(), keyword()) :: {:ok, number()} | {:error, term()}
   def delta(previous, current, opts \\ []) do
     with {:ok, {type, prev}} <- normalize(previous, opts),
          {:ok, {type2, curr}} <- normalize(current, opts),
@@ -57,10 +91,15 @@ defmodule SnmpKit.SNMP.Rate do
   end
 
   @doc """
-  Per-second rate between two samples taken `interval_ms` apart.
+  Per-second rate between two samples taken `interval_ms` apart. With
+  `max_rate:` a rate whose magnitude exceeds the bound is
+  `{:error, :implausible_rate}`.
 
       iex> SnmpKit.SNMP.Rate.rate({:counter32, 100}, {:counter32, 1_100}, 10_000)
       {:ok, 100.0}
+
+      iex> SnmpKit.SNMP.Rate.rate({:counter32, 100}, {:counter32, 50}, 1_000, max_rate: 1.0e9)
+      {:error, :implausible_rate}
   """
   @spec rate(sample(), sample(), pos_integer(), keyword()) :: {:ok, float()} | {:error, term()}
   def rate(previous, current, interval_ms, opts \\ [])
@@ -71,7 +110,7 @@ defmodule SnmpKit.SNMP.Rate do
 
   def rate(previous, current, interval_ms, opts) do
     with {:ok, d} <- delta(previous, current, opts) do
-      {:ok, d * 1000 / interval_ms}
+      bounded_rate(d * 1000 / interval_ms, opts)
     end
   end
 
@@ -85,45 +124,38 @@ defmodule SnmpKit.SNMP.Rate do
       %{oid: "1.3.6.1.2.1.2.2.1.10.1", name: "ifInOctets.1", type: :counter32,
         previous: 100, current: 1100, delta: 1000, rate: 100.0}
 
-  Returns `{:error, :device_restarted}` when `sysUpTime.0` went backwards,
-  `{:error, :no_interval}` when no interval can be determined.
+  Returns `{:error, :device_restarted}` when `sysUpTime.0` went backwards
+  (or wrapped, see the module docs), `{:error, :no_interval}` when no
+  interval can be determined.
+
+  Only values whose type can carry a rate are candidates: strings, OIDs,
+  addresses and TimeTicks are always left out. A candidate that could not be
+  rated (no previous sample, a type that changed between samples, a
+  non-numeric value, or a rate above `max_rate:`) is left out by default and
+  reported as `{:error, {:unrateable, oid, reason}}` with `unrateable: :error`.
   """
   @spec rates([map()], [map()], keyword()) :: {:ok, [map()]} | {:error, term()}
   def rates(previous, current, opts \\ []) when is_list(previous) and is_list(current) do
     prev_by_oid = Map.new(previous, &{oid_key(&1), &1})
     curr_by_oid = Map.new(current, &{oid_key(&1), &1})
+    on_unrateable = Keyword.get(opts, :unrateable, :skip)
 
     with {:ok, interval_ms} <- interval(prev_by_oid, curr_by_oid, opts) do
-      results =
-        current
-        |> Enum.filter(&rateable?/1)
-        |> Enum.flat_map(fn curr ->
-          case Map.get(prev_by_oid, oid_key(curr)) do
-            nil ->
-              []
+      current
+      |> Enum.filter(&rate_candidate?/1)
+      |> Enum.reduce_while({:ok, []}, fn curr, {:ok, acc} ->
+        oid = oid_key(curr)
 
-            prev ->
-              case delta(prev, curr) do
-                {:ok, d} ->
-                  [
-                    %{
-                      oid: oid_key(curr),
-                      name: Map.get(curr, :name),
-                      type: curr.type,
-                      previous: prev.value,
-                      current: curr.value,
-                      delta: d,
-                      rate: d * 1000 / interval_ms
-                    }
-                  ]
-
-                {:error, _} ->
-                  []
-              end
-          end
-        end)
-
-      {:ok, results}
+        case rate_entry(Map.get(prev_by_oid, oid), curr, interval_ms, opts) do
+          {:ok, entry} -> {:cont, {:ok, [entry | acc]}}
+          {:error, _reason} when on_unrateable == :skip -> {:cont, {:ok, acc}}
+          {:error, reason} -> {:halt, {:error, {:unrateable, oid, reason}}}
+        end
+      end)
+      |> case do
+        {:ok, entries} -> {:ok, Enum.reverse(entries)}
+        error -> error
+      end
     end
   end
 
@@ -131,8 +163,16 @@ defmodule SnmpKit.SNMP.Rate do
   Milliseconds elapsed between two `sysUpTime` readings (TimeTicks, i.e.
   centiseconds), or `{:error, :device_restarted}` when the second is lower.
 
+  TimeTicks wrap after 2^32 centiseconds (about 497 days). A wrap is
+  indistinguishable from a restart here and is reported the same way;
+  callers whose polls may span that boundary should pass `interval_ms:` to
+  `rates/3` instead.
+
       iex> SnmpKit.SNMP.Rate.interval_from_uptime(1_000, 2_500)
       {:ok, 15_000}
+
+      iex> SnmpKit.SNMP.Rate.interval_from_uptime(4_294_967_195, 5)
+      {:error, :device_restarted}
   """
   @spec interval_from_uptime(non_neg_integer(), non_neg_integer()) ::
           {:ok, pos_integer()} | {:error, :device_restarted | :no_interval}
@@ -164,30 +204,59 @@ defmodule SnmpKit.SNMP.Rate do
     end
   end
 
-  defp rateable?(%{type: type, value: value}) when is_integer(value),
-    do: type in [:counter32, :counter64, :gauge32, :integer, :unsigned32]
+  defp rate_entry(nil, _curr, _interval_ms, _opts), do: {:error, :no_previous_sample}
 
-  defp rateable?(_), do: false
+  defp rate_entry(prev, curr, interval_ms, opts) do
+    with {:ok, d} <- delta(prev, curr, opts),
+         {:ok, rate} <- bounded_rate(d * 1000 / interval_ms, opts) do
+      {:ok,
+       %{
+         oid: oid_key(curr),
+         name: Map.get(curr, :name),
+         type: curr.type,
+         previous: prev.value,
+         current: curr.value,
+         delta: d,
+         rate: rate
+       }}
+    end
+  end
+
+  defp bounded_rate(rate, opts) do
+    case Keyword.get(opts, :max_rate) do
+      max when is_number(max) and abs(rate) > max -> {:error, :implausible_rate}
+      _ -> {:ok, rate}
+    end
+  end
+
+  # Only counters and gauges can carry a rate; strings, OIDs, addresses and
+  # TimeTicks are never candidates, whatever `:unrateable` says.
+  defp rate_candidate?(%{type: type}), do: type in @rateable_types
+  defp rate_candidate?(_), do: false
 
   defp oid_key(%{oid: oid}) when is_binary(oid), do: oid
   defp oid_key(%{oid_list: list}) when is_list(list), do: Enum.join(list, ".")
   defp oid_key(%{oid: list}) when is_list(list), do: Enum.join(list, ".")
   defp oid_key(_), do: nil
 
-  defp normalize(%{type: type, value: value}, _opts) when is_integer(value),
-    do: {:ok, {type, value}}
+  defp normalize(%{type: type, value: value}, _opts) when is_number(value),
+    do: typed(type, value)
 
-  defp normalize({type, value}, _opts) when is_atom(type) and is_integer(value),
-    do: {:ok, {type, value}}
+  defp normalize({type, value}, _opts) when is_atom(type) and is_number(value),
+    do: typed(type, value)
 
-  defp normalize(value, opts) when is_integer(value) do
+  defp normalize(value, opts) when is_number(value) do
     case Keyword.get(opts, :type) do
       nil -> {:error, :type_required}
-      type -> {:ok, {type, value}}
+      type -> typed(type, value)
     end
   end
 
   defp normalize(other, _opts), do: {:error, {:not_a_sample, other}}
+
+  defp typed(type, value) when is_integer(value), do: {:ok, {type, value}}
+  defp typed(type, value) when type in @float_types, do: {:ok, {type, value}}
+  defp typed(type, value), do: {:error, {:not_a_sample, {type, value}}}
 
   defp same_type(type, type), do: :ok
   defp same_type(_, _), do: {:error, :type_mismatch}

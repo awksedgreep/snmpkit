@@ -9,6 +9,12 @@ defmodule SnmpKit.SnmpSim.CorrelationEngine do
   - Power consumption correlates with activity levels
 
   This module provides sophisticated correlation modeling for authentic network simulation.
+
+  Every result carries a small random variation from the calling process's
+  `:rand` state. Pass `jitter: false` in the options of `apply_correlations/6`,
+  `calculate_signal_throughput_correlation/4` or
+  `calculate_power_consumption_correlation/3` to get the exact model value
+  instead, which makes a run reproducible.
   """
 
   alias SnmpKit.SnmpSim.TimePatterns
@@ -59,8 +65,15 @@ defmodule SnmpKit.SnmpSim.CorrelationEngine do
       )
 
   """
-  @spec apply_correlations(atom(), number(), map(), list(), DateTime.t()) :: map()
-  def apply_correlations(primary_oid, primary_value, device_state, correlations, current_time) do
+  @spec apply_correlations(atom(), number(), map(), list(), DateTime.t(), keyword()) :: map()
+  def apply_correlations(
+        primary_oid,
+        primary_value,
+        device_state,
+        correlations,
+        current_time,
+        opts \\ []
+      ) do
     # Find all correlations involving the primary OID
     relevant_correlations =
       Enum.filter(correlations, fn
@@ -71,7 +84,14 @@ defmodule SnmpKit.SnmpSim.CorrelationEngine do
 
     # Apply each correlation
     Enum.reduce(relevant_correlations, device_state, fn correlation, state_acc ->
-      apply_single_correlation(primary_oid, primary_value, correlation, state_acc, current_time)
+      apply_single_correlation(
+        primary_oid,
+        primary_value,
+        correlation,
+        state_acc,
+        current_time,
+        opts
+      )
     end)
   end
 
@@ -115,8 +135,13 @@ defmodule SnmpKit.SnmpSim.CorrelationEngine do
   Signal quality (SNR, power levels) directly affects achievable throughput
   in cable modem systems.
   """
-  @spec calculate_signal_throughput_correlation(float(), float(), float()) :: float()
-  def calculate_signal_throughput_correlation(snr_db, power_level_dbmv, max_throughput) do
+  @spec calculate_signal_throughput_correlation(float(), float(), float(), keyword()) :: float()
+  def calculate_signal_throughput_correlation(
+        snr_db,
+        power_level_dbmv,
+        max_throughput,
+        opts \\ []
+      ) do
     # SNR impact (minimum 20 dB for stable operation)
     snr_factor =
       cond do
@@ -148,9 +173,7 @@ defmodule SnmpKit.SnmpSim.CorrelationEngine do
     # Combined impact with some random variation
     base_throughput = max_throughput * snr_factor * power_factor
     # ±5% variation
-    variation = 1.0 + (:rand.uniform() - 0.5) * 0.1
-
-    base_throughput * variation
+    base_throughput * variation(0.1, opts)
   end
 
   @doc """
@@ -285,8 +308,8 @@ defmodule SnmpKit.SnmpSim.CorrelationEngine do
   - Network activity
   - Temperature (cooling requirements)
   """
-  @spec calculate_power_consumption_correlation(map(), atom()) :: float()
-  def calculate_power_consumption_correlation(device_metrics, device_type) do
+  @spec calculate_power_consumption_correlation(map(), atom(), keyword()) :: float()
+  def calculate_power_consumption_correlation(device_metrics, device_type, opts \\ []) do
     cpu_utilization = Map.get(device_metrics, :cpu_utilization, 0.0) / 100.0
     network_utilization = Map.get(device_metrics, :interface_utilization, 0.0)
     temperature = Map.get(device_metrics, :temperature, 25.0)
@@ -319,14 +342,21 @@ defmodule SnmpKit.SnmpSim.CorrelationEngine do
 
     total_power = base_power + cpu_power + network_power + cooling_power
 
-    # Add some random variation
     # ±5% variation
-    variation = 1.0 + (:rand.uniform() - 0.5) * 0.1
-
-    total_power * variation
+    total_power * variation(0.1, opts)
   end
 
   # Private helper functions
+
+  # A multiplier of 1.0 +/- span/2 from the calling process's :rand state, or
+  # exactly 1.0 with `jitter: false` so a caller can make the model exact.
+  defp variation(span, opts) do
+    if Keyword.get(opts, :jitter, true) do
+      1.0 + (:rand.uniform() - 0.5) * span
+    else
+      1.0
+    end
+  end
 
   defp normalize_primary_value(primary_value, primary_oid) do
     # Normalize different metric types to 0-100 scale for correlation calculations
@@ -362,7 +392,8 @@ defmodule SnmpKit.SnmpSim.CorrelationEngine do
          primary_value,
          correlation,
          device_state,
-         current_time
+         current_time,
+         opts
        ) do
     {primary_metric, secondary_metric, correlation_type, strength} = correlation
 
@@ -384,7 +415,8 @@ defmodule SnmpKit.SnmpSim.CorrelationEngine do
           strength,
           primary_oid,
           secondary_oid,
-          current_time
+          current_time,
+          opts
         )
 
       Map.put(device_state, secondary_oid, new_secondary_value)
@@ -398,7 +430,8 @@ defmodule SnmpKit.SnmpSim.CorrelationEngine do
          strength,
          primary_oid,
          secondary_oid,
-         current_time
+         current_time,
+         opts
        ) do
     # Normalize primary value based on the metric type and expected range
     normalized_primary = normalize_primary_value(primary_value, primary_oid)
@@ -461,9 +494,7 @@ defmodule SnmpKit.SnmpSim.CorrelationEngine do
     # Add realistic noise (reduced for more predictable correlations)
     # 2% noise
     noise_factor = 0.02
-    noise = 1.0 + (:rand.uniform() - 0.5) * 2 * noise_factor
-
-    final_value = time_adjusted * noise
+    final_value = time_adjusted * variation(2 * noise_factor, opts)
 
     # Apply bounds checking
     apply_value_bounds(final_value, secondary_oid)

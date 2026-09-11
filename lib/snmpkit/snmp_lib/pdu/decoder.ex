@@ -27,6 +27,9 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
   @no_such_instance Constants.no_such_instance()
   @end_of_mib_view Constants.end_of_mib_view()
 
+  @max_unsigned32 4_294_967_295
+  @max_unsigned64 18_446_744_073_709_551_615
+
   @doc """
   Decodes an SNMP message from binary format.
   """
@@ -479,30 +482,30 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
   end
 
   defp parse_value_with_type(<<@counter32, rest::binary>>) do
-    case parse_ber_length_and_remaining(rest) do
-      {:ok, {_len, value, rest2}} -> {:ok, {:counter32, decode_unsigned_integer(value), rest2}}
-      {:error, reason} -> {:error, reason}
+    with {:ok, {_len, value, rest2}} <- parse_ber_length_and_remaining(rest),
+         {:ok, int} <- decode_unsigned_integer(value) do
+      {:ok, {:counter32, int, rest2}}
     end
   end
 
   defp parse_value_with_type(<<@gauge32, rest::binary>>) do
-    case parse_ber_length_and_remaining(rest) do
-      {:ok, {_len, value, rest2}} -> {:ok, {:gauge32, decode_unsigned_integer(value), rest2}}
-      {:error, reason} -> {:error, reason}
+    with {:ok, {_len, value, rest2}} <- parse_ber_length_and_remaining(rest),
+         {:ok, int} <- decode_unsigned_integer(value) do
+      {:ok, {:gauge32, int, rest2}}
     end
   end
 
   defp parse_value_with_type(<<@timeticks, rest::binary>>) do
-    case parse_ber_length_and_remaining(rest) do
-      {:ok, {_len, value, rest2}} -> {:ok, {:timeticks, decode_unsigned_integer(value), rest2}}
-      {:error, reason} -> {:error, reason}
+    with {:ok, {_len, value, rest2}} <- parse_ber_length_and_remaining(rest),
+         {:ok, int} <- decode_unsigned_integer(value) do
+      {:ok, {:timeticks, int, rest2}}
     end
   end
 
   defp parse_value_with_type(<<@counter64, rest::binary>>) do
-    case parse_ber_length_and_remaining(rest) do
-      {:ok, {_len, value, rest2}} -> {:ok, {:counter64, decode_counter64(value), rest2}}
-      {:error, reason} -> {:error, reason}
+    with {:ok, {_len, value, rest2}} <- parse_ber_length_and_remaining(rest),
+         {:ok, int} <- decode_counter64(value) do
+      {:ok, {:counter64, int, rest2}}
     end
   end
 
@@ -562,28 +565,29 @@ defmodule SnmpKit.SnmpLib.PDU.Decoder do
     end
   end
 
-  defp decode_unsigned_integer(data) when byte_size(data) <= 4 do
-    :binary.decode_unsigned(data, :big)
+  # Counter32, Gauge32 and TimeTicks are unsigned 32-bit values carried as BER
+  # INTEGER contents: at most 4 significant bytes, plus one leading zero when
+  # the top bit is set (X.690 8.3). Zero content octets is not a valid INTEGER,
+  # and anything wider or larger than the type allows is rejected rather than
+  # coerced to 0, so a corrupt counter cannot masquerade as a reset one.
+  defp decode_unsigned_integer(<<>>), do: {:error, :invalid_length}
+
+  defp decode_unsigned_integer(data) when byte_size(data) <= 5 do
+    bounded_unsigned(:binary.decode_unsigned(data, :big), @max_unsigned32)
   end
 
-  defp decode_unsigned_integer(data) when byte_size(data) == 5 do
-    # Handle 5-byte case for large 32-bit unsigned values that require leading zero padding
-    case data do
-      <<0, rest::binary-size(4)>> ->
-        # Leading zero byte for unsigned representation, decode the remaining 4 bytes
-        :binary.decode_unsigned(rest, :big)
+  defp decode_unsigned_integer(_), do: {:error, :value_out_of_range}
 
-      _ ->
-        # If first byte is not zero, this exceeds 32-bit range
-        0
-    end
+  # Counter64 is the same shape at 8 bytes: values with bit 63 set are
+  # encoded as 9 bytes with a leading zero.
+  defp decode_counter64(<<>>), do: {:error, :invalid_length}
+
+  defp decode_counter64(data) when byte_size(data) <= 9 do
+    bounded_unsigned(:binary.decode_unsigned(data, :big), @max_unsigned64)
   end
 
-  defp decode_unsigned_integer(_), do: 0
+  defp decode_counter64(_), do: {:error, :value_out_of_range}
 
-  defp decode_counter64(data) when byte_size(data) <= 8 and byte_size(data) > 0 do
-    :binary.decode_unsigned(data, :big)
-  end
-
-  defp decode_counter64(_), do: 0
+  defp bounded_unsigned(value, max) when value <= max, do: {:ok, value}
+  defp bounded_unsigned(_value, _max), do: {:error, :value_out_of_range}
 end

@@ -154,32 +154,71 @@ defmodule SnmpKit.SnmpLib.DecoderLongLengthTest do
     end
   end
 
-  test "handles Counter64 edge cases" do
-    oid_bytes = <<0x2B, 0x06, 0x01, 0x02, 0x01, 0x01, 0x03, 0x00>>
-    oid_tlv = <<0x06, 0x08>> <> oid_bytes
-
-    # Test empty Counter64 (should return 0)
-    value_tlv = <<0x46, 0x00>>
-
-    varbind = seq(0x30, oid_tlv <> value_tlv)
-    varbind_list = seq(0x30, varbind)
-
-    req_id = <<0x02, 0x01, 0x01>>
-    err_stat = <<0x02, 0x01, 0x00>>
-    err_idx = <<0x02, 0x01, 0x00>>
-
-    pdu_content = req_id <> err_stat <> err_idx <> varbind_list
+  # A v2c GetResponse carrying one varbind (sysUpTime.0) with the given value TLV.
+  defp single_varbind_message(value_tlv) do
+    oid_tlv = <<0x06, 0x08, 0x2B, 0x06, 0x01, 0x02, 0x01, 0x01, 0x03, 0x00>>
+    varbind_list = seq(0x30, seq(0x30, oid_tlv <> value_tlv))
+    pdu_content = <<0x02, 0x01, 0x01, 0x02, 0x01, 0x00, 0x02, 0x01, 0x00>> <> varbind_list
     pdu = <<0xA2>> <> len_bytes(byte_size(pdu_content)) <> pdu_content
+    message_content = <<0x02, 0x01, 0x01, 0x04, 0x06, ?p, ?u, ?b, ?l, ?i, ?c>> <> pdu
+    <<0x30>> <> len_bytes(byte_size(message_content)) <> message_content
+  end
 
-    version = <<0x02, 0x01, 0x01>>
-    community = <<0x04, 0x06, ?p, ?u, ?b, ?l, ?i, ?c>>
+  test "an INTEGER with zero content octets is rejected, not read as 0" do
+    for tag <- [0x41, 0x42, 0x43, 0x46] do
+      assert {:error, {:pdu_parse_error, {:invalid_varbind, 1, :invalid_length}}} =
+               Decoder.decode_message(single_varbind_message(<<tag, 0x00>>))
+    end
+  end
 
-    message_content = version <> community <> pdu
-    message = <<0x30>> <> len_bytes(byte_size(message_content)) <> message_content
+  test "leading-zero padded 32-bit values decode, wider or larger ones are errors" do
+    # 5 bytes with a leading zero is how 2^31..2^32-1 must be encoded
+    for {tag, type} <- [{0x41, :counter32}, {0x42, :gauge32}, {0x43, :timeticks}] do
+      assert {:ok, %{pdu: %{varbinds: [{_, ^type, 4_294_967_295}]}}} =
+               Decoder.decode_message(
+                 single_varbind_message(<<tag, 0x05, 0x00, 0xFF, 0xFF, 0xFF, 0xFF>>)
+               )
 
-    assert {:ok, %{pdu: %{varbinds: [{_oid, :counter64, value}]}}} =
-             Decoder.decode_message(message)
+      # 5 bytes with a non-zero lead is 2^32 or more: out of range for the type
+      assert {:error, {:pdu_parse_error, {:invalid_varbind, 1, :value_out_of_range}}} =
+               Decoder.decode_message(
+                 single_varbind_message(<<tag, 0x05, 0x01, 0x00, 0x00, 0x00, 0x00>>)
+               )
 
-    assert value == 0
+      # 6 bytes can never be a 32-bit value
+      assert {:error, {:pdu_parse_error, {:invalid_varbind, 1, :value_out_of_range}}} =
+               Decoder.decode_message(
+                 single_varbind_message(<<tag, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01>>)
+               )
+    end
+  end
+
+  test "Counter64 accepts the 9-byte leading-zero form and rejects wider values" do
+    nine_bytes = <<0x46, 0x09, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF>>
+
+    assert {:ok, %{pdu: %{varbinds: [{_, :counter64, 18_446_744_073_709_551_615}]}}} =
+             Decoder.decode_message(single_varbind_message(nine_bytes))
+
+    too_big = <<0x46, 0x09, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00>>
+
+    assert {:error, {:pdu_parse_error, {:invalid_varbind, 1, :value_out_of_range}}} =
+             Decoder.decode_message(single_varbind_message(too_big))
+
+    ten_bytes = <<0x46, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01>>
+
+    assert {:error, {:pdu_parse_error, {:invalid_varbind, 1, :value_out_of_range}}} =
+             Decoder.decode_message(single_varbind_message(ten_bytes))
+  end
+
+  test "the encoder's own Counter64 output round-trips at 2^63 and 2^64-1" do
+    alias SnmpKit.SnmpLib.PDU
+
+    for value <- [9_223_372_036_854_775_808, 18_446_744_073_709_551_615] do
+      pdu =
+        PDU.build_response(1, 0, 0, [{[1, 3, 6, 1, 2, 1, 31, 1, 1, 1, 6, 1], :counter64, value}])
+
+      {:ok, bin} = PDU.encode_message(PDU.build_message(pdu, "public", :v2c))
+      assert {:ok, %{pdu: %{varbinds: [{_, :counter64, ^value}]}}} = Decoder.decode_message(bin)
+    end
   end
 end

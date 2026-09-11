@@ -271,7 +271,13 @@ Process.sleep(10_000)
 
 Include `sysUpTime.0` in what you poll and `rates/3` derives the interval
 from it and reports `{:error, :device_restarted}` instead of computing rates
-from reset counters.
+from reset counters. An explicit `interval_ms:` always takes priority; use
+it when a poll may span the ~497-day `sysUpTime` wrap, which is otherwise
+indistinguishable from a restart. A counter that wrapped twice between polls
+is under-reported, so `max_rate:` (per second) turns a rate only a double
+wrap explains into `{:error, :implausible_rate}`. Entries that could not be
+rated are left out by default; `unrateable: :error` reports the first one as
+`{:error, {:unrateable, oid, reason}}`.
 
 ### Analysis helpers
 
