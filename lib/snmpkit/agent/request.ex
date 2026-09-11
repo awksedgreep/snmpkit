@@ -52,9 +52,15 @@ defmodule SnmpKit.Agent.Request do
   @doc """
   Handles `pdu` (as delivered by `SnmpKit.SnmpSim.Core.Server`) and returns
   the response PDU. `subtrees` must be sorted by prefix, longest first;
-  `level` is the requester's access, `:read` or `:write`.
+  `level` is the requester's access: `:read`, `:write`, or `:none` for a
+  principal the agent does not know, whose request is not answered at all
+  (`:drop`), whatever its type. The server drops unknown communities and
+  USM rejects unknown v3 users before a PDU gets here, so `:none` is a
+  second line of defence, not the normal path.
   """
-  @spec handle(map(), [subtree()], :read | :write) :: map()
+  @spec handle(map(), [subtree()], :read | :write | :none) :: map() | :drop
+  def handle(_pdu, _subtrees, :none), do: :drop
+
   def handle(pdu, subtrees, level) do
     version = PDUHelper.snmp_version(pdu)
 

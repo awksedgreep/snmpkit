@@ -47,6 +47,23 @@ defmodule SnmpKit.AgentRequestTest do
     }
   end
 
+  describe "level :none" do
+    test "drops every PDU type, reads included", %{subtrees: subtrees} do
+      get = pdu(:get_request, [{@sys_descr, :null, nil}])
+      assert %{error_status: 0} = Request.handle(get, subtrees, :read)
+
+      for type <- [:get_request, :get_next_request, :get_bulk_request, :set_request],
+          version <- [1, 2, 3] do
+        assert :drop =
+                 Request.handle(
+                   pdu(type, [{@sys_descr, :octet_string, "y"}], version: version),
+                   subtrees,
+                   :none
+                 )
+      end
+    end
+  end
+
   describe "SET type aliases" do
     test "a :bits object takes a :bits or an :octet_string value", %{
       subtrees: subtrees,

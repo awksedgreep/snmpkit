@@ -44,7 +44,9 @@ defmodule SnmpKit.SnmpSim.Core.Server do
 
   - `:community` - accepted community: a string (default: "public"), a list of
     strings, or a one-argument function returning `true` for accepted names
-  - `:device_handler` - Module or function to handle device requests
+  - `:device_handler` - Module or function to handle device requests. A
+    function handler returns `{:ok, response_pdu}`, `{:error, error_status}`,
+    or `:drop` to send no response at all (counted in `:auth_failures`)
   - `:socket_opts` - Additional socket options
   - `:max_concurrent_requests` - Handlers allowed in flight at once (default: 256);
     excess datagrams are dropped and counted in `:dropped_overload`
@@ -399,6 +401,10 @@ defmodule SnmpKit.SnmpSim.Core.Server do
             error_response = PDU.create_error_response(pdu, error_status, 0)
             send_response_async(state, client_ip, client_port, error_response)
             send(server_pid, {:update_stats, :error_responses})
+
+          :drop ->
+            Logger.debug(fn -> "Device handler dropped request from #{format_ip(client_ip)}" end)
+            send(server_pid, {:update_stats, :auth_failures})
 
           {failure, reason} when failure in [:handler_crashed, :handler_exited] ->
             Logger.warning("Device handler #{failure}: #{inspect(reason)}")

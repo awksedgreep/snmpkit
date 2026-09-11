@@ -410,6 +410,36 @@ defmodule SnmpKit.AgentTest do
                SNMP.get(target, "sysDescr.0", community: "nope", timeout: 300, retries: 0)
     end
 
+    # The server validates communities and USM rejects unknown v3 users before
+    # the agent's request path; this drives that path directly to show it
+    # drops unknown principals on its own, reads included.
+    test "the request path itself drops unknown communities and v3 users", %{agent: agent} do
+      %{server: server} = :sys.get_state(agent)
+      handler = :sys.get_state(server).device_handler
+      client = %{client_ip: {127, 0, 0, 1}, client_port: 1}
+
+      get = fn version, principal ->
+        %{
+          version: version,
+          community: principal,
+          type: :get_request,
+          request_id: 7,
+          error_status: 0,
+          error_index: 0,
+          varbinds: [{[1, 3, 6, 1, 2, 1, 1, 1, 0], nil}]
+        }
+      end
+
+      assert {:ok, %{error_status: 0, varbinds: [{_, :octet_string, _}]}} =
+               handler.(get.(2, "public"), client)
+
+      assert {:ok, %{error_status: 0}} = handler.(get.(3, "reader"), client)
+      assert :drop = handler.(get.(2, "nope"), client)
+      assert :drop = handler.(get.(1, "nope"), client)
+      assert :drop = handler.(get.(3, "ghost"), client)
+      assert :drop = handler.(%{get.(2, "nope") | type: :get_next_request}, client)
+    end
+
     test "stats count requests", %{agent: agent, target: target} do
       {:ok, _} = SNMP.get(target, "sysDescr.0", ro())
       stats = Agent.stats(agent)

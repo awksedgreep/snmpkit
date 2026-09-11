@@ -54,8 +54,12 @@ defmodule SnmpKit.Agent do
 
   A principal (community or v3 user) is `:read` or `:write`. Reads are
   allowed to both; SET needs `:write`, otherwise the agent answers
-  `noAccess` (`noSuchName` to SNMPv1). Requests from unknown communities
-  are dropped, as SNMP requires.
+  `noAccess` (`noSuchName` to SNMPv1). A request from a community that is
+  not configured is dropped without a response, as SNMP requires; a v3
+  request from a user that is not configured is answered by USM with a
+  `usmStatsUnknownUserNames` report and never reaches the MIB. Should a
+  PDU from an unknown principal reach the request path anyway, it is
+  dropped there too, for reads as well as writes.
 
   ## Notifications
 
@@ -66,8 +70,10 @@ defmodule SnmpKit.Agent do
 
   ## Telemetry
 
-  Every request emits `[:snmpkit, :agent, :request]` with `%{duration}` and
-  metadata `pdu_type`, `version`, `principal`, `error_status`, `varbinds`.
+  Every answered request emits `[:snmpkit, :agent, :request]` with
+  `%{duration}` and metadata `pdu_type`, `version`, `principal`,
+  `error_status`, `varbinds`. Dropped requests emit nothing; the server
+  counts them in `stats/1` under `auth_failures`.
   """
 
   use GenServer
@@ -365,17 +371,26 @@ defmodule SnmpKit.Agent do
     start = System.monotonic_time()
     subtrees = lookup_subtrees(meta)
     level = access_level(pdu, meta)
-    response = Request.handle(pdu, subtrees, level)
 
-    SnmpKit.Telemetry.execute([:agent, :request], %{duration: System.monotonic_time() - start}, %{
-      pdu_type: pdu.type,
-      version: pdu.version,
-      principal: pdu.community,
-      error_status: response.error_status,
-      varbinds: length(response.varbinds)
-    })
+    case Request.handle(pdu, subtrees, level) do
+      :drop ->
+        :drop
 
-    {:ok, response}
+      response ->
+        SnmpKit.Telemetry.execute(
+          [:agent, :request],
+          %{duration: System.monotonic_time() - start},
+          %{
+            pdu_type: pdu.type,
+            version: pdu.version,
+            principal: pdu.community,
+            error_status: response.error_status,
+            varbinds: length(response.varbinds)
+          }
+        )
+
+        {:ok, response}
+    end
   end
 
   defp access_level(%{version: 3, community: user}, meta), do: level(meta, {:access, :v3, user})
@@ -383,10 +398,11 @@ defmodule SnmpKit.Agent do
   defp access_level(%{community: community}, meta),
     do: level(meta, {:access, :community, community})
 
+  # an unknown principal gets nothing, not the read level
   defp level(meta, key) do
     case :ets.lookup(meta, key) do
       [{^key, level}] -> level
-      [] -> :read
+      [] -> :none
     end
   end
 
