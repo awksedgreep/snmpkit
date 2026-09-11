@@ -2,7 +2,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
   @moduledoc """
   MIB compilation and symbolic name resolution.
 
-  This module provides MIB compilation using Erlang's :snmpc when available,
+  This module provides MIB compilation with SnmpKit's own parser (no Erlang :snmpc),
   and includes a built-in registry of standard MIB objects for basic operations.
   """
 

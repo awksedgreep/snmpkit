@@ -105,8 +105,8 @@ defmodule SnmpKit.MIB.Compiler do
         {:error,
          [
            Error.new(:file_not_found,
-             message: "Could not read MIB file: #{reason}",
-             context: %{path: mib_path}
+             file: mib_path,
+             context: %{path: mib_path, reason: reason}
            )
          ]}
     end

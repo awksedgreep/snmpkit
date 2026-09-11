@@ -79,7 +79,7 @@ defmodule SnmpKit.SnmpLib do
       true
   """
   def version do
-    Application.spec(:snmp_lib, :vsn) |> to_string()
+    Application.spec(:snmpkit, :vsn) |> to_string()
   end
 
   @doc """

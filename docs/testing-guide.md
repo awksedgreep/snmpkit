@@ -82,11 +82,16 @@ Both `-On` numeric output and named output are understood.
 
 ### Values over time
 
-A simulated device answers with the values in its profile on every poll;
-counters do not advance on their own, only `sysUpTime.0` does. To test rate
-calculations (`SnmpKit.SNMP.Rate`), start a second device, or a second
-manual profile, with the later counter values, or build the two samples by
-hand:
+`sysUpTime.0` is always the device's own uptime. Counters grow with that
+uptime when their profile entry carries a counter behavior: a `{:walk_file, _}`
+profile gets one per counter from `SnmpKit.SnmpSim.MIB.BehaviorAnalyzer`
+unless you pass `behaviors:` yourself, so `ifInOctets` and friends on the
+bundled walks advance between polls; a `{:manual, _}` profile is static
+unless you pass `behaviors:` (`:realistic_counters`, `:daily_patterns`,
+`{:increment_counters, cfg}`, ...; see `SnmpKit.SnmpSim.BehaviorConfig`).
+Two polls of a walk-file device a few seconds apart therefore give
+`SnmpKit.SNMP.Rate.rates/3` a real delta. For an exact wrap or a fixed
+delta, build the samples by hand:
 
 ```elixir
 t0 = %{type: :counter32, value: 4_294_967_000}
@@ -94,11 +99,9 @@ t1 = %{type: :counter32, value: 1_000}
 {:ok, 129.6} = SnmpKit.SNMP.Rate.rate(t0, t1, 10_000)
 ```
 
-`ProfileLoader.load_profile/3` accepts `behaviors:` for `{:walk_file, _}`
-sources (`:realistic_counters`, `:daily_patterns`, `{:increment_counters, cfg}`,
-...; see `SnmpKit.SnmpSim.BehaviorConfig`). They annotate the profile's OID
-map and are ignored for other sources; a device started from the profile
-still serves the recorded values.
+Error injection (`SnmpKit.SnmpSim.ErrorInjector`) draws from the device
+process's random state; start the device with `seed:` to replay the same
+timeout/loss sequence run after run.
 
 ## SNMPv3
 

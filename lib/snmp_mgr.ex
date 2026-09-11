@@ -417,22 +417,18 @@ defmodule SnmpKit.SnmpMgr do
   Returns the column's enriched varbind maps, as `walk/3` does.
   """
   def get_column(target, table_oid, column, opts \\ []) do
-    case resolve_oid_if_needed(table_oid) do
-      {:ok, resolved_table_oid} ->
-        column_oid =
-          if is_integer(column) do
-            resolved_table_oid ++ [1, column]
-          else
-            case SnmpKit.SnmpMgr.MIB.resolve(column) do
-              {:ok, oid} -> oid
-              error -> error
-            end
-          end
+    with {:ok, resolved_table_oid} <- resolve_oid_if_needed(table_oid),
+         {:ok, column_oid} <- column_oid(resolved_table_oid, column) do
+      walk(target, column_oid, opts)
+    end
+  end
 
-        walk(target, column_oid, opts)
+  defp column_oid(table_oid, column) when is_integer(column), do: {:ok, table_oid ++ [1, column]}
 
-      error ->
-        error
+  defp column_oid(_table_oid, column) do
+    case SnmpKit.SnmpMgr.MIB.resolve(column) do
+      {:ok, oid} -> {:ok, oid}
+      {:error, reason} -> {:error, {:invalid_oid, column, reason}}
     end
   end
 

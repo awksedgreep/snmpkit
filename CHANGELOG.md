@@ -96,6 +96,7 @@ Breaking release. See `docs/v2-migration.md` for the rename/removal table.
 - Simulated counters never advanced: `SnmpSim.ValueSimulator` read an `:uptime` key that a running device's state does not have (it carries `uptime_start`), so every traffic, packet and error counter stayed at its profile value. Counters now grow with the device's uptime on every path (`Sim.start_device`, `start_device_population`, `Device.start_link`).
 - `SnmpKit.SnmpSim.start_device/2` dropped `seed:`, `mac_address:` and the upgrade options on the way to the device; `ProfileLoader.load_profile/3` recorded `behaviors:` on a `{:manual, _}` profile without applying them.
 - `SnmpMgr.Multi` reports an unresolvable OID as `{:error, {:invalid_oid, input, reason}}` like every other path, not `{:oid_resolution_failed, reason}`.
+- `SnmpKit.SnmpLib.version/0` and `info/0` returned an empty version (they read the wrong application name); `SnmpMgr.get_column/4` with an unresolvable column name returns `{:error, {:invalid_oid, name, reason}}` instead of handing the error tuple to `walk/3`.
 
 ## [1.4.0] - 2026-09-05
 
