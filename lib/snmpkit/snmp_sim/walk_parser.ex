@@ -19,7 +19,7 @@ defmodule SnmpKit.SnmpSim.WalkParser do
 
   """
   def parse_walk_file(file_path) do
-    case SnmpKit.SnmpSim.SafeFile.read(file_path) do
+    case SnmpKit.SafeFile.read(file_path) do
       {:ok, content} ->
         oid_map =
           content

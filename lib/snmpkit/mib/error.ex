@@ -23,6 +23,7 @@ defmodule SnmpKit.MIB.Error do
           | :constraint_error
           | :duplicate_definition
           | :file_not_found
+          | :file_rejected
           | :unterminated_string
           | :unexpected_token
           | :unexpected_eof
@@ -129,6 +130,19 @@ defmodule SnmpKit.MIB.Error do
   defp generate_message(:file_not_found, opts) do
     file = opts[:file]
     "File not found: #{file}"
+  end
+
+  defp generate_message(:file_rejected, opts) do
+    case opts[:reason] do
+      :outside_allowed_roots ->
+        "Refused to read #{opts[:file]}: outside the configured :input_roots"
+
+      :file_too_large ->
+        "Refused to read #{opts[:file]}: larger than :max_input_file_bytes"
+
+      other ->
+        "Refused to read #{opts[:file]}: #{inspect(other)}"
+    end
   end
 
   defp generate_message(:import_error, opts) do

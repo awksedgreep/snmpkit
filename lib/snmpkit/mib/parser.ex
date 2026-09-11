@@ -707,7 +707,7 @@ defmodule SnmpKit.MIB.Parser do
           Enum.map(mib_files, fn file ->
             file_path = Path.join(directory, file)
 
-            case File.read(file_path) do
+            case SnmpKit.SafeFile.read(file_path) do
               {:ok, content} ->
                 case parse(content) do
                   {:ok, mib_data} ->

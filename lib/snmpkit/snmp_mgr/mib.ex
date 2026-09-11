@@ -149,7 +149,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
       {:ok, %{objects: [...], imports: [...], exports: [...]}}
   """
   def parse_mib_file(mib_file, opts \\ []) do
-    case File.read(mib_file) do
+    case SnmpKit.SafeFile.read(mib_file) do
       {:ok, content} ->
         parse_mib_content(content, opts)
 

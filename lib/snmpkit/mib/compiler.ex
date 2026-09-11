@@ -87,9 +87,19 @@ defmodule SnmpKit.MIB.Compiler do
   def compile(mib_path, opts \\ []) do
     opts = Keyword.merge(@default_opts, opts)
 
-    case File.read(mib_path) do
+    case SnmpKit.SafeFile.read(mib_path) do
       {:ok, content} ->
         compile_string(content, opts)
+
+      {:error, reason} when reason in [:outside_allowed_roots, :file_too_large] ->
+        {:error,
+         [
+           Error.new(:file_rejected,
+             file: mib_path,
+             reason: reason,
+             context: %{path: mib_path, reason: reason}
+           )
+         ]}
 
       {:error, reason} ->
         {:error,
@@ -211,9 +221,12 @@ defmodule SnmpKit.MIB.Compiler do
   """
   @spec load_compiled(Path.t()) :: {:ok, compiled_mib()} | {:error, term()}
   def load_compiled(compiled_path) do
+    max = max_compiled_mib_bytes()
+
     with {:ok, %File.Stat{size: size}} <- File.stat(compiled_path),
-         :ok <- check_compiled_size(size),
-         {:ok, binary_data} <- File.read(compiled_path),
+         :ok <- check_compiled_size(size, max),
+         {:ok, real_path} <- SnmpKit.SafeFile.check(compiled_path, max_bytes: max),
+         {:ok, binary_data} <- File.read(real_path),
          {:ok, term} <- safe_binary_to_term(binary_data) do
       case term do
         %{__type__: :compiled_mib} = compiled -> {:ok, compiled}
@@ -224,12 +237,15 @@ defmodule SnmpKit.MIB.Compiler do
 
   # Upper bound on a compiled MIB file. Anything larger is refused before it is
   # read into memory. Override with
-  # `config :snmpkit, :max_compiled_mib_bytes, bytes`.
+  # `config :snmpkit, :max_compiled_mib_bytes, bytes`. The `:input_roots`
+  # confinement of `SnmpKit.SafeFile` applies as well.
   @default_max_compiled_mib_bytes 64 * 1024 * 1024
 
-  defp check_compiled_size(size) do
-    max = Application.get_env(:snmpkit, :max_compiled_mib_bytes, @default_max_compiled_mib_bytes)
+  defp max_compiled_mib_bytes do
+    Application.get_env(:snmpkit, :max_compiled_mib_bytes, @default_max_compiled_mib_bytes)
+  end
 
+  defp check_compiled_size(size, max) do
     if size <= max do
       :ok
     else

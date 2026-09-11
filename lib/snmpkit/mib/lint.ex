@@ -91,7 +91,7 @@ defmodule SnmpKit.MIB.Lint do
     text =
       if String.contains?(source, "\n") or not File.regular?(source),
         do: {:ok, source},
-        else: File.read(source)
+        else: SnmpKit.SafeFile.read(source)
 
     # Parse rather than compile: the compiled symbol table is keyed by name and
     # would hide duplicate definitions.

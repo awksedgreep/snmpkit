@@ -34,7 +34,7 @@ defmodule SnmpKit.SnmpSim.Config do
   Loads configuration from a JSON file.
   """
   def load_from_file(file_path) when is_binary(file_path) do
-    case SnmpKit.SnmpSim.SafeFile.read(file_path) do
+    case SnmpKit.SafeFile.read(file_path) do
       {:ok, content} ->
         # Decode with string keys and only convert the ones this module knows
         # (existing atoms); arbitrary JSON keys must not grow the atom table.
