@@ -209,7 +209,9 @@ defmodule SnmpKit.MIB.CompilerTest do
       File.write!(not_a_dir, "")
 
       assert {:ok, compiled} = Compiler.compile("test/fixtures/mibs/working/IF-MIB.mib")
-      assert {:error, :eexist} = Compiler.write_compiled(compiled, not_a_dir)
+      # OTP 28 reports :eexist for mkdir_p on a file, OTP 29 :enotdir
+      assert {:error, reason} = Compiler.write_compiled(compiled, not_a_dir)
+      assert reason in [:eexist, :enotdir]
     end
   end
 end
