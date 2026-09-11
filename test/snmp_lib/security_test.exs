@@ -343,6 +343,23 @@ defmodule SnmpKit.SnmpLib.SecurityTest do
       assert {:error, :invalid_priv_password} =
                Security.validate_user(user, "correct_auth", "wrong_priv")
     end
+
+    test "a privacy user without an auth protocol is refused, not checked against MD5" do
+      # create_user/2 never builds this; a hand-assembled user reaches the
+      # key derivation directly and must not get an MD5-derived key by default.
+      user = %{
+        security_name: "authless_priv",
+        auth_protocol: :none,
+        priv_protocol: :aes128,
+        auth_key: <<>>,
+        priv_key: <<>>,
+        engine_id: "validate_engine_pqr",
+        engine_boots: 1,
+        engine_time: 0
+      }
+
+      assert {:error, :priv_requires_auth} = Security.validate_user(user, "", "priv_password_1")
+    end
   end
 
   describe "Security.info/0" do
