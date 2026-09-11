@@ -31,6 +31,29 @@ defmodule SnmpKit.SnmpSim.ValueSimulatorTest do
       assert value > 1_000_000
     end
 
+    test "a running device's counters grow with its uptime_start, not a missing :uptime key" do
+      profile_data = %{type: "Counter32", value: 1_000_000}
+      behavior_config = {:traffic_counter, %{rate_range: {1000, 10000}}}
+      hour = :erlang.convert_time_unit(3600, :second, :native)
+
+      at_start = %{device_id: "cm_1", uptime_start: :erlang.monotonic_time()}
+      an_hour_in = %{device_id: "cm_1", uptime_start: :erlang.monotonic_time() - hour}
+
+      {:counter32, base} = ValueSimulator.simulate_value(profile_data, behavior_config, at_start)
+
+      {:counter32, later} =
+        ValueSimulator.simulate_value(profile_data, behavior_config, an_hour_in)
+
+      assert base == 1_000_000
+      assert later > base
+      # A hand-built state may still give the uptime in seconds directly.
+      assert {:counter32, ^later} =
+               ValueSimulator.simulate_value(profile_data, behavior_config, %{
+                 device_id: "cm_1",
+                 uptime: 3600
+               })
+    end
+
     test "applies counter wrapping for 32-bit counters" do
       # Near max
       profile_data = %{type: "Counter32", value: 4_294_967_290}

@@ -722,7 +722,7 @@ defmodule SnmpKit.SnmpMgr.Multi do
         {:error, {:unsupported, :multi_oid_get_bulk}}
 
       {:ok, []} ->
-        {:error, {:oid_resolution_failed, :empty_oid}}
+        {:error, {:invalid_oid, request.oid, :empty_oid}}
 
       {:ok, [oid_list]} ->
         case request.type do
@@ -744,8 +744,8 @@ defmodule SnmpKit.SnmpMgr.Multi do
             {:error, {:unsupported_request_type, request.type}}
         end
 
-      {:error, reason} ->
-        {:error, {:oid_resolution_failed, reason}}
+      {:error, _} = error ->
+        error
     end
   end
 
@@ -780,14 +780,18 @@ defmodule SnmpKit.SnmpMgr.Multi do
 
   defp socket_for(default, _host), do: {:ok, default}
 
-  # Resolve OID from string (symbolic or numeric) to list format
+  # Resolve OID from string (symbolic or numeric) to list format. Failures
+  # carry the same {:invalid_oid, input, reason} shape as every other path.
   defp resolve_oid(oid) when is_list(oid) and is_integer(hd(oid)), do: {:ok, oid}
 
   defp resolve_oid(oid) when is_binary(oid) do
-    SnmpKit.SnmpMgr.Core.parse_oid(oid)
+    case SnmpKit.SnmpMgr.Core.parse_oid(oid) do
+      {:ok, list} -> {:ok, list}
+      {:error, reason} -> {:error, {:invalid_oid, oid, reason}}
+    end
   end
 
-  defp resolve_oid(oid), do: {:error, {:invalid_oid, oid}}
+  defp resolve_oid(oid), do: {:error, {:invalid_oid, oid, :invalid_oid_input}}
 
   # Target resolution helper - delegates to canonical Target.resolve
   defp resolve_target(target), do: SnmpKit.SnmpMgr.Target.resolve(target)

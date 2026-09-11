@@ -176,7 +176,7 @@ defmodule SnmpKit.SnmpMgr.MultiTest do
       [first, second, third] = Multi.execute_mixed(operations, timeout: 100)
 
       assert match?({:error, _}, first)
-      assert second == {:error, {:oid_resolution_failed, :not_found}}
+      assert match?({:error, {:invalid_oid, "invalid.oid", _}}, second)
       assert match?({:error, _}, third)
     end
   end

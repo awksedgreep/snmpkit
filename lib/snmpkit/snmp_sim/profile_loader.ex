@@ -254,6 +254,19 @@ defmodule SnmpKit.SnmpSim.ProfileLoader do
       end)
       |> Map.new()
 
+    # Behaviors apply to manual profiles the same way as to walk files;
+    # they used to be recorded on the profile and never applied.
+    processed_oid_map =
+      case Keyword.get(opts, :behaviors) do
+        nil ->
+          processed_oid_map
+
+        behavior_configs ->
+          %__MODULE__{oid_map: processed_oid_map}
+          |> SnmpKit.SnmpSim.BehaviorConfig.apply_behaviors(behavior_configs)
+          |> Map.fetch!(:oid_map)
+      end
+
     {:ok,
      %__MODULE__{
        device_type: device_type,

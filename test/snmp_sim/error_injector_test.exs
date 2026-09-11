@@ -392,5 +392,48 @@ defmodule SnmpKit.SnmpSim.ErrorInjectorTest do
       assert accept_sequence(7) == first
       assert accept_sequence(8) != first
     end
+
+    # SnmpKit.SnmpSim.start_device/2 builds the device config from its options,
+    # so the seed has to survive that step too.
+    defp accept_sequence_via_start_device(seed) do
+      port = PortHelper.get_port()
+
+      {:ok, profile} =
+        SnmpKit.SnmpSim.ProfileLoader.load_profile(
+          :cable_modem,
+          {:manual, %{"1.3.6.1.2.1.1.1.0" => "cm"}}
+        )
+
+      {:ok, device_pid} =
+        SnmpKit.SnmpSim.start_device(profile,
+          port: port,
+          device_id: "api_seeded_#{seed}_#{System.unique_integer([:positive])}",
+          seed: seed
+        )
+
+      {:ok, injector_pid} = ErrorInjector.start_link(device_pid, port)
+      :ok = ErrorInjector.inject_packet_loss(injector_pid, loss_rate: 0.5)
+      pdu = SnmpKit.SnmpLib.PDU.build_get_request([1, 3, 6, 1, 2, 1, 1, 1, 0], 1)
+
+      sequence =
+        for _ <- 1..32 do
+          case GenServer.call(device_pid, {:handle_snmp, pdu, %{}}) do
+            {:ok, _response} -> :answered
+            {:error, :packet_loss} -> :dropped
+          end
+        end
+
+      GenServer.stop(injector_pid)
+      Device.stop(device_pid)
+      sequence
+    end
+
+    test "seed: reaches the device through SnmpKit.SnmpSim.start_device/2" do
+      first = accept_sequence_via_start_device(7)
+
+      assert :answered in first and :dropped in first
+      assert accept_sequence_via_start_device(7) == first
+      assert accept_sequence_via_start_device(8) != first
+    end
   end
 end

@@ -113,7 +113,7 @@ defmodule SnmpKit.SnmpSim.ValueSimulator do
   # Traffic Counter Simulation
   defp simulate_traffic_counter(profile_data, config, device_state, current_time) do
     base_value = get_base_counter_value(profile_data)
-    uptime_seconds = Map.get(device_state, :uptime, 0)
+    uptime_seconds = uptime_seconds(device_state)
     device_type = Map.get(device_state, :device_type, :unknown)
 
     # Get device-specific traffic characteristics
@@ -163,7 +163,7 @@ defmodule SnmpKit.SnmpSim.ValueSimulator do
   # Packet Counter Simulation
   defp simulate_packet_counter(profile_data, config, device_state, current_time) do
     base_value = get_base_counter_value(profile_data)
-    uptime_seconds = Map.get(device_state, :uptime, 0)
+    uptime_seconds = uptime_seconds(device_state)
 
     # Packet counters often correlate with traffic counters
     correlation_oid = Map.get(config, :correlation_with)
@@ -187,7 +187,7 @@ defmodule SnmpKit.SnmpSim.ValueSimulator do
   # Error Counter Simulation
   defp simulate_error_counter(profile_data, config, device_state, _current_time) do
     base_value = get_base_counter_value(profile_data)
-    uptime_seconds = Map.get(device_state, :uptime, 0)
+    uptime_seconds = uptime_seconds(device_state)
 
     # Error rates correlate with utilization and environmental factors
     utilization = Map.get(device_state, :interface_utilization, 0.3)
@@ -381,8 +381,17 @@ defmodule SnmpKit.SnmpSim.ValueSimulator do
   end
 
   # Uptime Counter Simulation
+  # Counters grow with the device's uptime. A running device carries
+  # `uptime_start` (monotonic native units, see Device.Metrics); a hand-built
+  # state may give `uptime` in seconds directly. Reading only `:uptime` left
+  # every real device's counters frozen at their base value.
+  defp uptime_seconds(%{uptime: seconds}) when is_integer(seconds), do: seconds
+
+  defp uptime_seconds(device_state),
+    do: div(SnmpKit.SnmpSim.Device.Metrics.calculate_uptime(device_state), 1000)
+
   defp simulate_uptime_counter(_profile_data, _config, device_state, _current_time) do
-    uptime_seconds = Map.get(device_state, :uptime, 0)
+    uptime_seconds = uptime_seconds(device_state)
 
     # SNMP sysUpTime is in TimeTicks (1/100th of a second)
     uptime_timeticks = uptime_seconds * 100

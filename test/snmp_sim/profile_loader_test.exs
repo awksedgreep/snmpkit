@@ -183,6 +183,22 @@ defmodule SnmpKit.SnmpSim.ProfileLoaderTest do
       assert profile.behaviors == behaviors
     end
 
+    test "behaviors apply to manual profiles too" do
+      oid_map = %{"1.3.6.1.2.1.2.2.1.10.1" => %{type: "Counter32", value: 1_000}}
+
+      {:ok, plain} = ProfileLoader.load_profile(:custom, {:manual, oid_map})
+
+      {:ok, with_behaviors} =
+        ProfileLoader.load_profile(:custom, {:manual, oid_map}, behaviors: [:realistic_counters])
+
+      assert plain.oid_map["1.3.6.1.2.1.2.2.1.10.1"] == %{type: "Counter32", value: 1_000}
+
+      assert with_behaviors.oid_map["1.3.6.1.2.1.2.2.1.10.1"] !=
+               plain.oid_map["1.3.6.1.2.1.2.2.1.10.1"]
+
+      assert with_behaviors.behaviors == [:realistic_counters]
+    end
+
     test "includes metadata about loading" do
       {:ok, profile} =
         ProfileLoader.load_profile(
