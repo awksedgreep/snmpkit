@@ -1,6 +1,7 @@
 defmodule SnmpKit.SnmpLib.ErrorHandler do
   @moduledoc """
-  Intelligent error handling with retry logic, circuit breakers, and adaptive recovery.
+  Error handling for SNMP operations: retry with exponential backoff, error
+  classification, adaptive timeouts and device quarantine.
 
   This module provides sophisticated error handling capabilities designed to improve
   reliability and performance in production SNMP environments. Based on patterns
@@ -9,11 +10,9 @@ defmodule SnmpKit.SnmpLib.ErrorHandler do
   ## Features
 
   - **Exponential Backoff**: Intelligent retry timing to avoid overwhelming failing devices
-  - **Circuit Breakers**: Automatic failure detection and recovery for unhealthy devices
   - **Error Classification**: Smart categorization of errors for appropriate handling
   - **Adaptive Timeouts**: Dynamic timeout adjustment based on device performance
   - **Quarantine Management**: Temporary isolation of problematic devices
-  - **Recovery Strategies**: Multiple approaches for bringing devices back online
 
   ## Error Classification
 
@@ -35,17 +34,6 @@ defmodule SnmpKit.SnmpLib.ErrorHandler do
   - High error rates
   - Resource exhaustion
 
-  ## Circuit Breaker States
-
-  ### Closed (Normal Operation)
-  Device is healthy, all operations proceed normally.
-
-  ### Open (Failing)
-  Device has exceeded failure threshold, operations are blocked.
-
-  ### Half-Open (Testing)
-  Limited operations allowed to test device recovery.
-
   ## Usage Examples
 
       # Basic retry with exponential backoff
@@ -53,18 +41,10 @@ defmodule SnmpKit.SnmpLib.ErrorHandler do
         SnmpKit.SnmpLib.Manager.get("192.168.1.1", [1,3,6,1,2,1,1,1,0])
       end, max_attempts: 3)
 
-      # Circuit breaker for device management
-      {:ok, breaker} = SnmpKit.SnmpLib.ErrorHandler.start_circuit_breaker("192.168.1.1")
-
-      result = SnmpKit.SnmpLib.ErrorHandler.call_through_breaker(breaker, fn ->
-        SnmpKit.SnmpLib.Manager.get_bulk("192.168.1.1", [1,3,6,1,2,1,2,2])
-      end)
-
       # Adaptive timeout based on device history
       timeout = SnmpKit.SnmpLib.ErrorHandler.adaptive_timeout("192.168.1.1", base_timeout: 5000)
   """
 
-  use GenServer
   require Logger
 
   @quarantine_key {__MODULE__, :quarantines}
@@ -73,14 +53,8 @@ defmodule SnmpKit.SnmpLib.ErrorHandler do
   @default_base_delay 1_000
   @default_max_delay 30_000
   @default_jitter_factor 0.1
-  @default_failure_threshold 5
-  @default_recovery_timeout 60_000
-  @default_half_open_max_calls 3
-  @default_timeout_threshold 10_000
-  @default_slow_call_threshold 5_000
 
   @type error_class :: :transient | :permanent | :degraded | :unknown
-  @type circuit_state :: :closed | :open | :half_open
   @type retry_strategy :: :exponential | :linear | :fixed
   @type device_id :: binary()
 
@@ -93,14 +67,6 @@ defmodule SnmpKit.SnmpLib.ErrorHandler do
           retry_condition: function()
         ]
 
-  @type circuit_breaker_opts :: [
-          failure_threshold: pos_integer(),
-          recovery_timeout: pos_integer(),
-          half_open_max_calls: pos_integer(),
-          timeout_threshold: pos_integer(),
-          slow_call_threshold: pos_integer()
-        ]
-
   @type device_stats :: %{
           device_id: device_id(),
           success_count: non_neg_integer(),
@@ -108,17 +74,8 @@ defmodule SnmpKit.SnmpLib.ErrorHandler do
           avg_response_time: float(),
           last_success: integer() | nil,
           last_failure: integer() | nil,
-          circuit_state: circuit_state(),
           quarantine_until: integer() | nil
         }
-
-  defstruct device_stats: %{},
-            global_stats: %{
-              total_operations: 0,
-              total_successes: 0,
-              total_failures: 0,
-              total_retries: 0
-            }
 
   ## Public API
 
@@ -183,66 +140,6 @@ defmodule SnmpKit.SnmpLib.ErrorHandler do
       retry_condition: retry_condition,
       attempt: 1
     })
-  end
-
-  @doc """
-  Starts a circuit breaker for a specific device.
-
-  Circuit breakers automatically detect failing devices and prevent
-  cascading failures by temporarily blocking operations.
-
-  ## Parameters
-
-  - `device_id`: Unique identifier for the device
-  - `opts`: Circuit breaker configuration options
-
-  ## Returns
-
-  - `{:ok, pid}`: Circuit breaker started successfully
-  - `{:error, reason}`: Failed to start circuit breaker
-
-  ## Examples
-
-      {:ok, breaker} = SnmpKit.SnmpLib.ErrorHandler.start_circuit_breaker("192.168.1.1")
-
-      {:ok, breaker} = SnmpKit.SnmpLib.ErrorHandler.start_circuit_breaker("core-switch-01",
-        failure_threshold: 10,
-        recovery_timeout: 120_000
-      )
-  """
-  @spec start_circuit_breaker(device_id(), circuit_breaker_opts()) ::
-          {:ok, pid()} | {:error, any()}
-  def start_circuit_breaker(device_id, opts \\ []) do
-    GenServer.start_link(__MODULE__, {:circuit_breaker, device_id, opts})
-  end
-
-  @doc """
-  Executes a function through a circuit breaker.
-
-  The circuit breaker monitors the operation and may block future calls
-  if the device is experiencing failures.
-
-  ## Parameters
-
-  - `breaker_pid`: PID of the circuit breaker process
-  - `fun`: Function to execute
-  - `timeout`: Maximum execution time (optional)
-
-  ## Returns
-
-  - `{:ok, result}`: Operation succeeded
-  - `{:error, reason}`: Operation failed
-  - `{:error, :circuit_open}`: Circuit breaker is open (device unhealthy)
-
-  ## Examples
-
-      result = SnmpKit.SnmpLib.ErrorHandler.call_through_breaker(breaker, fn ->
-        SnmpKit.SnmpLib.Manager.get("192.168.1.1", [1,3,6,1,2,1,1,1,0])
-      end)
-  """
-  @spec call_through_breaker(pid(), function(), pos_integer()) :: {:ok, any()} | {:error, any()}
-  def call_through_breaker(breaker_pid, fun, timeout \\ 5000) when is_function(fun, 0) do
-    GenServer.call(breaker_pid, {:execute, fun}, timeout)
   end
 
   @doc """
@@ -325,7 +222,6 @@ defmodule SnmpKit.SnmpLib.ErrorHandler do
            avg_response_time: 250.0,
            last_success: System.monotonic_time(:millisecond),
            last_failure: System.monotonic_time(:millisecond) - 60_000,
-           circuit_state: :closed,
            quarantine_until: nil
          }}
     end
@@ -413,60 +309,6 @@ defmodule SnmpKit.SnmpLib.ErrorHandler do
     end
   end
 
-  ## GenServer Implementation (for Circuit Breaker)
-
-  @impl GenServer
-  def init({:circuit_breaker, device_id, opts}) do
-    state = %{
-      device_id: device_id,
-      state: :closed,
-      failure_count: 0,
-      success_count: 0,
-      last_failure_time: nil,
-      half_open_calls: 0,
-      opts: %{
-        failure_threshold: Keyword.get(opts, :failure_threshold, @default_failure_threshold),
-        recovery_timeout: Keyword.get(opts, :recovery_timeout, @default_recovery_timeout),
-        half_open_max_calls:
-          Keyword.get(opts, :half_open_max_calls, @default_half_open_max_calls),
-        timeout_threshold: Keyword.get(opts, :timeout_threshold, @default_timeout_threshold),
-        slow_call_threshold: Keyword.get(opts, :slow_call_threshold, @default_slow_call_threshold)
-      }
-    }
-
-    Logger.info("Started circuit breaker for device #{device_id}")
-    {:ok, state}
-  end
-
-  @impl GenServer
-  def handle_call({:execute, fun}, _from, state) do
-    case can_execute?(state) do
-      true ->
-        execute_and_record(fun, state)
-
-      false ->
-        {:reply, {:error, :circuit_open}, state}
-    end
-  end
-
-  @impl GenServer
-  def handle_call(:get_state, _from, state) do
-    {:reply, state.state, state}
-  end
-
-  @impl GenServer
-  def handle_call(:reset, _from, state) do
-    new_state = %{
-      state
-      | state: :closed,
-        failure_count: 0,
-        half_open_calls: 0,
-        last_failure_time: nil
-    }
-
-    {:reply, :ok, new_state}
-  end
-
   ## Private Implementation
 
   # Retry execution
@@ -546,122 +388,13 @@ defmodule SnmpKit.SnmpLib.ErrorHandler do
     classify_error(error) in [:transient, :degraded, :unknown]
   end
 
-  # Circuit breaker logic
-  defp can_execute?(state) do
-    case state.state do
-      :closed -> true
-      :open -> should_attempt_reset?(state)
-      :half_open -> state.half_open_calls < state.opts.half_open_max_calls
-    end
-  end
-
-  defp should_attempt_reset?(state) do
-    case state.last_failure_time do
-      nil ->
-        true
-
-      last_failure ->
-        current_time = System.monotonic_time(:millisecond)
-        current_time - last_failure > state.opts.recovery_timeout
-    end
-  end
-
-  defp execute_and_record(fun, state) do
-    start_time = System.monotonic_time(:microsecond)
-
-    try do
-      result = fun.()
-      end_time = System.monotonic_time(:microsecond)
-      duration = end_time - start_time
-
-      case result do
-        {:ok, _} = success ->
-          new_state = record_success(state, duration)
-          {:reply, success, new_state}
-
-        {:error, reason} = error ->
-          new_state = record_failure(state, reason)
-          {:reply, error, new_state}
-      end
-    rescue
-      exception ->
-        new_state = record_failure(state, exception)
-        {:reply, {:error, exception}, new_state}
-    end
-  end
-
-  defp record_success(state, duration_microseconds) do
-    duration_ms = duration_microseconds / 1000
-
-    cond do
-      state.state == :half_open ->
-        # Transition back to closed if enough successful calls
-        if state.half_open_calls + 1 >= state.opts.half_open_max_calls do
-          %{
-            state
-            | state: :closed,
-              failure_count: 0,
-              success_count: state.success_count + 1,
-              half_open_calls: 0
-          }
-        else
-          %{
-            state
-            | success_count: state.success_count + 1,
-              half_open_calls: state.half_open_calls + 1
-          }
-        end
-
-      duration_ms > state.opts.slow_call_threshold ->
-        # Slow call - don't reset failure count entirely
-        %{state | success_count: state.success_count + 1}
-
-      true ->
-        # Normal successful call
-        %{
-          state
-          | success_count: state.success_count + 1,
-            # Gradual recovery
-            failure_count: max(0, state.failure_count - 1)
-        }
-    end
-  end
-
-  defp record_failure(state, _reason) do
-    new_failure_count = state.failure_count + 1
-    current_time = System.monotonic_time(:millisecond)
-
-    new_state = %{state | failure_count: new_failure_count, last_failure_time: current_time}
-
-    cond do
-      state.state == :half_open ->
-        # Transition back to open on any failure during half-open
-        %{new_state | state: :open, half_open_calls: 0}
-
-      state.state == :closed and new_failure_count >= state.opts.failure_threshold ->
-        # Transition to open when threshold exceeded
-        Logger.warning(
-          "Circuit breaker opened for device #{state.device_id} after #{new_failure_count} failures"
-        )
-
-        %{new_state | state: :open}
-
-      true ->
-        new_state
-    end
-  end
-
   # Adaptive timeout calculation
   defp calculate_adaptive_timeout(stats, base_timeout, max_timeout, _percentile, safety_factor) do
     # Simplified calculation - in production would use historical percentiles
     base_calculation = trunc(stats.avg_response_time * safety_factor)
 
-    # The per-device stats never leave the :closed circuit state (the
-    # breaker that would open them was removed in 2.0), so no adjustment.
-    calculated = base_calculation
-
     # Ensure within bounds
-    calculated
+    base_calculation
     |> max(base_timeout)
     |> min(max_timeout)
   end
