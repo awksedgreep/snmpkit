@@ -402,8 +402,8 @@ defmodule SnmpKit.MIB.Utilities do
     validate_integer_constraints(rest)
   end
 
+  # Enumeration labels are checked by SnmpKit.MIB.Lint, not here.
   defp validate_integer_constraints([{:enum, _values} | rest]) do
-    # TODO: Validate enum values
     validate_integer_constraints(rest)
   end
 

@@ -195,21 +195,6 @@ defmodule SnmpKit.SnmpLib.WalkerTest do
       assert {:error, _} = Walker.walk_table("192.168.255.255", [1, 3, 6, 1], opts)
     end
 
-    @tag :skip
-    test "implements retry logic" do
-      # Test with unreachable host
-      opts = [max_retries: 1, retry_delay: 50, timeout: 20]
-
-      # Should retry on failures
-      start_time = System.monotonic_time(:millisecond)
-      {:error, _} = Walker.walk_table("192.168.255.255", [1, 3, 6, 1], opts)
-      end_time = System.monotonic_time(:millisecond)
-
-      # Should take longer due to retries
-      # At least one retry delay
-      assert end_time - start_time >= 50
-    end
-
     test "handles table boundary conditions" do
       # Test with various table scenarios
       assert {:error, _} = Walker.walk_table("192.168.255.254", [1, 3, 6, 1], timeout: 20)

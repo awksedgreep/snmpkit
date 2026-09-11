@@ -205,11 +205,9 @@ defmodule SnmpKit.MIB.Compiler do
     |> Enum.uniq()
   end
 
-  defp validate_compiled_mib(compiled, _opts) do
-    # TODO: Add semantic validation
-    # For now, just return the compiled MIB
-    {:ok, compiled}
-  end
+  # Semantic checks (imports, index clauses, ranges) live in SnmpKit.MIB.Lint;
+  # compile/2 only parses and converts, so `validate: true` accepts what parsed.
+  defp validate_compiled_mib(compiled, _opts), do: {:ok, compiled}
 
   @doc """
   Load a previously compiled MIB.
@@ -340,117 +338,6 @@ defmodule SnmpKit.MIB.Compiler do
       {:ok, path}
     end
   end
-
-  # Private helper functions
-
-  # TODO: The following functions are for future MIB compilation features
-  # They are commented out to avoid Dialyzer warnings until MIB compilation is fully implemented
-
-  # defp post_process_mib(mib, opts) do
-  #   with {:ok, validated_mib} <- validate_mib(mib, opts),
-  #        {:ok, resolved_mib} <- resolve_symbols(validated_mib, opts),
-  #        {:ok, optimized_mib} <- optimize_mib(resolved_mib, opts) do
-  #     {:ok, optimized_mib}
-  #   end
-  # end
-
-  # defp validate_mib(mib, opts) do
-  #   if opts[:validate] do
-  #     # Semantic validation would go here
-  #     # For now, just basic AST validation
-  #     case AST.validate_node(mib) do
-  #       {:ok, _} -> {:ok, mib}
-  #       {:error, reason} ->
-  #         error = Error.new(:validation_failed, reason: reason)
-  #         {:error, [error]}
-  #     end
-  #   else
-  #     {:ok, mib}
-  #   end
-  # end
-
-  # defp resolve_symbols(mib, _opts) do
-  #   # Symbol resolution would happen here
-  #   # For now, return as-is
-  #   {:ok, mib}
-  # end
-
-  # defp optimize_mib(mib, opts) do
-  #   if opts[:optimize] do
-  #     # MIB optimization would happen here
-  #     # For now, return as-is
-  #     {:ok, mib}
-  #   else
-  #     {:ok, mib}
-  #   end
-  # end
-
-  # defp build_output_path(mib_name, opts) do
-  #   output_dir = opts[:output_dir]
-  #   format = opts[:format]
-  #
-  #   extension = case format do
-  #     :erlang -> ".erl"
-  #     :binary -> ".mib"
-  #     :json -> ".json"
-  #   end
-  #
-  #   Path.join(output_dir, "#{mib_name}#{extension}")
-  # end
-
-  # defp write_compiled_mib(mib, output_path, opts) do
-  #   case ensure_output_dir(Path.dirname(output_path)) do
-  #     :ok ->
-  #       case opts[:format] do
-  #         :binary ->
-  #           compiled = %{
-  #             __type__: :compiled_mib,
-  #             name: mib.name,
-  #             version: get_mib_version(mib),
-  #             format: :binary,
-  #             metadata: mib.metadata,
-  #             oid_tree: mib.oid_tree,
-  #             symbols: extract_symbols(mib),
-  #             dependencies: mib.metadata[:dependencies] || [],
-  #             compiled_at: DateTime.utc_now()
-  #           }
-  #           File.write(output_path, :erlang.term_to_binary(compiled))
-  #
-  #         :json ->
-  #           # Would need JSON serialization
-  #           {:error, :json_not_implemented}
-  #
-  #         :erlang ->
-  #           # Would generate Erlang code
-  #           {:error, :erlang_not_implemented}
-  #       end
-  #     error ->
-  #       error
-  #   end
-  # end
-
-  # defp ensure_output_dir(dir_path) do
-  #   case File.mkdir_p(dir_path) do
-  #     :ok -> :ok
-  #     {:error, reason} -> {:error, reason}
-  #   end
-  # end
-
-  # defp get_mib_version(mib) do
-  #   mib.metadata[:compiler_version] || "unknown"
-  # end
-
-  # defp extract_symbols(mib) do
-  #   # Build symbol table from definitions
-  #   Enum.reduce(mib.definitions, %{}, fn definition, acc ->
-  #     case definition do
-  #       %{name: name, oid: oid} when is_list(oid) ->
-  #         Map.put(acc, name, oid)
-  #       _ ->
-  #         acc
-  #     end
-  #   end)
-  # end
 
   defp partition_results(results, files) do
     results
