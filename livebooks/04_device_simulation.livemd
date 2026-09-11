@@ -173,7 +173,7 @@ IO.puts("Interface descriptions: #{length(if_descr)} entries")
 
 ## Device Behaviors
 
-Behaviors attach to walk-file profiles. Without `behaviors:` the loader infers them from the object names (traffic counters, packet counters, gauges); pass a `SnmpKit.SnmpSim.BehaviorConfig` preset, or your own `{:increment_counters, config}` / `{:vary_gauges, config}` list, to choose. Manual profiles serve fixed values.
+Behaviors make values move. Without `behaviors:` the loader infers them for walk-file profiles from the object names (traffic counters, packet counters, gauges); pass a `SnmpKit.SnmpSim.BehaviorConfig` preset, or your own `{:increment_counters, config}` / `{:vary_gauges, config}` list, to choose. A counter with a behavior grows with the device's uptime, so two polls a few seconds apart give `SnmpKit.SNMP.Rate` a real delta. Manual profiles serve fixed values unless you pass `behaviors:` too.
 
 ```elixir
 alias SnmpKit.SnmpSim.BehaviorConfig
