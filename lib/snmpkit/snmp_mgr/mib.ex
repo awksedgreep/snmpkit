@@ -255,18 +255,22 @@ defmodule SnmpKit.SnmpMgr.MIB do
   end
 
   @doc """
-  Loads and parses a MIB file, integrating it into the name resolution system.
-
-  This combines compilation/loading with parsing for comprehensive MIB support.
+  Compiles a MIB file and registers its objects in one step, so they resolve
+  through `resolve/1`, `reverse_lookup/1` and `object_info/1`.
   """
   def load_and_integrate_mib(mib_file, opts \\ []) do
-    with {:ok, _compiled} <- compile(mib_file, opts),
-         {:ok, parsed} <- parse_mib_file(mib_file, opts) do
-      # Register both compiled and parsed data
-      GenServer.call(__MODULE__, {:integrate_mib_data, mib_file, parsed})
-    else
-      {:error, reason} -> {:error, reason}
+    with {:ok, compiled} <- compile(mib_file, opts) do
+      load(compiled)
     end
+  end
+
+  @doc """
+  Names of the MIB modules registered at runtime (via `load/1` or
+  `load_and_integrate_mib/2`), oldest first. The built-in table is not listed.
+  """
+  @spec loaded_mibs() :: [String.t()]
+  def loaded_mibs do
+    GenServer.call(__MODULE__, :loaded_mibs)
   end
 
   @doc """
@@ -357,7 +361,7 @@ defmodule SnmpKit.SnmpMgr.MIB do
       name_to_oid: Builtin.name_to_oid(),
       oid_to_name: reverse_map,
       name_to_meta: %{},
-      loaded_mibs: [:standard]
+      loaded_mibs: []
     }
 
     {:ok, state}
@@ -468,17 +472,8 @@ defmodule SnmpKit.SnmpMgr.MIB do
   end
 
   @impl true
-  def handle_call({:resolve_enhanced, name, _opts}, _from, state) do
-    # Enhanced resolution using loaded MIB data
-    result = resolve_with_loaded_mibs(name, state)
-    {:reply, result, state}
-  end
-
-  @impl true
-  def handle_call({:integrate_mib_data, mib_file, parsed_data}, _from, state) do
-    # Integrate both compiled and parsed MIB data
-    new_state = integrate_parsed_mib_data(state, mib_file, parsed_data)
-    {:reply, :ok, new_state}
+  def handle_call(:loaded_mibs, _from, state) do
+    {:reply, Enum.reverse(state.loaded_mibs), state}
   end
 
   ## Private Functions
@@ -590,32 +585,20 @@ defmodule SnmpKit.SnmpMgr.MIB do
     merged_oid_to_name = Resolver.build_reverse_map(merged_name_to_oid)
     merged_name_to_meta = Map.merge(state.name_to_meta, add_meta)
 
-    state
-    |> Map.put(:name_to_oid, merged_name_to_oid)
-    |> Map.put(:oid_to_name, merged_oid_to_name)
-    |> Map.put(:name_to_meta, merged_name_to_meta)
-    |> Map.update(:snmp_lib_mibs, [mib_data], fn list -> [mib_data | list] end)
+    %{
+      state
+      | name_to_oid: merged_name_to_oid,
+        oid_to_name: merged_oid_to_name,
+        name_to_meta: merged_name_to_meta,
+        loaded_mibs: record_loaded(state.loaded_mibs, Map.get(mib_data, :name))
+    }
   end
 
-  defp resolve_with_loaded_mibs(name, state) do
-    case Map.get(state, :name_to_oid) do
-      %{} = m when is_binary(name) ->
-        case Map.get(m, name) do
-          nil -> {:error, :not_found}
-          oid -> {:ok, oid}
-        end
-
-      _ ->
-        {:error, :not_found}
-    end
+  defp record_loaded(names, name) when is_binary(name) do
+    if name in names, do: names, else: [name | names]
   end
 
-  defp integrate_parsed_mib_data(state, mib_file, parsed_data) do
-    # Integrate parsed MIB objects into our name resolution
-    integrated_mibs = Map.get(state, :integrated_mibs, %{})
-    new_integrated = Map.put(integrated_mibs, mib_file, parsed_data)
-    Map.put(state, :integrated_mibs, new_integrated)
-  end
+  defp record_loaded(names, _), do: names
 
   defp normalize_to_oid_list(oid_any) when is_list(oid_any) do
     case SnmpKit.SnmpLib.OID.valid_oid?(oid_any) do

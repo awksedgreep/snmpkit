@@ -1,11 +1,14 @@
 defmodule SnmpKit.MIB.Builtin do
   @moduledoc """
   Name/OID table and curated syntax metadata for the standard objects SnmpKit
-  knows without loading any MIB file (SNMPv2-MIB, IF-MIB, IP-MIB, BRIDGE-MIB,
-  Q-BRIDGE-MIB and friends).
+  knows without loading any MIB file (SNMPv2-MIB, IF-MIB, IP-MIB, TCP-MIB,
+  UDP-MIB, HOST-RESOURCES-MIB, BRIDGE-MIB, Q-BRIDGE-MIB, DOCS-IF-MIB and
+  friends).
 
-  `SnmpKit.SnmpMgr.MIB` seeds its registry from `name_to_oid/0`; the curated
-  `syntax/1` metadata is a stopgap for objects whose MIB has not been compiled.
+  This is the single built-in name table: `SnmpKit.SnmpMgr.MIB` seeds its
+  registry from `name_to_oid/0` and `SnmpKit.MIB.Registry` resolves over it
+  statically. The curated `syntax/1` metadata is a stopgap for objects whose
+  MIB has not been compiled.
   """
 
   @standard_mibs %{
@@ -174,7 +177,255 @@ defmodule SnmpKit.MIB.Builtin do
     "arris" => [1, 3, 6, 1, 4, 1, 4115],
     "motorola" => [1, 3, 6, 1, 4, 1, 1166],
     "scientificatlanta" => [1, 3, 6, 1, 4, 1, 1429],
-    "broadcom" => [1, 3, 6, 1, 4, 1, 4413]
+    "broadcom" => [1, 3, 6, 1, 4, 1, 4413],
+
+    # -- Objects that were only in the former SnmpKit.MIB.Registry table --
+
+    # IP group (1.3.6.1.2.1.4)
+    "ipForwDatagrams" => [1, 3, 6, 1, 2, 1, 4, 6],
+    "ipInUnknownProtos" => [1, 3, 6, 1, 2, 1, 4, 7],
+    "ipInDiscards" => [1, 3, 6, 1, 2, 1, 4, 8],
+    "ipInDelivers" => [1, 3, 6, 1, 2, 1, 4, 9],
+    "ipOutRequests" => [1, 3, 6, 1, 2, 1, 4, 10],
+    "ipOutDiscards" => [1, 3, 6, 1, 2, 1, 4, 11],
+    "ipOutNoRoutes" => [1, 3, 6, 1, 2, 1, 4, 12],
+    "ipReasmTimeout" => [1, 3, 6, 1, 2, 1, 4, 13],
+    "ipReasmReqds" => [1, 3, 6, 1, 2, 1, 4, 14],
+    "ipReasmOKs" => [1, 3, 6, 1, 2, 1, 4, 15],
+    "ipReasmFails" => [1, 3, 6, 1, 2, 1, 4, 16],
+    "ipFragOKs" => [1, 3, 6, 1, 2, 1, 4, 17],
+    "ipFragFails" => [1, 3, 6, 1, 2, 1, 4, 18],
+    "ipFragCreates" => [1, 3, 6, 1, 2, 1, 4, 19],
+
+    # ipAddrTable (1.3.6.1.2.1.4.20) - interface IP addresses
+    "ipAddrTable" => [1, 3, 6, 1, 2, 1, 4, 20],
+    "ipAddrEntry" => [1, 3, 6, 1, 2, 1, 4, 20, 1],
+    "ipAdEntAddr" => [1, 3, 6, 1, 2, 1, 4, 20, 1, 1],
+    "ipAdEntIfIndex" => [1, 3, 6, 1, 2, 1, 4, 20, 1, 2],
+    "ipAdEntNetMask" => [1, 3, 6, 1, 2, 1, 4, 20, 1, 3],
+    "ipAdEntBcastAddr" => [1, 3, 6, 1, 2, 1, 4, 20, 1, 4],
+    "ipAdEntReasmMaxSize" => [1, 3, 6, 1, 2, 1, 4, 20, 1, 5],
+
+    # ipRouteTable (1.3.6.1.2.1.4.21) - routing table (deprecated but widely used)
+    "ipRouteTable" => [1, 3, 6, 1, 2, 1, 4, 21],
+    "ipRouteEntry" => [1, 3, 6, 1, 2, 1, 4, 21, 1],
+    "ipRouteDest" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 1],
+    "ipRouteIfIndex" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 2],
+    "ipRouteMetric1" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 3],
+    "ipRouteMetric2" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 4],
+    "ipRouteMetric3" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 5],
+    "ipRouteMetric4" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 6],
+    "ipRouteNextHop" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 7],
+    "ipRouteType" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 8],
+    "ipRouteProto" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 9],
+    "ipRouteAge" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 10],
+    "ipRouteMask" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 11],
+    "ipRouteMetric5" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 12],
+    "ipRouteInfo" => [1, 3, 6, 1, 2, 1, 4, 21, 1, 13],
+
+    # ipNetToMediaTable (1.3.6.1.2.1.4.22) - ARP cache
+    "ipNetToMediaTable" => [1, 3, 6, 1, 2, 1, 4, 22],
+    "ipNetToMediaEntry" => [1, 3, 6, 1, 2, 1, 4, 22, 1],
+    "ipNetToMediaIfIndex" => [1, 3, 6, 1, 2, 1, 4, 22, 1, 1],
+    "ipNetToMediaPhysAddress" => [1, 3, 6, 1, 2, 1, 4, 22, 1, 2],
+    "ipNetToMediaNetAddress" => [1, 3, 6, 1, 2, 1, 4, 22, 1, 3],
+    "ipNetToMediaType" => [1, 3, 6, 1, 2, 1, 4, 22, 1, 4],
+    "ipRoutingDiscards" => [1, 3, 6, 1, 2, 1, 4, 23],
+
+    # TCP group (1.3.6.1.2.1.6)
+    "tcpRtoAlgorithm" => [1, 3, 6, 1, 2, 1, 6, 1],
+    "tcpRtoMin" => [1, 3, 6, 1, 2, 1, 6, 2],
+    "tcpRtoMax" => [1, 3, 6, 1, 2, 1, 6, 3],
+    "tcpMaxConn" => [1, 3, 6, 1, 2, 1, 6, 4],
+    "tcpActiveOpens" => [1, 3, 6, 1, 2, 1, 6, 5],
+    "tcpPassiveOpens" => [1, 3, 6, 1, 2, 1, 6, 6],
+    "tcpAttemptFails" => [1, 3, 6, 1, 2, 1, 6, 7],
+    "tcpEstabResets" => [1, 3, 6, 1, 2, 1, 6, 8],
+    "tcpCurrEstab" => [1, 3, 6, 1, 2, 1, 6, 9],
+    "tcpInSegs" => [1, 3, 6, 1, 2, 1, 6, 10],
+    "tcpOutSegs" => [1, 3, 6, 1, 2, 1, 6, 11],
+    "tcpRetransSegs" => [1, 3, 6, 1, 2, 1, 6, 12],
+    "tcpConnTable" => [1, 3, 6, 1, 2, 1, 6, 13],
+    "tcpInErrs" => [1, 3, 6, 1, 2, 1, 6, 14],
+    "tcpOutRsts" => [1, 3, 6, 1, 2, 1, 6, 15],
+
+    # UDP group (1.3.6.1.2.1.7)
+    "udpInDatagrams" => [1, 3, 6, 1, 2, 1, 7, 1],
+    "udpNoPorts" => [1, 3, 6, 1, 2, 1, 7, 2],
+    "udpInErrors" => [1, 3, 6, 1, 2, 1, 7, 3],
+    "udpOutDatagrams" => [1, 3, 6, 1, 2, 1, 7, 4],
+    "udpTable" => [1, 3, 6, 1, 2, 1, 7, 5],
+
+    # hrStorage group (1.3.6.1.2.1.25.2)
+    "hrMemorySize" => [1, 3, 6, 1, 2, 1, 25, 2, 2],
+    "hrStorageTable" => [1, 3, 6, 1, 2, 1, 25, 2, 3],
+    "hrStorageEntry" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1],
+    "hrStorageIndex" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 1],
+    "hrStorageType" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 2],
+    "hrStorageDescr" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 3],
+    "hrStorageAllocationUnits" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 4],
+    "hrStorageSize" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 5],
+    "hrStorageUsed" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 6],
+    "hrStorageAllocationFailures" => [1, 3, 6, 1, 2, 1, 25, 2, 3, 1, 7],
+
+    # hrDevice group (1.3.6.1.2.1.25.3)
+    "hrDeviceTable" => [1, 3, 6, 1, 2, 1, 25, 3, 2],
+    "hrDeviceEntry" => [1, 3, 6, 1, 2, 1, 25, 3, 2, 1],
+    "hrDeviceIndex" => [1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 1],
+    "hrDeviceType" => [1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 2],
+    "hrDeviceDescr" => [1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 3],
+    "hrDeviceID" => [1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 4],
+    "hrDeviceStatus" => [1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 5],
+    "hrDeviceErrors" => [1, 3, 6, 1, 2, 1, 25, 3, 2, 1, 6],
+
+    # hrProcessorTable (1.3.6.1.2.1.25.3.3)
+    "hrProcessorTable" => [1, 3, 6, 1, 2, 1, 25, 3, 3],
+    "hrProcessorEntry" => [1, 3, 6, 1, 2, 1, 25, 3, 3, 1],
+    "hrProcessorFrwID" => [1, 3, 6, 1, 2, 1, 25, 3, 3, 1, 1],
+    "hrProcessorLoad" => [1, 3, 6, 1, 2, 1, 25, 3, 3, 1, 2],
+
+    # hrNetworkTable (1.3.6.1.2.1.25.3.4)
+    "hrNetworkTable" => [1, 3, 6, 1, 2, 1, 25, 3, 4],
+    "hrNetworkEntry" => [1, 3, 6, 1, 2, 1, 25, 3, 4, 1],
+    "hrNetworkIfIndex" => [1, 3, 6, 1, 2, 1, 25, 3, 4, 1, 1],
+
+    # hrPrinterTable (1.3.6.1.2.1.25.3.5)
+    "hrPrinterTable" => [1, 3, 6, 1, 2, 1, 25, 3, 5],
+    "hrPrinterEntry" => [1, 3, 6, 1, 2, 1, 25, 3, 5, 1],
+    "hrPrinterStatus" => [1, 3, 6, 1, 2, 1, 25, 3, 5, 1, 1],
+    "hrPrinterDetectedErrorState" => [1, 3, 6, 1, 2, 1, 25, 3, 5, 1, 2],
+
+    # hrDiskStorageTable (1.3.6.1.2.1.25.3.6)
+    "hrDiskStorageTable" => [1, 3, 6, 1, 2, 1, 25, 3, 6],
+    "hrDiskStorageEntry" => [1, 3, 6, 1, 2, 1, 25, 3, 6, 1],
+    "hrDiskStorageAccess" => [1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 1],
+    "hrDiskStorageMedia" => [1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 2],
+    "hrDiskStorageRemoveble" => [1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 3],
+    "hrDiskStorageCapacity" => [1, 3, 6, 1, 2, 1, 25, 3, 6, 1, 4],
+
+    # hrSWRun group (1.3.6.1.2.1.25.4) - running processes
+    "hrSWOSIndex" => [1, 3, 6, 1, 2, 1, 25, 4, 1],
+    "hrSWRunTable" => [1, 3, 6, 1, 2, 1, 25, 4, 2],
+    "hrSWRunEntry" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1],
+    "hrSWRunIndex" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 1],
+    "hrSWRunName" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 2],
+    "hrSWRunID" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 3],
+    "hrSWRunPath" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 4],
+    "hrSWRunParameters" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 5],
+    "hrSWRunType" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 6],
+    "hrSWRunStatus" => [1, 3, 6, 1, 2, 1, 25, 4, 2, 1, 7],
+
+    # hrSWRunPerf group (1.3.6.1.2.1.25.5) - process performance
+    "hrSWRunPerfTable" => [1, 3, 6, 1, 2, 1, 25, 5, 1],
+    "hrSWRunPerfEntry" => [1, 3, 6, 1, 2, 1, 25, 5, 1, 1],
+    "hrSWRunPerfCPU" => [1, 3, 6, 1, 2, 1, 25, 5, 1, 1, 1],
+    "hrSWRunPerfMem" => [1, 3, 6, 1, 2, 1, 25, 5, 1, 1, 2],
+
+    # hrSWInstalled group (1.3.6.1.2.1.25.6) - installed software
+    "hrSWInstalledLastChange" => [1, 3, 6, 1, 2, 1, 25, 6, 1],
+    "hrSWInstalledLastUpdateTime" => [1, 3, 6, 1, 2, 1, 25, 6, 2],
+    "hrSWInstalledTable" => [1, 3, 6, 1, 2, 1, 25, 6, 3],
+    "hrSWInstalledEntry" => [1, 3, 6, 1, 2, 1, 25, 6, 3, 1],
+    "hrSWInstalledIndex" => [1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 1],
+    "hrSWInstalledName" => [1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 2],
+    "hrSWInstalledID" => [1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 3],
+    "hrSWInstalledType" => [1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 4],
+    "hrSWInstalledDate" => [1, 3, 6, 1, 2, 1, 25, 6, 3, 1, 5],
+
+    # DOCSIS IF-MIB (1.3.6.1.2.1.10.127) - Cable Modem/CMTS
+    "docsIfMib" => [1, 3, 6, 1, 2, 1, 10, 127],
+    "docsIfBaseObjects" => [1, 3, 6, 1, 2, 1, 10, 127, 1],
+
+    # docsIfDownstreamChannelTable (1.3.6.1.2.1.10.127.1.1.1)
+    "docsIfDownstreamChannelTable" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 1],
+    "docsIfDownstreamChannelEntry" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 1, 1],
+    "docsIfDownChannelId" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 1, 1, 1],
+    "docsIfDownChannelFrequency" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 1, 1, 2],
+    "docsIfDownChannelWidth" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 1, 1, 3],
+    "docsIfDownChannelModulation" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 1, 1, 4],
+    "docsIfDownChannelInterleave" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 1, 1, 5],
+    "docsIfDownChannelPower" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 1, 1, 6],
+    "docsIfDownChannelAnnex" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 1, 1, 7],
+
+    # docsIfUpstreamChannelTable (1.3.6.1.2.1.10.127.1.1.2)
+    "docsIfUpstreamChannelTable" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 2],
+    "docsIfUpstreamChannelEntry" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 2, 1],
+    "docsIfUpChannelId" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 2, 1, 1],
+    "docsIfUpChannelFrequency" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 2, 1, 2],
+    "docsIfUpChannelWidth" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 2, 1, 3],
+    "docsIfUpChannelModulationProfile" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 2, 1, 4],
+    "docsIfUpChannelSlotSize" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 2, 1, 5],
+    "docsIfUpChannelTxTimingOffset" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 2, 1, 6],
+    "docsIfUpChannelRangingBackoffStart" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 2, 1, 7],
+    "docsIfUpChannelRangingBackoffEnd" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 2, 1, 8],
+    "docsIfUpChannelTxBackoffStart" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 2, 1, 9],
+    "docsIfUpChannelTxBackoffEnd" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 2, 1, 10],
+    "docsIfUpChannelPower" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 2, 1, 15],
+
+    # docsIfSignalQualityTable (1.3.6.1.2.1.10.127.1.1.4)
+    "docsIfSignalQualityTable" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 4],
+    "docsIfSignalQualityEntry" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 4, 1],
+    "docsIfSigQIncludesContention" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 4, 1, 1],
+    "docsIfSigQUnerroreds" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 4, 1, 2],
+    "docsIfSigQCorrecteds" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 4, 1, 3],
+    "docsIfSigQUncorrectables" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 4, 1, 4],
+    "docsIfSigQSignalNoise" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 4, 1, 5],
+    "docsIfSigQMicroreflections" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 4, 1, 6],
+    "docsIfSigQEqualizationData" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 1, 4, 1, 7],
+
+    # docsIfCmStatusTable (1.3.6.1.2.1.10.127.1.2.2) - Cable Modem status
+    "docsIfCmStatusTable" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2],
+    "docsIfCmStatusEntry" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1],
+    "docsIfCmStatusIndex" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 1],
+    "docsIfCmStatusValue" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 2],
+    "docsIfCmStatusCode" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 3],
+    "docsIfCmStatusTxPower" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 4],
+    "docsIfCmStatusResets" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 5],
+    "docsIfCmStatusLostSyncs" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 6],
+    "docsIfCmStatusInvalidMaps" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 7],
+    "docsIfCmStatusInvalidUcds" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 8],
+    "docsIfCmStatusInvalidRangingResponses" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 9],
+    "docsIfCmStatusInvalidRegistrationResponses" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 10],
+    "docsIfCmStatusT1Timeouts" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 11],
+    "docsIfCmStatusT2Timeouts" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 12],
+    "docsIfCmStatusT3Timeouts" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 13],
+    "docsIfCmStatusT4Timeouts" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 14],
+    "docsIfCmStatusRangingAborteds" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 15],
+    "docsIfCmStatusModulationType" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 17],
+    "docsIfCmStatusEqualizationData" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 2, 2, 1, 18],
+
+    # docsIfCmtsCmStatusTable (1.3.6.1.2.1.10.127.1.3.3) - CMTS view of cable modems
+    "docsIfCmtsCmStatusTable" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3],
+    "docsIfCmtsCmStatusEntry" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1],
+    "docsIfCmtsCmStatusIndex" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1, 1],
+    "docsIfCmtsCmStatusMacAddress" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1, 2],
+    "docsIfCmtsCmStatusIpAddress" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1, 3],
+    "docsIfCmtsCmStatusDownChannelIfIndex" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1, 4],
+    "docsIfCmtsCmStatusUpChannelIfIndex" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1, 5],
+    "docsIfCmtsCmStatusRxPower" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1, 6],
+    "docsIfCmtsCmStatusTimingOffset" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1, 7],
+    "docsIfCmtsCmStatusEqualizationData" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1, 8],
+    "docsIfCmtsCmStatusValue" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1, 9],
+    "docsIfCmtsCmStatusUnerroreds" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1, 10],
+    "docsIfCmtsCmStatusCorrecteds" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1, 11],
+    "docsIfCmtsCmStatusUncorrectables" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1, 12],
+    "docsIfCmtsCmStatusSignalNoise" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1, 13],
+    "docsIfCmtsCmStatusMicroreflections" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1, 14],
+    "docsIfCmtsCmStatusModulationType" => [1, 3, 6, 1, 2, 1, 10, 127, 1, 3, 3, 1, 16],
+
+    # Cisco Enterprise OIDs (1.3.6.1.4.1.9)
+    "ciscoMgmt" => [1, 3, 6, 1, 4, 1, 9, 9],
+    "ciscoCPUTotal5min" => [1, 3, 6, 1, 4, 1, 9, 9, 109, 1, 1, 1, 1, 8],
+    "ciscoMemoryPoolUsed" => [1, 3, 6, 1, 4, 1, 9, 9, 48, 1, 1, 1, 5],
+    "ciscoMemoryPoolFree" => [1, 3, 6, 1, 4, 1, 9, 9, 48, 1, 1, 1, 6],
+
+    # Dell Enterprise OIDs (1.3.6.1.4.1.674)
+    "dell" => [1, 3, 6, 1, 4, 1, 674],
+
+    # Net-SNMP Enterprise OIDs (1.3.6.1.4.1.8072)
+    "netSnmp" => [1, 3, 6, 1, 4, 1, 8072],
+    "netSnmpAgentOIDs" => [1, 3, 6, 1, 4, 1, 8072, 3, 2],
+    "ucdExperimental" => [1, 3, 6, 1, 4, 1, 2021, 13]
   }
 
   # Curated minimal metadata for high-value IF-MIB objects (stopgap until full compiler integration)
