@@ -117,8 +117,11 @@ defmodule SnmpKit.SnmpSim do
   reproducible, see `SnmpKit.SnmpSim.Device`) and `:mac_address`. The device
   is linked to the caller.
 
-      profile = SnmpKit.SnmpSim.ProfileLoader.load_profile(:cable_modem, {:walk_file, "priv/walks/cable_modem.walk"})
+      {:ok, profile} = SnmpKit.SnmpSim.ProfileLoader.load_profile(:cable_modem, {:walk_file, "priv/walks/cable_modem.walk"})
       {:ok, device} = SnmpKit.SnmpSim.start_device(profile, port: 9001)
+
+  A bare `%{objects: %{oid => value}}` map (OID keys as strings or lists) is
+  accepted in place of a profile.
   """
   @spec start_device(map(), keyword()) :: GenServer.on_start()
   def start_device(profile, opts \\ [])
@@ -164,6 +167,11 @@ defmodule SnmpKit.SnmpSim do
 
   @doc """
   Starts a population of devices with mixed types through `SnmpKit.SnmpSim.LazyDevicePool`.
+
+  Devices are pre-warmed unless `pre_warm: false` is given and run under the
+  device supervisor (stop them with `stop_device/1` or `stop/0`). Returns
+  `{:ok, [%{type, port, pid, target}]}`. A list of explicit
+  `%{type:, port:, community:}` maps is also accepted, one device each.
 
       {:ok, devices} = SnmpKit.SnmpSim.start_device_population(
         [

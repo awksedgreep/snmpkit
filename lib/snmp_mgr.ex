@@ -84,17 +84,26 @@ defmodule SnmpKit.SnmpMgr do
 
   ## Parameters
   - `target` - The target device (e.g., "192.168.1.1:161" or "device.local")
-  - `oid` - The OID to retrieve (string "1.3.6.1.2.1.1.1.0" or list [1,3,6,1,2,1,1,1,0] format)
+  - `oid` - The OID to retrieve (name "sysDescr.0", string "1.3.6.1.2.1.1.1.0"
+    or list [1,3,6,1,2,1,1,1,0]), or a list of several of them for one PDU
   - `opts` - Options including :community, :timeout, :retries
+
+  Returns an enriched varbind map; with a list of OIDs, a list of them.
+  An OID that does not parse or resolve is `{:error, {:invalid_oid, input, reason}}`.
 
   ## Examples
 
       # Note: This function makes actual network calls and is not suitable for doctests
-      {:ok, value} = SnmpMgr.get("device.local:161", "sysDescr.0", community: "public")
-      # "Linux server 5.4.0-42-generic #46-Ubuntu SMP Fri Jul 10 00:24:02 UTC 2020 x86_64"
+      {:ok, %{value: descr, type: :octet_string}} =
+        SnmpMgr.get("device.local:161", "sysDescr.0", community: "public")
+      # %{name: "sysDescr.0", oid: "1.3.6.1.2.1.1.1.0", oid_list: [1, 3, 6, 1, 2, 1, 1, 1, 0],
+      #   type: :octet_string, value: "Linux server 5.4.0-42-generic", formatted: "Linux server ..."}
 
-      {:ok, uptime} = SnmpMgr.get("router.local", "sysUpTime.0")
-      # {:timeticks, 123456789}  # System uptime in hundredths of seconds
+      {:ok, %{type: :timeticks, value: 123_456_789, formatted: uptime}} =
+        SnmpMgr.get("router.local", "sysUpTime.0")
+
+      {:ok, [%{name: "sysDescr.0"}, %{name: "sysName.0"}]} =
+        SnmpMgr.get("router.local", ["sysDescr.0", "sysName.0"])
   """
   def get(target, oid, opts \\ [])
 
@@ -131,14 +140,16 @@ defmodule SnmpKit.SnmpMgr do
   - `oid` - The starting OID (string "1.3.6.1.2.1.1.1.0" or list [1,3,6,1,2,1,1,1,0] format)
   - `opts` - Options including :community, :timeout, :retries
 
+  Returns the enriched varbind map of the next object.
+
   ## Examples
 
       # Note: This function makes actual network calls and is not suitable for doctests
-      {:ok, {next_oid, value}} = SnmpMgr.get_next("switch.local", "1.3.6.1.2.1.1")
-      # {"1.3.6.1.2.1.1.1.0", "Cisco IOS Software, C2960 Software"}
+      {:ok, %{oid: "1.3.6.1.2.1.1.1.0", value: value}} =
+        SnmpMgr.get_next("switch.local", "1.3.6.1.2.1.1")
+      # value: "Cisco IOS Software, C2960 Software"
 
-      {:ok, {oid, val}} = SnmpMgr.get_next("device.local", "sysDescr")
-      # {"1.3.6.1.2.1.1.1.0", "Linux hostname 5.4.0 #1 SMP"}
+      {:ok, %{name: "sysDescr.0", type: :octet_string}} = SnmpMgr.get_next("device.local", "sysDescr")
   """
   def get_next(target, oid, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
@@ -202,7 +213,6 @@ defmodule SnmpKit.SnmpMgr do
 
   Returns a `Task` whose result is the same `{:ok, varbind}` or `{:error, reason}`
   tuple `get/3` returns.
-  with the result.
 
   ## Parameters
   - `target` - The target device
@@ -220,7 +230,7 @@ defmodule SnmpKit.SnmpMgr do
   end
 
   @doc """
-  Performs an SNMP GETBULK request (SNMPv2c only).
+  Performs an SNMP GETBULK request (SNMPv2c or SNMPv3; there is no GETBULK in v1).
 
   GETBULK is more efficient than multiple GETNEXT requests for retrieving
   large amounts of data. It can retrieve multiple variables in a single request.
@@ -400,8 +410,11 @@ defmodule SnmpKit.SnmpMgr do
   ## Parameters
   - `target` - The target device
   - `table_oid` - The table OID
-  - `column` - The column number or name
+  - `column` - The column number (relative to the table's entry) or a
+    registered column name such as `"ifDescr"`
   - `opts` - Options including :community, :timeout
+
+  Returns the column's enriched varbind maps, as `walk/3` does.
   """
   def get_column(target, table_oid, column, opts \\ []) do
     case resolve_oid_if_needed(table_oid) do
@@ -430,11 +443,14 @@ defmodule SnmpKit.SnmpMgr do
   - `targets_and_oids` - List of {target, oid} tuples
   - `opts` - Options applied to all requests
 
+  Returns one result per request, in order: `{:ok, varbind}` or
+  `{:error, reason}` (see `SnmpKit.SnmpMgr.Multi` for `:return_format`).
+
   ## Examples
 
-      # Note: Network operations will fail on unreachable hosts
-      iex> SnmpMgr.get_multi([{"device1", [1,3,6,1,2,1,1,1,0]}, {"device2", [1,3,6,1,2,1,1,3,0]}])
-      [{:error, {:network_error, :hostname_resolution_failed}}, {:error, {:network_error, :hostname_resolution_failed}}]
+      # Note: This function makes actual network calls and is not suitable for doctests
+      SnmpMgr.get_multi([{"device1", [1,3,6,1,2,1,1,1,0]}, {"device2", [1,3,6,1,2,1,1,3,0]}])
+      # [{:ok, %{name: "sysDescr.0", ...}}, {:error, :hostname_resolution_failed}]
   """
   def get_multi(targets_and_oids, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
@@ -490,20 +506,22 @@ defmodule SnmpKit.SnmpMgr do
   ## Parameters
   - `target` - The target device
   - `root_oid` - Starting OID for the walk
-  - `opts` - Options including :adaptive_tuning, :max_entries
+  - `opts` - Options including :adaptive_tuning, :max_entries (default 1000)
+
+  Uses GETBULK, so `version: :v1` is
+  `{:error, {:unsupported_operation, :get_bulk_requires_v2c}}`; `:v3` is honoured.
 
   ## Examples
 
       # Note: This function makes actual network calls and is not suitable for doctests
       {:ok, results} = SnmpMgr.adaptive_walk("switch.local", "ifTable")
-      # Returns optimally retrieved interface table data:
+      # Enriched varbind maps, the same shape as walk/3:
       # [
-      #   {"1.3.6.1.2.1.2.2.1.1.1", 1},           # ifIndex.1
-      #   {"1.3.6.1.2.1.2.2.1.2.1", "eth0"},      # ifDescr.1
-      #   {"1.3.6.1.2.1.2.2.1.8.1", 1},           # ifOperStatus.1
-      #   {"1.3.6.1.2.1.2.2.1.1.2", 2},           # ifIndex.2
-      #   {"1.3.6.1.2.1.2.2.1.2.2", "eth1"},      # ifDescr.2
-      #   {"1.3.6.1.2.1.2.2.1.8.2", 1}            # ifOperStatus.2
+      #   %{name: "ifIndex.1", oid: "1.3.6.1.2.1.2.2.1.1.1", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 1, 1],
+      #     type: :integer, value: 1, formatted: "1"},
+      #   %{name: "ifDescr.1", oid: "1.3.6.1.2.1.2.2.1.2.1", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 1],
+      #     type: :octet_string, value: "eth0", formatted: "eth0"},
+      #   ...
       # ]
   """
   def adaptive_walk(target, root_oid, opts \\ []) do
@@ -528,11 +546,11 @@ defmodule SnmpKit.SnmpMgr do
   ## Parameters
   - `target` - The target device
   - `root_oid` - Starting OID for the walk
-  - `opts` - Options including :chunk_size, :adaptive
+  - `opts` - Options including :chunk_size (default 50), :adaptive, :version
 
   ## Examples
 
-      # Note: Requires Erlang SNMP modules for actual operation
+      # Note: This function makes actual network calls and is not suitable for doctests
       stream = SnmpMgr.walk_stream("192.0.2.1", "ifTable")
       # Process stream lazily...
   """
@@ -546,11 +564,11 @@ defmodule SnmpKit.SnmpMgr do
   ## Parameters
   - `target` - The target device
   - `table_oid` - The table OID to stream
-  - `opts` - Options including :chunk_size, :columns
+  - `opts` - Options including :chunk_size (default 50), :columns
 
   ## Examples
 
-      # Note: Requires Erlang SNMP modules for actual operation
+      # Note: This function makes actual network calls and is not suitable for doctests
       stream = SnmpMgr.table_stream("192.0.2.1", "ifTable")
       # Process table stream...
   """

@@ -52,7 +52,7 @@ is unaffected.
 
 ## Internal reorganisation (no call-site changes)
 
-`SnmpKit.SnmpMgr.MIB` keeps its public API but is now ~600 lines: the
+`SnmpKit.SnmpMgr.MIB` keeps its public API but is now ~700 lines: the
 built-in name/OID and syntax tables live in `SnmpKit.MIB.Builtin`, the pure
 lookup functions in `SnmpKit.MIB.Resolver`, and the conversion of parsed or
 compiled MIB data into registry maps in `SnmpKit.MIB.Import`. One behaviour

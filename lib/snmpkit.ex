@@ -88,10 +88,15 @@ defmodule SnmpKit do
     SNMP client operations for querying and managing SNMP devices.
 
     This module provides all SNMP protocol operations including:
-    - Basic operations: get, set, get_next
-    - Bulk operations: get_bulk, walk, table operations
-    - Advanced features: streaming, async operations, multi-target
+    - Basic operations: get, set, set_many, get_next
+    - Bulk operations: get_bulk, bulk_walk, walk, table operations
+    - Advanced features: streaming, async operations (returning a `Task`), multi-target
+    - Notifications: send_trap, send_inform (receive them with `SnmpKit.Trap`)
     - Pretty formatting and analysis tools
+
+    Every read returns enriched varbind maps
+    (`%{oid, oid_list, name, type, value, formatted}`); see
+    `SnmpKit.SnmpMgr.get/3`. Counter rates: `SnmpKit.SNMP.Rate`.
     """
 
     # Core SNMP Operations
@@ -266,9 +271,13 @@ defmodule SnmpKit do
     SNMP device simulation for testing and development.
 
     This module provides tools for creating and managing simulated SNMP devices:
-    - Start individual devices with custom profiles
-    - Create device populations for testing
-    - Manage device lifecycles
+    - Start individual devices with custom profiles (`start_device/2`, linked to the caller)
+    - Create device populations for testing (`start_device_population/2`)
+    - Record a real device into a walk file (`record/3`)
+    - Send a trap from a simulated device (`send_trap/4`, `to:` names the receiver)
+
+    See `SnmpKit.SnmpSim` for configuration-driven start-up, listing and
+    stopping devices, and `docs/testing-guide.md` for test patterns.
     """
 
     # Device Management

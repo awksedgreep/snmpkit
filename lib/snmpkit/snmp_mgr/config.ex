@@ -233,7 +233,10 @@ defmodule SnmpKit.SnmpMgr.Config do
         retries: 1,
         port: 161,
         version: :v2c,
-        mib_paths: []
+        mib_paths: [],
+        include_names: true,
+        include_formatted: true,
+        auto_start_services: true
       }
   """
   def get_all do
@@ -282,12 +285,16 @@ defmodule SnmpKit.SnmpMgr.Config do
   Merges the current configuration with provided opts, giving priority to opts.
 
   This is useful for functions that want to use global defaults but allow
-  per-request overrides.
+  per-request overrides. The result carries every key of `get_all/0`
+  (`:community`, `:timeout`, `:retries`, `:port`, `:version`, `:mib_paths`,
+  `:include_names`, `:include_formatted`, `:auto_start_services`), in no
+  particular order, with the given opts winning.
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Config.merge_opts(community: "private", timeout: 10000)
-      [community: "private", timeout: 10000, retries: 1, port: 161]
+      opts = SnmpKit.SnmpMgr.Config.merge_opts(community: "private", timeout: 10000)
+      Keyword.take(opts, [:community, :timeout, :retries, :port])
+      # [community: "private", timeout: 10000, retries: 1, port: 161]
   """
   def merge_opts(opts) do
     config =
