@@ -15,6 +15,18 @@ defmodule SnmpKit.Agent.Store do
   registered on its own at a prefix, with `table:` naming an ETS
   `ordered_set` you own.
 
+  ## Concurrency
+
+  The table is public and every request runs in its own process, so
+  `put/5`, `delete/2` and SETs interleave. Each is a single ETS operation:
+  `put/5` and `delete/2` are one insert or delete, and `c:set/3` is one
+  `:ets.select_replace/2` that succeeds only if the object still exists,
+  is still writable and still has a compatible type at the moment of the
+  write. `c:check_set/3` is a separate, read-only phase run by
+  `SnmpKit.Agent.Request` before any `set/3`; an object deleted or made
+  read-only between the two phases makes the SET fail with `noCreation`
+  or `notWritable` rather than crash. There is no undo across the varbinds
+  of one SET (see `SnmpKit.Agent.Handler`).
   """
   @behaviour SnmpKit.Agent.Handler
 
@@ -51,13 +63,26 @@ defmodule SnmpKit.Agent.Store do
     end
   end
 
-  @doc "Every object in the store as `{oid, type, value}`, in OID order."
+  @doc """
+  Every object in the store as `{oid, type, value}`, in OID order.
+
+  The table is fixed for the traversal, so an object present throughout the
+  call appears exactly once. It is not a point-in-time snapshot: a `put/5`
+  or `delete/2` that runs during the call may or may not be reflected, and
+  function values are called as each object is visited.
+  """
   @spec to_list(table()) :: [{[non_neg_integer()], atom(), term()}]
   def to_list(table) do
-    table
-    |> :ets.tab2list()
-    |> Enum.sort()
-    |> Enum.map(fn {oid, type, value, _} -> {oid, type, materialize(value)} end)
+    :ets.safe_fixtable(table, true)
+
+    try do
+      table
+      |> :ets.tab2list()
+      |> Enum.sort()
+      |> Enum.map(fn {oid, type, value, _} -> {oid, type, materialize(value)} end)
+    after
+      :ets.safe_fixtable(table, false)
+    end
   end
 
   ## Handler callbacks
@@ -106,12 +131,26 @@ defmodule SnmpKit.Agent.Store do
     end
   end
 
+  # One select_replace: the object is replaced only if, at that instant, it
+  # exists, is writable and its stored type is compatible with the incoming
+  # one. The stored type is kept. `{:const, ...}` keeps a value that happens
+  # to look like a match-spec expression (a tuple, a list) literal.
   @impl true
-  def set(suffix, {_type, value} = typed, %{table: table} = ctx) do
-    with :ok <- check_set(suffix, typed, ctx) do
-      [{_, current_type, _old, writable}] = :ets.lookup(table, suffix)
-      :ets.insert(table, {suffix, current_type, value, writable})
-      :ok
+  def set(suffix, {type, value} = typed, %{table: table} = ctx) do
+    spec =
+      for stored <- Types.family(type) do
+        {{suffix, stored, :_, true}, [], [{:const, {suffix, stored, value, true}}]}
+      end
+
+    case :ets.select_replace(table, spec) do
+      1 ->
+        :ok
+
+      0 ->
+        case check_set(suffix, typed, ctx) do
+          :ok -> {:error, :commit_failed}
+          error -> error
+        end
     end
   end
 
