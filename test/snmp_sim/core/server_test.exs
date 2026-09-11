@@ -46,6 +46,16 @@ defmodule SnmpKit.SnmpSim.Core.ServerTest do
       GenServer.stop(server)
     end
 
+    test "a function handler answering :drop sends nothing" do
+      port = find_free_port()
+      {:ok, server} = Server.start_link(port, device_handler: fn _pdu, _ctx -> :drop end)
+
+      assert {:error, :timeout} = send_test_snmp_request(port, "1.3.6.1.2.1.1.1.0")
+      assert Server.get_stats(server).auth_failures == 1
+
+      GenServer.stop(server)
+    end
+
     @tag :performance
     test "processes 100+ requests per second" do
       port = find_free_port()

@@ -43,20 +43,30 @@ defmodule SnmpKit.Agent.Handler do
   ## Values
 
   Values are `{type, value}` with the types used everywhere else in SnmpKit:
-  `:integer`, `:octet_string` (or `:string`), `:object_identifier`,
-  `:counter32`, `:gauge32` (or `:unsigned32`), `:timeticks`, `:counter64`,
-  `:ip_address` (a 4-tuple or 4 octets), `:opaque`, `:null`.
+  `:integer`, `:octet_string` (or `:string`, or `:bits`, which is an OCTET
+  STRING on the wire), `:object_identifier` (or `:oid`), `:counter32`,
+  `:gauge32` (or `:unsigned32`), `:timeticks`, `:counter64`, `:ip_address`
+  (a 4-tuple or 4 octets), `:opaque`, `:null`. A SET whose type is an alias
+  of the declared one is accepted by the built-in handlers.
 
   ## SET
 
   A SET request runs in two phases. `c:check_set/3` is called for every
-  varbind first, and nothing is written unless all of them return `:ok`;
-  then `c:set/3` is called in order. A handler without `set/3` makes its
-  subtree read-only (`notWritable`). Error reasons map to SNMP error-status
-  values: `:no_access`, `:wrong_type`, `:wrong_length`, `:wrong_encoding`,
-  `:wrong_value`, `:no_creation`, `:inconsistent_value`,
+  varbind first, and no `c:set/3` runs unless all of them return `:ok`;
+  then `c:set/3` is called for each varbind in order. A handler without
+  `set/3` makes its subtree read-only (`notWritable`). Error reasons map to
+  SNMP error-status values: `:no_access`, `:wrong_type`, `:wrong_length`,
+  `:wrong_encoding`, `:wrong_value`, `:no_creation`, `:inconsistent_value`,
   `:resource_unavailable`, `:commit_failed`, `:undo_failed`,
   `:not_writable`, `:inconsistent_name`, `:gen_err`.
+
+  The two phases make a SET *validated* as a whole, not *applied* as a
+  whole: if a `set/3` fails after earlier varbinds were written, the agent
+  answers `commitFailed` (or the handler's own reason) with that varbind's
+  index and the earlier writes stay; there is no undo phase (RFC 3416
+  4.2.5 allows this, `undoFailed` is what a fuller implementation would
+  answer). A handler whose `check_set/3` guarantees `set/3` succeeds gets
+  all-or-nothing behaviour for its own objects.
   """
 
   @type suffix :: [non_neg_integer()]

@@ -236,6 +236,87 @@ defmodule SnmpKit.AgentTest do
       assert {:error, :wrong_type} = SNMP.set(target, "ifDescr.2", 1, rw())
     end
 
+    test "declared type aliases accept their canonical wire forms", %{
+      agent: agent,
+      target: target
+    } do
+      {:ok, writes} = Elixir.Agent.start_link(fn -> %{} end)
+      prefix = @enterprise ++ [20]
+
+      :ok =
+        Agent.register(agent, prefix, SnmpKit.Agent.Table,
+          columns: [{1, :bits}, {2, :unsigned32}, {3, :oid}, {4, :string}],
+          rows: fn -> [{1, %{1 => <<0x80>>, 2 => 1, 3 => [1, 3], 4 => "a"}}] end,
+          set: fn index, column, {type, value} ->
+            Elixir.Agent.update(writes, &Map.put(&1, {index, column}, {type, value}))
+            :ok
+          end
+        )
+
+      # BITS is an OCTET STRING on the wire, so a string SET lands on a :bits column
+      assert :ok = SNMP.set(target, prefix ++ [1, 1], <<0xC0>>, rw())
+      assert :ok = SNMP.set(target, prefix ++ [2, 1], {:gauge32, 5}, rw())
+      assert :ok = SNMP.set(target, prefix ++ [3, 1], {:object_identifier, [1, 3, 6]}, rw())
+      assert :ok = SNMP.set(target, prefix ++ [4, 1], "b", rw())
+      assert {:error, :wrong_type} = SNMP.set(target, prefix ++ [1, 1], 1, rw())
+
+      assert Elixir.Agent.get(writes, & &1) == %{
+               {1, 1} => {:octet_string, <<0xC0>>},
+               {1, 2} => {:gauge32, 5},
+               {1, 3} => {:object_identifier, [1, 3, 6]},
+               {1, 4} => {:octet_string, "b"}
+             }
+
+      # and the same for a scalar declared :bits in the store (read back as its
+      # wire type, OCTET STRING)
+      :ok = Agent.put(agent, @enterprise ++ [21, 0], :bits, <<0x80>>, writable: true)
+      assert :ok = SNMP.set(target, @enterprise ++ [21, 0], <<0x40>>, rw())
+      assert {:ok, {:octet_string, <<0x40>>}} = Agent.get(agent, @enterprise ++ [21, 0])
+
+      :ok = Agent.unregister(agent, prefix)
+      :ok = Agent.delete(agent, @enterprise ++ [21, 0])
+    end
+
+    test "a walk of a few thousand rows fetches rows once per PDU and stays bounded", %{
+      agent: agent,
+      target: target
+    } do
+      prefix = @enterprise ++ [30]
+      calls = :counters.new(1, [])
+      row_count = 2_000
+
+      rows = fn ->
+        :counters.add(calls, 1, 1)
+        for i <- 1..row_count, do: {i, %{1 => i, 2 => "port-#{i}", 3 => i * 10}}
+      end
+
+      :ok =
+        Agent.register(agent, prefix, SnmpKit.Agent.Table,
+          columns: [{1, :integer}, {2, :octet_string}, {3, :gauge32}],
+          rows: rows
+        )
+
+      assert {:ok, %{value: "port-1234"}} = SNMP.get(target, prefix ++ [2, 1234], ro())
+      assert :counters.get(calls, 1) == 1
+      :counters.put(calls, 1, 0)
+
+      before = Agent.stats(agent).successful_responses
+
+      {elapsed, {:ok, cells}} =
+        :timer.tc(fn -> SNMP.walk(target, prefix, ro(timeout: 5_000, max_entries: 100_000)) end)
+
+      pdus = Agent.stats(agent).successful_responses - before
+
+      assert length(cells) == 3 * row_count
+      assert Enum.map(Enum.take(cells, 3), & &1.value) == [1, 2, 3]
+      # one rows call per PDU: the snapshot is per request, never per object
+      assert :counters.get(calls, 1) == pdus
+      assert pdus < 3 * row_count
+      assert elapsed < 10_000_000
+
+      :ok = Agent.unregister(agent, prefix)
+    end
+
     test "encode_index" do
       assert SnmpKit.Agent.Table.encode_index(5, [:integer]) == [5]
 
@@ -327,6 +408,36 @@ defmodule SnmpKit.AgentTest do
     test "an unknown community gets no answer", %{target: target} do
       assert {:error, :timeout} =
                SNMP.get(target, "sysDescr.0", community: "nope", timeout: 300, retries: 0)
+    end
+
+    # The server validates communities and USM rejects unknown v3 users before
+    # the agent's request path; this drives that path directly to show it
+    # drops unknown principals on its own, reads included.
+    test "the request path itself drops unknown communities and v3 users", %{agent: agent} do
+      %{server: server} = :sys.get_state(agent)
+      handler = :sys.get_state(server).device_handler
+      client = %{client_ip: {127, 0, 0, 1}, client_port: 1}
+
+      get = fn version, principal ->
+        %{
+          version: version,
+          community: principal,
+          type: :get_request,
+          request_id: 7,
+          error_status: 0,
+          error_index: 0,
+          varbinds: [{[1, 3, 6, 1, 2, 1, 1, 1, 0], nil}]
+        }
+      end
+
+      assert {:ok, %{error_status: 0, varbinds: [{_, :octet_string, _}]}} =
+               handler.(get.(2, "public"), client)
+
+      assert {:ok, %{error_status: 0}} = handler.(get.(3, "reader"), client)
+      assert :drop = handler.(get.(2, "nope"), client)
+      assert :drop = handler.(get.(1, "nope"), client)
+      assert :drop = handler.(get.(3, "ghost"), client)
+      assert :drop = handler.(%{get.(2, "nope") | type: :get_next_request}, client)
     end
 
     test "stats count requests", %{agent: agent, target: target} do
