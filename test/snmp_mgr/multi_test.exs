@@ -106,6 +106,17 @@ defmodule SnmpKit.SnmpMgr.MultiTest do
       assert length(results) == 1
       assert [{:error, _}] = results
     end
+
+    test "a request with several OIDs is refused per request, not a crash" do
+      requests = [
+        {"127.0.0.1", ["1.3.6.1.2.1.2.2.1", "1.3.6.1.2.1.1"]},
+        {"127.0.0.1", "1.3.6.1.2.1.2.2.1"}
+      ]
+
+      results = Multi.get_bulk_multi(requests, max_repetitions: 5, timeout: 200)
+
+      assert [{:error, {:unsupported, :multi_oid_get_bulk}}, {:error, _}] = results
+    end
   end
 
   describe "walk_multi/2" do

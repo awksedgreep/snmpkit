@@ -715,6 +715,15 @@ defmodule SnmpKit.SnmpMgr.Multi do
         message = SnmpKit.SnmpLib.PDU.build_message(pdu, community, version)
         SnmpKit.SnmpLib.PDU.encode_message(message)
 
+      # Only GET carries several varbinds; a GETBULK PDU has one starting OID
+      # (SnmpMgr.Bulk refuses the same thing) and an empty list resolves to
+      # nothing. Both used to fall through to a CaseClauseError.
+      {:ok, [_, _ | _]} ->
+        {:error, {:unsupported, :multi_oid_get_bulk}}
+
+      {:ok, []} ->
+        {:error, {:oid_resolution_failed, :empty_oid}}
+
       {:ok, [oid_list]} ->
         case request.type do
           :get ->
