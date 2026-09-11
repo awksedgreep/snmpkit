@@ -4,12 +4,21 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
   This module provides efficient bulk operations that are significantly faster
   than iterative GETNEXT requests for retrieving large amounts of data.
+
+  Every function returns enriched varbind maps, see
+  `t:SnmpKit.SnmpMgr.Format.enriched_varbind/0`.
   """
+
+  alias SnmpKit.SnmpLib.Types
 
   alias SnmpKit.SnmpLib.Types
 
   @default_max_repetitions 30
   @default_non_repeaters 0
+
+  @type target :: SnmpKit.SnmpMgr.Core.target()
+  @type oid :: SnmpKit.SnmpMgr.Core.oid()
+  @type varbind :: SnmpKit.SnmpMgr.Format.enriched_varbind()
 
   @doc """
   Performs a single GETBULK request.
@@ -23,13 +32,20 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Bulk.get_bulk("192.168.1.1", "ifTable", max_repetitions: 20)
-      {:ok, [
-        {[1,3,6,1,2,1,2,2,1,2,1], :octet_string, "eth0"},
-        {[1,3,6,1,2,1,2,2,1,2,2], :octet_string, "eth1"},
-        # ... up to 20 entries with type information
-      ]}
+      # Note: This function makes actual network calls and is not suitable for doctests
+      {:ok, results} = SnmpKit.SnmpMgr.Bulk.get_bulk("192.168.1.1", "ifTable", max_repetitions: 20)
+      # [
+      #   %{oid: "1.3.6.1.2.1.2.2.1.1.1", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 1, 1], name: "ifIndex.1",
+      #     type: :integer, value: 1, formatted: "1"},
+      #   %{oid: "1.3.6.1.2.1.2.2.1.1.2", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 1, 2], name: "ifIndex.2",
+      #     type: :integer, value: 2, formatted: "2"},
+      #   # ... up to 20 entries
+      # ]
+
+  Pass `include_names: false, include_formatted: false` for bare
+  `%{oid, oid_list, type, value}` maps.
   """
+  @spec get_bulk(target(), oid() | [oid()], keyword()) :: {:ok, [varbind()]} | {:error, term()}
   def get_bulk(target, oids, opts \\ []) do
     # GETBULK exists from SNMPv2 on; v2c and v3 both carry it
     case Keyword.get(opts, :version) do
@@ -72,9 +88,6 @@ defmodule SnmpKit.SnmpMgr.Bulk do
   @doc """
   Optimized table retrieval using GETBULK.
 
-  Returns enriched varbind maps for each entry, e.g.:
-  {:ok, [%{oid: "1.3.6.1...", oid_list: [...], type: :octet_string, value: "eth0", name: ..., formatted: ...}, ...]}
-
   Uses GETBULK to efficiently retrieve an entire SNMP table,
   automatically handling pagination when tables are larger than max_repetitions.
 
@@ -85,14 +98,17 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Bulk.get_table_bulk("switch.local", "ifTable")
-      {:ok, [
-        {"1.3.6.1.2.1.2.2.1.2.1", "eth0"},
-        {"1.3.6.1.2.1.2.2.1.3.1", 6},
-        {"1.3.6.1.2.1.2.2.1.2.2", "eth1"},
-        {"1.3.6.1.2.1.2.2.1.3.2", 6}
-      ]}
+      # Note: This function makes actual network calls and is not suitable for doctests
+      {:ok, results} = SnmpKit.SnmpMgr.Bulk.get_table_bulk("switch.local", "ifTable")
+      # [
+      #   %{oid: "1.3.6.1.2.1.2.2.1.2.1", oid_list: [...], name: "ifDescr.1",
+      #     type: :octet_string, value: "eth0", formatted: "eth0"},
+      #   %{oid: "1.3.6.1.2.1.2.2.1.3.1", oid_list: [...], name: "ifType.1",
+      #     type: :integer, value: 6, formatted: "ethernetCsmacd"},
+      #   # ...
+      # ]
   """
+  @spec get_table_bulk(target(), oid(), keyword()) :: {:ok, [varbind()]} | {:error, term()}
   def get_table_bulk(target, table_oid, opts \\ []) do
     max_entries = Keyword.get(opts, :max_entries, 1000)
     opts = Keyword.put(opts, :version, :v2c)
@@ -118,9 +134,10 @@ defmodule SnmpKit.SnmpMgr.Bulk do
   @doc """
   Bulk walk operation using GETBULK instead of iterative GETNEXT.
 
-  Returns enriched varbind maps for each entry (same shape as other APIs).
-
   Significantly more efficient than traditional walks for large subtrees.
+  The walk stops at the first `endOfMibView`/`noSuchObject`/`noSuchInstance`
+  marker or OID outside `root_oid`, or when the agent stops making progress;
+  the markers themselves are never part of the result.
 
   ## Parameters
   - `target` - The target device
@@ -129,13 +146,17 @@ defmodule SnmpKit.SnmpMgr.Bulk do
 
   ## Examples
 
-      iex> SnmpKit.SnmpMgr.Bulk.walk_bulk("device.local", "system")
-      {:ok, [
-        {"1.3.6.1.2.1.1.1.0", "System Description"},
-        {"1.3.6.1.2.1.1.2.0", "1.3.6.1.4.1.9"},
-        {"1.3.6.1.2.1.1.3.0", 12345}
-      ]}
+      # Note: This function makes actual network calls and is not suitable for doctests
+      {:ok, results} = SnmpKit.SnmpMgr.Bulk.walk_bulk("device.local", "system")
+      # [
+      #   %{oid: "1.3.6.1.2.1.1.1.0", oid_list: [1, 3, 6, 1, 2, 1, 1, 1, 0], name: "sysDescr.0",
+      #     type: :octet_string, value: "System Description", formatted: "System Description"},
+      #   %{oid: "1.3.6.1.2.1.1.3.0", oid_list: [1, 3, 6, 1, 2, 1, 1, 3, 0], name: "sysUpTime.0",
+      #     type: :timeticks, value: 12345, formatted: "2 minutes 3 seconds"},
+      #   # ...
+      # ]
   """
+  @spec walk_bulk(target(), oid(), keyword()) :: {:ok, [varbind()]} | {:error, term()}
   def walk_bulk(target, root_oid, opts \\ []) do
     max_entries = Keyword.get(opts, :max_entries, 1000)
     opts = Keyword.put(opts, :version, :v2c)

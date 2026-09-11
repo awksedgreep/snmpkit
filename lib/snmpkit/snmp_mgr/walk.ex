@@ -57,7 +57,7 @@ defmodule SnmpKit.SnmpMgr.Walk do
   """
   @type target :: binary() | tuple() | map()
   @type oid :: binary() | [non_neg_integer()]
-  @type varbind :: map()
+  @type varbind :: SnmpKit.SnmpMgr.Format.enriched_varbind()
 
   @spec walk(target(), oid(), keyword()) :: {:ok, [varbind()]} | {:error, term()}
   def walk(target, root_oid, opts \\ []) do

@@ -77,6 +77,7 @@ defmodule SnmpKit.SnmpMgr do
   @type target :: binary() | tuple() | map()
   @type oid :: binary() | list()
   @type opts :: keyword()
+  @type varbind :: SnmpKit.SnmpMgr.Format.enriched_varbind()
 
   @doc """
   Performs an SNMP GET request.
@@ -234,15 +235,18 @@ defmodule SnmpKit.SnmpMgr do
       # Note: This function makes actual network calls and is not suitable for doctests
       {:ok, results} = SnmpMgr.get_bulk("switch.local", "ifTable", max_repetitions: 10)
       # [
-      #   {[1,3,6,1,2,1,2,2,1,1,1], :integer, 1},                     # ifIndex.1
-      #   {[1,3,6,1,2,1,2,2,1,2,1], :octet_string, "FastEthernet0/1"}, # ifDescr.1
-      #   {[1,3,6,1,2,1,2,2,1,8,1], :integer, 1},                     # ifOperStatus.1 (up)
-      #   {[1,3,6,1,2,1,2,2,1,1,2], :integer, 2},                     # ifIndex.2
-      #   {[1,3,6,1,2,1,2,2,1,2,2], :octet_string, "FastEthernet0/2"}, # ifDescr.2
-      #   # ... up to max_repetitions entries
+      #   %{name: "ifIndex.1", oid: "1.3.6.1.2.1.2.2.1.1.1", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 1, 1],
+      #     type: :integer, value: 1, formatted: "1"},
+      #   %{name: "ifIndex.2", oid: "1.3.6.1.2.1.2.2.1.1.2", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 1, 2],
+      #     type: :integer, value: 2, formatted: "2"},
+      #   # ... up to max_repetitions entries, one enriched map each
       # ]
+
+  Pass `include_names: false, include_formatted: false` for bare
+  `%{oid, oid_list, type, value}` maps. `version: :v1` returns
+  `{:error, {:unsupported_operation, :get_bulk_requires_v2c}}`; `:v3` is honoured.
   """
-  @spec get_bulk(target(), oid(), opts()) :: {:ok, [{list(), atom(), any()}]} | {:error, any()}
+  @spec get_bulk(target(), oid(), opts()) :: {:ok, [varbind()]} | {:error, any()}
   def get_bulk(target, oid, opts \\ []) do
     # GETBULK is an SNMPv2 PDU: v2c or v3, never v1
     case Keyword.get(opts, :version) do
@@ -267,7 +271,7 @@ defmodule SnmpKit.SnmpMgr do
 
   Returns a `Task`; await it with `Task.await/2` for the same result
   `get_bulk/3` returns. `{:error, {:unsupported_operation, _}}` is returned
-  directly when `version: :v1` or `:v3` is requested.
+  directly when `version: :v1` is requested; `:v3` is honoured.
 
       task = SnmpMgr.get_bulk_async("device.local", "ifTable")
       {:ok, rows} = Task.await(task, 5000)
@@ -598,20 +602,21 @@ defmodule SnmpKit.SnmpMgr do
   end
 
   @doc """
-  Performs an SNMP GET operation and returns a formatted value.
+  Performs an SNMP GET operation with formatting forced on.
 
-  This is a convenience function that combines `get_with_type/3` and automatic
-  formatting based on the SNMP type. Returns just the formatted value since
-  the OID is already known.
+  Same as `get/3` except that `include_formatted` cannot be turned off, so
+  the enriched map always carries a human-readable `:formatted` value.
 
   ## Examples
 
       # Get system uptime with automatic formatting
-      {:ok, formatted_uptime} = SnmpMgr.get_pretty("192.168.1.1", "1.3.6.1.2.1.1.3.0")
-      # Returns: "14 days 15 hours 55 minutes 13 seconds"
+      {:ok, %{formatted: uptime}} = SnmpMgr.get_pretty("192.168.1.1", "1.3.6.1.2.1.1.3.0")
+      # uptime: "14 days 15 hours 55 minutes 13 seconds"
+      # The full map: %{oid: "1.3.6.1.2.1.1.3.0", oid_list: [1, 3, 6, 1, 2, 1, 1, 3, 0],
+      #   name: "sysUpTime.0", type: :timeticks, value: 126_355_300, formatted: "14 days ..."}
 
   """
-  @spec get_pretty(target(), oid(), opts()) :: {:ok, String.t()} | {:error, any()}
+  @spec get_pretty(target(), oid(), opts()) :: {:ok, varbind()} | {:error, any()}
   def get_pretty(target, oid, opts \\ []) do
     # Force include_formatted: true to ensure formatted field is present
     merged_opts =
@@ -626,20 +631,23 @@ defmodule SnmpKit.SnmpMgr do
   end
 
   @doc """
-  Performs an SNMP WALK operation and returns formatted results.
+  Performs an SNMP WALK operation with formatting forced on.
 
-  Returns a list of {oid, formatted_value} tuples where values are automatically
-  formatted based on their SNMP types.
+  Same as `walk/3` except that every enriched map carries a `:formatted`
+  value regardless of the `include_formatted` setting.
 
   ## Examples
 
       # Walk system group with automatic formatting
       {:ok, results} = SnmpMgr.walk_pretty("192.168.1.1", "1.3.6.1.2.1.1")
-      # Returns: [{"1.3.6.1.2.1.1.3.0", "14 days 15 hours"}, ...]
+      # [
+      #   %{name: "sysUpTime.0", oid: "1.3.6.1.2.1.1.3.0", oid_list: [1, 3, 6, 1, 2, 1, 1, 3, 0],
+      #     type: :timeticks, value: 126_355_300, formatted: "14 days 15 hours 55 minutes 13 seconds"},
+      #   ...
+      # ]
 
   """
-  @spec walk_pretty(target(), oid(), opts()) ::
-          {:ok, [{String.t(), String.t()}]} | {:error, any()}
+  @spec walk_pretty(target(), oid(), opts()) :: {:ok, [varbind()]} | {:error, any()}
   def walk_pretty(target, oid, opts \\ []) do
     merged_opts =
       opts
@@ -653,20 +661,24 @@ defmodule SnmpKit.SnmpMgr do
   end
 
   @doc """
-  Performs an SNMP BULK operation and returns formatted results.
+  Performs an SNMP GETBULK operation with formatting forced on.
 
-  Returns a list of {oid, formatted_value} tuples where values are automatically
-  formatted based on their SNMP types.
+  Same as `get_bulk/3` except that every
+  enriched map carries a `:formatted` value regardless of the
+  `include_formatted` setting.
 
   ## Examples
 
       # Bulk operation with automatic formatting
       {:ok, results} = SnmpMgr.bulk_pretty("192.168.1.1", "1.3.6.1.2.1.2.2", max_repetitions: 10)
-      # Returns: [{"1.3.6.1.2.1.2.2.1.2.1", "eth0"}, ...]
+      # [
+      #   %{name: "ifIndex.1", oid: "1.3.6.1.2.1.2.2.1.1.1", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 1, 1],
+      #     type: :integer, value: 1, formatted: "1"},
+      #   ...
+      # ]
 
   """
-  @spec bulk_pretty(target(), oid(), opts()) ::
-          {:ok, [{String.t(), String.t()}]} | {:error, any()}
+  @spec bulk_pretty(target(), oid(), opts()) :: {:ok, [varbind()]} | {:error, any()}
   def bulk_pretty(target, oid, opts \\ []) do
     merged_opts =
       opts
@@ -680,26 +692,25 @@ defmodule SnmpKit.SnmpMgr do
   end
 
   @doc """
-  Performs an SNMP BULK WALK operation and returns raw results with type information.
-
-  Returns a list of {oid_string, type, raw_value} tuples where:
-  - oid_string: OID formatted as dotted decimal string
-  - type: SNMP type atom (:string, :integer, :gauge32, etc.)
-  - raw_value: Raw unformatted value from SNMP response
+  Performs an SNMP BULK WALK operation (adaptive GETBULK) and returns
+  enriched varbind maps, the same shape as `walk/3`.
 
   ## Examples
 
-      # Bulk walk interface table with raw values
+      # Bulk walk the interface table
       {:ok, results} = SnmpMgr.bulk_walk("192.168.1.1", "1.3.6.1.2.1.2.2")
-      # Returns: [
-      #   {"1.3.6.1.2.1.2.2.1.2.1", :octet_string, "eth0"},
-      #   {"1.3.6.1.2.1.2.2.1.5.1", :gauge32, 1000000000},
+      # [
+      #   %{name: "ifDescr.1", oid: "1.3.6.1.2.1.2.2.1.2.1", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 2, 1],
+      #     type: :octet_string, value: "eth0", formatted: "eth0"},
+      #   %{name: "ifSpeed.1", oid: "1.3.6.1.2.1.2.2.1.5.1", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 5, 1],
+      #     type: :gauge32, value: 1_000_000_000, formatted: "1.0 Gbps"},
       #   ...
       # ]
 
+  Pass `include_names: false, include_formatted: false` for bare
+  `%{oid, oid_list, type, value}` maps.
   """
-  @spec bulk_walk(target(), oid(), opts()) ::
-          {:ok, [{String.t(), atom(), any()}]} | {:error, any()}
+  @spec bulk_walk(target(), oid(), opts()) :: {:ok, [varbind()]} | {:error, any()}
   def bulk_walk(target, oid, opts \\ []) do
     merged_opts = SnmpKit.SnmpMgr.Config.merge_opts(opts)
 
@@ -725,26 +736,23 @@ defmodule SnmpKit.SnmpMgr do
   end
 
   @doc """
-  Performs an SNMP BULK WALK operation and returns formatted results with type information.
+  Performs an SNMP BULK WALK operation with formatting forced on.
 
-  Returns a list of {oid_string, type, formatted_value} tuples where:
-  - oid_string: OID formatted as dotted decimal string
-  - type: SNMP type atom (:string, :integer, :gauge32, etc.)
-  - formatted_value: Human-readable formatted value
+  Same as `bulk_walk/3` except that every enriched map carries a
+  `:formatted` value regardless of the `include_formatted` setting.
 
   ## Examples
 
       # Bulk walk interface table with automatic formatting
       {:ok, results} = SnmpMgr.bulk_walk_pretty("192.168.1.1", "1.3.6.1.2.1.2.2")
-      # Returns: [
-      #   {"1.3.6.1.2.1.2.2.1.2.1", :octet_string, "eth0"},
-      #   {"1.3.6.1.2.1.2.2.1.5.1", :gauge32, "1 Gbps"},
+      # [
+      #   %{name: "ifSpeed.1", oid: "1.3.6.1.2.1.2.2.1.5.1", oid_list: [1, 3, 6, 1, 2, 1, 2, 2, 1, 5, 1],
+      #     type: :gauge32, value: 1_000_000_000, formatted: "1.0 Gbps"},
       #   ...
       # ]
 
   """
-  @spec bulk_walk_pretty(target(), oid(), opts()) ::
-          {:ok, [{String.t(), atom(), String.t()}]} | {:error, any()}
+  @spec bulk_walk_pretty(target(), oid(), opts()) :: {:ok, [varbind()]} | {:error, any()}
   def bulk_walk_pretty(target, oid, opts \\ []) do
     merged_opts =
       opts
