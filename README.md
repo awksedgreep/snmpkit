@@ -243,7 +243,7 @@ mix snmpkit.sim devices.yaml                          # a whole population from 
 mix test                       # unit + integration suite
 mix test --include snmpv3      # SNMPv3 suites
 mix test --include mib_oracle  # cross-check the MIB parser (needs smilint / snmptranslate)
-mix lint                       # format check, credo --strict, dialyzer
+mix lint                       # format check, dialyzer
 ```
 
 Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).

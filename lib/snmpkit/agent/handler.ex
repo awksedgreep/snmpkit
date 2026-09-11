@@ -51,9 +51,9 @@ defmodule SnmpKit.Agent.Handler do
 
   ## SET
 
-  A SET request runs in two phases. `c:check_set/3` is called for every
-  varbind first, and no `c:set/3` runs unless all of them return `:ok`;
-  then `c:set/3` is called for each varbind in order. A handler without
+  A SET request runs in two phases. `c:SnmpKit.Agent.Handler.check_set/3` is called for every
+  varbind first, and no `c:SnmpKit.Agent.Handler.set/3` runs unless all of them return `:ok`;
+  then `c:SnmpKit.Agent.Handler.set/3` is called for each varbind in order. A handler without
   `set/3` makes its subtree read-only (`notWritable`). Error reasons map to
   SNMP error-status values: `:no_access`, `:wrong_type`, `:wrong_length`,
   `:wrong_encoding`, `:wrong_value`, `:no_creation`, `:inconsistent_value`,

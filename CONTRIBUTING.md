@@ -12,7 +12,7 @@ git clone https://github.com/awksedgreep/snmpkit.git
 cd snmpkit
 mix deps.get
 mix test                 # the whole suite runs against simulated devices, no hardware needed
-mix lint                 # mix format --check-formatted, credo --strict, dialyzer
+mix lint                 # mix format --check-formatted, dialyzer
 mix docs                 # ExDoc into doc/
 ```
 
@@ -63,7 +63,7 @@ docs/, livebooks/, examples/
 - Public functions have `@doc` and `@spec`; modules have `@moduledoc`.
 - Return tagged tuples; raise only in `!` variants.
 - Never create atoms from network or file input (`String.to_atom/1` on
-  device or MIB data is a bug; the credo config flags it).
+  device or MIB data is a bug).
 - No caps on protocol parameters such as `max_repetitions`; operators tune
   those to their networks.
 

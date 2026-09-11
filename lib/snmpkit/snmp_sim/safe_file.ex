@@ -1,6 +1,8 @@
 defmodule SnmpKit.SnmpSim.SafeFile do
-  @moduledoc false
-  # Former name of `SnmpKit.SafeFile` (1.4.0); kept so existing callers work.
+  @moduledoc deprecated: "Use SnmpKit.SafeFile"
+  @moduledoc """
+  Former name of `SnmpKit.SafeFile` (1.4.0); every function delegates to it.
+  """
 
   defdelegate read(path, opts \\ []), to: SnmpKit.SafeFile
   defdelegate stream(path, opts \\ []), to: SnmpKit.SafeFile

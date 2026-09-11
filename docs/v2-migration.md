@@ -29,6 +29,7 @@ or removed is listed with its replacement.
 |-----|-----|
 | `SnmpKit.SnmpMgr.EngineV2` | `SnmpKit.SnmpMgr.Engine` |
 | `SnmpKit.SnmpMgr.MultiV2` | `SnmpKit.SnmpMgr.Multi` |
+| `SnmpKit.SnmpSim.SafeFile` | `SnmpKit.SafeFile` (the old name delegates to it) |
 | `SnmpKit.SnmpLib.MIB.Compiler` (and `AST`, `Error`, `Logger`, `Parser`, `Preprocessor`, `Registry`, `SnmpTokenizer`, `Utilities`) | `SnmpKit.MIB.Compiler` (same submodule names under `SnmpKit.MIB`) |
 | `SnmpKit.SnmpSim.Device.ErrorInjector` | `SnmpKit.SnmpSim.Device.ErrorConditions` |
 | `SnmpKit.TestSupport.start_device/2`, `start_device_population/2` | `SnmpKit.SnmpSim.start_device/2`, `SnmpKit.SnmpSim.start_device_population/2` (`SnmpKit.Sim` still delegates) |
@@ -83,6 +84,33 @@ its public functions (as implementations or delegates):
   `{:ok, :success}`, matching `set_many/3`. Errors are unchanged.
 - `SnmpKit.SNMP.benchmark_device/3` returns `avg_response_time` as the mean
   over all tested bulk sizes and adds `optimal_response_time`.
+- An invalid, empty or mistyped OID is `{:error, {:invalid_oid, input, reason}}`
+  on every request path. 1.x silently queried a MIB-root OID (`1.3.6.1` or
+  `1.3`) instead, so a typo returned the wrong object rather than an error.
+  The `SnmpLib.PDU` builders raise `ArgumentError` for an unparseable OID.
+- `:retries` defaults to 1 everywhere, including the multi-target and
+  shared-socket walk paths that never retried before, and `SnmpLib.Manager`
+  and `SnmpLib.Walker`, which retried three times. An unreachable target now
+  takes `timeout * 2` to fail by default; pass `retries: 0` for a single
+  attempt.
+- GETBULK never changes the requested version: `version: :v3` stays v3 on
+  `bulk_pretty`, `Bulk.*` and `adaptive_walk` (they went out as v2c), and
+  `version: :v1` is `{:error, {:unsupported_operation, :get_bulk_requires_v2c}}`
+  on `adaptive_walk` too. `SnmpMgr.Bulk.get_bulk/3` with more than one OID is
+  `{:error, {:unsupported, :multi_oid_get_bulk}}` instead of sending the first.
+- The `get_bulk`, `bulk_walk` and `*_pretty` calls return enriched varbind
+  maps (they did in 1.4 as well; only the specs and docs said otherwise).
+- `Engine` calls return `{:error, :services_not_started}` when the manager
+  services are not running instead of exiting with `:noproc`; a failed IPv6
+  socket is `{:error, {:ipv6_socket, reason}}`.
+- The decoder rejects a Counter32, Gauge32, TimeTicks or Counter64 value that
+  is empty, too wide or above its maximum (`{:invalid_varbind, n, reason}`)
+  instead of reading it as 0.
+- `SnmpKit.Agent` drops requests from unknown communities and v3 users at the
+  request path too; `:bits` objects accept SET.
+- `config :snmpkit, input_roots: [...]` now confines MIB compilation, linting
+  and `SnmpMgr.MIB.parse_mib_file/2` (and the `mix snmpkit.mib.*` tasks), not
+  only the simulator's profile loaders.
 
 ## MIB parser
 

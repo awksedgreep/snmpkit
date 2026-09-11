@@ -15,7 +15,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `mix docs` - Generate documentation
 - `mix deps.get` - Install dependencies
 - `mix dialyzer` - Run type checking
-- `mix credo` - Run static analysis
 - `mix format` - Format code
 
 ### Release

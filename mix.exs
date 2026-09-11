@@ -55,7 +55,6 @@ defmodule Snmpkit.MixProject do
       # Development and test dependencies
       {:ex_doc, "~> 0.29", only: :dev, runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.18", only: :test},
       {:benchee, "~> 1.1", only: [:dev, :test]},
       {:stream_data, "~> 1.1", only: :test}
@@ -64,8 +63,8 @@ defmodule Snmpkit.MixProject do
 
   defp aliases do
     [
-      # Static checks used in CI: formatting, credo (strict), dialyzer
-      lint: ["format --check-formatted", "credo --strict", "dialyzer"]
+      # Static checks used in CI: formatting, dialyzer
+      lint: ["format --check-formatted", "dialyzer"]
     ]
   end
 

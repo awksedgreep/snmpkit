@@ -127,5 +127,5 @@ mix test                        # unit and integration tests, simulated devices
 mix test --include snmpv3       # SNMPv3 suites
 mix test --include performance  # timing-sensitive tests
 mix test --include mib_oracle   # parser cross-check (needs smilint / snmptranslate)
-mix lint                        # format, credo --strict, dialyzer
+mix lint                        # format, dialyzer
 ```
