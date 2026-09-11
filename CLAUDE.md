@@ -50,7 +50,7 @@ SnmpKit is a pure Elixir SNMP toolkit organized into three main modules:
 - UDP transport via `SnmpKit.SnmpLib.Transport`
 - Connection pooling in `SnmpKit.SnmpMgr.Engine`
 - Request/response correlation via request IDs
-- Circuit breaker pattern for error handling
+- Retry with backoff, error classification and device quarantine in `SnmpKit.SnmpLib.ErrorHandler`
 
 ### Testing Infrastructure
 - Comprehensive test suite with unit, integration, and walk tests
